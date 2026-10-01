@@ -28,17 +28,27 @@ module;
 #include <QVector>
 #include <tinyobjloader/tiny_obj_loader.h>
 #ifdef ARTIFACT_WITH_OPENUSD
+// Qt defines `emit` as an empty keyword macro. OpenUSD includes oneTBB's
+// profiling API, where `emit()` is a member function, so remove the macro
+// after all Qt headers for this translation unit have been included.
+#ifdef emit
+#undef emit
+#endif
 #include <pxr/usd/sdf/assetPath.h>
 #include <pxr/usd/sdf/layer.h>
-#include <pxr/usd/tf/token.h>
+#include <pxr/base/tf/token.h>
+#include <pxr/base/gf/matrix4d.h>
+#include <pxr/base/vt/array.h>
+#include <pxr/base/vt/value.h>
 #include <pxr/usd/usd/prim.h>
+#include <pxr/usd/usd/primRange.h>
 #include <pxr/usd/usd/stage.h>
 #include <pxr/usd/usdGeom/mesh.h>
 #include <pxr/usd/usdGeom/primvarsAPI.h>
 #include <pxr/usd/usdGeom/xformCache.h>
 #include <pxr/usd/usdShade/connectableAPI.h>
 #include <pxr/usd/usdShade/material.h>
-#include <pxr/usd/usdShade/materialBindingApi.h>
+#include <pxr/usd/usdShade/materialBindingAPI.h>
 #include <pxr/usd/usdShade/output.h>
 #include <pxr/usd/usdShade/shader.h>
 #endif
@@ -2217,7 +2227,7 @@ public:
       stage = pxr::UsdStage::Open(path.toStdString());
       if (!stage) {
         lastError_ = QStringLiteral("usd: failed to open stage");
-        cachedUsdStage_.reset();
+        cachedUsdStage_ = nullptr;
         cachedUsdPath_.clear();
         return nullptr;
       }
@@ -2244,16 +2254,16 @@ public:
     }
     if (usdMeshes.isEmpty()) {
       lastError_ = QStringLiteral("usd: no Mesh prim found");
-      cachedUsdStage_.reset();
+      cachedUsdStage_ = nullptr;
       cachedUsdPath_.clear();
       return nullptr;
     }
 
     int totalVertices = 0;
     for (const pxr::UsdGeomMesh& usdMesh : usdMeshes) {
-      VtVec3fArray points;
-      VtIntArray faceVertexIndices;
-      VtIntArray faceVertexCounts;
+      pxr::VtVec3fArray points;
+      pxr::VtIntArray faceVertexIndices;
+      pxr::VtIntArray faceVertexCounts;
       if (!usdMesh.GetPointsAttr().Get(&points) || points.empty() ||
           !usdMesh.GetFaceVertexIndicesAttr().Get(&faceVertexIndices) ||
           !usdMesh.GetFaceVertexCountsAttr().Get(&faceVertexCounts) ||
@@ -2271,7 +2281,7 @@ public:
         return nullptr;
       }
       // Normals or UVs authored face-varying force one mesh vertex per index.
-      VtVec3fArray normals;
+      pxr::VtVec3fArray normals;
       const bool normalsFaceVarying =
           usdMesh.GetNormalsAttr().Get(&normals) &&
           normals.size() == faceVertexIndices.size() &&
@@ -2279,10 +2289,10 @@ public:
       bool uvsFaceVarying = false;
       if (const pxr::UsdGeomPrimvar uvPrimvar =
               pxr::UsdGeomPrimvarsAPI(usdMesh).GetPrimvar(
-                  pxr::TfToken(TEXT("st")))) {
-        VtValue uvValue;
-        if (uvPrimvar.Get(&uvValue) && uvValue.IsHolding<VtVec2fArray>()) {
-          const VtVec2fArray& uvArray = uvValue.UncheckedGet<VtVec2fArray>();
+                  pxr::TfToken("st"))) {
+        pxr::VtValue uvValue;
+        if (uvPrimvar.Get(&uvValue) && uvValue.IsHolding<pxr::VtVec2fArray>()) {
+          const pxr::VtVec2fArray& uvArray = uvValue.UncheckedGet<pxr::VtVec2fArray>();
           uvsFaceVarying =
               uvPrimvar.GetInterpolation() == pxr::UsdGeomTokens->faceVarying &&
               uvArray.size() == faceVertexIndices.size();
@@ -2306,26 +2316,26 @@ public:
     int vertexBase = 0;
     int indexBase = 0;
     for (const pxr::UsdGeomMesh& usdMesh : usdMeshes) {
-      VtVec3fArray points;
-      VtIntArray faceVertexIndices;
-      VtIntArray faceVertexCounts;
+      pxr::VtVec3fArray points;
+      pxr::VtIntArray faceVertexIndices;
+      pxr::VtIntArray faceVertexCounts;
       usdMesh.GetPointsAttr().Get(&points);
       usdMesh.GetFaceVertexIndicesAttr().Get(&faceVertexIndices);
       usdMesh.GetFaceVertexCountsAttr().Get(&faceVertexCounts);
 
-      VtVec3fArray normals;
+      pxr::VtVec3fArray normals;
       const bool hasNormals = usdMesh.GetNormalsAttr().Get(&normals);
       const bool normalsFaceVarying =
           hasNormals && normals.size() == faceVertexIndices.size() &&
           usdMesh.GetNormalsInterpolation() == pxr::UsdGeomTokens->faceVarying;
-      VtVec2fArray uvs;
+      pxr::VtVec2fArray uvs;
       bool uvsFaceVarying = false;
       if (const pxr::UsdGeomPrimvar uvPrimvar =
               pxr::UsdGeomPrimvarsAPI(usdMesh).GetPrimvar(
-                  pxr::TfToken(TEXT("st")))) {
-        VtValue uvValue;
-        if (uvPrimvar.Get(&uvValue) && uvValue.IsHolding<VtVec2fArray>()) {
-          uvValue.Get<VtVec2fArray>().Swap(&uvs);
+                  pxr::TfToken("st"))) {
+        pxr::VtValue uvValue;
+        if (uvPrimvar.Get(&uvValue) && uvValue.IsHolding<pxr::VtVec2fArray>()) {
+          uvs = uvValue.Get<pxr::VtVec2fArray>();
           uvsFaceVarying =
               uvPrimvar.GetInterpolation() == pxr::UsdGeomTokens->faceVarying &&
               uvs.size() == faceVertexIndices.size();
@@ -2369,7 +2379,7 @@ public:
           if (uvsFaceVarying) {
             (*uvAttr)[meshVertexIndex] =
                 QVector2D(uvs[indexOffset][0], uvs[indexOffset][1]);
-          } else if (!uvs.isEmpty() && uvs.size() == points.size()) {
+          } else if (!uvs.empty() && uvs.size() == points.size()) {
             (*uvAttr)[meshVertexIndex] =
                 QVector2D(uvs[sourceVertexIndex][0], uvs[sourceVertexIndex][1]);
           } else {
@@ -2425,11 +2435,11 @@ public:
     return mesh;
   }
 
-  static QMatrix4x4 usdMatrixToQMatrix(const GfMatrix4d& matrix) {
+  static QMatrix4x4 usdMatrixToQMatrix(const pxr::GfMatrix4d& matrix) {
     QMatrix4x4 result;
     for (int row = 0; row < 4; ++row) {
       for (int col = 0; col < 4; ++col) {
-        result[row][col] = static_cast<float>(matrix[row][col]);
+        result(row, col) = static_cast<float>(matrix[row][col]);
       }
     }
     return result;
@@ -2460,26 +2470,26 @@ public:
         continue;
       }
       if (shaderSource.GetPrim().GetTypeName() !=
-          pxr::TfToken(TEXT("UsdPreviewSurface"))) {
+          pxr::TfToken("UsdPreviewSurface")) {
         continue;
       }
       const pxr::UsdShadeShader shader(shaderSource);
 
-      readUsdShaderTextureInput(shader, TEXT("diffuseColor"),
+      readUsdShaderTextureInput(shader, "diffuseColor",
                                 &entry->baseColorTexture);
-      readUsdShaderTextureInput(shader, TEXT("metallicRoughness"),
+      readUsdShaderTextureInput(shader, "metallicRoughness",
                                 &entry->metallicRoughnessTexture);
-      readUsdShaderTextureInput(shader, TEXT("normal"),
+      readUsdShaderTextureInput(shader, "normal",
                                 &entry->normalTexture);
-      readUsdShaderTextureInput(shader, TEXT("emissiveColor"),
+      readUsdShaderTextureInput(shader, "emissiveColor",
                                 &entry->emissionTexture);
-      readUsdShaderTextureInput(shader, TEXT("occlusion"),
+      readUsdShaderTextureInput(shader, "occlusion",
                                 &entry->occlusionTexture);
-      readUsdShaderTextureInput(shader, TEXT("opacity"),
+      readUsdShaderTextureInput(shader, "opacity",
                                 &entry->opacityTexture);
 
       if (const pxr::UsdShadeInput scalarInput =
-              shader.GetInput(pxr::TfToken(TEXT("metallic")))) {
+              shader.GetInput(pxr::TfToken("metallic"))) {
         float value = 0.0f;
         if (scalarInput.Get(&value)) {
           entry->metallic = std::clamp(value, 0.0f, 1.0f);
@@ -2487,7 +2497,7 @@ public:
         }
       }
       if (const pxr::UsdShadeInput scalarInput =
-              shader.GetInput(pxr::TfToken(TEXT("roughness")))) {
+              shader.GetInput(pxr::TfToken("roughness"))) {
         float value = 0.0f;
         if (scalarInput.Get(&value)) {
           entry->roughness = std::clamp(value, 0.0f, 1.0f);
@@ -2648,7 +2658,7 @@ SharedPtr<Mesh> MeshImporter::importMeshFromFile(const UniString &path) {
   // A plain mesh import must not leave a stale stage available for export.
   if (ext != QStringLiteral("usd") && ext != QStringLiteral("usda") &&
       ext != QStringLiteral("usdc") && ext != QStringLiteral("usdz")) {
-    impl_->cachedUsdStage_.reset();
+    impl_->cachedUsdStage_ = nullptr;
     impl_->cachedUsdPath_.clear();
   }
 #endif
@@ -2848,13 +2858,13 @@ namespace {
 // Collects one field across the importer's per-source-mesh entries.  The
 // importer keeps its own scratch buffer so the returned reference stays valid
 // until the next accessor call instead of relying on a shared temporary.
-template <typename Entry, typename T>
-const std::vector<T>& collectSourceMeshField(
-    const QVector<Entry>& entries, T Entry::*field, std::vector<T>& scratch) {
+template <typename Entry, typename Source, typename Destination>
+const std::vector<Destination>& collectSourceMeshField(
+    const QVector<Entry>& entries, Source Entry::*field, std::vector<Destination>& scratch) {
   scratch.clear();
   scratch.reserve(static_cast<std::size_t>(entries.size()));
   for (const auto& entry : entries) {
-    scratch.push_back(entry.*field);
+    scratch.emplace_back(entry.*field);
   }
   return scratch;
 }

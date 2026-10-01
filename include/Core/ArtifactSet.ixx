@@ -8,6 +8,7 @@ module;
 export module Core.ArtifactSet;
 
 import Core.ArtifactArray;
+import Core.ArtifactOptional;
 import Core.ArtifactUtility;
 
 export namespace ArtifactCore {
@@ -20,8 +21,13 @@ template <typename T, typename Hasher = std::hash<T>,
 class HashSet {
 public:
     HashSet() = default;
-    HashSet(const HashSet&) = delete; // deep copies omitted; use values()
-    HashSet& operator=(const HashSet&) = delete;
+    HashSet(const HashSet& other) { copyFrom(other); }
+    HashSet& operator=(const HashSet& other) {
+        if (this == &other) return *this;
+        HashSet tmp(other);
+        swap(tmp);
+        return *this;
+    }
     HashSet(HashSet&& other) noexcept
         : buckets_(other.buckets_), bucketCount_(other.bucketCount_),
           head_(other.head_), tail_(other.tail_), size_(other.size_),
@@ -71,6 +77,9 @@ public:
         return true;
     }
 
+    // std::unordered_set-compatible spelling.
+    bool insert(const T& item) { return add(item); }
+
     bool remove(const T& item) {
         if (bucketCount_ == 0) return false;
         const std::size_t hash = hasher_(item);
@@ -92,9 +101,18 @@ public:
         return false;
     }
 
+    // std::unordered_set-compatible spelling.
+    bool erase(const T& item) { return remove(item); }
+
     [[nodiscard]] bool contains(const T& item) const {
         if (bucketCount_ == 0) return false;
         return findNode(item, hasher_(item)) != nullptr;
+    }
+
+    [[nodiscard]] Optional<const T&> find(const T& item) const {
+        if (bucketCount_ == 0) return Nullopt;
+        Node* node = findNode(item, hasher_(item));
+        return node ? Optional<const T&>(node->value) : Nullopt;
     }
 
     [[nodiscard]] std::size_t size() const noexcept { return size_; }
@@ -127,6 +145,7 @@ public:
     public:
         explicit Iterator(Node* node) noexcept : node_(node) {}
         Iterator& operator++() noexcept { node_ = node_ ? node_->nextAll : nullptr; return *this; }
+        Iterator operator++(int) noexcept { Iterator tmp = *this; ++(*this); return tmp; }
         [[nodiscard]] const T& operator*() const noexcept { return node_->value; }
         [[nodiscard]] const T* operator->() const noexcept { return &node_->value; }
         [[nodiscard]] bool operator!=(const Iterator& other) const noexcept { return node_ != other.node_; }
@@ -137,6 +156,14 @@ public:
 
     [[nodiscard]] Iterator begin() const noexcept { return Iterator(head_); }
     [[nodiscard]] Iterator end() const noexcept { return Iterator(nullptr); }
+
+    void swap(HashSet& other) noexcept {
+        Node** tb = other.buckets_; other.buckets_ = buckets_; buckets_ = tb;
+        const std::size_t tc = other.bucketCount_; other.bucketCount_ = bucketCount_; bucketCount_ = tc;
+        Node* th = other.head_; other.head_ = head_; head_ = th;
+        Node* tt = other.tail_; other.tail_ = tail_; tail_ = tt;
+        const std::size_t ts = other.size_; other.size_ = size_; size_ = ts;
+    }
 
 private:
     struct Node {
@@ -195,6 +222,14 @@ private:
         delete[] oldBuckets;
     }
 
+    void copyFrom(const HashSet& other) {
+        if (other.size_ == 0) return;
+        if (bucketCount_ < other.bucketCount_) allocateBuckets(other.bucketCount_);
+        for (Node* node = other.tail_; node; node = node->nextAll) {
+            add(node->value);
+        }
+    }
+
     static constexpr std::size_t kInitialBucketCount = 16;
 
     Node** buckets_ = nullptr;
@@ -206,7 +241,7 @@ private:
     KeyEqual keyEqual_{};
 };
 
-// Compatibility alias for the previous QSet-backed wrapper.
+// std::unordered_set replacement.
 template <typename T, typename Hasher = std::hash<T>,
           typename KeyEqual = std::equal_to<T>>
 using ArtifactSet = HashSet<T, Hasher, KeyEqual>;

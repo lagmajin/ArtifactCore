@@ -90,9 +90,6 @@ struct StabilizerParams {
     double borderFill = 0.0;
     QSize outputSize;
     
-    double robustThreshold = 3.0;
-    int maxIterations = 100;
-    
     bool showFeatures = false;
     bool showMotionVectors = false;
     QColor debugColor = Qt::red;
@@ -139,10 +136,6 @@ private:
         const QVector<QPointF>& prevPoints,
         const QVector<QPointF>& currPoints
     ) const;
-    FrameMotion robustEstimateMotion(
-        const QVector<QPointF>& prevPoints,
-        const QVector<QPointF>& currPoints
-    ) const;
     void smoothMotions();
     QImage stabilizeFrame(const QImage& frame, int index) const;
     QImage transformImage(
@@ -153,6 +146,11 @@ private:
     QRgb getBorderPixel(const QImage& image, int x, int y) const;
     bool trackFeaturesBetweenFrames();
     void estimateFrameMotions();
+    // trackFeaturesBetweenFrames から呼ばれる補助。宣言が欠けていたため本体が
+    // コメントアウトされたまま残っており、安定化が no-op になっていた。
+    QVector<QPointF> getPrevFeatures(const QVector<FeatureTrack>& tracks) const;
+    void updateFeatureTracks(const QVector<int>& matches,
+                             const QVector<QPointF>& currFeatures);
     
     StabilizerParams params_;
     QVector<QImage> frames_;

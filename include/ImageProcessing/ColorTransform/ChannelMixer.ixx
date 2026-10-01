@@ -2,9 +2,9 @@ module;
 #include <algorithm>
 #include <QImage>
 
-export import Color.GamutConversion;
-
 export module ImageProcessing.ColorTransform.ChannelMixer;
+
+export import Color.GamutConversion;
 
 export namespace ArtifactCore {
 

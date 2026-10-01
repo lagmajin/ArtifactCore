@@ -9,6 +9,8 @@ export module Container.NameMap;
 
 import Container.Debug;
 import Container.NamedVector;
+import Core.ArtifactArray;
+import Core.ArtifactHashMap;
 
 export namespace ArtifactCore {
 
@@ -141,21 +143,21 @@ public:
   std::pair<V*, bool> tryEmplace(const K& key, Args&&... args)
   {
     const auto before = values_.size();
-    auto [it, inserted] = values_.try_emplace(key, std::forward<Args>(args)...);
+    auto [it, inserted] = values_.tryEmplace(key, std::forward<Args>(args)...);
     if (inserted) recordMutation("tryEmplace", before, values_.size());
-    return {&it->second, inserted};
+    return {&(it->second), inserted};
   }
 
   bool tryTake(const K& key, V& result)
   {
-    auto it = values_.find(key);
-    if (it == values_.end()) {
+    V* found = values_.findValue(key);
+    if (found == nullptr) {
       bumpFailedAccess();
       return false;
     }
     const auto before = values_.size();
-    result = std::move(it->second);
-    values_.erase(it);
+    result = std::move(*found);
+    values_.erase(key);
     recordMutation("tryTake", before, values_.size());
     return true;
   }
@@ -165,8 +167,13 @@ public:
   {
     const auto before = values_.size();
     for (auto it = values_.begin(); it != values_.end();) {
-      if (predicate(it->first, it->second)) it = values_.erase(it);
-      else ++it;
+      if (predicate(it->first, it->second)) {
+        K doomed = it->first;
+        ++it;
+        values_.erase(doomed);
+      } else {
+        ++it;
+      }
     }
     const auto removed = before - values_.size();
     if (removed != 0) recordMutation("removeIf", before, values_.size());
@@ -230,7 +237,11 @@ public:
 
   std::map<K, V> toStdMap() const
   {
-    return values_;
+    std::map<K, V> result;
+    for (const auto& entry : values_) {
+      result.emplace(entry.first, entry.second);
+    }
+    return result;
   }
 
   auto begin() const noexcept { return values_.begin(); }
@@ -419,9 +430,9 @@ private:
   {
     constexpr std::size_t historyCapacity = 8;
     if (mutationHistory_.size() == historyCapacity) {
-      mutationHistory_.erase(mutationHistory_.begin());
+      mutationHistory_.removeFirst();
     }
-    mutationHistory_.push_back(record);
+    mutationHistory_.append(record);
   }
 
   void updateMaxCount() noexcept
@@ -431,7 +442,7 @@ private:
     }
   }
 
-  std::map<K, V> values_;
+  ArtifactHashMap<K, V> values_;
   ContainerName name_;
   ContainerDomain domain_ = ContainerDomain::Unknown;
   ContainerOwner owner_{};
@@ -440,7 +451,7 @@ private:
   ContainerSourceLocation lastMutatedAt_{};
   mutable ContainerSourceLocation lastFailedAccessAt_{};
   ContainerMutationRecord lastMutation_{};
-  std::vector<ContainerMutationRecord> mutationHistory_;
+  Array<ContainerMutationRecord> mutationHistory_;
 };
 
 template <typename K, typename V>

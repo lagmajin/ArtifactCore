@@ -173,7 +173,6 @@ set(ARTIFACTCORE_MODULE_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../include/Core/ArtifactFunctionRef.ixx"
     "${CMAKE_CURRENT_LIST_DIR}/../include/Core/ArtifactMath.ixx"
     "${CMAKE_CURRENT_LIST_DIR}/../include/Core/ArtifactPtr.ixx"
-    "${CMAKE_CURRENT_LIST_DIR}/../include/Core/ArtifactQueue.ixx"
     "${CMAKE_CURRENT_LIST_DIR}/../include/Core/ArtifactRandom.ixx"
     "${CMAKE_CURRENT_LIST_DIR}/../include/Core/ArtifactSet.ixx"
     "${CMAKE_CURRENT_LIST_DIR}/../include/Core/ArtifactSaturation.ixx"

@@ -464,6 +464,15 @@ bool AudioMixer::deserialize(const QJsonObject& data) {
             bus->setPan(static_cast<float>(busObj["pan"].toDouble(
                 static_cast<double>(bus->getPan()))));
         }
+        if (kind == AudioBusKind::Layer) {
+            // A layer bus is a routing node. The owning layer already applied
+            // its volume and pan to the PCM it produces, so restoring either
+            // value here would apply the same gain or pan twice in series.
+            // Mute stays because a video layer's own getAudio never checks its
+            // mute flag, making the bus its only mute stage.
+            bus->setVolume(0.0f);
+            bus->setPan(0.0f);
+        }
         if (busObj.contains("layout")) {
             bus->setLayout(static_cast<AudioChannelLayout>(busObj["layout"].toInt(
                 static_cast<int>(AudioChannelLayout::Stereo))));

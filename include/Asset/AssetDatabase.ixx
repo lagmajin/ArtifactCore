@@ -3,6 +3,7 @@ class tst_QList;
 #include <utility>
 #include <memory>
 #include <QString>
+#include <QByteArray>
 #include <QUuid>
 #include <QMap>
 #include <QList>
@@ -41,6 +42,10 @@ public:
     QUuid registerAsset(const QString& path, AssetType type);
     QUuid registerAsset(const QString& path, AssetType type, const QUuid& preferredId);
     void unregisterAsset(const QUuid& id);
+    // Drop every registration. The database is a per-process identity cache,
+    // and the project document is the authority for what an asset's UUID is,
+    // so a project switch must not carry the previous project's paths over.
+    void clear();
     
     // Recovery
     AssetInfo getAssetInfo(const QUuid& id) const;
@@ -52,8 +57,13 @@ public:
     QList<AssetInfo> allAssets() const;
 
     // Persistence
-    bool load(const QString& databasePath);
-    bool save(const QString& databasePath) const;
+    // The database holds no file of its own on purpose. Asset identity is
+    // carried by the project document (per-footage `assetId`) and by the
+    // per-asset `<path>.assetmeta` sidecar, and both are replayed on load
+    // through registerAsset(). These two entry points stay for exporting a
+    // snapshot of the current registrations, not as a save/load pair.
+    QByteArray toJson() const;
+    bool fromJson(const QByteArray& payload);
 
 private:
     AssetDatabase() = default;

@@ -227,6 +227,17 @@ std::vector<QPointF> TrackResult::motionPath(int pointId) const {
     return path.toStdVector();
 }
 
+bool TrackResult::motionPath(int pointId, std::vector<QPointF>& outPath) const {
+    outPath.clear();
+    for (const auto& frame : frames) {
+        const TrackPoint* p = frame.findPoint(pointId);
+        if (p) {
+            outPath.push_back(p->position);
+        }
+    }
+    return outPath.size() >= 2;
+}
+
 void TrackResult::normalize() {
     frames.erase(std::remove_if(frames.begin(), frames.end(),
                                 [](const TrackFrame& frame) {
@@ -950,8 +961,11 @@ public:
                             const QPointF& point) const {
         const double denominator = homography[6] * point.x() +
                                    homography[7] * point.y() + homography[8];
-        if (std::abs(denominator) < 1e-9) {
-            return point;
+        // Same epsilon and failure contract as TrackFrame::projectPoint, so the
+        // two projection paths cannot disagree about a degenerate denominator.
+        if (!std::isfinite(denominator) || std::abs(denominator) <= 1.0e-12) {
+            return QPointF(std::numeric_limits<double>::quiet_NaN(),
+                           std::numeric_limits<double>::quiet_NaN());
         }
         return QPointF(
             (homography[0] * point.x() + homography[1] * point.y() + homography[2]) /
@@ -1128,11 +1142,16 @@ public:
             std::vector<cv::Point2f> nextPoints;
             std::vector<unsigned char> status;
             std::vector<float> errors;
+            // Re-clamp here as well: fromJson() restores the settings struct
+            // without routing through setSettings(), so an edited project file
+            // could otherwise hand OpenCV an out-of-range window or level count.
+            const int windowSize = std::clamp(settings.windowSize | 1, 5, 101);
+            const int pyramidLevel = std::clamp(settings.maxPyramidLevel, 0, 8);
             try {
                 cv::calcOpticalFlowPyrLK(
                     prevGray, currGray, previousPoints, nextPoints, status, errors,
-                    cv::Size(settings.windowSize, settings.windowSize),
-                    settings.maxPyramidLevel,
+                    cv::Size(windowSize, windowSize),
+                    pyramidLevel,
                     cv::TermCriteria(cv::TermCriteria::COUNT | cv::TermCriteria::EPS,
                                      settings.subpixelIterations, 0.01));
             } catch (...) {
@@ -1264,9 +1283,27 @@ public:
 // MotionTracker 実装
 // ============================================================================
 
-MotionTracker::MotionTracker() : impl_(new Impl()) {
+// トラッカー ID の採番は MotionTracker のコンストラクタが一箇所で持つ。
+// 復元コンストラクタも同じカウンタを進めるため、プロジェクトロード後に
+// 保存済み ID と新規 ID が衝突することはない。
+namespace {
+int& nextTrackerIdCounter() {
     static int nextId = 1;
-    impl_->id = nextId++;
+    return nextId;
+}
+} // namespace
+
+MotionTracker::MotionTracker() : impl_(new Impl()) {
+    impl_->id = nextTrackerIdCounter()++;
+}
+
+MotionTracker::MotionTracker(int persistedId) : impl_(new Impl()) {
+    // 復元時はプロジェクト文書側の ArtifactVideoLayer::motionTrackerId
+    // との対応を崩さないため、自動採番は始めから行わない。
+    impl_->id = persistedId;
+    if (persistedId >= nextTrackerIdCounter()) {
+        nextTrackerIdCounter() = persistedId + 1;
+    }
 }
 
 MotionTracker::~MotionTracker() {
@@ -1312,9 +1349,13 @@ void MotionTracker::setSettings(const TrackerSettings& settings) {
     impl_->settings.maxFeatures = std::max(1, impl_->settings.maxFeatures);
     impl_->settings.minDistance = std::isfinite(impl_->settings.minDistance)
         ? std::clamp(impl_->settings.minDistance, 1.0, 1000.0) : 10.0;
+    // Single definition of the accepted window range. computeOpticalFlow and the
+    // UI clamp duplicated this with a lower bound of 3, which produced a
+    // tracker whose stored window could not be honored by the solver.
     impl_->settings.windowSize = std::clamp(
-        std::max(3, impl_->settings.windowSize | 1), 3, 101);
-    impl_->settings.maxPyramidLevel = std::clamp(impl_->settings.maxPyramidLevel, 0, 8);
+        std::max(5, impl_->settings.windowSize | 1), 5, 101);
+    impl_->settings.maxPyramidLevel =
+        std::clamp(impl_->settings.maxPyramidLevel, 0, 8);
     impl_->settings.confidenceThreshold =
         std::isfinite(impl_->settings.confidenceThreshold)
             ? std::clamp(impl_->settings.confidenceThreshold, 0.0, 1.0) : 0.5;
@@ -1496,15 +1537,28 @@ bool MotionTracker::trackForward(double fromTime, double toTime) {
             trackingBounds = trackingBounds.united(impl_->regions[regionIndex].bounds);
         }
         if (impl_->computePlanarHomography(it1.value(), it2.value(), trackingBounds, h, planarConfidence)) {
+            bool allProjected = true;
             for (auto& point : impl_->currentPoints) {
                 const QPointF previousPosition = point.position;
-                point.position = impl_->applyHomography(h, previousPosition);
+                const QPointF projected = impl_->applyHomography(h, previousPosition);
+                if (!std::isfinite(projected.x()) || !std::isfinite(projected.y())) {
+                    allProjected = false;
+                    break;
+                }
+                point.position = projected;
                 const double signedDelta = std::abs(toTime - fromTime) > 1e-9
                     ? (toTime - fromTime) : 1e-9;
                 point.velocity = (point.position - previousPosition) /
                                  signedDelta;
                 point.confidence = planarConfidence;
                 point.active = planarConfidence >= impl_->settings.confidenceThreshold;
+            }
+            if (!allProjected) {
+                // A degenerate denominator means this frame has no usable
+                // plane. Report it as a failure rather than publishing NaN
+                // positions that later stages would silently propagate.
+                impl_->result.addFailureFrame(toTime);
+                return false;
             }
             TrackFrame frame;
             frame.time = toTime;
@@ -1530,7 +1584,14 @@ bool MotionTracker::trackForward(double fromTime, double toTime) {
     // オプティカルフロー計算
     double confidenceSum = 0.0;
     int measuredPoints = 0;
-    const double deltaTime = std::max(std::abs(toTime - fromTime), 1e-9);
+    // Signed delta: velocity is displacement per signed second, matching the
+    // planar branch below. Dividing by |dt| reported backward tracking as a
+    // positive velocity, which then inverted the removeOutliers threshold test.
+    const double deltaTime = (toTime - fromTime) > 0.0
+                                 ? (toTime - fromTime)
+                                 : (fromTime - toTime) > 0.0
+                                       ? -(fromTime - toTime)
+                                       : 1e-9;
     for (auto& point : impl_->currentPoints) {
         const FlowMeasurement measurement =
             impl_->computeOpticalFlow(it1.value(), it2.value(), point.position);
@@ -1580,15 +1641,25 @@ bool MotionTracker::trackBackward(double fromTime, double toTime) {
             trackingBounds = trackingBounds.united(impl_->regions[regionIndex].bounds);
         }
         if (impl_->computePlanarHomography(it1.value(), it2.value(), trackingBounds, h, planarConfidence)) {
+            bool allProjected = true;
             for (auto& point : impl_->currentPoints) {
                 const QPointF previousPosition = point.position;
-                point.position = impl_->applyHomography(h, previousPosition);
+                const QPointF projected = impl_->applyHomography(h, previousPosition);
+                if (!std::isfinite(projected.x()) || !std::isfinite(projected.y())) {
+                    allProjected = false;
+                    break;
+                }
+                point.position = projected;
                 const double signedDelta = std::abs(toTime - fromTime) > 1e-9
                     ? (toTime - fromTime) : -1e-9;
                 point.velocity = (point.position - previousPosition) /
                                  signedDelta;
                 point.confidence = planarConfidence;
                 point.active = planarConfidence >= impl_->settings.confidenceThreshold;
+            }
+            if (!allProjected) {
+                impl_->result.addFailureFrame(toTime);
+                return false;
             }
             TrackFrame frame;
             frame.time = toTime;
@@ -1614,7 +1685,13 @@ bool MotionTracker::trackBackward(double fromTime, double toTime) {
     // current point state from the later source frame into the earlier target.
     double confidenceSum = 0.0;
     int measuredPoints = 0;
-    const double deltaTime = std::max(std::abs(toTime - fromTime), 1e-9);
+    // Signed delta, matching the forward point branch above so backward results
+    // report negative velocity instead of a mirrored positive one.
+    const double deltaTime = (toTime - fromTime) > 0.0
+                                 ? (toTime - fromTime)
+                                 : (fromTime - toTime) > 0.0
+                                       ? -(fromTime - toTime)
+                                       : 1e-9;
     for (auto& point : impl_->currentPoints) {
         const FlowMeasurement measurement =
             impl_->computeOpticalFlow(it1.value(), it2.value(), point.position);
@@ -1865,6 +1942,28 @@ TrackResult MotionTracker::result() const {
     return impl_->result;
 }
 
+const TrackResult& MotionTracker::resultRef() const {
+    return impl_->result;
+}
+
+const TrackFrame* MotionTracker::frameAt(double time) const {
+    if (impl_->result.frames.empty()) {
+        return nullptr;
+    }
+    // Returns a pointer into the stored result so draw code can read the
+    // nearest sample without materializing a TrackFrame copy.
+    const TrackFrame* best = &impl_->result.frames.front();
+    double bestDistance = std::abs(best->time - time);
+    for (const auto& frame : impl_->result.frames) {
+        const double distance = std::abs(frame.time - time);
+        if (distance < bestDistance) {
+            bestDistance = distance;
+            best = &frame;
+        }
+    }
+    return best;
+}
+
 QPointF MotionTracker::pointPositionAt(int pointId, double time) const {
     TrackFrame frame = impl_->result.interpolateAt(time);
     const TrackPoint* p = frame.findPoint(pointId);
@@ -2014,6 +2113,10 @@ QPointF MotionTracker::scaleAt(double time) const {
 
 std::vector<QPointF> MotionTracker::motionPath(int pointId) const {
     return impl_->result.motionPath(pointId);
+}
+
+bool MotionTracker::motionPath(int pointId, std::vector<QPointF>& outPath) const {
+    return impl_->result.motionPath(pointId, outPath);
 }
 
 std::vector<std::pair<double, QPointF>> MotionTracker::exportKeyframes(int pointId) const {
@@ -2475,7 +2578,6 @@ bool MotionTracker::fromJson(const QString& json) {
 class TrackerManager::Impl {
 public:
     QMap<int, MotionTracker*> trackers;
-    int nextId = 1;
 };
 
 TrackerManager::TrackerManager() : impl_(new Impl()) {}
@@ -2492,10 +2594,22 @@ TrackerManager& TrackerManager::instance() {
 
 MotionTracker* TrackerManager::createTracker(const QString& name) {
     MotionTracker* tracker = new MotionTracker();
-    tracker->setName(name.isEmpty() ? QString("Tracker %1").arg(impl_->nextId) : name);
+    tracker->setName(name.isEmpty() ? QString("Tracker %1").arg(tracker->id()) : name);
     impl_->trackers[tracker->id()] = tracker;
-    ++impl_->nextId;
     return tracker;
+}
+
+MotionTracker* TrackerManager::adoptTracker(std::unique_ptr<MotionTracker> tracker) {
+    if (!tracker) {
+        return nullptr;
+    }
+    const int id = tracker->id();
+    if (id <= 0 || impl_->trackers.contains(id)) {
+        return nullptr;
+    }
+    MotionTracker* raw = tracker.release();
+    impl_->trackers[id] = raw;
+    return raw;
 }
 
 MotionTracker* TrackerManager::tracker(int id) {
@@ -2525,6 +2639,41 @@ std::vector<MotionTracker*> TrackerManager::allTrackers() {
         result.push_back(tracker);
     }
     return result.toStdVector();
+}
+
+QJsonArray TrackerManager::toJson() const {
+    QJsonArray array;
+    // QMap を走査するため保存順は ID 昇順で安定する。
+    for (auto it = impl_->trackers.constBegin(); it != impl_->trackers.constEnd(); ++it) {
+        const MotionTracker* tracker = it.value();
+        if (!tracker) {
+            continue;
+        }
+        array.append(QJsonDocument::fromJson(
+            tracker->toJson().toUtf8()).object());
+    }
+    return array;
+}
+
+void TrackerManager::fromJson(const QJsonArray& trackers) {
+    clearTrackers();
+    for (const QJsonValue& value : trackers) {
+        if (!value.isObject()) {
+            continue;
+        }
+        const QJsonObject object = value.toObject();
+        const int id = object.value(QStringLiteral("id")).toInt(0);
+        if (id <= 0) {
+            continue;
+        }
+        auto restored = std::make_unique<MotionTracker>(id);
+        if (!restored->fromJson(
+                QString::fromUtf8(QJsonDocument(object).toJson(
+                    QJsonDocument::Compact)))) {
+            continue;
+        }
+        adoptTracker(std::move(restored));
+    }
 }
 
 

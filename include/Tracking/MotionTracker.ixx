@@ -5,6 +5,8 @@ module;
 #include <QPointF>
 #include <QRectF>
 #include <QImage>
+#include <QJsonArray>
+#include <QJsonObject>
 #include <vector>
 #include <array>
 #include <memory>
@@ -92,6 +94,9 @@ struct TrackResult {
     
     /// モーションパスを取得
     std::vector<QPointF> motionPath(int pointId) const;
+    /// Allocation-free variant for per-frame draw code: fills `outPath` and
+    /// reports whether the point has enough samples to draw a polyline.
+    bool motionPath(int pointId, std::vector<QPointF>& outPath) const;
 
     /// フレームを時間順・ポイントID順に整える
     void normalize();
@@ -247,6 +252,10 @@ private:
 class MotionTracker {
 public:
     MotionTracker();
+    // 保存済みトラッカーを復元するには、保存済みの ID を指定して生成する。
+    // 復元時は自動採番にせず、プロジェクト文書が保持している
+    // ArtifactVideoLayer::motionTrackerId との対応をそのまま保つ。
+    explicit MotionTracker(int persistedId);
     ~MotionTracker();
     
     MotionTracker(const MotionTracker& other);
@@ -298,6 +307,15 @@ public:
     
     // 結果取得
     TrackResult result() const;
+    /// Same data as result() without copying. Viewport draw code runs every
+    /// frame, so copying the whole frame/point vector there was an avoidable
+    /// per-frame allocation.
+    const TrackResult& resultRef() const;
+    /// Frame nearest to `time`, or nullptr when the result is empty.
+    const TrackFrame* frameAt(double time) const;
+    /// Motion path built into a caller-provided buffer to keep draw code
+    /// allocation-free. Returns false when the point has fewer than two samples.
+    bool motionPath(int pointId, std::vector<QPointF>& outPath) const;
     QPointF pointPositionAt(int pointId, double time) const;
     std::vector<QPointF> allPointPositionsAt(double time) const;
     bool projectRegionAt(double time, const QRectF& source,
@@ -347,11 +365,19 @@ class TrackerManager {
 public:
     static TrackerManager& instance();
     MotionTracker* createTracker(const QString& name = "");
+    // 保存済み ID のトラッカーを登録する。プロジェクトロード専用。
+    // 既に同じ ID が登録済みの場合は nullptr を返し、復元を中断できる。
+    MotionTracker* adoptTracker(std::unique_ptr<MotionTracker> tracker);
     MotionTracker* tracker(int id);
     const MotionTracker* tracker(int id) const;
     void removeTracker(int id);
     void clearTrackers();
     std::vector<MotionTracker*> allTrackers();
+    // プロジェクト保存/ロード。trackers セクションへ MotionTracker::toJson()
+    // の配列を書き出す。ロードは既存登録をすべて置き換える。
+    QJsonArray toJson() const;
+    // 復元は保存済み ID をそのまま採用する。
+    void fromJson(const QJsonArray& trackers);
     int trackerCount() const;
     void trackAllTrackers(double startTime, double endTime,
                           std::function<bool(double progress)> progressCallback = nullptr);

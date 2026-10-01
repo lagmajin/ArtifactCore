@@ -70,7 +70,7 @@ bool hasScopeOutputCapacity(const IBuffer* buffer,
          desc.ElementByteStride == sizeof(uint32_t);
 }
 
-bool calculateDispatchGroups(const ITextureView* input, const int step,
+bool calculateDispatchGroups(ITextureView* input, const int step,
                              uint32_t& groupCount)
 {
   if (!input || !input->GetTexture() || step <= 0) return false;

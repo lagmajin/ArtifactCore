@@ -199,7 +199,7 @@ public:
 
     static constexpr int kRejectionLogStride = 100;
 
-    void noteRejectedValue(const QString &signature) {
+    bool noteRejectedValue(const QString &signature) {
         if (m_lastRejectedSignature != signature) {
             m_lastRejectedSignature = signature;
             m_consecutiveRejects = 1;

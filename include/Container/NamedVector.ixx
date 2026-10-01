@@ -13,6 +13,7 @@ export module Container.NamedVector;
 
 import Container.Debug;
 import Container.Debug.Registry;
+import Core.ArtifactArray;
 
 export namespace ArtifactCore {
 
@@ -68,7 +69,7 @@ public:
   bool isEmpty() const noexcept
   {
     ++counters_.readCount;
-    return values_.empty();
+    return values_.isEmpty();
   }
 
   bool notEmpty() const noexcept
@@ -100,7 +101,7 @@ public:
   void squeeze()
   {
     const auto before = values_.size();
-    values_.shrink_to_fit();
+    values_.squeeze();
     recordMutation("squeeze", before, values_.size());
   }
 
@@ -114,14 +115,14 @@ public:
   void clear() noexcept
   {
     const auto before = values_.size();
-    values_.clear();
+    values_.removeAll();
     recordMutation("clear", before, values_.size());
   }
 
   void add(const T& value)
   {
     const auto before = values_.size();
-    values_.push_back(value);
+    values_.append(value);
     recordMutation("add", before, values_.size());
   }
 
@@ -133,7 +134,7 @@ public:
   void add(T&& value)
   {
     const auto before = values_.size();
-    values_.push_back(std::move(value));
+    values_.append(std::move(value));
     recordMutation("add", before, values_.size());
   }
 
@@ -159,7 +160,7 @@ public:
       return;
     }
     const auto before = values_.size();
-    values_.insert(values_.begin() + static_cast<typename std::vector<T>::difference_type>(index), value);
+    values_.insert(index, value);
     recordMutation("insert", before, values_.size());
   }
 
@@ -170,14 +171,15 @@ public:
       return;
     }
     const auto before = values_.size();
-    values_.insert(values_.begin() + static_cast<typename std::vector<T>::difference_type>(index), std::move(value));
+    values_.insert(index, std::move(value));
     recordMutation("insert", before, values_.size());
   }
 
   void assign(std::initializer_list<T> values)
   {
     const auto before = values_.size();
-    values_.assign(values.begin(), values.end());
+    values_.removeAll();
+    for (const auto& value : values) values_.append(value);
     recordMutation("assign", before, values_.size());
   }
 
@@ -185,7 +187,8 @@ public:
   T& make(Args&&... args)
   {
     const auto before = values_.size();
-    auto& value = values_.emplace_back(std::forward<Args>(args)...);
+    values_.append(T(std::forward<Args>(args)...));
+    T& value = values_[before];
     recordMutation("make", before, values_.size());
     return value;
   }
@@ -232,42 +235,42 @@ public:
 
   T* first() noexcept
   {
-    if (values_.empty()) {
+    if (values_.isEmpty()) {
       bumpFailedAccess();
       return nullptr;
     }
     ++counters_.readCount;
-    return &values_.front();
+    return &values_[0];
   }
 
   const T* first() const noexcept
   {
-    if (values_.empty()) {
+    if (values_.isEmpty()) {
       bumpFailedAccess();
       return nullptr;
     }
     ++counters_.readCount;
-    return &values_.front();
+    return &values_[0];
   }
 
   T* last() noexcept
   {
-    if (values_.empty()) {
+    if (values_.isEmpty()) {
       bumpFailedAccess();
       return nullptr;
     }
     ++counters_.readCount;
-    return &values_.back();
+    return &values_[values_.size() - 1];
   }
 
   const T* last() const noexcept
   {
-    if (values_.empty()) {
+    if (values_.isEmpty()) {
       bumpFailedAccess();
       return nullptr;
     }
     ++counters_.readCount;
-    return &values_.back();
+    return &values_[values_.size() - 1];
   }
 
   T* front() noexcept
@@ -297,7 +300,7 @@ public:
       return false;
     }
     const auto before = values_.size();
-    values_.erase(values_.begin() + static_cast<typename std::vector<T>::difference_type>(index));
+    values_.removeAt(index);
     recordMutation("removeAt", before, values_.size());
     return true;
   }
@@ -321,8 +324,8 @@ public:
     }
     if (from == to) return true;
     auto value = std::move(values_[from]);
-    values_.erase(values_.begin() + static_cast<typename std::vector<T>::difference_type>(from));
-    values_.insert(values_.begin() + static_cast<typename std::vector<T>::difference_type>(to), std::move(value));
+    values_.removeAt(from);
+    values_.insert(to, std::move(value));
     recordMutation("move", values_.size(), values_.size());
     return true;
   }
@@ -342,12 +345,12 @@ public:
 
   bool popBack() noexcept
   {
-    if (values_.empty()) {
+    if (values_.isEmpty()) {
       bumpFailedAccess();
       return false;
     }
     const auto before = values_.size();
-    values_.pop_back();
+    values_.removeLast();
     recordMutation("popBack", before, values_.size());
     return true;
   }
@@ -370,7 +373,7 @@ public:
     }
     const auto before = values_.size();
     T value = std::move(values_[index]);
-    values_.erase(values_.begin() + static_cast<typename std::vector<T>::difference_type>(index));
+    values_.removeAt(index);
     recordMutation("takeAt", before, values_.size());
     return value;
   }
@@ -383,14 +386,14 @@ public:
     }
     const auto before = values_.size();
     result = std::move(values_[index]);
-    values_.erase(values_.begin() + static_cast<typename std::vector<T>::difference_type>(index));
+    values_.removeAt(index);
     recordMutation("tryTakeAt", before, values_.size());
     return true;
   }
 
   T takeFirst()
   {
-    if (values_.empty()) {
+    if (values_.isEmpty()) {
       bumpFailedAccess();
       return T{};
     }
@@ -399,7 +402,7 @@ public:
 
   T takeLast()
   {
-    if (values_.empty()) {
+    if (values_.isEmpty()) {
       bumpFailedAccess();
       return T{};
     }
@@ -437,13 +440,13 @@ public:
   bool startsWith(const T& value) const
   {
     ++counters_.readCount;
-    return !values_.empty() && values_.front() == value;
+    return !values_.isEmpty() && values_[0] == value;
   }
 
   bool endsWith(const T& value) const
   {
     ++counters_.readCount;
-    return !values_.empty() && values_.back() == value;
+    return !values_.isEmpty() && values_[values_.size() - 1] == value;
   }
 
   bool removeOne(const T& value)
@@ -461,7 +464,13 @@ public:
   std::size_t removeIf(Predicate&& predicate)
   {
     const auto before = values_.size();
-    values_.erase(std::remove_if(values_.begin(), values_.end(), std::forward<Predicate>(predicate)), values_.end());
+    std::size_t write = 0;
+    for (std::size_t read = 0; read < values_.size(); ++read) {
+      if (predicate(values_[read])) continue;
+      if (write != read) values_[write] = std::move(values_[read]);
+      ++write;
+    }
+    while (values_.size() > write) values_.removeLast();
     const auto removed = before - values_.size();
     if (removed != 0) recordMutation("removeIf", before, values_.size());
     return removed;
@@ -473,13 +482,17 @@ public:
 
   std::vector<T> toStdVector() const
   {
-    return values_;
+    std::vector<T> result;
+    result.reserve(values_.size());
+    for (const auto& value : values_) result.push_back(value);
+    return result;
   }
 
   static NamedVector fromStdVector(ContainerName name, std::vector<T> values)
   {
     NamedVector out(name);
-    out.values_ = std::move(values);
+    out.values_.reserve(values.size());
+    for (auto& value : values) out.values_.append(std::move(value));
     out.counters_.maxCountSeen = out.values_.size();
     return out;
   }
@@ -561,13 +574,13 @@ public:
       return false;
     }
     constexpr std::size_t noteCapacity = 32;
-    if (debugNotes_.size() == noteCapacity) debugNotes_.erase(debugNotes_.begin());
-    debugNotes_.push_back(ContainerDebugNote{
+    if (debugNotes_.size() == noteCapacity) debugNotes_.removeFirst();
+    debugNotes_.append(ContainerDebugNote{
       containerDebugNowMilliseconds(), severity, author, std::move(text), location, counters_.version});
     return true;
   }
 
-  const std::vector<ContainerDebugNote>& debugNotes() const noexcept { return debugNotes_; }
+  const Array<ContainerDebugNote>& debugNotes() const noexcept { return debugNotes_; }
 
   ContainerDebugRegistry::Registration registerDebugSnapshot(
     ContainerDebugRegistry& registry, std::string id)
@@ -780,12 +793,12 @@ private:
   {
     constexpr std::size_t historyCapacity = 8;
     if (mutationHistory_.size() == historyCapacity) {
-      mutationHistory_.erase(mutationHistory_.begin());
+      mutationHistory_.removeFirst();
     }
-    mutationHistory_.push_back(record);
+    mutationHistory_.append(record);
   }
 
-  std::vector<T> values_;
+  Array<T> values_;
   ContainerName name_;
   ContainerDomain domain_ = ContainerDomain::Unknown;
   ContainerOwner owner_{};
@@ -794,8 +807,8 @@ private:
   ContainerSourceLocation lastMutatedAt_{};
   mutable ContainerSourceLocation lastFailedAccessAt_{};
   ContainerMutationRecord lastMutation_{};
-  std::vector<ContainerMutationRecord> mutationHistory_;
-  std::vector<ContainerDebugNote> debugNotes_;
+  Array<ContainerMutationRecord> mutationHistory_;
+  Array<ContainerDebugNote> debugNotes_;
   std::size_t observedCapacity_ = 0;
 };
 

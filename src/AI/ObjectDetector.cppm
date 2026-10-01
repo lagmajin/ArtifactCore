@@ -1,5 +1,5 @@
 module;
-class tst_QList;
+#include "Compat/QtListForward.h"
 #include <utility>
 #include <iostream>
 #include <algorithm>

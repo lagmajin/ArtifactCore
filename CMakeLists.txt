@@ -1224,14 +1224,15 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
                 "/reference;Physics.SoftBody=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Physics.SoftBody.ifc"
                 "/reference;Physics.Cloth3D=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Physics.Cloth3D.ifc"
                 "/reference;Physics.Mpm2D=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Physics.Mpm2D.ifc"
-                "/reference;Core.Simulation.Pyro=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreSimulation.dir/Core.Simulation.Pyro.ifc"
+                "/reference;Core.Simulation.Pyro=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Simulation.Pyro.ifc"
                 "/reference;Graphics.ParticleData=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.ParticleData.ifc"
                 "/reference;Graphics.BoidsCompute=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.BoidsCompute.ifc"
                 "/reference;Container.NamedVector=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.NamedVector.ifc"
                 "/reference;Container.Debug=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.ifc"
                 "/reference;Container.Debug.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.Registry.ifc")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
-            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreSimulation.dir/Core.Simulation.Pyro.ifc"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Simulation.Pyro.ifc"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Simulation/PyroSimulation.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/NamedVector.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/ContainerDebug.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/ContainerDebugRegistry.ixx.obj")
@@ -2412,6 +2413,9 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
                 "/reference;${_artifact_module_name}=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreGenerate.dir/${_artifact_module_name}.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Simulation/PyroSimulation.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Core.Simulation.Pyro=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Simulation.Pyro.ifc")
     elseif(_artifact_impl_relative MATCHES "^src/Simulation/")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
@@ -2574,6 +2578,8 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
         set(_artifact_dependency_target_dir "ArtifactCoreShape.dir")
     elseif(_artifact_interface_relative MATCHES "^include/Text/")
         set(_artifact_dependency_target_dir "ArtifactCoreText.dir")
+    elseif(_artifact_interface_relative STREQUAL "include/Simulation/PyroSimulation.ixx")
+        set(_artifact_dependency_target_dir "ArtifactCore.dir")
     elseif(_artifact_interface_relative MATCHES "^include/Simulation/")
         set(_artifact_dependency_target_dir "ArtifactCoreSimulation.dir")
     elseif(_artifact_interface_relative MATCHES "^include/Source/")
@@ -3549,11 +3555,9 @@ list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_GENERATE_IMPL})
 
 set(ARTIFACTCORE_SIMULATION_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Simulation/OpenVDBVolumeReference.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/Simulation/PyroSimulation.ixx"
 )
 set(ARTIFACTCORE_SIMULATION_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Simulation/OpenVDBVolumeReference.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Simulation/PyroSimulation.cppm"
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_SIMULATION_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_SIMULATION_IMPL})
@@ -4119,6 +4123,53 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
     endif()
 endforeach()
 
+# Scope and histogram implementations are scanner-disabled like the other
+# compute attachments. Supply direct/transitive IFCs and ordering explicitly.
+foreach(_artifact_scope_impl IN ITEMS ScopeComputer Histogram)
+    set(_artifact_scope_source "${CMAKE_CURRENT_SOURCE_DIR}/src/Graphics/Compute/${_artifact_scope_impl}.cppm")
+    # These unscanned consumers still depend on scanned module producers.
+    # Wait for dyndep graph refresh before they can complete compilation.
+    set_property(SOURCE "${_artifact_scope_source}" APPEND PROPERTY OBJECT_DEPENDS
+        "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/CXX.dd")
+    set(_artifact_scope_modules Graphics.Compute Graphics.GPUcomputeContext Graphics.GPU.Info)
+    set(_artifact_scope_objects
+        "include/Graphics/Shader/Compute/Compute.ixx"
+        "include/Graphics/GPUComputeContext.ixx"
+        "include/Graphics/GPUInfo.ixx")
+    if(_artifact_scope_impl STREQUAL "ScopeComputer")
+        list(APPEND _artifact_scope_modules Core.ArtifactArray Core.ArtifactOptional
+            Graphics.Shader.Compute.HLSL.ScopeVectorscope
+            Graphics.Shader.Compute.HLSL.ScopeWaveform
+            Graphics.Shader.Compute.HLSL.ScopeParade)
+        list(APPEND _artifact_scope_objects "include/Core/ArtifactArray.ixx"
+            "src/Core/ArtifactOptional.cppm"
+            "include/Graphics/Shader/Compute/HLSL/ScopeVectorscope.ixx"
+            "include/Graphics/Shader/Compute/HLSL/ScopeWaveform.ixx"
+            "include/Graphics/Shader/Compute/HLSL/ScopeParade.ixx")
+    else()
+        list(APPEND _artifact_scope_modules Graphics.Shader.Compute.HLSL.Histogram)
+        list(APPEND _artifact_scope_objects "include/Graphics/Shader/Compute/HLSL/Histogram.ixx")
+    endif()
+    foreach(_artifact_scope_module IN LISTS _artifact_scope_modules)
+        set_property(SOURCE "${_artifact_scope_source}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;${_artifact_scope_module}=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/${_artifact_scope_module}.ifc")
+    endforeach()
+    foreach(_artifact_scope_object IN LISTS _artifact_scope_objects)
+        set_property(SOURCE "${_artifact_scope_source}" APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/${_artifact_scope_object}.obj")
+    endforeach()
+endforeach()
+
+foreach(_artifact_math_vec_consumer IN ITEMS
+        Transform/Light Transform/Camera Graphics/MeshRenderer)
+    set(_artifact_math_vec_source
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/${_artifact_math_vec_consumer}.cppm")
+    set_property(SOURCE "${_artifact_math_vec_source}" APPEND PROPERTY COMPILE_OPTIONS
+        "/reference;Math.Vec=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Math.Vec.ifc")
+    set_property(SOURCE "${_artifact_math_vec_source}" APPEND PROPERTY OBJECT_DEPENDS
+        "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Math/Vec.ixx.obj")
+endforeach()
+
 add_library(ArtifactCore STATIC)
 
 set_target_properties(ArtifactCore PROPERTIES
@@ -4543,7 +4594,16 @@ endif()
 # linked; tools, tests, python and docs are disabled in the root CMakeLists.
 if(TARGET usd AND TARGET usdGeom AND TARGET usdShade)
     target_link_libraries(ArtifactCore PUBLIC usd usdGeom usdShade)
+    # OpenUSD exposes only its install include path to consumers; its build
+    # header tree is PRIVATE. Reuse that tree for the in-source integration.
+    target_include_directories(ArtifactCore PRIVATE
+        "$<TARGET_PROPERTY:usd,INCLUDE_DIRECTORIES>"
+        "${CMAKE_BINARY_DIR}/libs/openusd/include"
+        "${CMAKE_SOURCE_DIR}/libs/openusd")
     target_compile_definitions(ArtifactCore PRIVATE ARTIFACT_WITH_OPENUSD)
+    set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/MeshImporter.cppm"
+        APPEND PROPERTY OBJECT_DEPENDS
+        "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/CXX.dd")
     message(STATUS "ArtifactCore: OpenUSD stage import enabled")
 else()
     message(STATUS "ArtifactCore: OpenUSD not available, USDC/USDZ import disabled")
@@ -5186,11 +5246,11 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Database/Database.cppm"
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreDatabase.dir/include/Database/DatabaseTypes.ixx.obj")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Simulation/OpenVDBVolumeReference.cppm"
     APPEND PROPERTY COMPILE_OPTIONS
-        "/reference;Core.Simulation.Pyro=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreSimulation.dir/Core.Simulation.Pyro.ifc"
+        "/reference;Core.Simulation.Pyro=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Simulation.Pyro.ifc"
         "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Simulation/PyroSimulation.cppm"
     APPEND PROPERTY COMPILE_OPTIONS
-        "/reference;Core.Simulation.Pyro=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreSimulation.dir/Core.Simulation.Pyro.ifc"
+        "/reference;Core.Simulation.Pyro=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Simulation.Pyro.ifc"
         "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc"
         "/reference;Float3=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Float3.ifc"
         "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
@@ -6428,3 +6488,64 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Script/Python/PythonEngine.
     APPEND PROPERTY OBJECT_DEPENDS
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/NamedVector.ixx.obj"
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/ContainerDebugRegistry.ixx.obj")
+
+# NameMap and ArtifactDict use ArtifactHashMap; NamedVector and ArtifactString
+# instantiate Array. Both underlying containers import ArtifactOptional.
+# Complete transitive IFC references after all source-local assignments,
+# including split targets.
+# Use the normalized manifest and existing options rather than scanning sources
+# or maintaining another list of individual consumers.
+if(MSVC)
+    foreach(_artifact_array_consumer IN LISTS _artifact_normalized_core_impl)
+        get_property(_artifact_array_options SOURCE "${_artifact_array_consumer}"
+            PROPERTY COMPILE_OPTIONS)
+        # An IFC reference alone does not order an unscanned consumer after its
+        # producer. Readers must wait for the new IFC rather than opening the
+        # previous file while MSVC replaces it (C3474 / stale template bodies).
+        foreach(_artifact_container_producer IN ITEMS
+                "Container.NamedVector|include/Container/NamedVector.ixx"
+                "Container.NameMap|include/Container/NameMap.ixx"
+                "Core.ArtifactString|include/Core/ArtifactString.ixx"
+                "Core.ArtifactDict|include/Core/ArtifactDict.ixx")
+            string(REPLACE "|" ";" _artifact_container_parts "${_artifact_container_producer}")
+            list(GET _artifact_container_parts 0 _artifact_container_module)
+            list(GET _artifact_container_parts 1 _artifact_container_interface)
+            string(FIND "${_artifact_array_options}" "${_artifact_container_module}="
+                _artifact_container_reference_index)
+            if(NOT _artifact_container_reference_index EQUAL -1)
+                set_property(SOURCE "${_artifact_array_consumer}" APPEND PROPERTY OBJECT_DEPENDS
+                    "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/${_artifact_container_interface}.obj")
+            endif()
+        endforeach()
+        if(_artifact_array_options MATCHES "(Container[.]NameMap|Core[.]ArtifactDict)=")
+            foreach(_artifact_map_dependency IN ITEMS Core.ArtifactHashMap Core.ArtifactOptional)
+                string(FIND "${_artifact_array_options}" "${_artifact_map_dependency}="
+                    _artifact_map_reference_index)
+                if(_artifact_map_reference_index EQUAL -1)
+                    set_property(SOURCE "${_artifact_array_consumer}" APPEND PROPERTY COMPILE_OPTIONS
+                        "/reference;${_artifact_map_dependency}=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/${_artifact_map_dependency}.ifc")
+                endif()
+            endforeach()
+            set_property(SOURCE "${_artifact_array_consumer}" APPEND PROPERTY OBJECT_DEPENDS
+                "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/src/Core/ArtifactHashMap.cppm.obj"
+                "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/src/Core/ArtifactOptional.cppm.obj")
+            get_property(_artifact_array_options SOURCE "${_artifact_array_consumer}"
+                PROPERTY COMPILE_OPTIONS)
+        endif()
+        if(NOT _artifact_array_options MATCHES
+                "(Container[.]NamedVector|Container[.]NameMap|Core[.]ArtifactString|Core[.]ArtifactArray)=")
+            continue()
+        endif()
+        foreach(_artifact_array_dependency IN ITEMS Core.ArtifactArray Core.ArtifactOptional)
+            string(FIND "${_artifact_array_options}" "${_artifact_array_dependency}="
+                _artifact_array_reference_index)
+            if(_artifact_array_reference_index EQUAL -1)
+                set_property(SOURCE "${_artifact_array_consumer}" APPEND PROPERTY COMPILE_OPTIONS
+                    "/reference;${_artifact_array_dependency}=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/${_artifact_array_dependency}.ifc")
+            endif()
+        endforeach()
+        set_property(SOURCE "${_artifact_array_consumer}" APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Core/ArtifactArray.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/src/Core/ArtifactOptional.cppm.obj")
+    endforeach()
+endif()

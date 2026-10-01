@@ -1,6 +1,7 @@
 module;
 #include <utility>
 #include <algorithm>
+#include <cstring>
 #include <exception>
 #include <numbers>
 #include <string>
@@ -1690,12 +1691,17 @@ void MeshRenderer::createBuffers()
         (rayTracingSupported ? BIND_RAY_TRACING : BIND_NONE);
     
     // 1. Position buffer (always needed)
+    // position/normal/uv/color are rewritten every frame for animated meshes,
+    // so they are dynamic+CPU-writable and uploaded through MapBuffer. The
+    // index buffer is never rewritten for an unchanged topology and stays
+    // default+CPU_ACCESS_NONE.
     if (vertexCount_ > 0) {
         BufferDesc BuffDesc;
         BuffDesc.Name              = "Mesh Position Buffer";
-        BuffDesc.Usage             = USAGE_DEFAULT;
+        BuffDesc.Usage             = USAGE_DYNAMIC;
         BuffDesc.Size              = sizeof(float) * 3 * vertexCount_;
         BuffDesc.BindFlags         = positionBindFlags;
+        BuffDesc.CPUAccessFlags    = CPU_ACCESS_WRITE;
         BuffDesc.Mode              = BUFFER_MODE_STRUCTURED;
         BuffDesc.ElementByteStride = sizeof(float) * 3;
         pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pPositionBuffer_);
@@ -1705,9 +1711,10 @@ void MeshRenderer::createBuffers()
     if (vertexCount_ > 0) {
         BufferDesc BuffDesc;
         BuffDesc.Name              = "Mesh Normal Buffer";
-        BuffDesc.Usage             = USAGE_DEFAULT;
+        BuffDesc.Usage             = USAGE_DYNAMIC;
         BuffDesc.Size              = sizeof(float) * 3 * vertexCount_;
         BuffDesc.BindFlags         = vertexBindFlags;
+        BuffDesc.CPUAccessFlags    = CPU_ACCESS_WRITE;
         BuffDesc.Mode              = BUFFER_MODE_UNDEFINED;
         pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pNormalBuffer_);
     }
@@ -1715,9 +1722,10 @@ void MeshRenderer::createBuffers()
     if (vertexCount_ > 0) {
         BufferDesc BuffDesc;
         BuffDesc.Name              = "Mesh UV Buffer";
-        BuffDesc.Usage             = USAGE_DEFAULT;
+        BuffDesc.Usage             = USAGE_DYNAMIC;
         BuffDesc.Size              = sizeof(float) * 2 * vertexCount_;
         BuffDesc.BindFlags         = vertexBindFlags;
+        BuffDesc.CPUAccessFlags    = CPU_ACCESS_WRITE;
         BuffDesc.Mode              = BUFFER_MODE_UNDEFINED;
         pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pUVBuffer_);
     }
@@ -1725,9 +1733,10 @@ void MeshRenderer::createBuffers()
     if (vertexCount_ > 0) {
         BufferDesc BuffDesc;
         BuffDesc.Name              = "Mesh Vertex Color Buffer";
-        BuffDesc.Usage             = USAGE_DEFAULT;
+        BuffDesc.Usage             = USAGE_DYNAMIC;
         BuffDesc.Size              = sizeof(float) * 4 * vertexCount_;
         BuffDesc.BindFlags         = vertexBindFlags;
+        BuffDesc.CPUAccessFlags    = CPU_ACCESS_WRITE;
         BuffDesc.Mode              = BUFFER_MODE_UNDEFINED;
         pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pColorBuffer_);
     }
@@ -2417,11 +2426,44 @@ void MeshRenderer::updateMeshGeometry(const float* positions, const float* norma
         qWarning("[MeshRenderer] updateMeshGeometry skipped because device context is unavailable");
         return;
     }
-    
-    if (positions && pImpl_->pPositionBuffer_) {
-        pContext->UpdateBuffer(pImpl_->pPositionBuffer_, 0, sizeof(float) * 3 * vertexCount_,
-                              positions, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+    // position/normal/uv/color are USAGE_DYNAMIC + CPU_ACCESS_WRITE, so they are
+    // filled through MapBuffer instead of a staging UpdateBuffer copy. MAP_WRITE
+    // with MAP_FLAG_DISCARD lets the driver orphan the previous contents, which
+    // is the same contract the constant buffers below already rely on.
+    const auto uploadFloat3 = [&](IBuffer* buffer, const float* source,
+                                  size_t elementCount) {
+        if (!buffer || !source) {
+            return;
+        }
+        void* mapped = nullptr;
+        pContext->MapBuffer(buffer, MAP_WRITE, MAP_FLAG_DISCARD, mapped);
+        if (!mapped) {
+            qWarning("[MeshRenderer] vertex buffer mapping failed");
+            return;
+        }
+        std::memcpy(mapped, source, sizeof(float) * 3 * elementCount);
+        pContext->UnmapBuffer(buffer, MAP_WRITE);
         if (frameCostStats_) ++frameCostStats_->bufferUpdates;
+    };
+    const auto uploadFloats = [&](IBuffer* buffer, const float* source,
+                                  size_t elementCount, size_t floatsPerElement) {
+        if (!buffer || !source) {
+            return;
+        }
+        void* mapped = nullptr;
+        pContext->MapBuffer(buffer, MAP_WRITE, MAP_FLAG_DISCARD, mapped);
+        if (!mapped) {
+            qWarning("[MeshRenderer] vertex buffer mapping failed");
+            return;
+        }
+        std::memcpy(mapped, source, sizeof(float) * floatsPerElement * elementCount);
+        pContext->UnmapBuffer(buffer, MAP_WRITE);
+        if (frameCostStats_) ++frameCostStats_->bufferUpdates;
+    };
+
+    if (positions && pImpl_->pPositionBuffer_) {
+        uploadFloat3(pImpl_->pPositionBuffer_, positions, vertexCount_);
         float maxRadiusSquared = 0.0f;
         for (size_t i = 0; i < vertexCount_; ++i) {
             const float x = positions[i * 3u + 0u];
@@ -2434,31 +2476,25 @@ void MeshRenderer::updateMeshGeometry(const float* positions, const float* norma
     }
 
     if (normals && pImpl_->pNormalBuffer_) {
-        pContext->UpdateBuffer(pImpl_->pNormalBuffer_, 0, sizeof(float) * 3 * vertexCount_,
-                              normals, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        if (frameCostStats_) ++frameCostStats_->bufferUpdates;
+        uploadFloat3(pImpl_->pNormalBuffer_, normals, vertexCount_);
     }
 
     if (uvs && pImpl_->pUVBuffer_) {
-        pContext->UpdateBuffer(pImpl_->pUVBuffer_, 0, sizeof(float) * 2 * vertexCount_,
-                              uvs, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        if (frameCostStats_) ++frameCostStats_->bufferUpdates;
+        uploadFloats(pImpl_->pUVBuffer_, uvs, vertexCount_, 2);
     }
 
     if (pImpl_->pColorBuffer_) {
         if (colors) {
-            pContext->UpdateBuffer(pImpl_->pColorBuffer_, 0, sizeof(float) * 4 * vertexCount_,
-                                  colors, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            uploadFloats(pImpl_->pColorBuffer_, colors, vertexCount_, 4);
         } else {
             // Keep the vertex-color channel identity (white) when the caller
             // has no source colors so existing assets render unchanged.
             std::vector<float> whiteColors(vertexCount_ * 4u, 1.0f);
-            pContext->UpdateBuffer(pImpl_->pColorBuffer_, 0, sizeof(float) * 4 * vertexCount_,
-                                  whiteColors.data(), RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            uploadFloats(pImpl_->pColorBuffer_, whiteColors.data(), vertexCount_, 4);
         }
-        if (frameCostStats_) ++frameCostStats_->bufferUpdates;
     }
-    
+
+    // The index buffer stays CPU_ACCESS_NONE, so it keeps the UpdateBuffer path.
     if (indices && pImpl_->pIndexBuffer_) {
         pContext->UpdateBuffer(pImpl_->pIndexBuffer_, 0, sizeof(uint32_t) * indexCount_,
                               indices, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -2922,8 +2958,8 @@ void MeshRenderer::drawMaterialSlots(IDeviceContext* pContext, size_t instanceCo
         drawAttrs.NumInstances = static_cast<Uint32>(instanceCount);
         drawAttrs.IndexType = VT_UINT32;
         drawAttrs.Flags = DRAW_FLAG_NONE;
-        drawAttrs.StartIndex = range.firstIndex;
-        drawAttrs.BaseVertexLocation = 0;
+        drawAttrs.FirstIndexLocation = range.firstIndex;
+        drawAttrs.BaseVertex = 0;
         pContext->DrawIndexed(drawAttrs);
     }
 }
@@ -2949,8 +2985,8 @@ void MeshRenderer::drawShadowMaterialSlots(IDeviceContext* pContext, size_t inst
         drawAttrs.NumInstances = static_cast<Uint32>(instanceCount);
         drawAttrs.IndexType = VT_UINT32;
         drawAttrs.Flags = DRAW_FLAG_NONE;
-        drawAttrs.StartIndex = range.firstIndex;
-        drawAttrs.BaseVertexLocation = 0;
+        drawAttrs.FirstIndexLocation = range.firstIndex;
+        drawAttrs.BaseVertex = 0;
         pContext->DrawIndexed(drawAttrs);
     }
     pImpl_->shadowPrepared_ = false;

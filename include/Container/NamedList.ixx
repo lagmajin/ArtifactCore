@@ -1,7 +1,6 @@
 module;
 #include <cstddef>
 #include <initializer_list>
-#include <list>
 #include <functional>
 #include <memory>
 #include <typeinfo>
@@ -10,6 +9,7 @@ module;
 export module Container.NamedList;
 
 import Container.Debug;
+import Core.ArtifactArray;
 
 export namespace ArtifactCore {
 
@@ -65,7 +65,7 @@ public:
   bool isEmpty() const noexcept
   {
     ++counters_.readCount;
-    return values_.empty();
+    return values_.isEmpty();
   }
 
   bool notEmpty() const noexcept
@@ -76,14 +76,14 @@ public:
   void clear() noexcept
   {
     const auto before = values_.size();
-    values_.clear();
+    values_.removeAll();
     recordMutation("clear", before, values_.size());
   }
 
   void add(const T& value)
   {
     const auto before = values_.size();
-    values_.push_back(value);
+    values_.append(value);
     recordMutation("add", before, values_.size());
   }
 
@@ -95,7 +95,7 @@ public:
   void add(T&& value)
   {
     const auto before = values_.size();
-    values_.push_back(std::move(value));
+    values_.append(std::move(value));
     recordMutation("add", before, values_.size());
   }
 
@@ -107,7 +107,7 @@ public:
   void addFirst(const T& value)
   {
     const auto before = values_.size();
-    values_.push_front(value);
+    values_.prepend(value);
     recordMutation("addFirst", before, values_.size());
   }
 
@@ -119,14 +119,15 @@ public:
   void addFirst(T&& value)
   {
     const auto before = values_.size();
-    values_.push_front(std::move(value));
+    values_.prepend(std::move(value));
     recordMutation("addFirst", before, values_.size());
   }
 
   void assign(std::initializer_list<T> values)
   {
     const auto before = values_.size();
-    values_.assign(values.begin(), values.end());
+    values_.removeAll();
+    for (const auto& item : values) values_.append(item);
     recordMutation("assign", before, values_.size());
   }
 
@@ -139,49 +140,50 @@ public:
   T& make(Args&&... args)
   {
     const auto before = values_.size();
-    auto& value = values_.emplace_back(std::forward<Args>(args)...);
+    values_.append(T(std::forward<Args>(args)...));
+    T& value = values_[before];
     recordMutation("make", before, values_.size());
     return value;
   }
 
   T* first() noexcept
   {
-    if (values_.empty()) {
+    if (values_.isEmpty()) {
       bumpFailedAccess();
       return nullptr;
     }
     ++counters_.readCount;
-    return &values_.front();
+    return &values_[0];
   }
 
   const T* first() const noexcept
   {
-    if (values_.empty()) {
+    if (values_.isEmpty()) {
       bumpFailedAccess();
       return nullptr;
     }
     ++counters_.readCount;
-    return &values_.front();
+    return &values_[0];
   }
 
   T* last() noexcept
   {
-    if (values_.empty()) {
+    if (values_.isEmpty()) {
       bumpFailedAccess();
       return nullptr;
     }
     ++counters_.readCount;
-    return &values_.back();
+    return &values_[values_.size() - 1];
   }
 
   const T* last() const noexcept
   {
-    if (values_.empty()) {
+    if (values_.isEmpty()) {
       bumpFailedAccess();
       return nullptr;
     }
     ++counters_.readCount;
-    return &values_.back();
+    return &values_[values_.size() - 1];
   }
 
   T* front() noexcept
@@ -206,24 +208,24 @@ public:
 
   bool removeFirst() noexcept
   {
-    if (values_.empty()) {
+    if (values_.isEmpty()) {
       bumpFailedAccess();
       return false;
     }
     const auto before = values_.size();
-    values_.pop_front();
+    values_.removeFirst();
     recordMutation("removeFirst", before, values_.size());
     return true;
   }
 
   bool removeLast() noexcept
   {
-    if (values_.empty()) {
+    if (values_.isEmpty()) {
       bumpFailedAccess();
       return false;
     }
     const auto before = values_.size();
-    values_.pop_back();
+    values_.removeLast();
     recordMutation("removeLast", before, values_.size());
     return true;
   }
@@ -250,10 +252,10 @@ public:
 
   bool removeOne(const T& value)
   {
-    for (auto it = values_.begin(); it != values_.end(); ++it) {
-      if (*it == value) {
+    for (std::size_t index = 0; index < values_.size(); ++index) {
+      if (values_[index] == value) {
         const auto before = values_.size();
-        values_.erase(it);
+        values_.removeAt(index);
         recordMutation("removeOne", before, values_.size());
         return true;
       }
@@ -270,14 +272,14 @@ public:
   std::size_t removeIf(Predicate&& predicate)
   {
     std::size_t removed = 0;
-    for (auto it = values_.begin(); it != values_.end();) {
-      if (predicate(*it)) {
+    for (std::size_t index = 0; index < values_.size();) {
+      if (predicate(values_[index])) {
         const auto before = values_.size();
-        it = values_.erase(it);
+        values_.removeAt(index);
         ++removed;
         recordMutation("removeIf", before, values_.size());
       } else {
-        ++it;
+        ++index;
       }
     }
     return removed;
@@ -361,16 +363,16 @@ public:
     return hit;
   }
 
-  std::vector<ContainerElementSample> debugSample(std::size_t limit = 4) const
+  Array<ContainerElementSample> debugSample(std::size_t limit = 4) const
   {
-    std::vector<ContainerElementSample> samples;
+    Array<ContainerElementSample> samples;
     const auto sampleCount = values_.size() < limit ? values_.size() : limit;
     std::size_t index = 0;
     for (const auto& value : values_) {
       if (index >= sampleCount) {
         break;
       }
-      samples.push_back(ContainerElementSample{
+      samples.append(ContainerElementSample{
         index,
         static_cast<const void*>(&value),
         "sample"
@@ -494,12 +496,12 @@ private:
   {
     constexpr std::size_t historyCapacity = 8;
     if (mutationHistory_.size() == historyCapacity) {
-      mutationHistory_.erase(mutationHistory_.begin());
+      mutationHistory_.removeFirst();
     }
-    mutationHistory_.push_back(record);
+    mutationHistory_.append(record);
   }
 
-  std::list<T> values_;
+  Array<T> values_;
   ContainerName name_;
   ContainerDomain domain_ = ContainerDomain::Unknown;
   ContainerOwner owner_{};
@@ -508,7 +510,7 @@ private:
   ContainerSourceLocation lastMutatedAt_{};
   mutable ContainerSourceLocation lastFailedAccessAt_{};
   ContainerMutationRecord lastMutation_{};
-  std::vector<ContainerMutationRecord> mutationHistory_;
+  Array<ContainerMutationRecord> mutationHistory_;
 };
 
 template <typename T>

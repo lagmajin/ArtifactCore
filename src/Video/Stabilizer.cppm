@@ -130,22 +130,21 @@ bool VideoStabilizer::trackFeaturesBetweenFrames() {
         
         featuresCurr = detectFeatures(frames_[i]);
 
-        // Note: Methods not found in header
-        // QVector<int> matches = trackFeatures(
-        //     frames_[i - 1], frames_[i],
-        //     featureTracks_.empty() ? QVector<QPointF>() : getPrevFeatures(featureTracks_),
-        //     featuresCurr
-        // );
-        // 
-        // updateFeatureTracks(matches, featuresCurr);
+        QVector<int> matches = trackFeatures(
+            frames_[i - 1],
+            frames_[i],
+            featureTracks_.empty() ? QVector<QPointF>() : getPrevFeatures(featureTracks_),
+            featuresCurr
+        );
+
+        updateFeatureTracks(matches, featuresCurr);
     }
 
     return true;
 }
 
-// Note: Methods not found in header definition - commenting out
-/*
-QVector<QPointF> VideoStabilizer::getPrevFeatures(const QVector<FeatureTrack>& tracks) const {
+QVector<QPointF> VideoStabilizer::getPrevFeatures(
+    const QVector<FeatureTrack>& tracks) const {
     QVector<QPointF> points;
     for (const auto& track : tracks) {
         if (!track.positions.isEmpty() && track.valid) {
@@ -155,7 +154,8 @@ QVector<QPointF> VideoStabilizer::getPrevFeatures(const QVector<FeatureTrack>& t
     return points;
 }
 
-void VideoStabilizer::updateFeatureTracks(const QVector<int>& matches, const QVector<QPointF>& currFeatures) {
+void VideoStabilizer::updateFeatureTracks(const QVector<int>& matches,
+                                           const QVector<QPointF>& currFeatures) {
     for (int i = 0; i < matches.size(); i++) {
         if (matches[i] >= 0 && matches[i] < featureTracks_.size()) {
             featureTracks_[matches[i]].positions << currFeatures[i];
@@ -168,7 +168,6 @@ void VideoStabilizer::updateFeatureTracks(const QVector<int>& matches, const QVe
         }
     }
 }
-*/
 
 void VideoStabilizer::estimateFrameMotions() {
     motions_.clear();
@@ -197,28 +196,53 @@ FrameMotion VideoStabilizer::estimateMotion(
     if (prevPoints.size() < 4 || currPoints.size() < 4) {
         return FrameMotion();
     }
-    
-    QMatrix3x3 transform;
-    
-    int n = prevPoints.size();
-    for (int i = 0; i < n; i++) {
-        double x1 = prevPoints[i].x();
-        double y1 = prevPoints[i].y();
-        double x2 = currPoints[i].x();
-        double y2 = currPoints[i].y();
-        
-        QMatrix3x3 A;
-        A(0, 0) = x1;
-        A(0, 1) = -y1;
-        A(0, 2) = 1;
-        A(1, 0) = y1;
-        A(1, 1) = x1;
-        A(1, 2) = 1;
-        
-        // 簡易アフィン推定
+
+    // Estimate a 2D similarity transform from centered point pairs. This keeps
+    // translation separate from rotation/scale so stabilizeFrame() can apply
+    // the same transform model that was estimated here.
+    QPointF prevCenter;
+    QPointF currCenter;
+    const int pointCount = std::min(prevPoints.size(), currPoints.size());
+    for (int i = 0; i < pointCount; ++i) {
+        prevCenter += prevPoints[i];
+        currCenter += currPoints[i];
     }
-    
+    prevCenter /= static_cast<double>(pointCount);
+    currCenter /= static_cast<double>(pointCount);
+
+    double dot = 0.0;
+    double cross = 0.0;
+    double prevMagnitude = 0.0;
+    for (int i = 0; i < pointCount; ++i) {
+        const QPointF p = prevPoints[i] - prevCenter;
+        const QPointF q = currPoints[i] - currCenter;
+        dot += p.x() * q.x() + p.y() * q.y();
+        cross += p.x() * q.y() - p.y() * q.x();
+        prevMagnitude += p.x() * p.x() + p.y() * p.y();
+    }
+
+    // Guard the degenerate case where the tracked points collapse onto a
+    // single point; without the clamp the scale estimate divides by ~0.
+    const bool canEstimateShape = prevMagnitude > 1e-9;
+    const double estimatedRotation = canEstimateShape ? std::atan2(cross, dot) : 0.0;
+    const double estimatedScale = canEstimateShape
+        ? std::max(1e-6, std::sqrt(dot * dot + cross * cross) / prevMagnitude)
+        : 1.0;
+    const double effectiveRotation = params_.stabilizeRotation ? estimatedRotation : 0.0;
+    const double cosRotation = std::cos(effectiveRotation);
+    const double sinRotation = std::sin(effectiveRotation);
+    const double effectiveScale = params_.stabilizeScale ? estimatedScale : 1.0;
+
+    const QPointF transformedPrev(
+        effectiveScale * (cosRotation * prevCenter.x() - sinRotation * prevCenter.y()),
+        effectiveScale * (sinRotation * prevCenter.x() + cosRotation * prevCenter.y()));
+
     FrameMotion motion;
+    motion.x = currCenter.x() - transformedPrev.x();
+    motion.y = currCenter.y() - transformedPrev.y();
+    motion.rotation = effectiveRotation;
+    motion.scale = effectiveScale;
+    motion.center = currCenter;
     return motion;
 }
 
@@ -265,29 +289,42 @@ QVector<QPointF> VideoStabilizer::detectFeatures(const QImage& frame) const {
     Parallel::For(blockSize, h - blockSize, w * h, [&](int y) {
         if ((y - blockSize) % 2 != 0) return;
         auto& rowFeatures = featuresByRow[static_cast<size_t>(y)];
+        const int k = params_.featureParams.blockSize;
+        // Scanline pointers are resolved once per row instead of per pixel.
+        std::vector<const QRgb*> rows(static_cast<size_t>(2 * k + 1));
+        const auto luma = [](const QRgb& c) {
+            return 0.299 * qRed(c) + 0.587 * qGreen(c) + 0.114 * qBlue(c);
+        };
         for (int x = blockSize; x < w - blockSize; x += 2) {
-            double cornerResponse = 0.0;
-
-            int dx = 0, dy = 0;
-            for (int ky = -blockSize; ky <= blockSize; ky++) {
-                const auto* previousRow = reinterpret_cast<const QRgb*>(source.constScanLine(y + ky));
-                const auto* currentRow = previousRow;
-                const auto* nextRow = previousRow;
-                for (int kx = -params_.featureParams.blockSize; kx <= params_.featureParams.blockSize; kx++) {
-                    QRgb prev = previousRow[x + kx - 1];
-                    QRgb curr = currentRow[x + kx];
-                    QRgb next = nextRow[x + kx + 1];
-
-                    int r = qRed(curr) - qRed(prev);
-                    dx += r * r;
-
-                    r = qBlue(curr) - qBlue(prev);
-                    dy += r * r;
+            for (int ky = -k; ky <= k; ++ky) {
+                rows[static_cast<size_t>(ky + k)] =
+                    reinterpret_cast<const QRgb*>(source.constScanLine(y + ky));
+            }
+            double gxx = 0.0;
+            double gyy = 0.0;
+            double gxy = 0.0;
+            for (int ky = -k; ky <= k; ++ky) {
+                const QRgb* upper = rows[static_cast<size_t>(ky + k - 1)];
+                const QRgb* current = rows[static_cast<size_t>(ky + k)];
+                const QRgb* lower = rows[static_cast<size_t>(ky + k + 1)];
+                for (int kx = -k; kx <= k; ++kx) {
+                    const int x0 = x + kx - 1;
+                    const int x1 = x + kx;
+                    const int x2 = x + kx + 1;
+                    gxx += luma(current[x2]) - luma(current[x0]);
+                    gyy += luma(lower[x1]) - luma(upper[x1]);
+                    gxy += luma(lower[x2]) - luma(upper[x0]);
                 }
             }
-
-            double det = dx * dy - pow(dx + dy, 2);
-            if (det > qualityLevel) {
+            // Harris corner response: det(M) - k * trace(M)^2. The previous
+            // revision scored with dx*dy - (dx+dy)^2, which is negative for
+            // every non-degenerate input, so this detector always returned an
+            // empty list and stabilization became a no-op.
+            const double trace = gxx + gyy;
+            const double det = gxx * gyy - gxy * gxy;
+            const double response =
+                det - params_.featureParams.k * trace * trace;
+            if (response > qualityLevel * std::max(1.0, trace)) {
                 rowFeatures.append(QPointF(x, y));
             }
         }

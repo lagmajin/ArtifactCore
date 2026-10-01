@@ -12,6 +12,7 @@ export module Container.SmallVector;
 
 import Container.Debug;
 import Container.NamedVector;
+import Core.ArtifactArray;
 
 export namespace ArtifactCore {
 
@@ -876,9 +877,9 @@ private:
   {
     constexpr std::size_t historyCapacity = 8;
     if (mutationHistory_.size() == historyCapacity) {
-      mutationHistory_.erase(mutationHistory_.begin());
+      mutationHistory_.removeFirst();
     }
-    mutationHistory_.push_back(record);
+    mutationHistory_.append(record);
   }
 
   alignas(T) unsigned char inline_[sizeof(T) * kInlineCapacity]{};
@@ -895,7 +896,7 @@ private:
   ContainerSourceLocation lastMutatedAt_{};
   mutable ContainerSourceLocation lastFailedAccessAt_{};
   ContainerMutationRecord lastMutation_{};
-  std::vector<ContainerMutationRecord> mutationHistory_;
+  Array<ContainerMutationRecord> mutationHistory_;
   std::size_t observedCapacity_ = kInlineCapacity;
 };
 

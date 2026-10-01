@@ -8,16 +8,7 @@ module;
 #include <cstdint>
 #include <memory>
 #include <variant>
-extern "C" {
-#include <libavformat/avformat.h>
-#include <libavcodec/avcodec.h>
-#include <libswscale/swscale.h>
-#include <libavutil/avutil.h>
-#include <libavutil/imgutils.h>
-#include <libavutil/hwcontext.h>
-#include <libavutil/hwcontext_vulkan.h>
-#include <libavutil/pixdesc.h>
-}
+#include "MediaImageFrameDecoderFFmpegHeaders.h"
 
 
 module MediaImageFrameDecoder;
@@ -97,29 +88,15 @@ int normalizedVideoRotation(int rotationDegrees) {
     return 0;
 }
 
-int videoSwsFlags(int rotationDegrees) {
-    switch (normalizedVideoRotation(rotationDegrees)) {
-    case 90: return SWS_BILINEAR | SWS_ROTATE_90;
-    case 180: return SWS_BILINEAR | SWS_ROTATE_180;
-    case 270: return SWS_BILINEAR | SWS_ROTATE_270;
-    default: return SWS_BILINEAR;
-    }
-}
-
-SwsContext* cpuVideoSwsContext(AVFrame* frame, SwsContext*& cachedContext,
-                               int rotationDegrees) {
+SwsContext* cpuVideoSwsContext(AVFrame* frame, SwsContext*& cachedContext) {
     if (!frame || frame->width <= 0 || frame->height <= 0) {
         return nullptr;
     }
-    const int rotation = normalizedVideoRotation(rotationDegrees);
-    const bool swapDimensions = rotation == 90 || rotation == 270;
-    const int outputWidth = swapDimensions ? frame->height : frame->width;
-    const int outputHeight = swapDimensions ? frame->width : frame->height;
     cachedContext = sws_getCachedContext(
         cachedContext,
         frame->width, frame->height, static_cast<AVPixelFormat>(frame->format),
-        outputWidth, outputHeight, AV_PIX_FMT_RGB24,
-        videoSwsFlags(rotation), nullptr, nullptr, nullptr);
+        frame->width, frame->height, AV_PIX_FMT_RGB24,
+        SWS_BILINEAR, nullptr, nullptr, nullptr);
     return cachedContext;
 }
 
@@ -129,7 +106,7 @@ CpuVideoFrame makeCpuVideoFrameFromFrame(AVFrame* frame, SwsContext*& swsCtx, in
         return out;
     }
 
-    swsCtx = cpuVideoSwsContext(frame, swsCtx, rotationDegrees);
+    swsCtx = cpuVideoSwsContext(frame, swsCtx);
     if (!swsCtx) {
         return out;
     }
@@ -137,8 +114,8 @@ CpuVideoFrame makeCpuVideoFrameFromFrame(AVFrame* frame, SwsContext*& swsCtx, in
 
     const int rotation = normalizedVideoRotation(rotationDegrees);
     const bool swapDimensions = rotation == 90 || rotation == 270;
-    out.meta.width = swapDimensions ? frame->height : frame->width;
-    out.meta.height = swapDimensions ? frame->width : frame->height;
+    out.meta.width = frame->width;
+    out.meta.height = frame->height;
     out.meta.pts = pts;
     out.meta.color.colorSpace = static_cast<int>(AVCOL_SPC_RGB);
     out.meta.color.colorRange = static_cast<int>(AVCOL_RANGE_JPEG);
@@ -153,8 +130,35 @@ CpuVideoFrame makeCpuVideoFrameFromFrame(AVFrame* frame, SwsContext*& swsCtx, in
     int dstLinesize[4] = {};
     dst[0] = out.bytes.data();
     dstLinesize[0] = out.strideBytes;
-    sws_scale(swsCtx, frame->data, frame->linesize, 0, frame->height,
-              dst, dstLinesize);
+    if (sws_scale(swsCtx, frame->data, frame->linesize, 0, frame->height, dst, dstLinesize) != frame->height)
+    {
+        return {};
+    }
+    if (rotation != 0)
+    {
+        const int source_width = out.meta.width;
+        const int source_height = out.meta.height;
+        const int source_stride = out.strideBytes;
+        auto source_bytes = std::move(out.bytes);
+        out.meta.width = swapDimensions ? source_height : source_width;
+        out.meta.height = swapDimensions ? source_width : source_height;
+        out.strideBytes = out.meta.width * 3;
+        out.bytes.resize(source_bytes.size());
+        for (int y = 0; y < source_height; ++y)
+        {
+            for (int x = 0; x < source_width; ++x)
+            {
+                const int target_x = rotation == 90 ? source_height - 1 - y
+                    : rotation == 180 ? source_width - 1 - x : y;
+                const int target_y = rotation == 90 ? x
+                    : rotation == 180 ? source_height - 1 - y : source_width - 1 - x;
+                const auto source_offset = static_cast<size_t>(y) * source_stride + static_cast<size_t>(x) * 3;
+                const auto target_offset = static_cast<size_t>(target_y) * out.strideBytes
+                    + static_cast<size_t>(target_x) * 3;
+                std::memcpy(out.bytes.data() + target_offset, source_bytes.data() + source_offset, 3);
+            }
+        }
+    }
     return out;
 }
 

@@ -213,6 +213,7 @@ using WorldPoint3 = Point3<WorldSpace>;
 using ViewPoint3 = Point3<ViewSpace>;
 using ClipPoint3 = Point3<ClipSpace>;
 using TextureUVPoint2 = Point2<TextureUVSpace>;
+using LayerParentBoundsPoint2 = BoundsPoint2<LayerParentSpace>;
 using CompositionBounds2 = Bounds2<CompositionSpace>;
 using SourcePixelBounds2 = Bounds2<SourcePixelSpace>;
 using ScreenPhysicalBounds2 = Bounds2<ScreenPhysicalSpace>;
@@ -667,11 +668,12 @@ template<typename T>
 [[nodiscard]] inline QMatrix4x4 toQMatrix4x4(const mat4& m) noexcept
 {
     QMatrix4x4 q;
-    // QMatrix4x4::data() は row-major の 16 floats (column-major の
-    // 転置表現ではない点に注意: Qt は内部的に column-major で保持し、
-    // data() アクセスは column-major 順)。glm も column-major のため
-    // 直接コピーで一致する。
-    std::copy(m.data(), m.data() + 16, q.data());
+    // Qt と glm はともに column-major。要素アクセスで列順にコピーする。
+    for (int column = 0; column < 4; ++column) {
+        for (int row = 0; row < 4; ++row) {
+            q.data()[column * 4 + row] = m[column][row];
+        }
+    }
     return q;
 }
 
@@ -701,7 +703,9 @@ concept HasImplicitConversion = std::is_convertible_v<Left, Right>;
 
 using ArtifactCore::Coordinates::CompositionPoint2;
 using ArtifactCore::Coordinates::CompositionBounds2;
+using ArtifactCore::Coordinates::CompositionExtent2;
 using ArtifactCore::Coordinates::CompositionVector2;
+using ArtifactCore::Coordinates::LayerLocalPoint2;
 using ArtifactCore::Coordinates::LayerLocalPoint3;
 using ArtifactCore::Coordinates::LayerParentPoint3;
 using ArtifactCore::Coordinates::ScreenLogicalPoint2;
@@ -711,6 +715,7 @@ using ArtifactCore::Coordinates::ScreenPhysicalPoint2;
 using ArtifactCore::Coordinates::ScreenPhysicalBounds2;
 using ArtifactCore::Coordinates::ScreenPhysicalExtent2;
 using ArtifactCore::Coordinates::SourcePixelBounds2;
+using ArtifactCore::Coordinates::SourcePixelExtent2;
 using ArtifactCore::Coordinates::WorldVector3;
 using ArtifactCore::Coordinates::WorldPoint3;
 using LayerLocalVector3 =

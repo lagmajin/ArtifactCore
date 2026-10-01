@@ -2,6 +2,7 @@ module;
 class tst_QList;
 #include <utility>
 #include <QString>
+#include <QByteArray>
 #include <QUuid>
 #include <QMap>
 #include <QList>
@@ -10,9 +11,6 @@ class tst_QList;
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
-#include <QFile>
-#include <QSaveFile>
-#include <QIODevice>
 
 module Asset.Database;
 
@@ -36,6 +34,11 @@ QString normalizedAssetPath(const QString& path) {
 #endif
     return normalized;
 }
+}
+
+void AssetDatabase::clear() {
+    assets_.clear();
+    pathToId_.clear();
 }
 
 QUuid AssetDatabase::registerAsset(const QString& path, AssetType type) {
@@ -127,11 +130,8 @@ QList<AssetInfo> AssetDatabase::allAssets() const {
     return assets_.values();
 }
 
-bool AssetDatabase::load(const QString& databasePath) {
-    QFile file(databasePath);
-    if (!file.open(QIODevice::ReadOnly)) return false;
-
-    QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+bool AssetDatabase::fromJson(const QByteArray& payload) {
+    QJsonDocument doc = QJsonDocument::fromJson(payload);
     if (doc.isNull() || !doc.isArray()) return false;
     QJsonArray array = doc.array();
 
@@ -176,7 +176,7 @@ bool AssetDatabase::load(const QString& databasePath) {
     return true;
 }
 
-bool AssetDatabase::save(const QString& databasePath) const {
+QByteArray AssetDatabase::toJson() const {
     QJsonArray array;
     for (const auto& info : assets_) {
         QJsonObject obj;
@@ -192,14 +192,7 @@ bool AssetDatabase::save(const QString& databasePath) const {
         array.append(obj);
     }
 
-    QJsonDocument doc(array);
-    QSaveFile file(databasePath);
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) return false;
-    if (file.write(doc.toJson(QJsonDocument::Compact)) < 0) {
-        file.cancelWriting();
-        return false;
-    }
-    return file.commit();
+    return QJsonDocument(array).toJson(QJsonDocument::Compact);
 }
 
 } // namespace ArtifactCore

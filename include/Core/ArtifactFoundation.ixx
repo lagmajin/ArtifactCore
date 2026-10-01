@@ -13,6 +13,7 @@ export import Core.ArtifactPtr;     // Ptr<T>, Ref<T>, Owned<T>, WeakPtr<T>
 export import Core.ArtifactOptional;
 export import Core.ArtifactAtomic;
 export import Core.ArtifactHashMap;
+export import Core.ArtifactSet;
 export import Core.ArtifactSpan;
 export import Core.ArtifactVariant;
 export import Core.ArtifactThread;  // Mutex, Lock, Cond, Thread

@@ -232,8 +232,66 @@ Mesh::Meshlet buildMeshletFromIndexRange(const Mesh::RenderData& renderData,
         float sphereRadius = 0.0f;
         std::uint64_t revision = 1;
 
+        // Flattened GPU-ready snapshot of the current pose. Rebuilt only when
+        // revision changes, so repeated draws of an unchanged mesh skip the
+        // triangulation/expansion loop entirely. Animated meshes bump revision
+        // every frame, so they rebuild as before.
+        mutable RenderData renderDataCache;
+        mutable std::uint64_t renderDataRevision = 0;
+
         Impl() {}
         ~Impl() {}
+
+        // Copy everything except the render cache: the new Impl starts at a
+        // different revision, so an inherited cache would be invalid anyway
+        // and memcpy-ing a full vertex snapshot would be pure waste.
+        Impl(const Impl& other)
+            : vertexAttrs(other.vertexAttrs),
+              faceAttrs(other.faceAttrs),
+              faceVertexAttrs(other.faceVertexAttrs),
+              polygons(other.polygons),
+              materialSlots(other.materialSlots),
+              skinBones(other.skinBones),
+              skinningMethod(other.skinningMethod),
+              skinAnimationClips(other.skinAnimationClips),
+              blendShapes(other.blendShapes),
+              blendBasePositions(other.blendBasePositions),
+              blendBaseNormals(other.blendBaseNormals),
+              activeSkinMatrices(other.activeSkinMatrices),
+              skinBasePositions(other.skinBasePositions),
+              skinBaseNormals(other.skinBaseNormals),
+              minBounds(other.minBounds),
+              maxBounds(other.maxBounds),
+              sphereCenter(other.sphereCenter),
+              sphereRadius(other.sphereRadius),
+              revision(other.revision) {}
+
+        Impl& operator=(const Impl& other) {
+            if (this != &other) {
+                vertexAttrs = other.vertexAttrs;
+                faceAttrs = other.faceAttrs;
+                faceVertexAttrs = other.faceVertexAttrs;
+                polygons = other.polygons;
+                materialSlots = other.materialSlots;
+                skinBones = other.skinBones;
+                skinningMethod = other.skinningMethod;
+                skinAnimationClips = other.skinAnimationClips;
+                blendShapes = other.blendShapes;
+                blendBasePositions = other.blendBasePositions;
+                blendBaseNormals = other.blendBaseNormals;
+                activeSkinMatrices = other.activeSkinMatrices;
+                skinBasePositions = other.skinBasePositions;
+                skinBaseNormals = other.skinBaseNormals;
+                minBounds = other.minBounds;
+                maxBounds = other.maxBounds;
+                sphereCenter = other.sphereCenter;
+                sphereRadius = other.sphereRadius;
+                revision = other.revision;
+                renderDataCache = RenderData();
+                renderDataRevision = 0;
+            }
+            return *this;
+        }
     };
 
     Mesh::Mesh() : impl_(new Impl()) {}
@@ -646,6 +704,12 @@ Mesh::Meshlet buildMeshletFromIndexRange(const Mesh::RenderData& renderData,
     }
 
     Mesh::RenderData Mesh::generateRenderData() const {
+        // Serve the previous snapshot while the mesh is unchanged. Callers get
+        // a copy, so the cached data can never be mutated through the result.
+        if (impl_->renderDataRevision == impl_->revision) {
+            return impl_->renderDataCache;
+        }
+
         RenderData data;
         auto posAttr = impl_->vertexAttrs.get<QVector3D>("position");
         auto normAttr = impl_->vertexAttrs.get<QVector3D>("normal");
@@ -685,6 +749,8 @@ Mesh::Meshlet buildMeshletFromIndexRange(const Mesh::RenderData& renderData,
             }
         }
 
+        impl_->renderDataCache = data;
+        impl_->renderDataRevision = impl_->revision;
         return data;
     }
 

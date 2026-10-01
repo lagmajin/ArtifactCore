@@ -7,17 +7,7 @@ module;
 #include <string>
 #include <chrono>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-#include <libavformat/avformat.h>
-#include <libavcodec/avcodec.h>
-#include <libswresample/swresample.h>
-#include <libavutil/opt.h>
-#include <libavutil/channel_layout.h>
-#ifdef __cplusplus
-}
-#endif
+#include "MediaAudioDecoderFFmpegHeaders.h"
 #pragma comment(lib, "avcodec.lib")
 #pragma comment(lib, "avformat.lib")
 #pragma comment(lib, "avutil.lib")

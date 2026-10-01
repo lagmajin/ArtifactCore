@@ -434,9 +434,9 @@ private:
   {
     constexpr std::size_t historyCapacity = 8;
     if (mutationHistory_.size() == historyCapacity) {
-      mutationHistory_.erase(mutationHistory_.begin());
+      mutationHistory_.removeFirst();
     }
-    mutationHistory_.push_back(record);
+    mutationHistory_.append(record);
   }
 
   void updateMaxCount() noexcept
@@ -455,7 +455,7 @@ private:
   ContainerSourceLocation lastMutatedAt_{};
   mutable ContainerSourceLocation lastFailedAccessAt_{};
   ContainerMutationRecord lastMutation_{};
-  std::vector<ContainerMutationRecord> mutationHistory_;
+  Array<ContainerMutationRecord> mutationHistory_;
   std::size_t observedCapacity_ = 0;
 };
 
