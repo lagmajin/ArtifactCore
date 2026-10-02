@@ -202,10 +202,10 @@ std::vector<QPointF> buildAnchorPoints(
             groupIds[i] = glyph.lineIndex >= 0 ? glyph.lineIndex : 0;
             break;
         case AnchorPointGrouping::Paragraph:
-            groupIds[i] = sequentialGroup;
-            if (glyph.charCode == U'\n' || glyph.charCode == U'\r') {
-                ++sequentialGroup;
-            }
+            // Hard line breaks only: a soft wrap keeps the same paragraph, and
+            // the shaped glyph stream no longer carries the newline codepoint
+            // itself, so the ordinal comes from GlyphItem::paragraphIndex.
+            groupIds[i] = glyph.paragraphIndex >= 0 ? glyph.paragraphIndex : 0;
             break;
         case AnchorPointGrouping::Span:
             if (i > 0 && glyph.selectorTag != previousSpan) {
@@ -424,6 +424,8 @@ SelectorResult TextAnimatorEngine::evaluateExpressionSelector(
     evaluator.setVariable("textTotal", ExpressionValue(static_cast<double>(total)));
     evaluator.setVariable("text", ExpressionValue(context.sourceText.toStdString()));
     evaluator.setVariable("seed", ExpressionValue(static_cast<double>(selector.seed)));
+    evaluator.setVariable("time",
+                          ExpressionValue(static_cast<double>(context.timeSeconds)));
     for (qsizetype index = 0; index < static_cast<qsizetype>(context.glyphs.size()); ++index) {
         evaluator.setVariable("textIndex", ExpressionValue(static_cast<double>(index + 1)));
         const double baseValue = index < baseWeights.size()
@@ -702,21 +704,38 @@ void TextAnimatorEngine::applyAnimator(
         const QPointF glyphCenter = glyphs[i].bounds.center();
         const QPointF relative =
             glyphCenter - anchorPoints[static_cast<size_t>(i)];
-        const float weightedScale =
-            1.0f + (props.scale - 1.0f) * totalWeight;
+        // scaleX/scaleY are opt-in: while neither is authored they collapse to
+        // `scale`, so a uniform scale keeps its exact previous behavior.
+        const bool perAxisScaleAuthored =
+            props.scaleX >= 0.0f || props.scaleY >= 0.0f;
+        const float axisScaleX = perAxisScaleAuthored && props.scaleX >= 0.0f
+                                     ? props.scaleX
+                                     : props.scale;
+        const float axisScaleY = perAxisScaleAuthored && props.scaleY >= 0.0f
+                                     ? props.scaleY
+                                     : props.scale;
+        const float weightedScaleX =
+            1.0f + (axisScaleX - 1.0f) * totalWeight;
+        const float weightedScaleY =
+            1.0f + (axisScaleY - 1.0f) * totalWeight;
+        // The scalar stays as the geometric mean so any renderer still reading
+        // offsetScale sees a representative size rather than one axis only.
+        const float weightedScale = std::sqrt(weightedScaleX * weightedScaleY);
         const float radians = props.rotation * totalWeight *
                               std::numbers::pi_v<float> / 180.0f;
         const float cosine = std::cos(radians);
         const float sine = std::sin(radians);
-        const QPointF scaled(relative.x() * weightedScale,
-                             relative.y() * weightedScale);
+        const QPointF scaled(relative.x() * weightedScaleX,
+                             relative.y() * weightedScaleY);
         const QPointF transformed(scaled.x() * cosine - scaled.y() * sine,
                                   scaled.x() * sine + scaled.y() * cosine);
         glyphs[i].offsetPosition += transformed - relative;
 
         // トランスフォーム
         glyphs[i].offsetPosition += props.position * totalWeight;
-        glyphs[i].offsetScale *= (1.0f + (props.scale - 1.0f) * totalWeight);
+        glyphs[i].offsetScale *= weightedScale;
+        glyphs[i].offsetScaleX *= weightedScaleX;
+        glyphs[i].offsetScaleY *= weightedScaleY;
         glyphs[i].offsetRotation += props.rotation * totalWeight;
         glyphs[i].offsetOpacity *= (1.0f - (1.0f - props.opacity) * totalWeight);
         
@@ -785,7 +804,7 @@ void TextAnimatorEngine::applyAnimatorStack(
         const SelectorEvaluationContext context{
             sourceText,
             std::span<const GlyphItem>(glyphs.data(), glyphs.size()),
-            TextSelectorOrder::Logical};
+            TextSelectorOrder::Logical, 0, 0, time};
         const SelectorResult selectorResult = evaluateSelector(context, selector);
         std::vector<float> combinedWeights(glyphs.size(), 1.0f);
         for (size_t i = 0; i < combinedWeights.size(); ++i) {
@@ -818,10 +837,31 @@ std::vector<float> TextAnimatorEngine::evaluateAnimatorWeights(
     const AnimatorSelectorSet &set,
     std::span<const float> extraWeights)
 {
+    std::vector<float> weights;
+    evaluateAnimatorWeights(context, set, extraWeights, weights, nullptr);
+    return weights;
+}
+
+void TextAnimatorEngine::evaluateAnimatorWeights(
+    const SelectorEvaluationContext &context,
+    const AnimatorSelectorSet &set,
+    std::span<const float> extraWeights,
+    std::vector<float> &outWeights,
+    QStringList *outDiagnostics)
+{
     const SelectorResult rangeResult = evaluateSelector(context, set.range);
+    if (outDiagnostics && !rangeResult.diagnostic.isEmpty() &&
+        !rangeResult.diagnostic.startsWith(QStringLiteral("regex on "))) {
+        outDiagnostics->push_back(rangeResult.diagnostic);
+    }
     const SelectorResult expressionResult =
         evaluateExpressionSelector(context, set.expression,
                                    rangeResult.weights);
+    if (outDiagnostics && !expressionResult.diagnostic.isEmpty() &&
+        !expressionResult.diagnostic.startsWith(
+            QStringLiteral("expression selector is disabled or empty"))) {
+        outDiagnostics->push_back(expressionResult.diagnostic);
+    }
 
     const size_t glyphCount = context.glyphs.size();
     std::vector<float> combined(glyphCount, 0.0f);
@@ -860,7 +900,7 @@ std::vector<float> TextAnimatorEngine::evaluateAnimatorWeights(
         combined[i] =
             std::clamp(weight * extraWeight, 0.0f, 1.0f);
     }
-    return combined;
+    outWeights = std::move(combined);
 }
 
 void TextAnimatorEngine::applyAnimatorSets(
@@ -870,6 +910,19 @@ void TextAnimatorEngine::applyAnimatorSets(
     const QString& sourceText,
     std::span<const float> extraWeights)
 {
+    QStringList ignored;
+    applyAnimatorSets(glyphs, sets, time, sourceText, extraWeights, ignored);
+}
+
+void TextAnimatorEngine::applyAnimatorSets(
+    std::vector<GlyphItem>& glyphs,
+    std::span<const AnimatorSelectorSet> sets,
+    float time,
+    const QString& sourceText,
+    std::span<const float> extraWeights,
+    QStringList& diagnostics)
+{
+    diagnostics.clear();
     if (sets.empty() || glyphs.empty()) {
         return;
     }
@@ -880,9 +933,11 @@ void TextAnimatorEngine::applyAnimatorSets(
             std::span<const GlyphItem>(glyphs.data(), glyphs.size()),
             TextSelectorOrder::Logical,
             0,
-            static_cast<int>(glyphs.size())};
-        const std::vector<float> combinedWeights =
-            evaluateAnimatorWeights(context, set, extraWeights);
+            static_cast<int>(glyphs.size()),
+            time};
+        std::vector<float> combinedWeights;
+        evaluateAnimatorWeights(context, set, extraWeights, combinedWeights,
+                                &diagnostics);
 
         // The selector weights already encode the range/shape/order; apply the
         // properties over a full-range square selector.

@@ -331,6 +331,46 @@ public:
                 }
             }
         }
+        captureRestState();
+    }
+
+    /**
+     * @brief 構築直後の状態を「初期形状」として保持する
+     *
+     * 巻き戻しやシークで simulation clock を切り離したとき、キャッシュミス
+     * では何も復元できず、直前の解が新しい clock に参加してしまう。この
+     * 保持があれば、キャッシュに依らず常に構築形状へ戻せる。
+     */
+    void captureRestState() {
+        restPoints_ = points_;
+        restConstraints_ = constraints_;
+        restVolumeTriangles_ = volumeTriangles_;
+        restGridColumns_ = gridColumns_;
+        restGridRows_ = gridRows_;
+        hasRestState_ = true;
+    }
+
+    bool hasRestState() const { return hasRestState_; }
+
+    /**
+     * @brief 構築形状へ戻す。保持が無い場合は何もしない
+     * @return 実際に初期形状へ戻したか
+     */
+    bool resetToRestState() {
+        if (!hasRestState_) return false;
+        points_ = restPoints_;
+        constraints_ = restConstraints_;
+        volumeTriangles_ = restVolumeTriangles_;
+        gridColumns_ = restGridColumns_;
+        gridRows_ = restGridRows_;
+        accumulatedTime_ = 0.0f;
+        turbulenceTime_ = 0.0f;
+        // Rewinding clears the accumulated tearing stress so a later forward
+        // pass is not judged against strain built up before the seek.
+        for (auto& constraint : constraints_) {
+            constraint.accumulatedStress = 0.0f;
+        }
+        return true;
     }
 
     /**
@@ -359,6 +399,7 @@ public:
         for (int i = 0; i + 1 < safeSegments; ++i) {
             addConstraint(baseIndex + i, baseIndex + i + 1, stiffness);
         }
+        captureRestState();
     }
 
     int addCollider(const SoftBodyCollider& collider) {
@@ -663,6 +704,14 @@ public:
         gridLodBackupColumns_ = 0;
         gridLodBackupRows_ = 0;
         hasGridLodBackup_ = false;
+        // The rest state describes the geometry clear() is about to discard,
+        // so it must not survive as a stale reset target.
+        restPoints_.clear();
+        restConstraints_.clear();
+        restVolumeTriangles_.clear();
+        restGridColumns_ = 0;
+        restGridRows_ = 0;
+        hasRestState_ = false;
         accumulatedTime_ = 0.0f;
     }
 
@@ -973,6 +1022,14 @@ private:
     int gridLodBackupColumns_ = 0;
     int gridLodBackupRows_ = 0;
     bool hasGridLodBackup_ = false;
+    // Rest state captured right after a build, used as the rewind target when
+    // no cached snapshot exists for the seek destination.
+    std::vector<SoftBodyPoint> restPoints_;
+    std::vector<SoftBodyConstraint> restConstraints_;
+    std::vector<SoftBodyVolumeTriangle> restVolumeTriangles_;
+    int restGridColumns_ = 0;
+    int restGridRows_ = 0;
+    bool hasRestState_ = false;
     std::unordered_map<std::uint64_t, std::vector<int>> selfCollisionGrid_;
     std::vector<int> selfCollisionCandidates_;
 };

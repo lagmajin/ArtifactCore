@@ -1,6 +1,7 @@
 module;
 #include <QPointF>
 #include <QString>
+#include <QStringList>
 #include <QVector>
 #include <algorithm>
 #include <cmath>
@@ -83,6 +84,10 @@ export struct SelectorEvaluationContext {
   // RangeSelector callers may leave these at zero without changing behavior.
   int textIndex = 0;
   int textTotal = 0;
+  // Evaluation time in seconds. Injected into expression selectors as the
+  // `time` variable so time-dependent builtins (wiggle/loopIn/loopOut and the
+  // sine/cosine helpers) can be used per glyph.
+  float timeSeconds = 0.0f;
 };
 
 export struct SelectorResult {
@@ -123,6 +128,12 @@ export struct ExpressionSelector {
 export struct AnimatorProperties {
   QPointF position = {0, 0};
   float scale = 1.0f;
+  // Optional per-axis scale.  Left at a negative value they mean 「not authored」
+  // and scaleX/scaleY then follow `scale`, so every existing animation keeps its
+  // uniform behavior.  Once either is authored (>= 0) the pair drives the glyph
+  // scale and `scale` no longer does.
+  float scaleX = -1.0f;
+  float scaleY = -1.0f;
   float rotation = 0.0f;
   float opacity = 1.0f;
   float skew = 0.0f;
@@ -222,6 +233,16 @@ public:
       const AnimatorSelectorSet &set,
       std::span<const float> extraWeights = {});
 
+  // Same evaluation, writing into `outWeights` and appending any selector
+  // problem (invalid regex, malformed expression, empty glyph domain) to
+  // `outDiagnostics`.
+  static void evaluateAnimatorWeights(
+      const SelectorEvaluationContext &context,
+      const AnimatorSelectorSet &set,
+      std::span<const float> extraWeights,
+      std::vector<float> &outWeights,
+      QStringList *outDiagnostics);
+
   // Named-struct replacement for the tuple-based applyAnimatorStack.
   static void applyAnimatorSets(
       std::vector<GlyphItem> &glyphs,
@@ -229,6 +250,18 @@ public:
       float time,
       const QString &sourceText,
       std::span<const float> extraWeights = {});
+
+  // Same evaluation, but reports why a selector produced no weight (invalid
+  // regex, malformed expression, empty glyph domain) so a caller can surface it
+  // instead of rendering a silently unanimated layer.  `diagnostics` receives one
+  // entry per set that reported a problem; the order matches `sets`.
+  static void applyAnimatorSets(
+      std::vector<GlyphItem> &glyphs,
+      std::span<const AnimatorSelectorSet> sets,
+      float time,
+      const QString &sourceText,
+      std::span<const float> extraWeights,
+      QStringList &diagnostics);
 };
 
 } // namespace ArtifactCore

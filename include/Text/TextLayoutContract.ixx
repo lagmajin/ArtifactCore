@@ -35,6 +35,11 @@ export struct GlyphItem {
   std::vector<uint32_t> shapedGlyphIndices;
   int clusterIndex = -1;
   int lineIndex = -1;
+  // Paragraph (hard line break) ordinal.  Unlike lineIndex, which advances on
+  // soft wraps as well, this only advances on an explicit newline, so it is the
+  // correct basis for AnchorPointGrouping::Paragraph.  -1 when the shaping
+  // backend cannot supply it (for example path layout).
+  int paragraphIndex = -1;
   // True when this glyph belongs to an emoji grapheme/ZWJ sequence.  Render
   // backends must not assume that the code point is an independent drawable
   // unit in this case.
@@ -48,6 +53,11 @@ export struct GlyphItem {
   QPointF offsetPosition;
   float offsetRotation = 0.0f;
   float offsetScale = 1.0f;
+  // Per-axis companion to offsetScale.  Both stay equal to offsetScale for a
+  // uniform scale, so a renderer may keep using the scalar unless it opts into
+  // reading these.
+  float offsetScaleX = 1.0f;
+  float offsetScaleY = 1.0f;
   float offsetOpacity = 1.0f;
   float offsetSkew = 0.0f;
   float offsetTracking = 0.0f;

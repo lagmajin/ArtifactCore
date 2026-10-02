@@ -1029,6 +1029,12 @@ std::vector<GlyphItem> layoutWithQtTextLayout(const QString& text,
 
   size_t codepointIndex = 0;
   float y = verticalOffset;
+  // Paragraph (hard line break) ordinal.  QTextLayout has no paragraph
+  // concept of its own, so it is tracked here from the source text while the
+  // codepoint cursor advances.  Soft wraps never produce a newline codepoint,
+  // so they keep the same ordinal, which is what AnchorPointGrouping::Paragraph
+  // needs (GlyphItem::paragraphIndex).
+  int paragraphIndex = 0;
   for (size_t lineIndex = 0; lineIndex < lines.size(); ++lineIndex) {
     const auto& line = lines[lineIndex];
     const int lineStart = line.startUtf16;
@@ -1036,6 +1042,9 @@ std::vector<GlyphItem> layoutWithQtTextLayout(const QString& text,
 
     while (codepointIndex < u32text.size() &&
            utf16Offsets[codepointIndex] < lineStart) {
+      if (isLineBreak(u32text[codepointIndex])) {
+        ++paragraphIndex;
+      }
       ++codepointIndex;
     }
 
@@ -1105,6 +1114,7 @@ std::vector<GlyphItem> layoutWithQtTextLayout(const QString& text,
       }
       item.clusterIndex = static_cast<int>(codepointIndex);
       item.lineIndex = static_cast<int>(lineIndex);
+      item.paragraphIndex = paragraphIndex;
       item.basePosition = QPointF(xOffset + localX + extraAdvance, y + line.ascent);
       item.baseRotation = 0.0f;
       item.baseScale = 1.0f;
@@ -1154,11 +1164,15 @@ std::vector<GlyphItem> layoutVerticalWithQtTextLayout(const QString& text,
   float y = 0.0f;
   float columnTop = 0.0f;
   int columnIndex = 0;
+  // Vertical writing advances the column on both a hard line break and a
+  // column overflow, so the paragraph ordinal is tracked separately.
+  int paragraphIndex = 0;
   for (size_t i = 0; i < u32text.size(); ++i) {
     const char32_t code = u32text[i];
     const BreakPolicy breakPolicy = breakPolicyForCodepoint(code, locale);
     if (isLineBreak(code)) {
       ++columnIndex;
+      ++paragraphIndex;
       x = -static_cast<float>(columnIndex) * columnAdvance;
       y = 0.0f;
       columnTop = 0.0f;
@@ -1215,6 +1229,7 @@ std::vector<GlyphItem> layoutVerticalWithQtTextLayout(const QString& text,
         item.clusterId = QStringLiteral("cluster_%1").arg(item.index);
         item.clusterIndex = item.index;
         item.lineIndex = columnIndex;
+        item.paragraphIndex = paragraphIndex;
         item.basePosition = QPointF(inlineStartX + inlineAdvance * static_cast<float>(runIndex) + inlineAdvance * 0.5f,
                                     y + glyphHeight * 0.5f);
         item.baseRotation = 0.0f;
@@ -1240,6 +1255,7 @@ std::vector<GlyphItem> layoutVerticalWithQtTextLayout(const QString& text,
     item.stableTokenId = stableTokenIdForCodepoint(code, item.index);
     item.clusterIndex = item.index;
     item.lineIndex = columnIndex;
+    item.paragraphIndex = paragraphIndex;
     item.basePosition = QPointF(x, y + glyphHeight * 0.5f);
     item.baseRotation = rotation;
     item.baseScale = 1.0f;
@@ -1319,6 +1335,8 @@ void appendRubyOverlays(std::vector<GlyphItem>& glyphs,
       rubyItem.offsetPosition = QPointF(0.0f, 0.0f);
       rubyItem.offsetRotation = 0.0f;
       rubyItem.offsetScale = attachment.rubyScale;
+      rubyItem.offsetScaleX = attachment.rubyScale;
+      rubyItem.offsetScaleY = attachment.rubyScale;
       rubyItem.offsetOpacity = 1.0f;
       rubyItem.bounds = QRectF(startX + static_cast<float>(charIndex) * sampleWidth,
                                startY - rubyLineHeight * 0.5f,
@@ -1347,6 +1365,17 @@ TextShapingResult makeIdentityResult(std::vector<GlyphItem> glyphs,
       }
     }
   }
+  const std::u32string u32 = toU32String(request.text);
+  const std::vector<int> clusterUtf16Offsets = buildUtf16Offsets(u32);
+  // Paragraph (hard line break) ordinal per logical codepoint. QTextLayout has
+  // no paragraph concept, so it is derived from the source text; soft wraps
+  // never introduce a newline codepoint, so they keep the same ordinal, which
+  // is what AnchorPointGrouping::Paragraph needs.
+  std::vector<int> paragraphByLogical(u32.size() + 1, 0);
+  for (size_t logical = 0; logical < u32.size(); ++logical) {
+    paragraphByLogical[logical + 1] =
+        paragraphByLogical[logical] + (isLineBreak(u32[logical]) ? 1 : 0);
+  }
   for (auto& glyph : glyphs) {
     if (glyph.index >= 0 &&
         glyph.index < static_cast<int>(logicalToCluster.size())) {
@@ -1360,7 +1389,10 @@ TextShapingResult makeIdentityResult(std::vector<GlyphItem> glyphs,
       glyph.clusterId = cluster.clusterId;
       glyph.selectorTag = cluster.selectorTag;
       glyph.stableTokenId = cluster.stableTokenId;
-      const auto clusterUtf16Offsets = buildUtf16Offsets(toU32String(request.text));
+      const int paragraphAt =
+          std::clamp(cluster.logicalStart, 0,
+                     static_cast<int>(paragraphByLogical.size()) - 1);
+      glyph.paragraphIndex = paragraphByLogical[static_cast<size_t>(paragraphAt)];
       if (cluster.logicalStart >= 0 &&
           cluster.logicalStart < static_cast<int>(clusterUtf16Offsets.size())) {
         const int start = clusterUtf16Offsets[static_cast<size_t>(cluster.logicalStart)];

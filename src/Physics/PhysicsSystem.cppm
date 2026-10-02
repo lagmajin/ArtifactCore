@@ -905,6 +905,24 @@ public:
         return true;
     }
 
+    // Step only the registered 2D soft bodies.  Layer-owned grids are
+    // simulation-clock driven just like the shared rigid world, so playback
+    // needs a narrow entry point that advances them without also waking up
+    // the solver families that have never run on this path.
+    void advanceSoftBodyFrame(float dt) {
+        if (dt <= 0.0f || lodSettings_.level == PhysicsLODLevel::Frozen) return;
+        updateSoftBodies(dt);
+    }
+
+    // Send every soft body back to the shape it was built with.  A seek to a
+    // frame with no cached snapshot must not leave the previous solution in
+    // the new clock, so this is the fallback for a rewind.
+    void resetSoftBodiesToRestState() {
+        for (auto& [id, sb] : softBodies_) {
+            if (sb) sb->resetToRestState();
+        }
+    }
+
     /**
      * @brief 全ての物理シミュレーションを更新する
      * @param dt 経過時間（秒）
@@ -945,38 +963,7 @@ public:
             }
         }
         
-        for (auto& [id, sb] : softBodies_) {
-            if (!sb) continue;
-            // ソフトボディは Verlet 積分と拘束解決で更新
-            auto colliderIt = softBodyColliders_.find(id);
-            if (colliderIt != softBodyColliders_.end()) {
-                sb->clearColliders();
-                for (const auto& collider : colliderIt->second) {
-                    sb->addCollider(collider);
-                }
-            }
-            if (lodSettings_.softBodyMaxSubSteps > 0) {
-                sb->setMaxSubsteps(lodSettings_.softBodyMaxSubSteps);
-            }
-            if (lodSettings_.softBodyConstraintIterations > 0) {
-                sb->setConstraintIterations(lodSettings_.softBodyConstraintIterations);
-            }
-            if (lodSettings_.softBodyCollisionIterations > 0) {
-                sb->setCollisionIterations(lodSettings_.softBodyCollisionIterations);
-            }
-            if (lodSettings_.softBodyGridScale < 0.999f) {
-                sb->reduceGridResolution(lodSettings_.softBodyGridScale);
-            } else {
-                sb->restoreGridResolution();
-            }
-            if (lodSettings_.disableSoftBodySelfCollision) {
-                sb->setSelfCollisionEnabled(false);
-            }
-            // Each soft body owns its authored gravity and air drag.  The
-            // global arguments remain for legacy callers and other solver
-            // families, but must not overwrite per-layer soft-body settings.
-            sb->update(simulationDt);
-        }
+        updateSoftBodies(simulationDt);
 
         for (auto& [id, cloth] : cloth3DBodies_) {
             if (!cloth) continue;
@@ -1069,6 +1056,43 @@ public:
     }
 
 private:
+    // Shared by update() and advanceSoftBodyFrame() so both paths apply the
+    // same LOD overrides, collider injection and authored gravity contract.
+    void updateSoftBodies(float simulationDt) {
+        for (auto& [id, sb] : softBodies_) {
+            if (!sb) continue;
+            // ソフトボディは Verlet 積分と拘束解決で更新
+            auto colliderIt = softBodyColliders_.find(id);
+            if (colliderIt != softBodyColliders_.end()) {
+                sb->clearColliders();
+                for (const auto& collider : colliderIt->second) {
+                    sb->addCollider(collider);
+                }
+            }
+            if (lodSettings_.softBodyMaxSubSteps > 0) {
+                sb->setMaxSubsteps(lodSettings_.softBodyMaxSubSteps);
+            }
+            if (lodSettings_.softBodyConstraintIterations > 0) {
+                sb->setConstraintIterations(lodSettings_.softBodyConstraintIterations);
+            }
+            if (lodSettings_.softBodyCollisionIterations > 0) {
+                sb->setCollisionIterations(lodSettings_.softBodyCollisionIterations);
+            }
+            if (lodSettings_.softBodyGridScale < 0.999f) {
+                sb->reduceGridResolution(lodSettings_.softBodyGridScale);
+            } else {
+                sb->restoreGridResolution();
+            }
+            if (lodSettings_.disableSoftBodySelfCollision) {
+                sb->setSelfCollisionEnabled(false);
+            }
+            // Each soft body owns its authored gravity and air drag.  The
+            // global arguments remain for legacy callers and other solver
+            // families, but must not overwrite per-layer soft-body settings.
+            sb->update(simulationDt);
+        }
+    }
+
     void trimPhysicsSnapshots() {
         const auto trim = [limit = timelineSettings_.maxCachedFrames](auto& cache) {
             for (auto& entry : cache) {
