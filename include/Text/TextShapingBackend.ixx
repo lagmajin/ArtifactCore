@@ -22,6 +22,9 @@ export struct TextShapingRequest {
 
 export struct TextShapingResult {
   std::vector<GlyphItem> glyphs;
+  // Glyph-ordinal permutations: logicalToVisual maps logical glyph ordinal to
+  // glyph-array ordinal; visualToLogical is its inverse. They are not indexed
+  // by source code point because shaping can merge or expand clusters.
   QVector<int> logicalToVisual;
   QVector<int> visualToLogical;
   TextLayoutContract contract;

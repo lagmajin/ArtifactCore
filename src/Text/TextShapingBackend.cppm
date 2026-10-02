@@ -1378,46 +1378,25 @@ TextShapingResult makeIdentityResult(std::vector<GlyphItem> glyphs,
   }
   result.glyphs = std::move(glyphs);
 
-  // Real UAX #9 mapping.  bidiRuns were filled in by buildContract(); the
-  // per-item maps are translated from code point order into glyph order using
-  // each glyph's logical index, so a consumer walking glyphs still sees a
-  // visual-to-logical correspondence.  When ICU could not run, fall back to the
-  // identity permutation rather than leaving the vectors empty.
-  const BidiParagraph bidi = computeBidiParagraph(
-      toU32String(request.text), result.contract.baseDirection);
-  if (bidi.valid && !bidi.logicalToVisual.isEmpty()) {
-    const int codepointCount = bidi.logicalToVisual.size();
-    result.logicalToVisual.reserve(glyphCount);
-    result.visualToLogical.reserve(glyphCount);
-    std::vector<int> codepointToGlyph(static_cast<size_t>(codepointCount), -1);
-    for (int glyphIndex = 0; glyphIndex < glyphCount; ++glyphIndex) {
-      const int logical = result.glyphs[static_cast<size_t>(glyphIndex)].index;
-      if (logical >= 0 && logical < codepointCount &&
-          codepointToGlyph[static_cast<size_t>(logical)] < 0) {
-        codepointToGlyph[static_cast<size_t>(logical)] = glyphIndex;
-      }
-    }
-    for (int glyphIndex = 0; glyphIndex < glyphCount; ++glyphIndex) {
-      const int logical = result.glyphs[static_cast<size_t>(glyphIndex)].index;
-      int visual = glyphIndex;
-      if (logical >= 0 && logical < codepointCount) {
-        const int codepointVisual = bidi.logicalToVisual[logical];
-        if (codepointVisual >= 0 &&
-            codepointVisual < codepointCount) {
-          const int mapped = codepointToGlyph[static_cast<size_t>(codepointVisual)];
-          if (mapped >= 0) visual = mapped;
-        }
-      }
-      result.logicalToVisual.push_back(visual);
-      result.visualToLogical.push_back(visual);
-    }
-  } else {
-    result.logicalToVisual.reserve(glyphCount);
-    result.visualToLogical.reserve(glyphCount);
-    for (int i = 0; i < glyphCount; ++i) {
-      result.logicalToVisual.push_back(i);
-      result.visualToLogical.push_back(i);
-    }
+  // Build the inverse permutation from logical glyph order (source cluster
+  // index, stable within a cluster) to backend output order. These arrays index
+  // glyphs, not source code points: ligatures and expanded grapheme clusters
+  // make those cardinalities differ.
+  std::vector<int> logicalGlyphOrder(static_cast<size_t>(glyphCount));
+  for (int i = 0; i < glyphCount; ++i) {
+    logicalGlyphOrder[static_cast<size_t>(i)] = i;
+  }
+  std::stable_sort(logicalGlyphOrder.begin(), logicalGlyphOrder.end(),
+                   [&result](int left, int right) {
+                     return result.glyphs[static_cast<size_t>(left)].index <
+                            result.glyphs[static_cast<size_t>(right)].index;
+                   });
+  result.logicalToVisual.resize(glyphCount);
+  result.visualToLogical.resize(glyphCount);
+  for (int logical = 0; logical < glyphCount; ++logical) {
+    const int visual = logicalGlyphOrder[static_cast<size_t>(logical)];
+    result.logicalToVisual[logical] = visual;
+    result.visualToLogical[visual] = logical;
   }
   return result;
 }
