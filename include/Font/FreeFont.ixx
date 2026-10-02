@@ -1,6 +1,9 @@
 module;
 #include <utility>
 
+#include <array>
+#include <atomic>
+#include <cstdint>
 #include <vector>
 #include <algorithm>
 #include <cmath>
@@ -15,6 +18,9 @@ module;
 #include <QRawFont>
 #include <QDebug>
 #include <QDateTime>
+
+#include <unicode/uchar.h>
+#include <unicode/uscript.h>
 
 #include <optional>
 #include <unordered_map>
@@ -165,6 +171,122 @@ public:
   return {};
  }
 
+ static QString scriptTagForCodePoint(UChar32 codePoint)
+ {
+  UErrorCode status = U_ZERO_ERROR;
+  const UScriptCode script = uscript_getScript(codePoint, &status);
+  if (U_FAILURE(status)) return {};
+  const char* shortName = uscript_getShortName(script);
+  if (!shortName) return {};
+  return QString::fromLatin1(shortName);
+ }
+
+ static QStringList scriptFallbackCandidates(UChar32 codePoint)
+ {
+  const QString scriptTag = scriptTagForCodePoint(codePoint);
+  if (scriptTag.isEmpty()) return {};
+  if (scriptTag == QLatin1String("Arab")) {
+   return {QStringLiteral("Noto Sans Arabic"), QStringLiteral("Noto Naskh Arabic"),
+           QStringLiteral("Arabic Typesetting"), QStringLiteral("Traditional Arabic"),
+           QStringLiteral("Segoe UI")};
+  }
+  if (scriptTag == QLatin1String("Hebr")) {
+   return {QStringLiteral("Noto Sans Hebrew"), QStringLiteral("Arial"),
+           QStringLiteral("Segoe UI")};
+  }
+  if (scriptTag == QLatin1String("Thai")) {
+   return {QStringLiteral("Noto Sans Thai"), QStringLiteral("Leelawadee UI"),
+           QStringLiteral("Tahoma")};
+  }
+  if (scriptTag == QLatin1String("Deva")) {
+   return {QStringLiteral("Noto Sans Devanagari"), QStringLiteral("Nirmala UI"),
+           QStringLiteral("Mangal")};
+  }
+  if (scriptTag == QLatin1String("Beng")) {
+   return {QStringLiteral("Noto Sans Bengali"), QStringLiteral("Nirmala UI"),
+           QStringLiteral("Vrinda")};
+  }
+  if (scriptTag == QLatin1String("Guru")) {
+   return {QStringLiteral("Noto Sans Gurmukhi"), QStringLiteral("Nirmala UI"),
+           QStringLiteral("Raavi")};
+  }
+  if (scriptTag == QLatin1String("Gujr")) {
+   return {QStringLiteral("Noto Sans Gujarati"), QStringLiteral("Nirmala UI"),
+           QStringLiteral("Shruti")};
+  }
+  if (scriptTag == QLatin1String("Taml")) {
+   return {QStringLiteral("Noto Sans Tamil"), QStringLiteral("Nirmala UI"),
+           QStringLiteral("Latha")};
+  }
+  if (scriptTag == QLatin1String("Telu")) {
+   return {QStringLiteral("Noto Sans Telugu"), QStringLiteral("Nirmala UI"),
+           QStringLiteral("Gautami")};
+  }
+  if (scriptTag == QLatin1String("Knda")) {
+   return {QStringLiteral("Noto Sans Kannada"), QStringLiteral("Nirmala UI"),
+           QStringLiteral("Tunga")};
+  }
+  if (scriptTag == QLatin1String("Mlym")) {
+   return {QStringLiteral("Noto Sans Malayalam"), QStringLiteral("Nirmala UI"),
+           QStringLiteral("Kartika")};
+  }
+  if (scriptTag == QLatin1String("Sinh")) {
+   return {QStringLiteral("Noto Sans Sinhala"), QStringLiteral("Nirmala UI"),
+           QStringLiteral("Iskoola Pota")};
+  }
+  if (scriptTag == QLatin1String("Khmr")) {
+   return {QStringLiteral("Noto Sans Khmer")};
+  }
+  if (scriptTag == QLatin1String("Mymr")) {
+   return {QStringLiteral("Noto Sans Myanmar"), QStringLiteral("Myanmar Text")};
+  }
+  if (scriptTag == QLatin1String("Laoo")) {
+   return {QStringLiteral("Noto Sans Lao"), QStringLiteral("Lao UI")};
+  }
+  if (scriptTag == QLatin1String("Armn")) {
+   return {QStringLiteral("Noto Sans Armenian"), QStringLiteral("Sylfaen")};
+  }
+  if (scriptTag == QLatin1String("Geor")) {
+   return {QStringLiteral("Noto Sans Georgian"), QStringLiteral("Sylfaen")};
+  }
+  if (scriptTag == QLatin1String("Ethi")) {
+   return {QStringLiteral("Noto Sans Ethiopic"), QStringLiteral("Nyala")};
+  }
+  return {};
+ }
+
+ static int scriptCodeForCodePoint(UChar32 codePoint)
+ {
+  UErrorCode status = U_ZERO_ERROR;
+  const int script = static_cast<int>(uscript_getScript(codePoint, &status));
+  return U_FAILURE(status) ? -1 : script;
+ }
+
+ static bool shouldRecordScriptFallback(UChar32 codePoint)
+ {
+  constexpr int kScriptCacheSize = 256;
+  const int script = scriptCodeForCodePoint(codePoint);
+  if (script < 0 || script >= kScriptCacheSize) return true;
+  static std::array<std::atomic_bool, kScriptCacheSize> recorded{};
+  return !recorded[static_cast<size_t>(script)].exchange(
+      true, std::memory_order_relaxed);
+ }
+
+ static bool rawFontSupportsText(const QRawFont& rawFont, const QString& text)
+ {
+  if (!rawFont.isValid()) return false;
+  for (const char32_t code : text.toUcs4()) {
+   if (u_isUWhiteSpace(static_cast<UChar32>(code)) ||
+       u_hasBinaryProperty(static_cast<UChar32>(code), UCHAR_DEFAULT_IGNORABLE_CODE_POINT)) {
+    continue;
+   }
+   const QString character = QString::fromUcs4(&code, 1);
+   const auto glyphIndexes = rawFont.glyphIndexesForString(character);
+   if (glyphIndexes.isEmpty() || glyphIndexes.front() == 0) return false;
+  }
+  return true;
+ }
+
  static QString resolvedFamily(const QString& preferredFamily)
  {
   const QString preferred = preferredFamily.trimmed();
@@ -215,19 +337,62 @@ public:
 
  static QString resolvedFamilyForText(const QString& preferredFamily, const QString& sampleText)
  {
+  struct CacheEntry {
+   QString preferredFamily;
+   QString sampleText;
+   QString resolvedFamily;
+   std::uint64_t fontRevision = 0;
+  };
+  constexpr size_t kCacheSize = 8;
+  thread_local std::array<CacheEntry, kCacheSize> cache{};
+  thread_local size_t nextCacheSlot = 0;
+  const std::uint64_t fontRevision = fontDatabaseRevision();
+  for (const auto& entry : cache) {
+   if (entry.fontRevision == fontRevision &&
+       entry.preferredFamily == preferredFamily && entry.sampleText == sampleText) {
+    return entry.resolvedFamily;
+   }
+  }
+  QString resolved = resolveFamilyForTextUncached(preferredFamily, sampleText);
+  auto& entry = cache[nextCacheSlot];
+  entry.preferredFamily = preferredFamily;
+  entry.sampleText = sampleText;
+  entry.resolvedFamily = resolved;
+  entry.fontRevision = fontRevision;
+  nextCacheSlot = (nextCacheSlot + 1) % kCacheSize;
+  return resolved;
+ }
+
+ static QString resolveFamilyForTextUncached(const QString& preferredFamily,
+                                              const QString& sampleText)
+ {
   const QString preferred = preferredFamily.trimmed();
-   if (!preferred.isEmpty() && isFamilyAvailable(preferred)) {
+  UChar32 firstMissingCodePoint = U_SENTINEL;
+  UChar32 firstMissingAnyCodePoint = U_SENTINEL;
+  const bool preferredAvailable = !preferred.isEmpty() && isFamilyAvailable(preferred);
+   if (preferredAvailable) {
    QFont preferredFont(preferred);
    const QRawFont rawFont = QRawFont::fromFont(preferredFont, QFontDatabase::Any);
    bool needsFallback = false;
    for (const char32_t code : sampleText.toUcs4()) {
+    if (u_isUWhiteSpace(static_cast<UChar32>(code)) ||
+        u_hasBinaryProperty(static_cast<UChar32>(code), UCHAR_DEFAULT_IGNORABLE_CODE_POINT)) {
+     continue;
+    }
     const QString character = QString::fromUcs4(&code, 1);
     const auto glyphIndexes = rawFont.glyphIndexesForString(character);
     const bool missingInPreferred = glyphIndexes.isEmpty() || glyphIndexes.front() == 0;
-    if ((containsCjkCharacters(character) || containsEmojiCharacters(character)) &&
-        (!rawFont.isValid() || missingInPreferred)) {
+    if (!rawFont.isValid() || missingInPreferred) {
      needsFallback = true;
-     break;
+     const UChar32 codePoint = static_cast<UChar32>(code);
+     if (firstMissingAnyCodePoint == U_SENTINEL) {
+      firstMissingAnyCodePoint = codePoint;
+     }
+     if (firstMissingCodePoint == U_SENTINEL &&
+         !scriptFallbackCandidates(codePoint).isEmpty()) {
+      firstMissingCodePoint = codePoint;
+      break;
+     }
     }
    }
    if (!needsFallback) {
@@ -235,14 +400,36 @@ public:
    }
   }
 
-  if (containsEmojiCharacters(sampleText)) {
+  if (!preferredAvailable) {
+   for (const char32_t code : sampleText.toUcs4()) {
+    const UChar32 codePoint = static_cast<UChar32>(code);
+    if (u_isUWhiteSpace(codePoint) ||
+        u_hasBinaryProperty(codePoint, UCHAR_DEFAULT_IGNORABLE_CODE_POINT)) {
+     continue;
+    }
+    if (!scriptFallbackCandidates(codePoint).isEmpty()) {
+     firstMissingCodePoint = codePoint;
+     break;
+    }
+   }
+  }
+
+  const bool firstMissingIsEmoji = firstMissingAnyCodePoint != U_SENTINEL &&
+      containsEmojiCharacters(QString::fromUcs4(&firstMissingAnyCodePoint, 1));
+  const bool firstMissingIsCjk = firstMissingAnyCodePoint != U_SENTINEL &&
+      containsCjkCharacters(QString::fromUcs4(&firstMissingAnyCodePoint, 1));
+  if (firstMissingIsEmoji ||
+      (!preferredAvailable && containsEmojiCharacters(sampleText) &&
+       firstMissingCodePoint == U_SENTINEL)) {
    const QString emojiFallback = firstAvailableFamily(emojiFallbackCandidates());
    if (!emojiFallback.isEmpty()) {
     return emojiFallback;
    }
   }
 
-  if (containsCjkCharacters(sampleText)) {
+  if (firstMissingIsCjk ||
+      (!preferredAvailable && containsCjkCharacters(sampleText) &&
+       firstMissingCodePoint == U_SENTINEL)) {
    const QString japaneseFallback = firstAvailableFamily(japaneseFallbackCandidates());
    if (!japaneseFallback.isEmpty()) {
     auto* tracker = FallbackTracker::instance();
@@ -250,6 +437,26 @@ public:
                      FallbackAction::Fallback, preferred, japaneseFallback,
                      "[FontManager] fallback family for CJK text", true});
     return japaneseFallback;
+   }
+  }
+
+  if (firstMissingCodePoint != U_SENTINEL) {
+   const QStringList candidates = scriptFallbackCandidates(firstMissingCodePoint);
+   const QStringList families = availableFamilies();
+   for (const QString& candidate : candidates) {
+    if (!families.contains(candidate, Qt::CaseInsensitive)) continue;
+    QFont fallbackFont(candidate);
+    const QRawFont rawFallback = QRawFont::fromFont(fallbackFont, QFontDatabase::Any);
+    if (!rawFontSupportsText(rawFallback, sampleText)) continue;
+    if (shouldRecordScriptFallback(firstMissingCodePoint)) {
+     auto* tracker = FallbackTracker::instance();
+     tracker->record({QDateTime::currentDateTime(), FallbackCategory::Font,
+                      FallbackAction::Fallback, preferred, candidate,
+                      QStringLiteral("[FontManager] fallback family for script %1")
+                          .arg(scriptTagForCodePoint(firstMissingCodePoint)),
+                      true});
+    }
+    return candidate;
    }
   }
 
@@ -262,7 +469,19 @@ public:
   int id = QFontDatabase::addApplicationFont(fontPath);
   if (id == -1) return false;
   registerApplicationFontFile(id, fontPath);
+  fontDatabaseRevisionStorage().fetch_add(1, std::memory_order_relaxed);
   return true;
+ }
+
+ static std::atomic<std::uint64_t>& fontDatabaseRevisionStorage()
+ {
+  static std::atomic<std::uint64_t> revision{0};
+  return revision;
+ }
+
+ static std::uint64_t fontDatabaseRevision()
+ {
+  return fontDatabaseRevisionStorage().load(std::memory_order_relaxed);
  }
 
  // Resolves the on-disk font file for a family so non-Qt consumers (for
