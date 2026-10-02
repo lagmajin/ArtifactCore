@@ -157,7 +157,7 @@ struct Collider2DEditState {
     if (shape == Collider2DShape::Circle) {
       if (handle != Collider2DEditHandle::CircleRadius) return false;
       const double nextRadius = std::max(
-          0.0, static_cast<double>(resolvedRadius()) + localDelta.x());
+          0.001, static_cast<double>(resolvedRadius()) + localDelta.x());
       if (!std::isfinite(nextRadius) ||
           nextRadius > std::numeric_limits<float>::max()) {
         return false;
@@ -171,16 +171,17 @@ struct Collider2DEditState {
     double right = bounds.right();
     double top = bounds.top();
     double bottom = bounds.bottom();
+    constexpr double minimumExtent = 0.001;
     switch (handle) {
       case Collider2DEditHandle::BoxLeft:
       case Collider2DEditHandle::BoxTopLeft:
       case Collider2DEditHandle::BoxBottomLeft:
-        left = std::min(left + localDelta.x(), right);
+        left = std::min(left + localDelta.x(), right - minimumExtent);
         break;
       case Collider2DEditHandle::BoxRight:
       case Collider2DEditHandle::BoxTopRight:
       case Collider2DEditHandle::BoxBottomRight:
-        right = std::max(right + localDelta.x(), left);
+        right = std::max(right + localDelta.x(), left + minimumExtent);
         break;
       default:
         break;
@@ -189,12 +190,12 @@ struct Collider2DEditState {
       case Collider2DEditHandle::BoxTop:
       case Collider2DEditHandle::BoxTopLeft:
       case Collider2DEditHandle::BoxTopRight:
-        top = std::min(top + localDelta.y(), bottom);
+        top = std::min(top + localDelta.y(), bottom - minimumExtent);
         break;
       case Collider2DEditHandle::BoxBottom:
       case Collider2DEditHandle::BoxBottomLeft:
       case Collider2DEditHandle::BoxBottomRight:
-        bottom = std::max(bottom + localDelta.y(), top);
+        bottom = std::max(bottom + localDelta.y(), top + minimumExtent);
         break;
       default:
         break;
