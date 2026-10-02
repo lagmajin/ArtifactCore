@@ -46,11 +46,13 @@ module;
 #include <numeric>
 #include <regex>
 #include <random>
+extern "C" {
 #include <libavutil/error.h>
 #include <libavutil/display.h>
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 #include <libswscale/swscale.h>
+}
 
 module MediaPlaybackController;
 

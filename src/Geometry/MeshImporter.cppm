@@ -2761,6 +2761,12 @@ SharedPtr<Mesh> MeshImporter::importMeshFromFileAtTime(
   return importMeshFromFile(path);
 }
 
+bool MeshImporter::updateSkinPose(const UniString& path, const double time,
+                                  const int clipIndex, Mesh& mesh) {
+  return impl_ &&
+         impl_->updateSkinPose(path.toQString(), time, clipIndex, mesh);
+}
+
 MeshImporter::Backend MeshImporter::lastBackend() const {
   return impl_ ? impl_->lastBackend_ : MeshImporter::Backend::None;
 }

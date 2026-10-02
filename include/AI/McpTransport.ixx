@@ -156,13 +156,36 @@ public:
 
     McpCallResult callTool(const QJsonObject& toolCall, const AIContext& context = AIContext())
     {
+        // tools/call は name でツール名を渡す。ArtifactStudio 自身の McpBridge と外部 MCP サーバーは
+        // どちらでも受け取れるよう、組み立てた name と既存の tool/class/method/arguments を並列させる。
+        const QString className =
+            toolCall.value(QStringLiteral("class")).toString().trimmed();
+        const QString methodName =
+            toolCall.value(QStringLiteral("method")).toString().trimmed();
+        QString toolName = toolCall.value(QStringLiteral("name")).toString().trimmed();
+        if (toolName.isEmpty() && !className.isEmpty() && !methodName.isEmpty()) {
+            toolName = className + QLatin1Char('.') + methodName;
+        }
+
+        QJsonObject params;
+        if (!toolName.isEmpty()) {
+            params[QStringLiteral("name")] = toolName;
+        }
+        // debug.* 系は params.arguments をオブジェクト、ToolBridge 系は配列として読むため、
+        // 呼び出し側の arguments を変換せずそのまま并列させる。
+        params[QStringLiteral("tool")] = toolCall;
+        params[QStringLiteral("class")] = className;
+        params[QStringLiteral("method")] = methodName;
+        if (toolCall.contains(QStringLiteral("arguments"))) {
+            params[QStringLiteral("arguments")] =
+                toolCall.value(QStringLiteral("arguments"));
+        }
+
         QJsonObject request{
             {QStringLiteral("jsonrpc"), QStringLiteral("2.0")},
             {QStringLiteral("id"), 3},
             {QStringLiteral("method"), QStringLiteral("tools/call")},
-            {QStringLiteral("params"), QJsonObject{
-                {QStringLiteral("tool"), toolCall}
-            }}
+            {QStringLiteral("params"), params}
         };
         return call(request, context);
     }

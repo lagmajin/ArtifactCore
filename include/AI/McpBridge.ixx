@@ -17,6 +17,7 @@ module;
 #include <QStandardPaths>
 #include <QSet>
 #include <QUuid>
+#include <QSaveFile>
 #include <cstddef>
 #include <mutex>
 
@@ -414,12 +415,25 @@ public:
                                     QStringLiteral("debug.predict.autoWatch"),
                                     QStringLiteral("debug.stress.run"),
                                     QStringLiteral("debug.stress.result")}) {
+            // parameters は handler が実際に読む引数だけを宣言する。debug.memory.* は
+            // arguments.id、debug.stress.run は repeatCount と steps を読むが、
+            // 未宣言のままだとクライアントが値を渡せない。
+            QJsonArray parameters;
+            if (name.startsWith(QStringLiteral("debug.memory."))) {
+                parameters.append(QJsonObject{{QStringLiteral("name"), QStringLiteral("id")},
+                                             {QStringLiteral("type"), QStringLiteral("string")}});
+            } else if (name == QStringLiteral("debug.stress.run")) {
+                parameters.append(QJsonObject{{QStringLiteral("name"), QStringLiteral("repeatCount")},
+                                             {QStringLiteral("type"), QStringLiteral("int")}});
+                parameters.append(QJsonObject{{QStringLiteral("name"), QStringLiteral("steps")},
+                                             {QStringLiteral("type"), QStringLiteral("array")}});
+            }
             tools.append(QJsonObject{
                 {QStringLiteral("name"), name},
                 {QStringLiteral("description"), name == QStringLiteral("debug.performance")
                     ? QStringLiteral("Trace frame timingからFPSとフレーム時間を取得")
                     : QStringLiteral("AI debug diagnostics")},
-                {QStringLiteral("parameters"), QJsonArray{}}
+                {QStringLiteral("parameters"), parameters}
             });
         }
         tools.append(QJsonObject{
@@ -485,6 +499,104 @@ public:
         return capabilities;
     }
 
+    // debug-mcp-state.json の解決は AppMain の poller と同一の env 規約に従う。
+    // 既定パスが食い違えると poller と MCP サーバが別ファイルを見るため一箇所に集約する。
+    static QString resolveStatePath()
+    {
+        const QString envPath = qEnvironmentVariable("ARTIFACT_DEBUG_MCP_STATE_FILE").trimmed();
+        return envPath.isEmpty()
+            ? QDir(QStandardPaths::writableLocation(QStandardPaths::TempLocation))
+                  .filePath(QStringLiteral("ArtifactStudio/debug-mcp-state.json"))
+            : envPath;
+    }
+
+    static QJsonObject readStateFile(const QString& statePath)
+    {
+        QFile stateFile(statePath);
+        QJsonObject state;
+        if (stateFile.open(QIODevice::ReadOnly)) {
+            QJsonParseError parseError;
+            const QJsonDocument document = QJsonDocument::fromJson(stateFile.readAll(), &parseError);
+            if (parseError.error == QJsonParseError::NoError && document.isObject()) {
+                state = document.object();
+            }
+        }
+        return state;
+    }
+
+    // AppMain の state poller と同一ファイルを読むため、truncate 書き込みではなく
+    // QSaveFile の atomic write を使う（読み取り中の空ファイル化で JSON 破損を防ぐ）。
+    static bool writeStateFile(const QString& statePath, const QJsonObject& state)
+    {
+        QDir().mkpath(QFileInfo(statePath).absolutePath());
+        QSaveFile file(statePath);
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+            return false;
+        }
+        const QByteArray payload = QJsonDocument(state).toJson(QJsonDocument::Indented);
+        if (file.write(payload) != payload.size()) {
+            file.cancelWriting();
+            return false;
+        }
+        return file.commit();
+    }
+
+    // 内部の parameters 配列（{name,type}）を MCP が要求する JSON Schema
+    // inputSchema へ変換する。既存のツール定義は壊さず、外部クライアントへ
+    // 差し出せる形だけを揃える。
+    static QJsonObject toInputSchema(const QJsonObject& tool)
+    {
+        QJsonObject properties;
+        const QJsonArray parameters = tool.value(QStringLiteral("parameters")).toArray();
+        for (const QJsonValue& value : parameters) {
+            const QJsonObject parameter = value.toObject();
+            const QString name = parameter.value(QStringLiteral("name")).toString().trimmed();
+            if (name.isEmpty()) {
+                continue;
+            }
+            const QString type = parameter.value(QStringLiteral("type")).toString();
+            properties[name] = type == QStringLiteral("int") || type == QStringLiteral("number")
+                ? QJsonObject{{QStringLiteral("type"), QStringLiteral("number")}}
+                : type == QStringLiteral("bool") || type == QStringLiteral("boolean")
+                    ? QJsonObject{{QStringLiteral("type"), QStringLiteral("boolean")}}
+                    : type == QStringLiteral("array")
+                        ? QJsonObject{{QStringLiteral("type"), QStringLiteral("array")}}
+                        : QJsonObject{{QStringLiteral("type"), QStringLiteral("string")}};
+        }
+        return QJsonObject{
+            {QStringLiteral("type"), QStringLiteral("object")},
+            {QStringLiteral("properties"), properties}
+        };
+    }
+
+    static QJsonArray toMcpTools()
+    {
+        QJsonArray converted;
+        const QJsonArray tools = capabilityList().value(QStringLiteral("tools")).toArray();
+        for (const QJsonValue& value : tools) {
+            const QJsonObject tool = value.toObject();
+            QJsonObject entry;
+            entry[QStringLiteral("name")] = tool.value(QStringLiteral("name"));
+            entry[QStringLiteral("description")] = tool.value(QStringLiteral("description"));
+            entry[QStringLiteral("inputSchema")] = toInputSchema(tool);
+            const QString returnType = tool.value(QStringLiteral("returnType")).toString().trimmed();
+            if (!returnType.isEmpty()) {
+                entry[QStringLiteral("returnType")] = returnType;
+            }
+            converted.append(entry);
+        }
+        return converted;
+    }
+
+    static QJsonObject mcpCapabilities()
+    {
+        QJsonObject capabilities;
+        capabilities[QStringLiteral("tools")] = QJsonObject{
+            {QStringLiteral("listChanged"), false}
+        };
+        return capabilities;
+    }
+
     static QJsonObject handleRequest(const QJsonObject& request, const AIContext& context = AIContext())
     {
         const QString method = request.value(QStringLiteral("method")).toString().trimmed();
@@ -529,14 +641,14 @@ public:
                 {QStringLiteral("name"), QStringLiteral("ArtifactStudio")},
                 {QStringLiteral("version"), QStringLiteral("0.9.0")}
             };
-            result[QStringLiteral("capabilities")] = capabilityList();
+            result[QStringLiteral("capabilities")] = mcpCapabilities();
             result[QStringLiteral("context")] = effectiveContext.toJson();
             return makeResponse(result);
         }
 
         if (method == QStringLiteral("tools/list")) {
             QJsonObject result;
-            result[QStringLiteral("tools")] = capabilityList().value(QStringLiteral("tools")).toArray();
+            result[QStringLiteral("tools")] = toMcpTools();
             result[QStringLiteral("context")] = effectiveContext.toJson();
             return makeResponse(result);
         }
@@ -621,7 +733,10 @@ public:
             if (debugToolName == QStringLiteral("debug.getTools")) {
                 return makeResponse(QJsonObject{
                     {QStringLiteral("content"), QStringLiteral("debug.getTools")},
-                    {QStringLiteral("structuredContent"), capabilityList()}
+                    {QStringLiteral("structuredContent"), QJsonObject{
+                        {QStringLiteral("capabilities"), mcpCapabilities()},
+                        {QStringLiteral("tools"), toMcpTools()}
+                    }}
                 });
             }
             if (debugToolName == QStringLiteral("debug.containers")) {
@@ -709,20 +824,8 @@ public:
                 debugToolName == QStringLiteral("debug.gpuMemory") ||
                 debugToolName == QStringLiteral("debug.getRig")) {
                 const QJsonObject arguments = params.value(QStringLiteral("arguments")).toObject();
-                const QString envPath = qEnvironmentVariable("ARTIFACT_DEBUG_MCP_STATE_FILE");
-                const QString statePath = envPath.trimmed().isEmpty()
-                    ? QDir(QStandardPaths::writableLocation(QStandardPaths::TempLocation))
-                          .filePath(QStringLiteral("ArtifactStudio/debug-mcp-state.json"))
-                    : envPath;
-                QFile stateFile(statePath);
-                QJsonObject state;
-                if (stateFile.open(QIODevice::ReadOnly)) {
-                    QJsonParseError parseError;
-                    const QJsonDocument document = QJsonDocument::fromJson(stateFile.readAll(), &parseError);
-                    if (parseError.error == QJsonParseError::NoError && document.isObject()) {
-                        state = document.object();
-                    }
-                }
+                const QString statePath = resolveStatePath();
+                QJsonObject state = readStateFile(statePath);
                 if (state.isEmpty()) {
                     state.insert(QStringLiteral("version"), 1);
                     state.insert(QStringLiteral("session"), QJsonObject{
@@ -739,7 +842,9 @@ public:
                     debugToolName == QStringLiteral("debug.renderQueue") ||
                     debugToolName == QStringLiteral("debug.getFarm") ||
                     debugToolName == QStringLiteral("debug.getColorPipeline") ||
-                    debugToolName == QStringLiteral("debug.getMaskPaths")) {
+                    debugToolName == QStringLiteral("debug.getMaskPaths") ||
+                    debugToolName == QStringLiteral("debug.gpuMemory") ||
+                    debugToolName == QStringLiteral("debug.getRig")) {
                     const QJsonObject snapshot = state.value(QStringLiteral("mockSnapshot")).toObject();
                     QJsonObject result;
                     if (debugToolName == QStringLiteral("debug.getSelection")) {
@@ -819,10 +924,7 @@ public:
                                               arguments.value(QStringLiteral("frame")).toInt());
                     }
                     state.insert(QStringLiteral("session"), updatedSession);
-                    QDir().mkpath(QFileInfo(statePath).absolutePath());
-                    if (stateFile.isOpen()) stateFile.close();
-                    const bool written = stateFile.open(QIODevice::WriteOnly | QIODevice::Truncate);
-                    if (written) stateFile.write(QJsonDocument(state).toJson(QJsonDocument::Indented));
+                    const bool written = writeStateFile(statePath, state);
                     return makeResponse(QJsonObject{
                         {QStringLiteral("content"), debugToolName},
                         {QStringLiteral("structuredContent"), QJsonObject{
@@ -832,19 +934,15 @@ public:
                     });
                 }
                 if (debugToolName != QStringLiteral("debug.state")) {
+                    // ここに残るのは debug.pause / debug.resume のみ。読み取り専用ツールを
+                    // 上の snapshot 分岐へ漏れ込ませると、意図せず state を書き換えてしまう。
                     QJsonObject session = state.value(QStringLiteral("session")).toObject();
                     const bool paused = debugToolName == QStringLiteral("debug.pause");
                     session.insert(QStringLiteral("paused"), paused);
                     session.insert(QStringLiteral("lastAction"), paused
                         ? QStringLiteral("mcp.pause") : QStringLiteral("mcp.resume"));
                     state.insert(QStringLiteral("session"), session);
-                    QDir().mkpath(QFileInfo(statePath).absolutePath());
-                    if (stateFile.isOpen()) {
-                        stateFile.close();
-                    }
-                    if (stateFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-                        stateFile.write(QJsonDocument(state).toJson(QJsonDocument::Indented));
-                    }
+                    writeStateFile(statePath, state);
                 }
                 return makeResponse(QJsonObject{
                     {QStringLiteral("content"), debugToolName},
@@ -862,17 +960,8 @@ public:
                 debugToolName == QStringLiteral("debug.removeDataBreakpoint") ||
                 debugToolName == QStringLiteral("debug.listDataBreakpoints")) {
                 const QJsonObject arguments = params.value(QStringLiteral("arguments")).toObject();
-                const QString envPath = qEnvironmentVariable("ARTIFACT_DEBUG_MCP_STATE_FILE");
-                const QString statePath = envPath.trimmed().isEmpty()
-                    ? QDir(QStandardPaths::writableLocation(QStandardPaths::TempLocation))
-                          .filePath(QStringLiteral("ArtifactStudio/debug-mcp-state.json"))
-                    : envPath;
-                QFile stateFile(statePath);
-                QJsonObject state;
-                if (stateFile.open(QIODevice::ReadOnly)) {
-                    const QJsonDocument document = QJsonDocument::fromJson(stateFile.readAll());
-                    if (document.isObject()) state = document.object();
-                }
+                const QString statePath = resolveStatePath();
+                QJsonObject state = readStateFile(statePath);
                 QJsonArray conditions = state.value(QStringLiteral("breakConditions")).toArray();
                 int nextId = state.value(QStringLiteral("nextConditionId")).toInt(1);
                 if (debugToolName.endsWith(QStringLiteral("listDataBreakpoints"))) {
@@ -898,11 +987,7 @@ public:
                     conditions = kept;
                     state.insert(QStringLiteral("breakConditions"), conditions);
                     state.insert(QStringLiteral("nextConditionId"), nextId);
-                    QDir().mkpath(QFileInfo(statePath).absolutePath());
-                    if (stateFile.isOpen()) stateFile.close();
-                    if (stateFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-                        stateFile.write(QJsonDocument(state).toJson(QJsonDocument::Indented));
-                    }
+                    writeStateFile(statePath, state);
                     return makeResponse(QJsonObject{
                         {QStringLiteral("content"), QStringLiteral("debug.removeDataBreakpoint")},
                         {QStringLiteral("structuredContent"), QJsonObject{
@@ -919,10 +1004,7 @@ public:
                 conditions.append(condition);
                 state.insert(QStringLiteral("breakConditions"), conditions);
                 state.insert(QStringLiteral("nextConditionId"), nextId);
-                QDir().mkpath(QFileInfo(statePath).absolutePath());
-                if (stateFile.isOpen()) stateFile.close();
-                bool written = stateFile.open(QIODevice::WriteOnly | QIODevice::Truncate);
-                if (written) stateFile.write(QJsonDocument(state).toJson(QJsonDocument::Indented));
+                const bool written = writeStateFile(statePath, state);
                 return makeResponse(QJsonObject{
                     {QStringLiteral("content"), QStringLiteral("debug.addDataBreakpoint")},
                     {QStringLiteral("structuredContent"), QJsonObject{
@@ -934,17 +1016,8 @@ public:
                 debugToolName == QStringLiteral("debug.removeWatchpoint") ||
                 debugToolName == QStringLiteral("debug.listWatchpoints")) {
                 const QJsonObject arguments = params.value(QStringLiteral("arguments")).toObject();
-                const QString envPath = qEnvironmentVariable("ARTIFACT_DEBUG_MCP_STATE_FILE");
-                const QString statePath = envPath.trimmed().isEmpty()
-                    ? QDir(QStandardPaths::writableLocation(QStandardPaths::TempLocation))
-                          .filePath(QStringLiteral("ArtifactStudio/debug-mcp-state.json"))
-                    : envPath;
-                QFile stateFile(statePath);
-                QJsonObject state;
-                if (stateFile.open(QIODevice::ReadOnly)) {
-                    const QJsonDocument document = QJsonDocument::fromJson(stateFile.readAll());
-                    if (document.isObject()) state = document.object();
-                }
+                const QString statePath = resolveStatePath();
+                QJsonObject state = readStateFile(statePath);
                 QJsonArray descriptors = state.value(QStringLiteral("watchDescriptors")).toArray();
                 int nextId = state.value(QStringLiteral("nextWatchId")).toInt(1);
                 if (debugToolName.endsWith(QStringLiteral("listWatchpoints"))) {
@@ -970,11 +1043,7 @@ public:
                     descriptors = kept;
                     state.insert(QStringLiteral("watchDescriptors"), descriptors);
                     state.insert(QStringLiteral("nextWatchId"), nextId);
-                    QDir().mkpath(QFileInfo(statePath).absolutePath());
-                    if (stateFile.isOpen()) stateFile.close();
-                    if (stateFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-                        stateFile.write(QJsonDocument(state).toJson(QJsonDocument::Indented));
-                    }
+                    writeStateFile(statePath, state);
                     return makeResponse(QJsonObject{
                         {QStringLiteral("content"), QStringLiteral("debug.removeWatchpoint")},
                         {QStringLiteral("structuredContent"), QJsonObject{
@@ -991,10 +1060,7 @@ public:
                 descriptors.append(descriptor);
                 state.insert(QStringLiteral("watchDescriptors"), descriptors);
                 state.insert(QStringLiteral("nextWatchId"), nextId);
-                QDir().mkpath(QFileInfo(statePath).absolutePath());
-                if (stateFile.isOpen()) stateFile.close();
-                const bool written = stateFile.open(QIODevice::WriteOnly | QIODevice::Truncate);
-                if (written) stateFile.write(QJsonDocument(state).toJson(QJsonDocument::Indented));
+                const bool written = writeStateFile(statePath, state);
                 return makeResponse(QJsonObject{
                     {QStringLiteral("content"), QStringLiteral("debug.addWatchpoint")},
                     {QStringLiteral("structuredContent"), QJsonObject{
@@ -1491,17 +1557,8 @@ public:
                 }
                 int autoWatchAdded = 0;
                 if (debugToolName == QStringLiteral("debug.predict.autoWatch")) {
-                    const QString envPath = qEnvironmentVariable("ARTIFACT_DEBUG_MCP_STATE_FILE");
-                    const QString statePath = envPath.trimmed().isEmpty()
-                        ? QDir(QStandardPaths::writableLocation(QStandardPaths::TempLocation))
-                              .filePath(QStringLiteral("ArtifactStudio/debug-mcp-state.json"))
-                        : envPath;
-                    QFile stateFile(statePath);
-                    QJsonObject state;
-                    if (stateFile.open(QIODevice::ReadOnly)) {
-                        const QJsonDocument document = QJsonDocument::fromJson(stateFile.readAll());
-                        if (document.isObject()) state = document.object();
-                    }
+                    const QString statePath = resolveStatePath();
+                    QJsonObject state = readStateFile(statePath);
                     QJsonArray descriptors = state.value(QStringLiteral("watchDescriptors")).toArray();
                     int nextId = state.value(QStringLiteral("nextWatchId")).toInt(1);
                     for (const auto& risk : risks) {
@@ -1523,11 +1580,7 @@ public:
                     }
                     state.insert(QStringLiteral("watchDescriptors"), descriptors);
                     state.insert(QStringLiteral("nextWatchId"), nextId);
-                    QDir().mkpath(QFileInfo(statePath).absolutePath());
-                    if (stateFile.isOpen()) stateFile.close();
-                    if (stateFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-                        stateFile.write(QJsonDocument(state).toJson(QJsonDocument::Indented));
-                    }
+                    writeStateFile(statePath, state);
                 }
                 return makeResponse(QJsonObject{
                     {QStringLiteral("content"), debugToolName},

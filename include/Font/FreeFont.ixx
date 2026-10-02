@@ -414,10 +414,16 @@ public:
    }
   }
 
+  const uint firstMissingCodePointValue =
+      static_cast<uint>(firstMissingAnyCodePoint);
+  const QString firstMissingCharacter =
+      firstMissingAnyCodePoint != U_SENTINEL
+          ? QString::fromUcs4(&firstMissingCodePointValue, 1)
+          : QString{};
   const bool firstMissingIsEmoji = firstMissingAnyCodePoint != U_SENTINEL &&
-      containsEmojiCharacters(QString::fromUcs4(&firstMissingAnyCodePoint, 1));
+      containsEmojiCharacters(firstMissingCharacter);
   const bool firstMissingIsCjk = firstMissingAnyCodePoint != U_SENTINEL &&
-      containsCjkCharacters(QString::fromUcs4(&firstMissingAnyCodePoint, 1));
+      containsCjkCharacters(firstMissingCharacter);
   if (firstMissingIsEmoji ||
       (!preferredAvailable && containsEmojiCharacters(sampleText) &&
        firstMissingCodePoint == U_SENTINEL)) {
