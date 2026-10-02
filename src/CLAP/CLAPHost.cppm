@@ -133,6 +133,24 @@ struct PluginLibrary {
     }
 };
 
+// 走査専用プローブ。clap_entry がエクスポートされているかだけを確認し、
+// entry->init() を呼ばない。走査がプラグインに副作用を起こさないため。
+static bool hasClapEntrySymbol(const std::string& path) {
+#ifdef _WIN32
+    HMODULE module = LoadLibraryW(fs::path(path).wstring().c_str());
+    if (!module) return false;
+    const bool found = GetProcAddress(module, "clap_entry") != nullptr;
+    FreeLibrary(module);
+    return found;
+#else
+    void* handle = dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL);
+    if (!handle) return false;
+    const bool found = dlsym(handle, "clap_entry") != nullptr;
+    dlclose(handle);
+    return found;
+#endif
+}
+
 // ─────────────────────────────────────────────────────────
 // PluginDescriptor 変換: clap_plugin_descriptor → clap::PluginDescriptor
 // ─────────────────────────────────────────────────────────
@@ -836,7 +854,8 @@ Host::Host() : impl_(new Impl()) {
 #ifdef _WIN32
     impl_->searchPaths.assign({
         "C:/Program Files/Common Files/CLAP",
-        "C:/Program Files/Common Files/VST3",
+        "C:/Program Files/Common Files/VST3/CLAP",
+        "C:/Users/Public/Documents/CLAP",
     });
 #elif __APPLE__
     impl_->searchPaths.assign({
@@ -973,6 +992,11 @@ std::vector<std::string> Host::scanPlugins() {
                 std::transform(extension.begin(), extension.end(), extension.begin(),
                                [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
                 if (extension != ".clap" && extension != ".dll" && extension != ".so") continue;
+                // .dll / .so は拡張子だけでは CLAP と判別できない。
+                // clap_entry を解決できないものは CLAP ではないので除外し、
+                // VST2 バンドルや他の共有ライブラリを誤検出しない。
+                // entry->init() を呼ばない読み取り専用プローブを使う。
+                if (!hasClapEntrySymbol(entry.path().string())) continue;
                 const std::string identity = fs::weakly_canonical(entry.path()).string();
                 if (seen.insert(identity).second) found.append(entry.path().string());
             }

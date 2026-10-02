@@ -856,11 +856,9 @@ bool LayerBlendPipeline::blend(
   return false;
  }
 
- const bool fullRegion = region.x == 0 && region.y == 0 &&
-                         region.width == outDesc.Width &&
-                         region.height == outDesc.Height;
- if (!region.validFor(outDesc.Width, outDesc.Height) ||
-     (!fullRegion && mode != BlendMode::Normal)) {
+ // Every blend shader in LayerBlendComputeShader.ixx honours dispatchOrigin /
+ // dispatchExtent, so partial recomposition is valid for all blend modes.
+ if (!region.validFor(outDesc.Width, outDesc.Height)) {
   qWarning() << "[LayerBlendPipeline::blend] unsupported compute region"
              << "mode=" << static_cast<unsigned int>(mode)
              << "region=" << region.x << region.y

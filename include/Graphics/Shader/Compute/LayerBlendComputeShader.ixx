@@ -63,18 +63,20 @@ cbuffer BlendParams : register(b0)
 #define CHECK_BOUNDS \
     uint outWidth, outHeight; \
     OutTex.GetDimensions(outWidth, outHeight); \
-    if (id.x >= outWidth || id.y >= outHeight) return;
+    uint2 pixelCoord = id.xy + dispatchOrigin; \
+    if (id.x >= dispatchExtent.x || id.y >= dispatchExtent.y || \
+        pixelCoord.x >= outWidth || pixelCoord.y >= outHeight) return;
 
 #define LOAD_BLEND_PIXELS \
     CHECK_BOUNDS \
-    float4 src = SrcTex[id.xy]; \
-    float4 dst = DstTex[id.xy]; \
+    float4 src = SrcTex[pixelCoord]; \
+    float4 dst = DstTex[pixelCoord]; \
     float srcA = saturate(src.a * opacity); \
     float3 srcRGB = src.rgb * srcA; \
     float3 srcColor = src.rgb; \
     float3 dstColor = dst.rgb / max(dst.a, 1e-6); \
-    if (srcA <= 0.0001) { OutTex[id.xy] = dst; return; } \
-    if (dst.a <= 0.0001) { OutTex[id.xy] = float4(srcRGB, srcA); return; }
+    if (srcA <= 0.0001) { OutTex[pixelCoord] = dst; return; } \
+    if (dst.a <= 0.0001) { OutTex[pixelCoord] = float4(srcRGB, srcA); return; }
 
 #define LOAD_NORMAL_BLEND_PIXELS \
     uint outWidth, outHeight; \
@@ -226,7 +228,7 @@ void main(uint3 id : SV_DispatchThreadID)
     LOAD_BLEND_PIXELS
     float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, saturate(dstColor + srcColor));
     float outA = OutAlpha(srcA, dst.a);
-    OutTex[id.xy] = float4(saturate(blended), saturate(outA));
+    OutTex[pixelCoord] = float4(saturate(blended), saturate(outA));
 }
 )";
 
@@ -237,7 +239,7 @@ void main(uint3 id : SV_DispatchThreadID)
     LOAD_BLEND_PIXELS
     float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, saturate(dstColor - srcColor));
     float outA = OutAlpha(srcA, dst.a);
-    OutTex[id.xy] = float4(blended, outA);
+    OutTex[pixelCoord] = float4(blended, outA);
 }
 )";
 
@@ -248,7 +250,7 @@ void main(uint3 id : SV_DispatchThreadID)
     LOAD_BLEND_PIXELS
     float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, dstColor * srcColor);
     float outA = OutAlpha(srcA, dst.a);
-    OutTex[id.xy] = float4(blended, outA);
+    OutTex[pixelCoord] = float4(blended, outA);
 }
 )";
 
@@ -259,7 +261,7 @@ void main(uint3 id : SV_DispatchThreadID)
     LOAD_BLEND_PIXELS
     float3 screenRes = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, srcColor + dstColor - (srcColor * dstColor));
     float outA = OutAlpha(srcA, dst.a);
-    OutTex[id.xy] = float4(screenRes, outA);
+    OutTex[pixelCoord] = float4(screenRes, outA);
 }
 )";
 
@@ -279,7 +281,7 @@ void main(uint3 id : SV_DispatchThreadID)
     LOAD_BLEND_PIXELS
     float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, Overlay(dstColor, srcColor));
     float outA = OutAlpha(srcA, dst.a);
-    OutTex[id.xy] = float4(blended, outA);
+    OutTex[pixelCoord] = float4(blended, outA);
 }
 )";
 
@@ -290,7 +292,7 @@ void main(uint3 id : SV_DispatchThreadID)
     LOAD_BLEND_PIXELS
     float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, min(srcColor, dstColor));
     float outA = OutAlpha(srcA, dst.a);
-    OutTex[id.xy] = float4(blended, outA);
+    OutTex[pixelCoord] = float4(blended, outA);
 }
 )";
 
@@ -301,7 +303,7 @@ void main(uint3 id : SV_DispatchThreadID)
     LOAD_BLEND_PIXELS
     float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, max(srcColor, dstColor));
     float outA = OutAlpha(srcA, dst.a);
-    OutTex[id.xy] = float4(blended, outA);
+    OutTex[pixelCoord] = float4(blended, outA);
 }
 )";
 
@@ -321,7 +323,7 @@ void main(uint3 id : SV_DispatchThreadID)
     LOAD_BLEND_PIXELS
     float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, ColorDodge(dstColor, srcColor));
     float outA = OutAlpha(srcA, dst.a);
-    OutTex[id.xy] = float4(blended, outA);
+    OutTex[pixelCoord] = float4(blended, outA);
 }
 )";
 
@@ -341,7 +343,7 @@ void main(uint3 id : SV_DispatchThreadID)
     LOAD_BLEND_PIXELS
     float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, ColorBurn(dstColor, srcColor));
     float outA = OutAlpha(srcA, dst.a);
-    OutTex[id.xy] = float4(blended, outA);
+    OutTex[pixelCoord] = float4(blended, outA);
 }
 )";
 
@@ -361,7 +363,7 @@ void main(uint3 id : SV_DispatchThreadID)
     LOAD_BLEND_PIXELS
     float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, HardLight(dstColor, srcColor));
     float outA = OutAlpha(srcA, dst.a);
-    OutTex[id.xy] = float4(blended, outA);
+    OutTex[pixelCoord] = float4(blended, outA);
 }
 )";
 
@@ -387,7 +389,7 @@ void main(uint3 id : SV_DispatchThreadID)
     LOAD_BLEND_PIXELS
     float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, SoftLight(dstColor, srcColor));
     float outA = OutAlpha(srcA, dst.a);
-    OutTex[id.xy] = float4(blended, outA);
+    OutTex[pixelCoord] = float4(blended, outA);
 }
 )";
 
@@ -398,7 +400,7 @@ void main(uint3 id : SV_DispatchThreadID)
     LOAD_BLEND_PIXELS
     float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, abs(dstColor - srcColor));
     float outA = OutAlpha(srcA, dst.a);
-    OutTex[id.xy] = float4(blended, outA);
+    OutTex[pixelCoord] = float4(blended, outA);
 }
 )";
 
@@ -409,7 +411,7 @@ void main(uint3 id : SV_DispatchThreadID)
     LOAD_BLEND_PIXELS
     float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, srcColor + dstColor - 2.0 * srcColor * dstColor);
     float outA = OutAlpha(srcA, dst.a);
-    OutTex[id.xy] = float4(blended, outA);
+    OutTex[pixelCoord] = float4(blended, outA);
 }
 )";
 
@@ -459,7 +461,7 @@ void main(uint3 id : SV_DispatchThreadID)
     float3 blendHsl = RgbToHsl(srcColor);
     float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, saturate(HslToRgb(float3(blendHsl.x, baseHsl.y, baseHsl.z))));
     float outA = OutAlpha(srcA, dst.a);
-    OutTex[id.xy] = float4(blended, outA);
+    OutTex[pixelCoord] = float4(blended, outA);
 }
 )";
 
@@ -472,7 +474,7 @@ void main(uint3 id : SV_DispatchThreadID)
     float3 blendHsl = RgbToHsl(srcColor);
     float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, saturate(HslToRgb(float3(baseHsl.x, blendHsl.y, baseHsl.z))));
     float outA = OutAlpha(srcA, dst.a);
-    OutTex[id.xy] = float4(blended, outA);
+    OutTex[pixelCoord] = float4(blended, outA);
 }
 )";
 
@@ -485,7 +487,7 @@ void main(uint3 id : SV_DispatchThreadID)
     float3 blendHsl = RgbToHsl(srcColor);
     float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, saturate(HslToRgb(float3(blendHsl.x, blendHsl.y, baseHsl.z))));
     float outA = OutAlpha(srcA, dst.a);
-    OutTex[id.xy] = float4(blended, outA);
+    OutTex[pixelCoord] = float4(blended, outA);
 }
 )";
 
@@ -498,7 +500,7 @@ void main(uint3 id : SV_DispatchThreadID)
     float3 blendHsl = RgbToHsl(srcColor);
     float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, saturate(HslToRgb(float3(baseHsl.x, baseHsl.y, blendHsl.z))));
     float outA = OutAlpha(srcA, dst.a);
-    OutTex[id.xy] = float4(blended, outA);
+    OutTex[pixelCoord] = float4(blended, outA);
 }
 )";
 
@@ -509,7 +511,7 @@ void main(uint3 id : SV_DispatchThreadID)
     LOAD_BLEND_PIXELS
     float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, saturate(srcColor + dstColor - 1.0));
     float outA = OutAlpha(srcA, dst.a);
-    OutTex[id.xy] = float4(blended, outA);
+    OutTex[pixelCoord] = float4(blended, outA);
 }
 )";
 
@@ -529,7 +531,7 @@ void main(uint3 id : SV_DispatchThreadID)
     LOAD_BLEND_PIXELS
     float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, Divide(dstColor, srcColor));
     float outA = OutAlpha(srcA, dst.a);
-    OutTex[id.xy] = float4(blended, outA);
+    OutTex[pixelCoord] = float4(blended, outA);
 }
 )";
 
@@ -549,7 +551,7 @@ void main(uint3 id : SV_DispatchThreadID)
     LOAD_BLEND_PIXELS
     float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, PinLight(dstColor, srcColor));
     float outA = OutAlpha(srcA, dst.a);
-    OutTex[id.xy] = float4(blended, outA);
+    OutTex[pixelCoord] = float4(blended, outA);
 }
 )";
 
@@ -575,7 +577,7 @@ void main(uint3 id : SV_DispatchThreadID)
     LOAD_BLEND_PIXELS
     float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, VividLight(dstColor, srcColor));
     float outA = OutAlpha(srcA, dst.a);
-    OutTex[id.xy] = float4(blended, outA);
+    OutTex[pixelCoord] = float4(blended, outA);
 }
 )";
 
@@ -586,7 +588,7 @@ void main(uint3 id : SV_DispatchThreadID)
     LOAD_BLEND_PIXELS
     float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, saturate(dstColor + 2.0 * srcColor - 1.0));
     float outA = OutAlpha(srcA, dst.a);
-    OutTex[id.xy] = float4(blended, outA);
+    OutTex[pixelCoord] = float4(blended, outA);
 }
 )";
 
@@ -597,7 +599,7 @@ void main(uint3 id : SV_DispatchThreadID)
     LOAD_BLEND_PIXELS
     float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, step(1.0 - srcColor, dstColor));
     float outA = OutAlpha(srcA, dst.a);
-    OutTex[id.xy] = float4(blended, outA);
+    OutTex[pixelCoord] = float4(blended, outA);
 }
 )";
 
@@ -614,11 +616,11 @@ uint pcgHash(uint2 p)
 void main(uint3 id : SV_DispatchThreadID)
 {
     CHECK_BOUNDS
-    float4 src = SrcTex[id.xy];
-    float4 dst = DstTex[id.xy];
+    float4 src = SrcTex[pixelCoord];
+    float4 dst = DstTex[pixelCoord];
     float srcA = saturate(src.a * opacity);
-    float r = float(pcgHash(id.xy & 0xFFFF)) / 4294967296.0;
-    OutTex[id.xy] = (r < srcA) ? float4(src.rgb, 1.0) : dst;
+    float r = float(pcgHash(pixelCoord & 0xFFFF)) / 4294967296.0;
+    OutTex[pixelCoord] = (r < srcA) ? float4(src.rgb, 1.0) : dst;
 }
 )";
 
@@ -635,12 +637,12 @@ uint dcgHash(uint2 p, uint seed)
 void main(uint3 id : SV_DispatchThreadID)
 {
     CHECK_BOUNDS
-    float4 src = SrcTex[id.xy];
-    float4 dst = DstTex[id.xy];
+    float4 src = SrcTex[pixelCoord];
+    float4 dst = DstTex[pixelCoord];
     float srcA = saturate(src.a * opacity);
     uint frameSeed = uint(opacity * 1000.0);
-    float r = float(dcgHash(id.xy & 0xFFFF, frameSeed)) / 4294967296.0;
-    OutTex[id.xy] = (r < srcA) ? float4(src.rgb, 1.0) : dst;
+    float r = float(dcgHash(pixelCoord & 0xFFFF, frameSeed)) / 4294967296.0;
+    OutTex[pixelCoord] = (r < srcA) ? float4(src.rgb, 1.0) : dst;
 }
 )";
 
@@ -652,7 +654,7 @@ void main(uint3 id : SV_DispatchThreadID)
     LOAD_BLEND_PIXELS
     float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, saturate(1.0 - (1.0 - dstColor) / max(srcColor, 1e-6)));
     float outA = OutAlpha(srcA, dst.a);
-    OutTex[id.xy] = float4(blended, outA);
+    OutTex[pixelCoord] = float4(blended, outA);
 }
 )";
 
@@ -664,7 +666,7 @@ void main(uint3 id : SV_DispatchThreadID)
     LOAD_BLEND_PIXELS
     float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, saturate(dstColor + srcColor));
     float outA = OutAlpha(srcA, dst.a);
-    OutTex[id.xy] = float4(blended, outA);
+    OutTex[pixelCoord] = float4(blended, outA);
 }
 )";
 
@@ -676,7 +678,7 @@ void main(uint3 id : SV_DispatchThreadID)
     LOAD_BLEND_PIXELS
     float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, saturate(dstColor / max(1.0 - srcColor, 1e-6)));
     float outA = OutAlpha(srcA, dst.a);
-    OutTex[id.xy] = float4(blended, outA);
+    OutTex[pixelCoord] = float4(blended, outA);
 }
 )";
 
@@ -688,7 +690,7 @@ void main(uint3 id : SV_DispatchThreadID)
     LOAD_BLEND_PIXELS
     float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, abs(dstColor - srcColor));
     float outA = OutAlpha(srcA, dst.a);
-    OutTex[id.xy] = float4(blended, outA);
+    OutTex[pixelCoord] = float4(blended, outA);
 }
 )";
 
@@ -698,10 +700,10 @@ LIBRARY_DLL_API const QByteArray stencilAlphaBlendShaderText = QByteArray(blendS
 void main(uint3 id : SV_DispatchThreadID)
 {
     CHECK_BOUNDS
-    float4 src = SrcTex[id.xy];
-    float4 dst = DstTex[id.xy];
+    float4 src = SrcTex[pixelCoord];
+    float4 dst = DstTex[pixelCoord];
     float factor = saturate(src.a * opacity);
-    OutTex[id.xy] = float4(dst.rgb * factor, dst.a * factor);
+    OutTex[pixelCoord] = float4(dst.rgb * factor, dst.a * factor);
 }
 )";
 
@@ -724,11 +726,11 @@ LIBRARY_DLL_API const QByteArray stencilLumaBlendShaderText = QByteArray(blendSh
 void main(uint3 id : SV_DispatchThreadID)
 {
     CHECK_BOUNDS
-    float4 src = SrcTex[id.xy];
-    float4 dst = DstTex[id.xy];
+    float4 src = SrcTex[pixelCoord];
+    float4 dst = DstTex[pixelCoord];
     float luma = dot(matteSrgbToLinear(src.rgb), float3(0.2126, 0.7152, 0.0722));
     float factor = saturate(luma * opacity);
-    OutTex[id.xy] = float4(dst.rgb * factor, dst.a * factor);
+    OutTex[pixelCoord] = float4(dst.rgb * factor, dst.a * factor);
 }
 )";
 
@@ -738,10 +740,10 @@ LIBRARY_DLL_API const QByteArray silhouetteAlphaBlendShaderText = QByteArray(ble
 void main(uint3 id : SV_DispatchThreadID)
 {
     CHECK_BOUNDS
-    float4 src = SrcTex[id.xy];
-    float4 dst = DstTex[id.xy];
+    float4 src = SrcTex[pixelCoord];
+    float4 dst = DstTex[pixelCoord];
     float factor = 1.0 - saturate(src.a * opacity);
-    OutTex[id.xy] = float4(dst.rgb * factor, dst.a * factor);
+    OutTex[pixelCoord] = float4(dst.rgb * factor, dst.a * factor);
 }
 )";
 
@@ -751,11 +753,11 @@ LIBRARY_DLL_API const QByteArray silhouetteLumaBlendShaderText = QByteArray(blen
 void main(uint3 id : SV_DispatchThreadID)
 {
     CHECK_BOUNDS
-    float4 src = SrcTex[id.xy];
-    float4 dst = DstTex[id.xy];
+    float4 src = SrcTex[pixelCoord];
+    float4 dst = DstTex[pixelCoord];
     float luma = dot(matteSrgbToLinear(src.rgb), float3(0.2126, 0.7152, 0.0722));
     float factor = 1.0 - saturate(luma * opacity);
-    OutTex[id.xy] = float4(dst.rgb * factor, dst.a * factor);
+    OutTex[pixelCoord] = float4(dst.rgb * factor, dst.a * factor);
 }
 )";
 

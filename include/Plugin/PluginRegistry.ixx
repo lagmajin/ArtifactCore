@@ -10,7 +10,7 @@ module;
 export module ArtifactCore.Plugin.Registry;
 
 import ArtifactCore.Plugin.Common;
-import Utils.Optional;
+import Core.ArtifactOptional;
 
 export namespace ArtifactCore {
 
@@ -29,7 +29,7 @@ public:
     PluginState pluginState(const std::string& id) const;
 
     std::vector<PluginDescriptor> pluginsOfCategory(PluginCategory category) const;
-    Optional<PluginDescriptor> pluginById(const std::string& id) const;
+    ArtifactOptional<PluginDescriptor> pluginById(const std::string& id) const;
     std::vector<PluginDescriptor> allPlugins() const;
     std::vector<PluginDescriptor> activePlugins() const;
 

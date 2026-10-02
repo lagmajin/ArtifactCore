@@ -224,7 +224,7 @@ QString blendModeLabelFromKey(const QByteArray& key)
     if (normalized == "over") return QStringLiteral("Overlay");
     if (normalized == "dark") return QStringLiteral("Darken");
     if (normalized == "lite") return QStringLiteral("Lighten");
-    if (normalized == "div ") return QStringLiteral("Difference");
+    if (normalized == "div ") return QStringLiteral("Divide");
     if (normalized == "diff") return QStringLiteral("Difference");
     if (normalized == "excl") return QStringLiteral("Exclusion");
     if (normalized == "hLit") return QStringLiteral("Hard Light");
@@ -538,6 +538,7 @@ ArtifactCore::BlendMode toBlendMode(const QByteArray& key)
     if (normalized == "over") return ArtifactCore::BlendMode::Overlay;
     if (normalized == "dark") return ArtifactCore::BlendMode::Darken;
     if (normalized == "lite") return ArtifactCore::BlendMode::Lighten;
+    if (normalized == "div ") return ArtifactCore::BlendMode::Divide;
     if (normalized == "idiv") return ArtifactCore::BlendMode::ColorDodge;
     if (normalized == "smud") return ArtifactCore::BlendMode::ColorBurn;
     if (normalized == "hLit") return ArtifactCore::BlendMode::HardLight;

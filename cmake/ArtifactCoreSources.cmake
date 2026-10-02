@@ -802,8 +802,6 @@ set(ARTIFACTCORE_MODULE_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../include/Video/Transitions/ZoomTransition.ixx"
     "${CMAKE_CURRENT_LIST_DIR}/../include/Video/Video.ixx"
     "${CMAKE_CURRENT_LIST_DIR}/../include/Video/VideoFrame.ixx"
-    "${CMAKE_CURRENT_LIST_DIR}/../include/VST/VSTEffect.ixx"
-    "${CMAKE_CURRENT_LIST_DIR}/../include/VST/VSTHost.ixx"
     "${CMAKE_CURRENT_LIST_DIR}/../include/VST3/VST3Interfaces.ixx"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Acoustic/Acoustic.ixx"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Acoustic/AcousticSystem.ixx"

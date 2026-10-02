@@ -3688,13 +3688,9 @@ set(ARTIFACTCORE_ICON_IMPL)
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_ICON_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_ICON_IMPL})
 
-set(ARTIFACTCORE_VST_MODULES
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/VST/VSTEffect.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/VST/VSTHost.ixx"
-)
-set(ARTIFACTCORE_VST_IMPL)
-list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_VST_MODULES})
-list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_VST_IMPL})
+# include/VST/ の VSTHost.ixx / VSTEffect.ixx は中身ゼロの空スタブで、
+# 実装は VST3/VST3Interfaces.ixx + src/VST3/VST3Loader.cppm が担う。
+# 旧 ArtifactCoreVST ターゲットごと削除した（references も不要）。
 
 set(ARTIFACTCORE_NETWORK_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/NetworkRPCClient.ixx"
@@ -6222,12 +6218,6 @@ set_target_properties(ArtifactCoreIcon PROPERTIES CXX_STANDARD 23 CXX_STANDARD_R
 target_sources(ArtifactCoreIcon PRIVATE ${ARTIFACTCORE_ICON_IMPL} PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_ICON_MODULES})
 target_link_libraries(ArtifactCoreIcon PUBLIC ArtifactCore)
 target_include_directories(ArtifactCoreIcon PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_SOURCE_DIR}/../third_party")
-
-add_library(ArtifactCoreVST STATIC)
-set_target_properties(ArtifactCoreVST PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
-target_sources(ArtifactCoreVST PRIVATE ${ARTIFACTCORE_VST_IMPL} PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_VST_MODULES})
-target_link_libraries(ArtifactCoreVST PUBLIC ArtifactCore)
-target_include_directories(ArtifactCoreVST PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_SOURCE_DIR}/../third_party")
 
 
 add_library(ArtifactCoreNetwork STATIC)

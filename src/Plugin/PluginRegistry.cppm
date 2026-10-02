@@ -10,8 +10,8 @@ module ArtifactCore.Plugin.Registry;
 
 import ArtifactCore.Plugin.Common;
 import Core.ArtifactString;
+import Core.ArtifactOptional;
 import Container.NamedVector;
-import Utils.Optional;
 
 namespace ArtifactCore {
 
