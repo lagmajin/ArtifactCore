@@ -580,7 +580,6 @@ TextLayoutContract buildContract(const QString& text,
   QTextBoundaryFinder graphemeFinder(QTextBoundaryFinder::Grapheme, text);
   graphemeFinder.toStart();
   int graphemeStartUtf16 = 0;
-  int graphemeIndex = 0;
   while (true) {
     const int graphemeEndUtf16 = graphemeFinder.toNextBoundary();
     if (graphemeEndUtf16 < 0) {
@@ -604,11 +603,27 @@ TextLayoutContract buildContract(const QString& text,
       const char32_t firstCode =
           u32text[static_cast<size_t>(logicalStart)];
       const QString scriptTag = scriptTagForCodepoint(firstCode);
+      int visualStart = logicalStart;
+      int visualEnd = logicalEnd;
+      if (bidi.valid && !bidi.logicalToVisual.isEmpty()) {
+        visualStart = std::numeric_limits<int>::max();
+        visualEnd = std::numeric_limits<int>::min();
+        for (int logical = logicalStart; logical < logicalEnd; ++logical) {
+          if (logical < 0 || logical >= bidi.logicalToVisual.size()) continue;
+          const int visual = bidi.logicalToVisual.at(logical);
+          visualStart = std::min(visualStart, visual);
+          visualEnd = std::max(visualEnd, visual + 1);
+        }
+        if (visualStart == std::numeric_limits<int>::max()) {
+          visualStart = logicalStart;
+          visualEnd = logicalEnd;
+        }
+      }
       contract.clusters.push_back(TextClusterSpan{
           .logicalStart = logicalStart,
           .logicalLength = logicalLength,
-          .visualStart = graphemeIndex,
-          .visualLength = 1,
+          .visualStart = visualStart,
+          .visualLength = std::max(0, visualEnd - visualStart),
           .clusterId = QStringLiteral("cluster_%1_%2")
                            .arg(logicalStart)
                            .arg(logicalLength),
@@ -618,7 +633,6 @@ TextLayoutContract buildContract(const QString& text,
           .isLigature = false,
           .isEmojiSequence = emojiSequence,
       });
-      ++graphemeIndex;
     }
     graphemeStartUtf16 = graphemeEndUtf16;
   }

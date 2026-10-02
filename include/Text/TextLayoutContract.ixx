@@ -79,6 +79,8 @@ export enum class TextDirection {
 export struct TextClusterSpan {
   int logicalStart = 0;
   int logicalLength = 0;
+  // Codepoint ordinals in the paragraph's visual order, not shaped-glyph
+  // ordinals. A grapheme containing multiple codepoints spans all of them.
   int visualStart = 0;
   int visualLength = 0;
   QString clusterId;
