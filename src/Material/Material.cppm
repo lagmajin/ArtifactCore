@@ -280,4 +280,44 @@ Material Material::makeEmissive(const QColor& color, float strength)
  return m;
 }
 
+Material Material::makeStudioPreset(MaterialPresetKind preset)
+{
+ Material material;
+ switch (preset) {
+ case MaterialPresetKind::Matte:
+  material.setBaseColor(QColor(180, 180, 180));
+  material.setMetallic(0.0f);
+  material.setRoughness(0.82f);
+  material.setSpecular(0.35f);
+  material.setTransmission(0.0f);
+  material.setIOR(1.45f);
+  break;
+ case MaterialPresetKind::Metal:
+  material.setBaseColor(QColor(170, 180, 195));
+  material.setMetallic(0.9f);
+  material.setRoughness(0.24f);
+  material.setSpecular(0.5f);
+  material.setTransmission(0.0f);
+  material.setIOR(1.45f);
+  break;
+ case MaterialPresetKind::Plastic:
+  material.setBaseColor(QColor(210, 220, 235));
+  material.setMetallic(0.0f);
+  material.setRoughness(0.3f);
+  material.setSpecular(0.5f);
+  material.setTransmission(0.0f);
+  material.setIOR(1.46f);
+  break;
+ case MaterialPresetKind::Glass:
+  material.setBaseColor(QColor(225, 240, 255));
+  material.setMetallic(0.0f);
+  material.setRoughness(0.08f);
+  material.setSpecular(0.5f);
+  material.setTransmission(0.82f);
+  material.setIOR(1.5f);
+  break;
+ }
+ return material;
+}
+
 }

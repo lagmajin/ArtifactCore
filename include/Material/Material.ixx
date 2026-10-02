@@ -24,6 +24,8 @@ export enum class MaterialAlphaMode {
  Blended
 };
 
+export enum class MaterialPresetKind { Matte, Metal, Plastic, Glass };
+
  /// PBR マテリアル。DCC 標準 (glTF / Standard Surface 互換)。
  export class Material {
  private:
@@ -145,6 +147,9 @@ export enum class MaterialAlphaMode {
   static Material makeGlass(const QColor& color = QColor(240, 248, 255));
   static Material makeEmissive(const QColor& color = QColor(255, 255, 255),
                                 float strength = 5.0f);
+  // Canonical ArtifactStudio layer presets. Kept separate from the older
+  // generic factories above so their established defaults remain compatible.
+  static Material makeStudioPreset(MaterialPresetKind preset);
  };
 
 }
