@@ -32,6 +32,30 @@ struct Collider2DEditState {
   int sourceOutlinePointCount = 0;
   int rigidBodyPreviewPointCount = 0;
 
+  static bool fitsRendererFloat(double value) noexcept {
+    return std::isfinite(value) &&
+           std::abs(value) <= std::numeric_limits<float>::max();
+  }
+
+  static bool fitsPersistedOffset(double value) noexcept {
+    return std::isfinite(value) && std::abs(value) <= 100000.0;
+  }
+
+  bool hasFiniteGeometry() const noexcept {
+    const QPointF center = sourceBounds.center() + offset;
+    return fitsRendererFloat(sourceBounds.x()) &&
+           fitsRendererFloat(sourceBounds.y()) &&
+           fitsRendererFloat(sourceBounds.width()) &&
+           fitsRendererFloat(sourceBounds.height()) &&
+           sourceBounds.width() >= 0.0 && sourceBounds.height() >= 0.0 &&
+           fitsPersistedOffset(offset.x()) &&
+           fitsPersistedOffset(offset.y()) &&
+           fitsRendererFloat(center.x()) && fitsRendererFloat(center.y()) &&
+           std::isfinite(width) && width >= 0.0f && width <= 100000.0f &&
+           std::isfinite(height) && height >= 0.0f && height <= 100000.0f &&
+           std::isfinite(radius) && radius >= 0.0f && radius <= 100000.0f;
+  }
+
   bool supportsDirectSizeEditing() const noexcept {
     return shape == Collider2DShape::Box || shape == Collider2DShape::Circle;
   }
@@ -59,9 +83,10 @@ struct Collider2DEditState {
 
   bool tryHandlePosition(Collider2DEditHandle handle,
                          QPointF& position) const noexcept {
-    if (!enabled || !supportsDirectSizeEditing()) return false;
+    if (!enabled || !supportsDirectSizeEditing() || !hasFiniteGeometry()) return false;
     const auto assignIfFinite = [&](const QPointF& candidate) {
-      if (!std::isfinite(candidate.x()) || !std::isfinite(candidate.y())) {
+      if (!fitsRendererFloat(candidate.x()) ||
+          !fitsRendererFloat(candidate.y())) {
         return false;
       }
       position = candidate;
@@ -101,7 +126,7 @@ struct Collider2DEditState {
 
   Collider2DEditHandle hitTestHandle(const QPointF& localPoint,
                                      double tolerance) const noexcept {
-    if (!enabled || !supportsDirectSizeEditing() ||
+    if (!enabled || !supportsDirectSizeEditing() || !hasFiniteGeometry() ||
         !std::isfinite(localPoint.x()) || !std::isfinite(localPoint.y()) ||
         !std::isfinite(tolerance) || tolerance < 0.0) {
       return Collider2DEditHandle::None;
@@ -142,13 +167,14 @@ struct Collider2DEditState {
 
   bool applyDrag(Collider2DEditHandle handle,
                  const QPointF& localDelta) noexcept {
-    if (!enabled || !supportsDirectSizeEditing() ||
+    if (!enabled || !supportsDirectSizeEditing() || !hasFiniteGeometry() ||
         !std::isfinite(localDelta.x()) || !std::isfinite(localDelta.y())) {
       return false;
     }
     if (handle == Collider2DEditHandle::Offset) {
       const QPointF nextOffset = offset + localDelta;
-      if (!std::isfinite(nextOffset.x()) || !std::isfinite(nextOffset.y())) {
+      if (!fitsPersistedOffset(nextOffset.x()) ||
+          !fitsPersistedOffset(nextOffset.y())) {
         return false;
       }
       offset = nextOffset;
@@ -158,8 +184,7 @@ struct Collider2DEditState {
       if (handle != Collider2DEditHandle::CircleRadius) return false;
       const double nextRadius = std::max(
           0.001, static_cast<double>(resolvedRadius()) + localDelta.x());
-      if (!std::isfinite(nextRadius) ||
-          nextRadius > std::numeric_limits<float>::max()) {
+      if (!std::isfinite(nextRadius) || nextRadius > 100000.0) {
         return false;
       }
       radius = static_cast<float>(nextRadius);
@@ -221,7 +246,9 @@ struct Collider2DEditState {
     if (!std::isfinite(nextWidth) || !std::isfinite(nextHeight) ||
         nextWidth > std::numeric_limits<float>::max() ||
         nextHeight > std::numeric_limits<float>::max() ||
-        !std::isfinite(nextOffset.x()) || !std::isfinite(nextOffset.y())) {
+        nextWidth > 100000.0 || nextHeight > 100000.0 ||
+        !fitsPersistedOffset(nextOffset.x()) ||
+        !fitsPersistedOffset(nextOffset.y())) {
       return false;
     }
     width = static_cast<float>(nextWidth);
