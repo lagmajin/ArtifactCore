@@ -138,13 +138,13 @@ export struct PuppetConstraint {
 // 重みを強くし、Bend は回転を強制するための仮想拘束点を半径 20*weight の位置に
 // 4 個追加し、Overlap は MLS には参加させない（深さ計算専用）。
 // weight は 0..1、rotation はラジアンに正規化してから渡すこと。
-LIBRARY_DLL_API std::vector<PuppetConstraint> buildPuppetConstraints(
+export LIBRARY_DLL_API std::vector<PuppetConstraint> buildPuppetConstraints(
     const std::vector<PuppetPin>& pins);
 
 // 1 点 samplePoint に対応する MLS(similitude) 写像。samplePoint が制御点
 // 自身の場合はその target を返す。拘束点が空の場合や重み合計が 0 / 非有限の
 // 場合は samplePoint をそのまま返す。
-LIBRARY_DLL_API cv::Point2f evaluatePuppetMLS(
+export LIBRARY_DLL_API cv::Point2f evaluatePuppetMLS(
     const std::vector<PuppetConstraint>& constraints,
     const cv::Point2f& samplePoint);
 
