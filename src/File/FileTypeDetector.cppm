@@ -31,6 +31,7 @@ FileTypeDetector::Impl::detectByExtension(const QString &filePath) const {
   if (suffix == "png" || suffix == "jpg" || suffix == "jpeg" ||
       suffix == "bmp" || suffix == "gif" || suffix == "tiff" ||
       suffix == "tif" || suffix == "tga" || suffix == "exr" ||
+      suffix == "dpx" ||
       suffix == "hdr" || suffix == "psd" || suffix == "psb" ||
       suffix == "webp" || suffix == "svg" || suffix == "ico" ||
       suffix == "dds" || suffix == "ktx" || suffix == "ktx2" ||

@@ -105,12 +105,14 @@ OIIO::TypeDesc resolveWriteType(const QString& filePath, const ImageExportOption
     }
 
     const QString suffix = QFileInfo(filePath).suffix().toLower();
+    // EXR cannot store 8-bit, so promote rather than fail.
     if (suffix == QStringLiteral("exr") && type == OIIO::TypeDesc::UINT8) {
         type = OIIO::TypeDesc::FLOAT;
     }
-    if (type == OIIO::TypeDesc::HALF) {
-        type = OIIO::TypeDesc::FLOAT;
-    }
+    // HALF is kept as-is: 16-bit EXR / TIFF output is a valid deliverable and
+    // halving the file size is the usual reason to ask for it. Earlier revisions
+    // promoted HALF to FLOAT unconditionally, which made a 16-bit request
+    // silently produce a 32-bit file.
     return type;
 }
 
@@ -254,6 +256,13 @@ ImageExportResult encodeImageBufToPath(const OIIO::ImageBuf& imageBuf,
     return ImageExportResult{true, {}, {}};
 }
 
+// Replaces finalPath with tempPath as close to atomically as the platform allows.
+//
+// The earlier version removed finalPath first and then renamed. A failure between the
+// two (interrupted process, full disk, antivirus lock) left the caller with neither
+// the previous deliverable nor the new one. Instead the previous file is moved aside
+// to a sibling backup, the rename is attempted, and the backup is only deleted once
+// the new file is in place; any failure puts the original back.
 ImageExportResult commitAtomically(const QString& tempPath, const QString& finalPath)
 {
     QFileInfo finalInfo(finalPath);
@@ -262,15 +271,34 @@ ImageExportResult commitAtomically(const QString& tempPath, const QString& final
         return makeError("commit.mkdir", "Failed to create output directory: " + dir.absolutePath());
     }
 
-    if (QFile::exists(finalPath) && !QFile::remove(finalPath)) {
-        return makeError("commit.remove", "Failed to replace existing file: " + finalPath);
+    const bool hadExisting = QFile::exists(finalPath);
+    QString backupPath;
+    if (hadExisting) {
+        backupPath = finalPath + QStringLiteral(".artifact-previous");
+        // A stale backup from an earlier crash must not block this attempt.
+        if (QFile::exists(backupPath) && !QFile::remove(backupPath)) {
+            return makeError("commit.backup",
+                             "Failed to clear a stale backup file: " + backupPath);
+        }
+        if (!QFile::rename(finalPath, backupPath)) {
+            return makeError("commit.backup",
+                             "Failed to move the existing file aside: " + finalPath);
+        }
     }
 
     if (!QFile::rename(tempPath, finalPath)) {
         const QString why = QFile(tempPath).errorString();
+        if (hadExisting) {
+            // Put the previous deliverable back so a failed render never costs the
+            // user an existing file.
+            QFile::rename(backupPath, finalPath);
+        }
         return makeError("commit.rename", "Atomic rename failed from '" + tempPath + "' to '" + finalPath + "': " + why);
     }
 
+    if (hadExisting && QFile::exists(backupPath)) {
+        QFile::remove(backupPath);
+    }
     return ImageExportResult{true, {}, {}};
 }
 

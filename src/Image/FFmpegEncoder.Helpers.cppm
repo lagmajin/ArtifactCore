@@ -83,6 +83,12 @@ AVCodecID codecNameToId(const QString& codecName) {
     if (name == "mjpeg" || name == "motion_jpeg") {
         return AV_CODEC_ID_MJPEG;
     }
+    if (name == "dnxhd" || name == "dnxhr") {
+        return AV_CODEC_ID_DNXHD;
+    }
+    if (name == "wmv" || name == "wmv2") {
+        return AV_CODEC_ID_WMV2;
+    }
     if (name == "png") {
         return AV_CODEC_ID_PNG;
     }

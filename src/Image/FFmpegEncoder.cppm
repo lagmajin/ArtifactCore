@@ -3,6 +3,7 @@ module;
 #include <algorithm>
 #include <limits>
 #include <cstring>
+#include <memory>
 #include <QString>
 #include <QStringList>
 #include <QFile>
@@ -290,12 +291,16 @@ public:
             av_opt_set(codecCtx_->priv_data, "preset", settings.preset.toUtf8().constData(), 0);
             av_opt_set_int(codecCtx_->priv_data, "crf", settings.crf, 0);
         } else if (codecId == AV_CODEC_ID_PRORES) {
+            // FFmpeg's public headers do not expose named ProRes profile constants.
+            // Keep the values defined by FFmpeg's ProRes encoder option contract:
+            // 0=Proxy 1=LT 2=Standard 3=HQ 4=4444 5=4444XQ.
             int proresProfile = 3;
             const QString prof = settings.profile.toLower();
-            if (prof.contains("4444")) proresProfile = 5;
-            else if (prof.contains("hq")) proresProfile = 4;
-            else if (prof.contains("lt")) proresProfile = 2;
-            else if (prof.contains("proxy")) proresProfile = 1;
+            if (prof.contains("4444xq")) proresProfile = 5;
+            else if (prof.contains("4444")) proresProfile = 4;
+            else if (prof.contains("hq")) proresProfile = 3;
+            else if (prof.contains("lt")) proresProfile = 1;
+            else if (prof.contains("proxy")) proresProfile = 0;
             av_opt_set_int(codecCtx_->priv_data, "profile", proresProfile, 0);
         } else if (codecId == AV_CODEC_ID_GIF) {
             av_opt_set_int(codecCtx_->priv_data, "loop", 0, 0);

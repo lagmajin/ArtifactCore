@@ -65,6 +65,10 @@ struct ImageSequenceSource::Impl {
     QVector<FrameEntry> frames;
     QSize frameSize;
     double frameRate = 24.0;
+    // setFrameRate で明示指定された値を保持する。openFramePaths が frameRate を
+    // 初期化するたびに上書きしていたため、呼び出し側が設定した fps が
+    // ソースを開き直すたびに 24 に戻っていた。0 なら「未指定」を意味する。
+    double requestedFrameRate = 0.0;
     qint64 currentFrameIndex = 0;
     qint64 missingFrameCount = 0;
     QHash<qint64, CachedFrame> frameCache;
@@ -216,6 +220,9 @@ bool ImageSequenceSource::open(const QString& uri)
     }
 
     QVector<FrameEntry> frames;
+    // Rate derived from an animated GIF's own frame delays; 0 when the source is not
+    // an animation or carries no usable timing.
+    double animatedGifFrameRate = 0.0;
     if (info.isDir()) {
         impl_->uri = info.absoluteFilePath();
         impl_->displayName = info.dir().dirName();
@@ -287,6 +294,23 @@ bool ImageSequenceSource::open(const QString& uri)
                     animatedEntry.subframeIndex = i;
                     frames.push_back(std::move(animatedEntry));
                 }
+                // QImageReader exposes one delay at a time for the current image.
+                // Walk the animation to collect its per-frame delays without relying
+                // on duration APIs that are not present in Qt 6.
+                if (animatedReader.supportsAnimation() && animatedReader.jumpToImage(0)) {
+                    qint64 totalMs = 0;
+                    for (int i = 0; i < imageCount; ++i) {
+                        if (i > 0 && !animatedReader.jumpToNextImage()) {
+                            break;
+                        }
+                        const int frameMs = animatedReader.nextImageDelay();
+                        totalMs += frameMs > 0 ? frameMs : 100;
+                    }
+                    if (totalMs > 0) {
+                        animatedGifFrameRate = 1000.0 * static_cast<double>(imageCount)
+                            / static_cast<double>(totalMs);
+                    }
+                }
             } else {
                 frames.push_back(entry);
             }
@@ -309,7 +333,11 @@ bool ImageSequenceSource::open(const QString& uri)
     impl_->frames = std::move(frames);
     impl_->resetDecodedCache();
     resetPrefetchState(impl_->prefetchState);
-    impl_->frameRate = 24.0;
+    // An animated GIF carries its own timing; prefer it over the 24 fps default so a
+    // dropped-in animation plays at the author's intended speed.
+    impl_->frameRate = animatedGifFrameRate > 0.0
+        ? animatedGifFrameRate
+        : (impl_->requestedFrameRate > 0.0 ? impl_->requestedFrameRate : 24.0);
     impl_->currentFrameIndex = 0;
     impl_->open = true;
 
@@ -360,7 +388,7 @@ bool ImageSequenceSource::openFramePaths(const QStringList& framePaths)
     impl_->recountMissingFrames();
     impl_->resetDecodedCache();
     resetPrefetchState(impl_->prefetchState);
-    impl_->frameRate = 24.0;
+    impl_->frameRate = impl_->requestedFrameRate > 0.0 ? impl_->requestedFrameRate : 24.0;
     impl_->currentFrameIndex = 0;
     impl_->open = true;
     impl_->frameSize = QSize();
@@ -388,7 +416,7 @@ void ImageSequenceSource::close()
     resetPrefetchState(impl_->prefetchState);
     impl_->frameSize = QSize();
     impl_->currentFrameIndex = 0;
-    impl_->frameRate = 24.0;
+    impl_->frameRate = impl_->requestedFrameRate > 0.0 ? impl_->requestedFrameRate : 24.0;
     impl_->open = false;
 }
 
@@ -687,6 +715,8 @@ void ImageSequenceSource::setFrameRate(double fps)
     }
 
     impl_->frameRate = fps > 0.0 ? fps : 24.0;
+    // 明示指定された fps は openFramePaths の再初期化を跨いで保持する
+    impl_->requestedFrameRate = fps > 0.0 ? fps : 0.0;
 }
 
 quint64 ImageSequenceSource::frameCacheHitCount() const

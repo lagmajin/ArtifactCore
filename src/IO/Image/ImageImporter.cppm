@@ -39,7 +39,8 @@ namespace {
 OIIO::TypeDesc chooseReadType(const QString& filePath)
 {
     const QString suffix = QFileInfo(filePath).suffix().toLower();
-    if (suffix == QStringLiteral("exr")) {
+    if (suffix == QStringLiteral("exr") ||
+        suffix == QStringLiteral("dpx")) {
         return OIIO::TypeDesc::FLOAT;
     }
     if (suffix == QStringLiteral("tif") || suffix == QStringLiteral("tiff") ||
