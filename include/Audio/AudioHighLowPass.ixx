@@ -2,6 +2,7 @@ module;
 #include <utility>
 #include <string>
 #include <vector>
+#include <cstdint>
 #include <memory>
 #include <algorithm>
 #include <cmath>
@@ -43,8 +44,8 @@ private:
     float highPassRes_ = 0.0f;
     std::vector<float> lowPassStates_;
     std::vector<float> highPassStates_;
-    std::vector<bool> lowPassStatesInitialized_;
-    std::vector<bool> highPassStatesInitialized_;
+    std::vector<std::uint8_t> lowPassStatesInitialized_;
+    std::vector<std::uint8_t> highPassStatesInitialized_;
     int stateSampleRate_ = 0;
 };
 
