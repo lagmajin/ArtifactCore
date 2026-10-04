@@ -1,5 +1,6 @@
 module;
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <charconv>
 #include <cstdlib>
@@ -158,6 +159,36 @@ ArtifactScriptExprPtr parsePrimary(ParseCtx& c) {
     if (std::isdigit(static_cast<unsigned char>(c.src[c.pos]))) { e->kind = ArtifactScriptExpr::Kind::Literal; e->literalValue = parseNum(c); return e; }
     if (matchKw(c, "true")) { e->kind = ArtifactScriptExpr::Kind::Literal; e->literalValue = true; return e; }
     if (matchKw(c, "false")) { e->kind = ArtifactScriptExpr::Kind::Literal; e->literalValue = false; return e; }
+    // Vector / colour constructors. These parse into an ArrayLiteral node tagged
+// with the target type, so evaluation builds a typed value without a host call
+// and normalize/mix stay usable in constant sub-expressions.
+    {
+        struct LiteralCtor { const char* keyword; ArtifactScriptValueType type; };
+        static const LiteralCtor kLiteralCtors[] = {
+            {"vec2", ArtifactScriptValueType::Vec2},
+            {"vec3", ArtifactScriptValueType::Vec3},
+            {"vec4", ArtifactScriptValueType::Vec4},
+            {"color", ArtifactScriptValueType::Color},
+        };
+        const std::size_t mark = c.pos;
+        for (const auto& ctor : kLiteralCtors) {
+            if (!matchKw(c, ctor.keyword) || !matchCh(c, '(')) {
+                c.pos = mark;  // not this keyword; rewind and try the next
+                continue;
+            }
+            e->kind = ArtifactScriptExpr::Kind::ArrayLiteral;
+            e->arrayLiteralIsVector = true;
+            e->arrayLiteralType = ctor.type;
+            if (!matchCh(c, ')')) {
+                do {
+                    auto component = parseExpr(c);
+                    if (component) e->arrayElements.push_back(std::move(component));
+                } while (matchCh(c, ','));
+                matchCh(c, ')');
+            }
+            return e;
+        }
+    }
     std::string id = parseId(c); if (id.empty()) return nullptr;
     if (matchCh(c, '(')) { e->kind = ArtifactScriptExpr::Kind::Call; e->callName = id;
         if (!matchCh(c, ')')) { do { auto a = parseExpr(c); if (a) e->callArgs.push_back(std::move(a)); } while (matchCh(c, ',')); matchCh(c, ')'); } return e; }
@@ -1404,6 +1435,39 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalExpr(
     switch (e->kind) {
     case ArtifactScriptExpr::Kind::Literal: return e->literalValue;
     case ArtifactScriptExpr::Kind::ArrayLiteral: {
+        // vec/color constructors reuse this node with a type tag; every other
+        // array literal stays a generic ArtifactScriptArray.
+        if (e->arrayLiteralIsVector) {
+            // Numeric coercion shared with the binary operators: a component
+            // written as an int or bool still becomes a float component.
+            const auto numOf = [](const ArtifactScriptValue& v) -> double {
+                if (std::holds_alternative<double>(v)) return std::get<double>(v);
+                if (std::holds_alternative<std::int64_t>(v)) return static_cast<double>(std::get<std::int64_t>(v));
+                if (std::holds_alternative<bool>(v)) return std::get<bool>(v) ? 1.0 : 0.0;
+                return 0.0;
+            };
+            std::array<float, 4> components{};
+            for (std::size_t i = 0; i < e->arrayElements.size() && i < 4; ++i) {
+                const auto value = evalExpr(e->arrayElements[i].get(), fields, locals);
+                if (!error_.empty()) return {};
+                components[i] = static_cast<float>(numOf(value));
+            }
+            switch (e->arrayLiteralType) {
+            case ArtifactScriptValueType::Vec2:
+                return ArtifactScriptValue(ArtifactScriptVec2{components[0], components[1]});
+            case ArtifactScriptValueType::Vec3:
+                return ArtifactScriptValue(
+                    ArtifactScriptVec3{components[0], components[1], components[2]});
+            case ArtifactScriptValueType::Vec4:
+                return ArtifactScriptValue(ArtifactScriptVec4{
+                    components[0], components[1], components[2], components[3]});
+            case ArtifactScriptValueType::Color:
+                return ArtifactScriptValue(ArtifactScriptColor{
+                    components[0], components[1], components[2], components[3]});
+            default:
+                return ArtifactScriptValue{};
+            }
+        }
         auto array = makeShared<ArtifactScriptArray>();
         for (const auto& element : e->arrayElements)
             array->values.push_back(evalExpr(element.get(), fields, locals));

@@ -201,6 +201,10 @@ struct ArtifactScriptExpr {
     ArtifactScriptExprPtr indexTarget;
     ArtifactScriptExprPtr indexExpr;
     std::vector<ArtifactScriptExprPtr> arrayElements;
+    // Set on an ArrayLiteral node that came from a vec/color constructor, so
+    // evaluation builds a typed value instead of a generic array.
+    bool arrayLiteralIsVector = false;
+    ArtifactScriptValueType arrayLiteralType = ArtifactScriptValueType::Array;
 
     // Ternary: condition ? then : else
     ArtifactScriptExprPtr ternaryCondition;
