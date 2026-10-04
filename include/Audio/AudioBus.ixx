@@ -81,6 +81,9 @@ export namespace ArtifactCore {
 
 		// Effect Rack (FX Slot)
 		void addEffect(SharedPtr<AudioEffect> effect);
+		// Insert at a specific chain position. addEffect only appends, so a
+		// reorder needs an explicit insertion point.
+		void insertEffect(int index, SharedPtr<AudioEffect> effect);
 		void removeEffect(int index);
 		int getEffectCount() const;
 		SharedPtr<AudioEffect> getEffect(int index) const;

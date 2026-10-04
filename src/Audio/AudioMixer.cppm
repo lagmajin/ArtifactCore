@@ -74,6 +74,7 @@ struct AudioMixer::Impl {
         makeNamedVector<SideChainSend>(ContainerName{"AudioMixerSideChainSendsState"})};
     std::map<const AudioBus*, AudioBusKind> busKinds;
     std::map<const AudioBus*, std::vector<const AudioBus*>> vcaMembers;
+    EffectFactory effectFactory = nullptr;
 
     SharedPtr<AudioBus> resolveBus(const AudioBus* bus) const {
         if (!bus) {
@@ -332,6 +333,15 @@ QJsonObject AudioMixer::serialize() const {
         QJsonObject masterObj;
         masterObj[QStringLiteral("volume")] = masterBus_->getVolume();
         masterObj[QStringLiteral("mute")] = masterBus_->isMute();
+        masterObj[QStringLiteral("id")] = masterBus_->id().toQString();
+        // The master rack is skipped by the bus loop below, so its FX are
+        // written here or a master-chain effect would silently vanish.
+        QJsonArray masterEffects;
+        for (int i = 0; i < masterBus_->getEffectCount(); ++i) {
+            const auto effect = masterBus_->getEffect(i);
+            if (effect) masterEffects.push_back(effect->toJson());
+        }
+        masterObj[QStringLiteral("effects")] = masterEffects;
         obj[QStringLiteral("master")] = masterObj;
     }
 
@@ -380,11 +390,27 @@ QJsonObject AudioMixer::serialize() const {
             busObj["vcaMembers"] = membersArr;
         }
 
+        // FX rack. Each entry carries the effect's own serialization, whose
+        // "type" key is the factory id, so a reader can rebuild the chain
+        // through the owning application's effect manager. ArtifactCore does
+        // not own that manager, so only the write side lives here.
+        QJsonArray effectsArr;
+        for (int i = 0; i < bus->getEffectCount(); ++i) {
+            const auto effect = bus->getEffect(i);
+            if (effect) effectsArr.push_back(effect->toJson());
+        }
+        busObj["effects"] = effectsArr;
+
         busesArr.push_back(busObj);
     }
 
     obj["buses"] = busesArr;
     return obj;
+}
+
+void AudioMixer::setEffectFactoryHook(EffectFactory factory)
+{
+    impl_->effectFactory = factory;
 }
 
 bool AudioMixer::deserialize(const QJsonObject& data) {
@@ -401,6 +427,18 @@ bool AudioMixer::deserialize(const QJsonObject& data) {
         if (masterObj.contains(QStringLiteral("mute"))) {
             masterBus_->setMute(masterObj.value(QStringLiteral("mute")).toBool(
                 masterBus_->isMute()));
+        }
+        if (masterObj.contains(QStringLiteral("effects")) && impl_->effectFactory) {
+            for (const auto& entry : masterObj.value(QStringLiteral("effects")).toArray()) {
+                const auto effectObj = entry.toObject();
+                const auto type = effectObj.value(QStringLiteral("type")).toString();
+                if (type.isEmpty()) {
+                    continue;
+                }
+                if (auto effect = impl_->effectFactory(type, effectObj)) {
+                    masterBus_->addEffect(effect);
+                }
+            }
         }
     }
     impl_->routing.clear();
@@ -482,6 +520,28 @@ bool AudioMixer::deserialize(const QJsonObject& data) {
         }
         if (busObj.contains(QStringLiteral("solo"))) {
             bus->setSolo(busObj["solo"].toBool(bus->isSolo()));
+        }
+
+        // Rebuild the FX rack. An older document has no "effects" key and the
+        // freshly created bus is already empty, so this only runs when the
+        // document actually carried a rack.
+        const auto restoreEffects = [this, bus](const QJsonArray& entries) {
+            if (!impl_->effectFactory) {
+                return;
+            }
+            for (const auto& entry : entries) {
+                const auto effectObj = entry.toObject();
+                const auto type = effectObj.value(QStringLiteral("type")).toString();
+                if (type.isEmpty()) {
+                    continue;
+                }
+                if (auto effect = impl_->effectFactory(type, effectObj)) {
+                    bus->addEffect(effect);
+                }
+            }
+        };
+        if (busObj.contains(QStringLiteral("effects"))) {
+            restoreEffects(busObj["effects"].toArray());
         }
     }
 

@@ -359,6 +359,10 @@ public:
     std::string lastError() const;
 
 private:
+    const ArtifactScriptClass* findClassByName(std::string_view className) const;
+    const ArtifactScriptMethod* findMethodInDefinition(std::string_view name) const;
+    const ArtifactScriptMethod* findLifecycleHookInDefinition(
+        ArtifactScriptHook hook) const;
     ArtifactScriptDefinition definition_;
     const ArtifactScriptComponent* component_ = nullptr;
     Optional<ArtifactScriptHook> lastInvokedHook_;

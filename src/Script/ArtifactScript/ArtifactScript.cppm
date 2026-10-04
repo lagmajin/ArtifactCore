@@ -1211,17 +1211,86 @@ const ArtifactScriptComponent* ArtifactScriptInstance::boundComponent() const {
 }
 
 bool ArtifactScriptInstance::hasMethod(std::string_view name) const {
-    const auto& methods = definition_.rootClass.methods;
-    return std::any_of(methods.begin(), methods.end(), [&](const ArtifactScriptMethod& method) {
-        return method.name == name;
-    });
+    return findMethodInDefinition(name) != nullptr;
 }
 
 bool ArtifactScriptInstance::hasHook(ArtifactScriptHook hook) const {
-    const auto& methods = definition_.rootClass.methods;
-    return std::any_of(methods.begin(), methods.end(), [&](const ArtifactScriptMethod& method) {
-        return method.isLifecycleHook && method.hook == hook;
-    });
+    return findLifecycleHookInDefinition(hook) != nullptr;
+}
+
+const ArtifactScriptMethod* ArtifactScriptInstance::findMethodInDefinition(
+    std::string_view name) const {
+    if (name.empty() || definition_.rootClass.name.empty()) {
+        return nullptr;
+    }
+    // Walk base -> derived so a derived override wins over a base declaration.
+    const ArtifactScriptClass* cls = findClassByName(definition_.rootClass.name);
+    if (!cls) {
+        return nullptr;
+    }
+    std::string current(cls->name);
+    const ArtifactScriptMethod* found = nullptr;
+    for (int depth = 0; depth < 32; ++depth) {
+        const ArtifactScriptClass* level = findClassByName(current);
+        if (!level) {
+            break;
+        }
+        for (const auto& method : level->methods) {
+            if (method.name == name && method.body) {
+                found = &method;
+                break;
+            }
+        }
+        if (level->parentName.empty()) {
+            break;
+        }
+        current = level->parentName;
+    }
+    return found;
+}
+
+const ArtifactScriptMethod* ArtifactScriptInstance::findLifecycleHookInDefinition(
+    ArtifactScriptHook hook) const {
+    if (definition_.rootClass.name.empty()) {
+        return nullptr;
+    }
+    const ArtifactScriptClass* root =
+        findClassByName(definition_.rootClass.name);
+    if (!root) {
+        return nullptr;
+    }
+    std::string current(root->name);
+    const ArtifactScriptMethod* found = nullptr;
+    for (int depth = 0; depth < 32; ++depth) {
+        const ArtifactScriptClass* level = findClassByName(current);
+        if (!level) {
+            break;
+        }
+        for (const auto& method : level->methods) {
+            if (method.isLifecycleHook && method.hook == hook && method.body) {
+                found = &method;
+                break;
+            }
+        }
+        if (level->parentName.empty()) {
+            break;
+        }
+        current = level->parentName;
+    }
+    return found;
+}
+
+const ArtifactScriptClass* ArtifactScriptInstance::findClassByName(
+    std::string_view className) const {
+    if (className == definition_.rootClass.name) {
+        return &definition_.rootClass;
+    }
+    for (const auto& cls : definition_.classes) {
+        if (cls.name == className) {
+            return &cls;
+        }
+    }
+    return nullptr;
 }
 
 ArtifactScriptSerializedFields& ArtifactScriptInstance::fields() {
@@ -1342,7 +1411,10 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalExpr(
     }
     case ArtifactScriptExpr::Kind::Variable: {
         if (e->variableName == "this") {
-            if (!activeThis_) { error_ = "this is only valid inside a method"; return {}; }
+            // Inside a method `this` is the script instance; at the top level it
+            // stands for the owning layer, so field access on it is routed to
+            // the host (see the FieldAccess branch below).
+            if (!activeThis_) { return ArtifactScriptValue{}; }
             return activeThis_;
         }
         auto local = locals.find(e->variableName);
@@ -1352,8 +1424,25 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalExpr(
         error_ = "undefined: " + e->variableName; return {};
     }
     case ArtifactScriptExpr::Kind::FieldAccess: {
+        const bool isThisAccess =
+            !activeThis_ && e->fieldObject &&
+            e->fieldObject->kind == ArtifactScriptExpr::Kind::Variable &&
+            e->fieldObject->variableName == "this";
         const auto object = evalExpr(e->fieldObject.get(), fields, locals);
         if (!error_.empty()) return {};
+        // At the top level `this.<prop>` reads an owning-layer property, which
+        // keeps scripts free of explicit getProperty("self", ...) calls.
+        if (isThisAccess) {
+            ArtifactScriptValue result;
+            if (!ArtifactScriptHost::global().callFunction(
+                    "getSelfProperty",
+                    {ArtifactScriptValue(e->fieldName)}, result)) {
+                error_ = "this." + e->fieldName +
+                         ": host property read is not wired";
+                return {};
+            }
+            return result;
+        }
         if (!std::holds_alternative<ArtifactScriptObjectInstancePtr>(object) ||
             !std::get<ArtifactScriptObjectInstancePtr>(object)) {
             error_ = "field access on non-object: " + e->fieldName; return {};
@@ -1778,7 +1867,21 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
             ArtifactScriptObjectInstancePtr* target = nullptr;
             ArtifactScriptObjectInstancePtr thisCopy;
             if (s->declName == "this") {
-                if (!activeThis_) { error_ = "this is only valid inside a method"; return false; }
+                // At the top level `this` is the owning layer rather than a
+                // script instance, so the assignment goes to a host property
+                // write. Inside a method it stays an ordinary field assign.
+                if (!activeThis_) {
+                    ArtifactScriptValue written;
+                    if (!ArtifactScriptHost::global().callFunction(
+                            "setSelfProperty",
+                            {ArtifactScriptValue(s->assignField), init},
+                            written)) {
+                        error_ = "this." + s->assignField +
+                                 ": host property write is not wired";
+                        return false;
+                    }
+                    return error_.empty();
+                }
                 thisCopy = activeThis_;
                 target = &thisCopy;
             } else if (auto lit = locals.find(s->declName); lit != locals.end()) {
@@ -2283,14 +2386,16 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::callInstanceMethod(
 ArtifactScriptValue ArtifactScriptEvaluator::executeMethod(
     const ArtifactScriptDefinition& definition, std::string_view methodName,
     const std::vector<ArtifactScriptValue>& args, ArtifactScriptSerializedFields& fields) {
-    const auto it = std::find_if(definition.rootClass.methods.begin(), definition.rootClass.methods.end(),
-        [&](const ArtifactScriptMethod& method) { return method.name == methodName; });
-    if (it == definition.rootClass.methods.end() || !it->body) {
+    impl_->error_.clear();
+    impl_->activeDefinition_ = &definition;
+    // Resolve through the inheritance chain so a hook declared on a derived
+    // class is found, not only one on the root class.
+    const ArtifactScriptMethod* method =
+        impl_->findMethodInChain(definition.rootClass.name, methodName);
+    if (!method || !method->body) {
         impl_->error_ = "unknown method: " + std::string(methodName);
         return {};
     }
-    impl_->error_.clear();
-    impl_->activeDefinition_ = &definition;
     impl_->callDepth_ = 0;
     impl_->returnValue_ = {};
     impl_->returned_ = false;

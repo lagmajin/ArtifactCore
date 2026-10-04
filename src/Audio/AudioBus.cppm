@@ -218,6 +218,18 @@ namespace ArtifactCore {
 		}
 	}
 
+	void AudioBus::insertEffect(int index, SharedPtr<AudioEffect> effect)
+	{
+		if (!effect) {
+			return;
+		}
+		const int count = getEffectCount();
+		if (index < 0 || index > count) {
+			return;
+		}
+		impl_->effects_.insert(static_cast<std::size_t>(index), effect);
+	}
+
 	void AudioBus::removeEffect(int index)
 	{
 		if (index >= 0 && index < impl_->effects_.size()) {

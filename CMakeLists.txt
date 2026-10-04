@@ -3091,15 +3091,21 @@ set(ARTIFACTCORE_COMPOSITION_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Composition/CompositionBuffer2D.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Composition/CompositionContext.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Composition/CompositionFinalEffect.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Composition/CompositionRegistry.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Composition/ExportMatrix.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Composition/ParametricComposition.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Composition/PreCompose.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Composition/TemplateLock.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Composition/TemplateSlot.ixx"
 )
+# CompositionRegistry.cppm is scanned for module dependencies. Do not attach
+# source-local absolute /reference options for its imports: CMake's dyndep
+# module map already supplies them, and the duplicate path spellings trigger
+# MSVC C7684.
 set(ARTIFACTCORE_COMPOSITION_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Composition/CompositionBuffer2D.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Composition/CompositionFinalEffect.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Composition/CompositionRegistry.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Composition/ExportMatrix.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Composition/OpenCVCompositionBuffer2D.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Composition/ParametricComposition.cppm"

@@ -253,8 +253,9 @@ public:
         positionSpatialTangents_.find(previousX->frame.framePosition());
     const auto nextTangent =
         positionSpatialTangents_.find(nextX->frame.framePosition());
-    if (previousTangent == positionSpatialTangents_.end() &&
-        nextTangent == positionSpatialTangents_.end()) return std::nullopt;
+    // A segment without stored handles is not "no spatial path": it is an
+    // auto-Bezier segment. Falling through lets the handles derived below
+    // build the arc, matching the drawing shown in the motion path overlay.
     const float duration = static_cast<float>(
         nextX->frame.framePosition() - previousX->frame.framePosition());
     if (duration <= 0.0f) {
@@ -1046,11 +1047,13 @@ bool AnimatableTransform3D::positionKeyFrameSpatialTangentsAt(
 
 bool AnimatableTransform3D::hasPositionSpatialTangents() const
 {
-  if (impl_->x_.getKeyFrameCount() < 2 || impl_->y_.getKeyFrameCount() < 2) return false;
-  for (const auto& [frame, tangent] : impl_->positionSpatialTangents_)
-    if (impl_->x_.hasKeyFrameAt(FramePosition(frame)) &&
-        impl_->y_.hasKeyFrameAt(FramePosition(frame))) return true;
-  return false;
+  // Spatial interpolation applies to every segment that has keys on both
+  // position axes: segments without stored handles fall back to the auto
+  // Bezier handles in spatialPositionAt(), which is the path the viewport
+  // draws. Gating on the presence of stored handles made the drawn path and
+  // the evaluated position disagree whenever no handle had been edited.
+  return impl_->x_.getKeyFrameCount() >= 2 &&
+         impl_->y_.getKeyFrameCount() >= 2;
 }
 
 bool AnimatableTransform3D::removePositionKeyFrameSpatialTangentsAt(

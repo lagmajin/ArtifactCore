@@ -11,6 +11,7 @@ export module Audio.Mixer;
 
 import Audio.Segment;
 import Audio.Bus;
+import Audio.Effect;
 import Core.ArtifactString;
 import Utils.Id;
 import Utils.String.UniString;
@@ -92,10 +93,20 @@ public:
     QJsonObject serialize() const;
     bool deserialize(const QJsonObject& data);
 
+    // FX rack reconstruction. deserialize() reads the persisted effect entries
+    // but cannot instantiate them: the factories live in the owning
+    // application's effect manager, which ArtifactCore does not depend on.
+    // The reader therefore installs a factory hook that maps a serialized
+    // "type" to an effect instance, and deserialize() then rebuilds each bus
+    // rack through it.
+    using EffectFactory = SharedPtr<AudioEffect> (*)(const QString& effectType,
+                                                      const QJsonObject& payload);
+    void setEffectFactoryHook(EffectFactory factory);
+
 private:
     struct Impl;
     std::unique_ptr<Impl> impl_;
-    
+
     SharedPtr<AudioBus> masterBus_;
 };
 
