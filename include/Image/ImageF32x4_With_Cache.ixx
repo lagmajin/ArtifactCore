@@ -81,6 +81,8 @@ bool IsGpuTextureValid() const;
 // Deep copy methods
 ImageF32x4RGBAWithCache DeepCopy() const;
 ImageF32x4RGBAWithCache& operator=(const ImageF32x4RGBAWithCache& other);
+// Exchange internal image/cache state without copying the pixel buffer.
+void swap(ImageF32x4RGBAWithCache& other) noexcept;
 
 
  };

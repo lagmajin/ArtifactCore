@@ -334,6 +334,11 @@ namespace ArtifactCore
   return *this;
  }
 
+ void ImageF32x4RGBAWithCache::swap(ImageF32x4RGBAWithCache& other) noexcept
+ {
+  std::swap(impl_, other.impl_);
+ }
+
  void ImageF32x4RGBAWithCache::UpdateGpuTextureFromCpuData()
  {
   impl_->UpdateGpuTextureFromCpuData();
