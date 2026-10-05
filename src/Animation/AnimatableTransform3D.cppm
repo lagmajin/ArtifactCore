@@ -114,6 +114,7 @@ private:
         key.cp1_x, key.cp1_y, key.cp2_x, key.cp2_y, key.roving);
     property_->setKeyFrameAnchorAt(key.time, key.anchor);
     property_->setKeyFrameColorLabelAt(key.time, key.colorLabel);
+    property_->setKeyFrameSoftAt(key.time, key.soft);
   }
   SharedPtr<AbstractProperty> property_;
   int64_t scale_ = 24;

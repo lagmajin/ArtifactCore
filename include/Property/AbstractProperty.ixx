@@ -222,6 +222,8 @@ struct KeyFrame {
     bool roving = false;
     Anchor anchor = Anchor::Absolute;
     ColorLabel colorLabel = ColorLabel::None;
+    // Provisional editing metadata; evaluation and interpolation are unchanged.
+    bool soft = false;
 };
 
 // Small, allocation-free snapshot of the active keyframe segment. QVariant
@@ -364,6 +366,8 @@ public:
     KeyFrame::Anchor getKeyFrameAnchorAt(const RationalTime& time) const;
     void setKeyFrameColorLabelAt(const RationalTime& time, KeyFrame::ColorLabel label);
     KeyFrame::ColorLabel getKeyFrameColorLabelAt(const RationalTime& time) const;
+    void setKeyFrameSoftAt(const RationalTime& time, bool soft);
+    bool isKeyFrameSoftAt(const RationalTime& time) const;
     void retimeKeyFramesForLayerPointChange(const RationalTime& oldInPoint,
                                             const RationalTime& oldOutPoint,
                                             const RationalTime& newInPoint,

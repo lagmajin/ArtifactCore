@@ -838,6 +838,20 @@ KeyFrame::ColorLabel AbstractProperty::getKeyFrameColorLabelAt(
     return it != pImpl->m_keyFrames.end() ? it->colorLabel : KeyFrame::ColorLabel::None;
 }
 
+void AbstractProperty::setKeyFrameSoftAt(const RationalTime& time, bool soft) {
+    std::unique_lock lock(pImpl->m_mutex);
+    auto it = std::find_if(pImpl->m_keyFrames.begin(), pImpl->m_keyFrames.end(),
+        [&time](const KeyFrame& kf) { return sameKeyFrameTime(kf.time, time); });
+    if (it != pImpl->m_keyFrames.end()) it->soft = soft;
+}
+
+bool AbstractProperty::isKeyFrameSoftAt(const RationalTime& time) const {
+    std::shared_lock lock(pImpl->m_mutex);
+    auto it = std::find_if(pImpl->m_keyFrames.begin(), pImpl->m_keyFrames.end(),
+        [&time](const KeyFrame& kf) { return sameKeyFrameTime(kf.time, time); });
+    return it != pImpl->m_keyFrames.end() && it->soft;
+}
+
 void AbstractProperty::retimeKeyFramesForLayerPointChange(const RationalTime& oldInPoint,
                                                           const RationalTime& oldOutPoint,
                                                           const RationalTime& newInPoint,

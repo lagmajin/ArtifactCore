@@ -144,6 +144,7 @@ public:
                 kfObj[QStringLiteral("roving")] = kf.roving;
                 kfObj[QStringLiteral("anchor")] = static_cast<int>(kf.anchor);
                 kfObj[QStringLiteral("colorLabel")] = static_cast<int>(kf.colorLabel);
+                kfObj[QStringLiteral("soft")] = kf.soft;
                 switch (property->getType()) {
                 case PropertyType::Float:
                 case PropertyType::Integer:
@@ -258,6 +259,7 @@ public:
             property->addKeyFrame(time, keyframeValue, interpolation, cp1_x, cp1_y, cp2_x, cp2_y, roving);
             property->setKeyFrameAnchorAt(time, anchor);
             property->setKeyFrameColorLabelAt(time, colorLabel);
+            property->setKeyFrameSoftAt(time, kfObj.value(QStringLiteral("soft")).toBool(false));
         }
 
         property->clearEnvelopes();
