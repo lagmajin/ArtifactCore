@@ -21,6 +21,7 @@ module;
 module Script.ArtifactScript;
 
 import Container.NamedVector;
+import Core.ArtifactArray;
 import EnvironmentVariable;
 
 import Core.ArtifactString;
@@ -1426,6 +1427,89 @@ bool ArtifactScriptInstance::wasHookInvoked(ArtifactScriptHook hook) const {
 
 // ─── Evaluator ───
 
+namespace {
+
+struct ArtifactScriptLocalBinding {
+    std::string name;
+    ArtifactScriptValue value;
+};
+
+class ArtifactScriptLocals {
+public:
+    void reserve(std::size_t count) { entries_.reserve(count); }
+
+    ArtifactScriptLocalBinding* find(std::string_view name) {
+        for (auto& entry : entries_) {
+            if (entry.name == name) return &entry;
+        }
+        return nullptr;
+    }
+
+    const ArtifactScriptLocalBinding* find(std::string_view name) const {
+        for (const auto& entry : entries_) {
+            if (entry.name == name) return &entry;
+        }
+        return nullptr;
+    }
+
+    ArtifactScriptValue& operator[](std::string_view name) {
+        if (auto* entry = find(name)) return entry->value;
+        entries_.append(ArtifactScriptLocalBinding{std::string(name), {}});
+        return entries_[entries_.size() - 1].value;
+    }
+
+    ArtifactScriptLocalBinding& emplace(std::string_view name,
+                                         const ArtifactScriptValue& value) {
+        if (auto* entry = find(name)) return *entry;
+        entries_.append(ArtifactScriptLocalBinding{std::string(name), value});
+        return entries_[entries_.size() - 1];
+    }
+
+private:
+    ArtifactCore::Array<ArtifactScriptLocalBinding> entries_;
+};
+
+std::size_t countLocalDeclarations(const ArtifactScriptStmt* statement) {
+    if (!statement) return 0;
+    std::size_t count = statement->kind == ArtifactScriptStmt::Kind::Decl ? 1 : 0;
+    switch (statement->kind) {
+    case ArtifactScriptStmt::Kind::If:
+        count += countLocalDeclarations(statement->ifThen.get());
+        count += countLocalDeclarations(statement->ifElse.get());
+        break;
+    case ArtifactScriptStmt::Kind::Block:
+        for (const auto& child : statement->blockStmts) {
+            count += countLocalDeclarations(child.get());
+        }
+        break;
+    case ArtifactScriptStmt::Kind::While:
+        count += countLocalDeclarations(statement->whileBody.get());
+        break;
+    case ArtifactScriptStmt::Kind::For:
+        count += countLocalDeclarations(statement->forInit.get());
+        count += countLocalDeclarations(statement->forIncrement.get());
+        count += countLocalDeclarations(statement->forBody.get());
+        break;
+    case ArtifactScriptStmt::Kind::Foreach:
+        ++count;
+        count += countLocalDeclarations(statement->foreachBody.get());
+        break;
+    default:
+        break;
+    }
+    return count;
+}
+
+std::size_t countLocalDeclarations(const ArtifactScriptMethodBody& body) {
+    std::size_t count = 0;
+    for (const auto& statement : body.statements) {
+        count += countLocalDeclarations(statement.get());
+    }
+    return count;
+}
+
+}  // namespace
+
 class ArtifactScriptEvaluator::Impl {
 public:
     std::string error_;
@@ -1436,11 +1520,11 @@ public:
     const ArtifactScriptDefinition* activeDefinition_ = nullptr;
     ArtifactScriptObjectInstancePtr activeThis_;
     int callDepth_ = 0;
-    ArtifactScriptValue evalExpr(const ArtifactScriptExpr*, ArtifactScriptSerializedFields&, const std::unordered_map<std::string, ArtifactScriptValue>&);
+    ArtifactScriptValue evalExpr(const ArtifactScriptExpr*, ArtifactScriptSerializedFields&, const ArtifactScriptLocals&);
     ArtifactScriptValue evalBinary(ArtifactScriptBinaryOp, const ArtifactScriptValue&, const ArtifactScriptValue&);
     ArtifactScriptValue evalUnary(ArtifactScriptUnaryOp, const ArtifactScriptValue&);
-    ArtifactScriptValue evalCall(const ArtifactScriptExpr*, ArtifactScriptSerializedFields&, const std::unordered_map<std::string, ArtifactScriptValue>&);
-    bool execStmt(const ArtifactScriptStmt*, ArtifactScriptSerializedFields&, std::unordered_map<std::string, ArtifactScriptValue>& locals);
+    ArtifactScriptValue evalCall(const ArtifactScriptExpr*, ArtifactScriptSerializedFields&, const ArtifactScriptLocals&);
+    bool execStmt(const ArtifactScriptStmt*, ArtifactScriptSerializedFields&, ArtifactScriptLocals& locals);
     ArtifactScriptValue callUserMethod(const ArtifactScriptMethod&, const std::vector<ArtifactScriptValue>&, ArtifactScriptSerializedFields&);
     ArtifactScriptValue callInstanceMethod(const ArtifactScriptObjectInstancePtr&, const ArtifactScriptMethod&, const std::vector<ArtifactScriptValue>&);
     const ArtifactScriptClass* findClass(std::string_view) const;
@@ -1466,7 +1550,8 @@ bool ArtifactScriptEvaluator::execute(
     for (std::size_t i = 0; i < args.size() && i < body.parameters.size(); ++i) {
         fields[body.parameters[i]] = args[i];
     }
-    std::unordered_map<std::string, ArtifactScriptValue> locals;
+    ArtifactScriptLocals locals;
+    locals.reserve(countLocalDeclarations(body));
     for (auto& st : body.statements) {
         if (!impl_->execStmt(st.get(), fields, locals)) return false;
         if (impl_->returned_) break;
@@ -1482,7 +1567,7 @@ bool ArtifactScriptEvaluator::execute(
 
 ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalExpr(
     const ArtifactScriptExpr* e, ArtifactScriptSerializedFields& fields,
-    const std::unordered_map<std::string, ArtifactScriptValue>& locals) {
+    const ArtifactScriptLocals& locals) {
     if (!e) { error_ = "null expr"; return {}; }
     switch (e->kind) {
     case ArtifactScriptExpr::Kind::Literal: return e->literalValue;
@@ -1533,8 +1618,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalExpr(
             if (!activeThis_) { return ArtifactScriptValue{}; }
             return activeThis_;
         }
-        auto local = locals.find(e->variableName);
-        if (local != locals.end()) return local->second;
+        if (const auto* local = locals.find(e->variableName)) return local->value;
         auto it = fields.find(e->variableName);
         if (it != fields.end()) return it->second;
         error_ = "undefined: " + e->variableName; return {};
@@ -1748,8 +1832,9 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalUnary(
 
 ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
     const ArtifactScriptExpr* e, ArtifactScriptSerializedFields& fields,
-    const std::unordered_map<std::string, ArtifactScriptValue>& locals) {
+    const ArtifactScriptLocals& locals) {
     std::vector<ArtifactScriptValue> args;
+    args.reserve(e->callArgs.size());
     for (auto& a : e->callArgs) args.push_back(evalExpr(a.get(), fields, locals));
     if (!error_.empty()) return {};
     if (e->callTarget) {
@@ -1910,7 +1995,8 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::callUserMethod(
     }
     const ArtifactScriptMethod* method = &resolvedMethod;
     if (!method->body) return {};
-    std::unordered_map<std::string, ArtifactScriptValue> locals;
+    ArtifactScriptLocals locals;
+    locals.reserve(method->parameters.size() + countLocalDeclarations(*method->body));
     for (std::size_t i = 0; i < args.size() && i < method->parameters.size(); ++i)
         locals[method->parameters[i]] = args[i];
     const auto previousReturn = returnValue_;
@@ -1935,7 +2021,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::callUserMethod(
 
 bool ArtifactScriptEvaluator::Impl::execStmt(
     const ArtifactScriptStmt* s, ArtifactScriptSerializedFields& fields,
-    std::unordered_map<std::string, ArtifactScriptValue>& locals) {
+    ArtifactScriptLocals& locals) {
     if (!s) return true;
     switch (s->kind) {
     case ArtifactScriptStmt::Kind::Expr:
@@ -1956,26 +2042,28 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
             return {};
         };
         if (s->assignIndex) {
-            auto target = locals.find(s->assignTarget);
-            if (target == locals.end()) {
+            auto* target = locals.find(s->assignTarget);
+            if (!target) {
                 auto field = fields.find(s->assignTarget);
                 if (field == fields.end()) { error_ = "undefined array: " + s->assignTarget; return false; }
-                target = locals.emplace(s->assignTarget, field->second).first;
+                target = &locals.emplace(s->assignTarget, field->second);
             }
             auto indexValue = evalExpr(s->assignIndex.get(), fields, locals);
-            if (!std::holds_alternative<ArtifactScriptArrayPtr>(target->second) ||
+            if (!std::holds_alternative<ArtifactScriptArrayPtr>(target->value) ||
                 (!std::holds_alternative<double>(indexValue) && !std::holds_alternative<std::int64_t>(indexValue))) {
                 error_ = "invalid array assignment"; return false;
             }
-            const auto& array = std::get<ArtifactScriptArrayPtr>(target->second);
+            const auto& array = std::get<ArtifactScriptArrayPtr>(target->value);
             const auto index = static_cast<std::size_t>(std::holds_alternative<double>(indexValue)
                 ? std::get<double>(indexValue) : std::get<std::int64_t>(indexValue));
             if (!array || index >= array->values.size()) { error_ = "array index out of range"; return false; }
             array->values[index] = applyCompound(array->values[index]);
             return error_.empty();
         }
-        auto lit = locals.find(s->assignTarget);
-        if (lit != locals.end()) { lit->second = applyCompound(lit->second); return error_.empty(); }
+        if (auto* lit = locals.find(s->assignTarget)) {
+            lit->value = applyCompound(lit->value);
+            return error_.empty();
+        }
         auto fieldIt = fields.find(s->assignTarget);
         if (fieldIt != fields.end()) {
             fieldIt->second = applyCompound(fieldIt->second);
@@ -2016,8 +2104,8 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
                 }
                 fields[s->assignField] = init;
                 return error_.empty();
-            } else if (auto lit = locals.find(s->declName); lit != locals.end()) {
-                target = resolveObject(lit->second);
+            } else if (auto* lit = locals.find(s->declName)) {
+                target = resolveObject(lit->value);
             } else if (auto fieldIt = fields.find(s->declName); fieldIt != fields.end()) {
                 target = resolveObject(fieldIt->second);
             }
@@ -2062,8 +2150,8 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
         const ArtifactScriptValue* collection = nullptr;
         if (const auto it = fields.find(s->foreachCollectionName); it != fields.end()) {
             collection = &it->second;
-        } else if (const auto lit = locals.find(s->foreachCollectionName); lit != locals.end()) {
-            collection = &lit->second;
+        } else if (const auto* lit = locals.find(s->foreachCollectionName)) {
+            collection = &lit->value;
         }
         if (!collection) { error_ = "undefined: " + s->foreachCollectionName; return false; }
         if (!std::holds_alternative<ArtifactScriptArrayPtr>(*collection)) {
@@ -2509,7 +2597,8 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::callInstanceMethod(
     if (callDepth_ >= kMaxCallDepth) { error_ = "script call depth limit"; return {}; }
     const ArtifactScriptMethod* method = &resolvedMethod;
     if (!method->body) return {};
-    std::unordered_map<std::string, ArtifactScriptValue> locals;
+    ArtifactScriptLocals locals;
+    locals.reserve(method->parameters.size() + countLocalDeclarations(*method->body));
     for (std::size_t i = 0; i < args.size() && i < method->parameters.size(); ++i)
         locals[method->parameters[i]] = args[i];
     const auto previousReturn = returnValue_;
