@@ -1512,7 +1512,7 @@ public:
     }
 
 private:
-    static constexpr std::size_t inlineCapacity_ = 8;
+    static constexpr std::size_t inlineCapacity_ = 12;
 
     ArtifactScriptLocalBinding& append(std::string_view name,
                                        const ArtifactScriptValue& value) {
