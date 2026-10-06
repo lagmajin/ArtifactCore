@@ -116,7 +116,26 @@ ArtifactScriptValueType parseFieldType(std::string_view typeName) {
 namespace {
 
 struct ParseCtx { std::string_view src; size_t pos = 0; size_t len = 0; };
-void skipWS(ParseCtx& c) { while (c.pos < c.len && std::isspace(static_cast<unsigned char>(c.src[c.pos]))) ++c.pos; }
+void skipWS(ParseCtx& c) {
+    while (c.pos < c.len) {
+        if (std::isspace(static_cast<unsigned char>(c.src[c.pos]))) {
+            ++c.pos;
+            continue;
+        }
+        if (c.pos + 1 < c.len && c.src[c.pos] == '/' && c.src[c.pos + 1] == '/') {
+            c.pos += 2;
+            while (c.pos < c.len && c.src[c.pos] != '\n') ++c.pos;
+            continue;
+        }
+        if (c.pos + 1 < c.len && c.src[c.pos] == '/' && c.src[c.pos + 1] == '*') {
+            c.pos += 2;
+            while (c.pos + 1 < c.len && !(c.src[c.pos] == '*' && c.src[c.pos + 1] == '/')) ++c.pos;
+            c.pos = c.pos + 1 < c.len ? c.pos + 2 : c.len;
+            continue;
+        }
+        break;
+    }
+}
 bool matchCh(ParseCtx& c, char ch) { skipWS(c); if (c.pos < c.len && c.src[c.pos] == ch) { ++c.pos; return true; } return false; }
 bool matchKw(ParseCtx& c, const char* wd) { skipWS(c); size_t n = std::strlen(wd); if (c.pos + n <= c.len && c.src.substr(c.pos, n) == wd && (c.pos + n >= c.len || !std::isalnum(static_cast<unsigned char>(c.src[c.pos + n])))) { c.pos += n; return true; } return false; }
 std::string parseId(ParseCtx& c) { skipWS(c); size_t s = c.pos; while (c.pos < c.len && (std::isalnum(static_cast<unsigned char>(c.src[c.pos])) || c.src[c.pos] == '_')) ++c.pos; return std::string(c.src.substr(s, c.pos - s)); }
@@ -489,6 +508,11 @@ ArtifactScriptDefinition ArtifactScriptParser::parse(std::string_view source) co
             continue;
         }
 
+        if (trimmed == "{") {
+            pos = nextPos;
+            continue;
+        }
+
         const bool isPublic = starts_with(trimmed, "public ");
         const bool isPrivate = starts_with(trimmed, "private ");
         const bool isField = isPublic || isPrivate;
@@ -606,11 +630,18 @@ ArtifactScriptDefinition ArtifactScriptParser::parse(std::string_view source) co
             }
             // Parse method body if present
             std::string bodyText;
+            bool hasBody = false;
             size_t bodyStart = trimmed.find('{');
             if (bodyStart != std::string::npos) {
                 // Body starts on same line
+                size_t leadingWhitespace = 0;
+                while (leadingWhitespace < line.size() &&
+                       std::isspace(static_cast<unsigned char>(line[leadingWhitespace]))) {
+                    ++leadingWhitespace;
+                }
+                const size_t bodyStartInSource = pos + leadingWhitespace + bodyStart;
                 size_t depth = 1;
-                size_t searchPos = pos + bodyStart + 1;
+                size_t searchPos = bodyStartInSource + 1;
                 size_t bodyEnd = searchPos;
                 for (; searchPos < sourceView.size() && depth > 0; ++searchPos) {
                     if (sourceView[searchPos] == '{') ++depth;
@@ -618,7 +649,9 @@ ArtifactScriptDefinition ArtifactScriptParser::parse(std::string_view source) co
                     if (depth == 0) bodyEnd = searchPos;
                 }
                 if (depth == 0) {
-                    bodyText = std::string(sourceView.substr(pos + bodyStart + 1, bodyEnd - (pos + bodyStart + 1)));
+                    bodyText = std::string(sourceView.substr(
+                        bodyStartInSource + 1, bodyEnd - (bodyStartInSource + 1)));
+                    hasBody = true;
                     pos = bodyEnd + 1;
                     nextPos = sourceView.find('\n', pos);
                 }
@@ -628,20 +661,27 @@ ArtifactScriptDefinition ArtifactScriptParser::parse(std::string_view source) co
                 while (lookPos < sourceView.size() && std::isspace(static_cast<unsigned char>(sourceView[lookPos])))
                     ++lookPos;
                 if (lookPos < sourceView.size() && sourceView[lookPos] == '{') {
+                    const size_t bodyStartInSource = lookPos + 1;
                     size_t depth = 1;
-                    size_t bs = lookPos + 1;
-                    for (; lookPos < sourceView.size() && depth > 0; ++lookPos) {
-                        if (sourceView[lookPos] == '{') ++depth;
-                        else if (sourceView[lookPos] == '}') --depth;
+                    size_t bodyEndInSource = bodyStartInSource;
+                    size_t scanPos = bodyStartInSource;
+                    for (; scanPos < sourceView.size() && depth > 0; ++scanPos) {
+                        if (sourceView[scanPos] == '{') ++depth;
+                        else if (sourceView[scanPos] == '}') {
+                            --depth;
+                            if (depth == 0) bodyEndInSource = scanPos;
+                        }
                     }
                     if (depth == 0) {
-                        bodyText = std::string(sourceView.substr(bs, lookPos - 1 - bs));
-                        pos = lookPos;
+                        bodyText = std::string(
+                            sourceView.substr(bodyStartInSource, bodyEndInSource - bodyStartInSource));
+                        hasBody = true;
+                        pos = bodyEndInSource + 1;
                         nextPos = sourceView.find('\n', pos);
                     }
                 }
             }
-            if (!bodyText.empty()) {
+            if (hasBody) {
                 method.body = parseMethodBody(bodyText, method.parameters);
             }
             activeClass().methods.push_back(std::move(method));
