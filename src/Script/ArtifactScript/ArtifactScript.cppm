@@ -1571,7 +1571,7 @@ struct ArtifactScriptFieldBinding {
     ArtifactScriptValue value;
 };
 
-constexpr std::size_t kArtifactScriptInlineOverlayCapacity = 4;
+constexpr std::size_t kArtifactScriptInlineOverlayCapacity = 8;
 
 class ArtifactScriptFields {
 public:
