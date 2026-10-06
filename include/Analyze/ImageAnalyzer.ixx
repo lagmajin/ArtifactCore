@@ -2,6 +2,8 @@ module;
 
 #include "../Define/DllExportMacro.hpp"
 #include <array>
+#include <cstddef>
+#include <cstdint>
 
 #include <iostream>
 #include <vector>
@@ -33,6 +35,10 @@ module;
 #include <numeric>
 #include <regex>
 #include <random>
+namespace ArtifactCore {
+struct ImageSurfaceView;
+struct ImageByteSurfaceView;
+}
 export module Analyze.Histogram;
 
 export namespace ArtifactCore {
@@ -57,17 +63,67 @@ struct ImageStatistics {
     ChannelStatistics green;
     ChannelStatistics blue;
     ChannelStatistics alpha;
-    ChannelStatistics luminance;   // Rec.709 輝度
+    ChannelStatistics luminance;   // Legacy Rec.709-weighted RGB values; no transfer decoding.
+};
+
+/// Logical RGBA sample read from a validated float16/float32 or normalized 8-bit view.
+/// Values retain the source transfer function and alpha convention.
+struct ImagePixelSample {
+    std::array<float, 4> rgba{};
+    int x = 0;
+    int y = 0;
+};
+
+enum class ImageSpectrumChannel : std::uint8_t {
+    Red,
+    Green,
+    Blue,
+    Alpha,
+    Rec709WeightedRgb,
 };
 
 /**
  * @brief 画像解析エンジン
  * 
- * RGBA float バッファからヒストグラム、統計情報、
- * 自動露出/ホワイトバランス推定値を算出する。
+ * RGBA float バッファ／画像 view からヒストグラム、統計情報、
+ * ピクセルサンプル、空間周波数を算出し、自動露出や
+ * ホワイトバランスの推定値も提供する。
  */
 class LIBRARY_DLL_API ImageAnalyzer {
 public:
+    /// Reads one logical RGBA pixel from an explicitly described float16/float32 view.
+    /// Does not allocate, convert color space, or un-premultiply alpha.
+    static bool samplePixel(const ImageSurfaceView& image, int x, int y,
+                            ImagePixelSample& sample) noexcept;
+    /// Byte samples are normalized to 0..1; transfer and alpha conventions remain unchanged.
+    static bool samplePixel(const ImageByteSurfaceView& image, int x, int y,
+                            ImagePixelSample& sample) noexcept;
+
+    /// Whole-image analysis; schedule outside frame-time critical paths.
+    /// Computes the legacy 0..1 channel histograms and statistics directly from
+    /// a float16/float32 or normalized 8-bit RGBA/BGRA view, honoring stride and
+    /// channel order. Histogram values are clamped to [0, 1]; use samplePixel for
+    /// unclamped HDR channel values.
+    /// No full-image copy or color-space conversion is performed.
+    static bool analyze(const ImageSurfaceView& image, ImageStatistics& statistics) noexcept;
+    static bool analyze(const ImageByteSurfaceView& image,
+                        ImageStatistics& statistics) noexcept;
+
+    /// Explicit whole-image analysis (allocates OpenCV work buffers; not for a
+    /// per-frame hot path). Computes a 2D spatial-frequency magnitude map of
+    /// RGB, alpha, or Rec.709-weighted source RGB (without transfer decoding).
+    /// DC is at (0, 0);
+    /// bins are unshifted and normalized by the source pixel count. The caller
+    /// owns the output buffer; count receives the required size on capacity failure.
+    static bool analyzeSpatialFrequency(const ImageSurfaceView& image,
+                                        ImageSpectrumChannel channel,
+                                        float* magnitudes, std::size_t capacity,
+                                        std::size_t& count);
+    static bool analyzeSpatialFrequency(const ImageByteSurfaceView& image,
+                                        ImageSpectrumChannel channel,
+                                        float* magnitudes, std::size_t capacity,
+                                        std::size_t& count);
+
     /// RGBA画像の全チャンネル統計を計算
     static ImageStatistics analyze(const float* pixels, int width, int height);
 

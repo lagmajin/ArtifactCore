@@ -30,6 +30,21 @@ struct ImageSurfaceView {
     }
 };
 
+/// Non-owning 8-bit RGBA/BGRA image view for analysis and explicit CPU-side
+/// boundaries. It is intentionally separate from ImageSurfaceView so GPU upload
+/// APIs that consume float surfaces cannot mistake normalized bytes for floats.
+struct ImageByteSurfaceView {
+    const std::uint8_t* data = nullptr;
+    int width = 0;
+    int height = 0;
+    std::size_t rowStride = 0;
+    SurfaceColorDescriptor descriptor = SurfaceColorDescriptor::unknown();
+
+    bool isValid() const noexcept {
+        return data != nullptr && width > 0 && height > 0 && rowStride != 0;
+    }
+};
+
 // Non-owning views: the buffer must outlive the view and keep its layout.
 // A factory checks the declared layout, not the semantic contents of raw bytes.
 template <typename Component>

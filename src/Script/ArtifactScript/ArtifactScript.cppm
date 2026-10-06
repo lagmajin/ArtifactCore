@@ -17,9 +17,11 @@ module;
 #include <memory>
 #include <functional>
 #include <sstream>
+#include <QString>
 module Script.ArtifactScript;
 
 import Container.NamedVector;
+import EnvironmentVariable;
 
 import Core.ArtifactString;
 import Memory.SharedPtr;
@@ -2061,7 +2063,34 @@ public:
     static constexpr std::size_t kMaxLogLines = 256;
 };
 
-ArtifactScriptHost::ArtifactScriptHost() : impl_(std::make_unique<Impl>()) {}
+ArtifactScriptHost::ArtifactScriptHost() : impl_(std::make_unique<Impl>()) {
+    registerFunction("getEnv", [](std::span<const ArtifactScriptValue> args) {
+        if (args.empty() || !std::holds_alternative<std::string>(args[0])) {
+            return ArtifactScriptValue{};
+        }
+        const auto& name = std::get<std::string>(args[0]);
+        if (name.rfind("ARTIFACT_", 0) != 0) {
+            return args.size() > 1 ? args[1] : ArtifactScriptValue{};
+        }
+        auto* environment = EnvironmentVariableManager::instance();
+        const QString key = QString::fromStdString(name);
+        if (!environment->hasVariable(key)) {
+            return args.size() > 1 ? args[1] : ArtifactScriptValue{};
+        }
+        return ArtifactScriptValue(environment->getVariable(key).toString().toStdString());
+    });
+    registerFunction("hasEnv", [](std::span<const ArtifactScriptValue> args) {
+        if (args.empty() || !std::holds_alternative<std::string>(args[0])) {
+            return ArtifactScriptValue(false);
+        }
+        const auto& name = std::get<std::string>(args[0]);
+        if (name.rfind("ARTIFACT_", 0) != 0) {
+            return ArtifactScriptValue(false);
+        }
+        return ArtifactScriptValue(EnvironmentVariableManager::instance()->hasVariable(
+            QString::fromStdString(name)));
+    });
+}
 ArtifactScriptHost::~ArtifactScriptHost() noexcept = default;
 
 void ArtifactScriptHost::registerFunction(const std::string& name, ArtifactScriptNativeFn function) {
