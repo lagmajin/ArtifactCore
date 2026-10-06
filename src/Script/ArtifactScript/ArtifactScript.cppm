@@ -1646,7 +1646,7 @@ std::size_t countLocalDeclarations(const ArtifactScriptMethodBody& body) {
 class ArtifactScriptEvaluator::Impl {
 public:
     static constexpr std::size_t kReusableForeachDepth = 8;
-    static constexpr std::size_t kReusableForeachElements = 256;
+    static constexpr std::size_t kReusableForeachValueBudget = 1024;
 
     struct ForeachSnapshotScope {
         Impl& owner;
@@ -1667,7 +1667,7 @@ public:
     const ArtifactScriptDefinition* activeDefinition_ = nullptr;
     ArtifactScriptObjectInstancePtr activeThis_;
     int callDepth_ = 0;
-    // Retain at most 8 nested snapshots of 256 values each. Deeper/larger
+    // Retain at most 1024 values across 8 nested snapshots. Deeper/larger
     // loops use a transient snapshot so scripts cannot grow this workspace
     // without bound.
     ArtifactCore::Array<ArtifactCore::Array<ArtifactScriptValue>> foreachSnapshots_;
@@ -2318,9 +2318,19 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
         foreachDepth_ = snapshotDepth + 1;
         std::optional<std::vector<ArtifactScriptValue>> transientElements;
         std::span<const ArtifactScriptValue> elements;
-        const bool reuseSnapshot = array &&
-            snapshotDepth < kReusableForeachDepth &&
-            array->values.size() <= kReusableForeachElements;
+        bool reuseSnapshot = false;
+        if (array && !array->values.empty() && snapshotDepth < kReusableForeachDepth) {
+            std::size_t retainedCapacityElsewhere = 0;
+            for (std::size_t i = 0; i < foreachSnapshots_.size(); ++i) {
+                if (i != snapshotDepth) {
+                    retainedCapacityElsewhere += foreachSnapshots_[i].capacity();
+                }
+            }
+            const auto availableSnapshotCapacity = retainedCapacityElsewhere <
+                    kReusableForeachValueBudget
+                ? kReusableForeachValueBudget - retainedCapacityElsewhere : 0;
+            reuseSnapshot = array->values.size() <= availableSnapshotCapacity;
+        }
         if (reuseSnapshot) {
             while (foreachSnapshots_.size() <= snapshotDepth) {
                 foreachSnapshots_.append(ArtifactCore::Array<ArtifactScriptValue>{});
@@ -2328,10 +2338,11 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
             snapshotScope.reusesStorage = true;
             auto& snapshot = foreachSnapshots_[snapshotDepth];
             snapshot.removeAll();
+            snapshot.reserve(array->values.size());
             for (const auto& element : array->values) snapshot.append(element);
             elements = std::span<const ArtifactScriptValue>(
                 snapshot.data(), snapshot.size());
-        } else if (array) {
+        } else if (array && !array->values.empty()) {
             transientElements.emplace(array->values);
             elements = std::span<const ArtifactScriptValue>(
                 transientElements->data(), transientElements->size());
