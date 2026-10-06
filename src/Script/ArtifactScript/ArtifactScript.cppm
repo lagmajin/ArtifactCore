@@ -1569,6 +1569,24 @@ public:
         return insertOverlay(name, {}).value;
     }
 
+    void bindLoopValue(const std::string& name, const ArtifactScriptValue& value) {
+        if (root_) {
+            (*root_)[name] = value;
+            return;
+        }
+        if (auto* entry = findOverlay(name)) {
+            entry->value = value;
+            return;
+        }
+        if (overlaySize_ < kArtifactScriptInlineOverlayCapacity) {
+            auto& entry = inlineOverlay_[overlaySize_++];
+            entry.name = &name;
+            entry.value = value;
+            return;
+        }
+        overflowOverlay_.append(ArtifactScriptFieldBinding{&name, value});
+    }
+
     void commit(std::string_view excludedName) {
         for (std::size_t i = 0; i < overlaySize_; ++i) commitEntry(inlineOverlay_[i], excludedName);
         for (const auto& entry : overflowOverlay_) commitEntry(entry, excludedName);
@@ -2396,7 +2414,7 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
         }
         ArtifactScriptFields scope(fields, workspace ? workspace->overlay.data() : nullptr);
         for (const auto& element : elements) {
-            scope[s->foreachItemName] = element;
+            scope.bindLoopValue(s->foreachItemName, element);
             if (!execStmt(s->foreachBody.get(), scope, locals)) return false;
             if (breakRequested_) { breakRequested_ = false; break; }
             if (continueRequested_) { continueRequested_ = false; }
