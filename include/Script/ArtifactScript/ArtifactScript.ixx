@@ -342,6 +342,30 @@ private:
     ArtifactScriptSerializedFields publicFields_;
 };
 
+// Reusable evaluator. Lifecycle instances retain one evaluator so repeated
+// frame hooks do not allocate a fresh evaluator implementation each time.
+class ArtifactScriptEvaluator {
+public:
+    ArtifactScriptEvaluator();
+    ~ArtifactScriptEvaluator() noexcept;
+    ArtifactScriptEvaluator(const ArtifactScriptEvaluator&) = delete;
+    ArtifactScriptEvaluator& operator=(const ArtifactScriptEvaluator&) = delete;
+    ArtifactScriptEvaluator(ArtifactScriptEvaluator&&) noexcept;
+    ArtifactScriptEvaluator& operator=(ArtifactScriptEvaluator&&) noexcept;
+    bool execute(const ArtifactScriptMethodBody& body,
+                 const std::vector<ArtifactScriptValue>& args,
+                 ArtifactScriptSerializedFields& fields);
+    ArtifactScriptValue executeMethod(const ArtifactScriptDefinition& definition,
+                                      std::string_view methodName,
+                                      const std::vector<ArtifactScriptValue>& args,
+                                      ArtifactScriptSerializedFields& fields);
+    std::string getLastError() const;
+    bool hasError() const;
+private:
+    class Impl;
+    std::unique_ptr<Impl> impl_;
+};
+
 class ArtifactScriptInstance {
 public:
     ArtifactScriptInstance() = default;
@@ -372,6 +396,7 @@ private:
     Optional<ArtifactScriptHook> lastInvokedHook_;
     ArtifactScriptSerializedFields fields_;
     std::string lastHookError_;
+    ArtifactScriptEvaluator evaluator_;
 };
 
 // ─── Host Binding API ───
@@ -439,24 +464,6 @@ private:
 };
 
 // ─── Evaluator ───
-
-class ArtifactScriptEvaluator {
-public:
-    ArtifactScriptEvaluator();
-    ~ArtifactScriptEvaluator() noexcept;
-    bool execute(const ArtifactScriptMethodBody& body,
-                 const std::vector<ArtifactScriptValue>& args,
-                 ArtifactScriptSerializedFields& fields);
-    ArtifactScriptValue executeMethod(const ArtifactScriptDefinition& definition,
-                                      std::string_view methodName,
-                                      const std::vector<ArtifactScriptValue>& args,
-                                      ArtifactScriptSerializedFields& fields);
-    std::string getLastError() const;
-    bool hasError() const;
-private:
-    class Impl;
-    std::unique_ptr<Impl> impl_;
-};
 
 // ─── Hot Reload ───
 

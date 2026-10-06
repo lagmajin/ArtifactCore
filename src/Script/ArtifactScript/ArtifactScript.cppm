@@ -1415,7 +1415,7 @@ bool ArtifactScriptInstance::invokeHook(ArtifactScriptHook hook) {
         }
         return "OnUpdate";
     }();
-    ArtifactScriptEvaluator evaluator;
+
     if (component_) {
         fields_ = component_->publicFields();
     } else if (fields_.empty()) {
@@ -1426,9 +1426,9 @@ bool ArtifactScriptInstance::invokeHook(ArtifactScriptHook hook) {
     }
     // Lifecycle hooks receive no arguments; dt is provided as a field when
     // the host sets it (fields()["dt"]).
-    evaluator.executeMethod(definition_, hookName, {}, fields_);
-    const bool ok = !evaluator.hasError();
-    lastHookError_ = ok ? std::string() : evaluator.getLastError();
+    evaluator_.executeMethod(definition_, hookName, {}, fields_);
+    const bool ok = !evaluator_.hasError();
+    lastHookError_ = ok ? std::string() : evaluator_.getLastError();
     lastInvokedHook_ = hook;
     return ok;
 }
@@ -1465,6 +1465,8 @@ public:
 ArtifactScriptEvaluator::ArtifactScriptEvaluator() : impl_(std::make_unique<Impl>()) {}
 
 ArtifactScriptEvaluator::~ArtifactScriptEvaluator() noexcept = default;
+ArtifactScriptEvaluator::ArtifactScriptEvaluator(ArtifactScriptEvaluator&&) noexcept = default;
+ArtifactScriptEvaluator& ArtifactScriptEvaluator::operator=(ArtifactScriptEvaluator&&) noexcept = default;
 
 bool ArtifactScriptEvaluator::execute(
     const ArtifactScriptMethodBody& body,
