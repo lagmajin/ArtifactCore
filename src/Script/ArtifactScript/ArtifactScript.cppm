@@ -1507,6 +1507,68 @@ private:
     ArtifactCore::Array<ArtifactScriptLocalBinding> entries_;
 };
 
+struct ArtifactScriptFieldBinding {
+    // Names point into the live AST; a field scope never outlives evaluation.
+    const std::string* name = nullptr;
+    ArtifactScriptValue value;
+};
+
+class ArtifactScriptFields {
+public:
+    explicit ArtifactScriptFields(ArtifactScriptSerializedFields& root)
+        : root_(&root) {}
+    explicit ArtifactScriptFields(ArtifactScriptFields& parent)
+        : parent_(&parent) {
+        // Reserve the common small field working set in one allocation.
+        overlay_.reserve(4);
+    }
+
+    ArtifactScriptValue* find(const std::string& name) {
+        if (root_) {
+            if (auto it = root_->find(name); it != root_->end()) return &it->second;
+            return nullptr;
+        }
+        if (auto* entry = findOverlay(name)) return &entry->value;
+        if (auto* value = parent_->find(name)) {
+            return &insertOverlay(name, *value).value;
+        }
+        return nullptr;
+    }
+
+    ArtifactScriptValue& operator[](const std::string& name) {
+        if (root_) return (*root_)[name];
+        if (auto* entry = findOverlay(name)) return entry->value;
+        if (auto* value = parent_->find(name)) {
+            return insertOverlay(name, *value).value;
+        }
+        return insertOverlay(name, {}).value;
+    }
+
+    void commit(std::string_view excludedName) {
+        for (const auto& entry : overlay_) {
+            if (*entry.name != excludedName) (*parent_)[*entry.name] = entry.value;
+        }
+    }
+
+private:
+    ArtifactScriptFieldBinding* findOverlay(const std::string& name) {
+        for (auto& entry : overlay_) {
+            if (*entry.name == name) return &entry;
+        }
+        return nullptr;
+    }
+
+    ArtifactScriptFieldBinding& insertOverlay(
+        const std::string& name, const ArtifactScriptValue& value) {
+        overlay_.append(ArtifactScriptFieldBinding{&name, value});
+        return overlay_[overlay_.size() - 1];
+    }
+
+    ArtifactScriptSerializedFields* root_ = nullptr;
+    ArtifactScriptFields* parent_ = nullptr;
+    ArtifactCore::Array<ArtifactScriptFieldBinding> overlay_;
+};
+
 std::size_t countLocalDeclarations(const ArtifactScriptStmt* statement) {
     if (!statement) return 0;
     std::size_t count = statement->kind == ArtifactScriptStmt::Kind::Decl ? 1 : 0;
@@ -1558,12 +1620,12 @@ public:
     const ArtifactScriptDefinition* activeDefinition_ = nullptr;
     ArtifactScriptObjectInstancePtr activeThis_;
     int callDepth_ = 0;
-    ArtifactScriptValue evalExpr(const ArtifactScriptExpr*, ArtifactScriptSerializedFields&, const ArtifactScriptLocals&);
+    ArtifactScriptValue evalExpr(const ArtifactScriptExpr*, ArtifactScriptFields&, const ArtifactScriptLocals&);
     ArtifactScriptValue evalBinary(ArtifactScriptBinaryOp, const ArtifactScriptValue&, const ArtifactScriptValue&);
     ArtifactScriptValue evalUnary(ArtifactScriptUnaryOp, const ArtifactScriptValue&);
-    ArtifactScriptValue evalCall(const ArtifactScriptExpr*, ArtifactScriptSerializedFields&, const ArtifactScriptLocals&);
-    bool execStmt(const ArtifactScriptStmt*, ArtifactScriptSerializedFields&, ArtifactScriptLocals& locals);
-    ArtifactScriptValue callUserMethod(const ArtifactScriptMethod&, std::span<const ArtifactScriptValue>, ArtifactScriptSerializedFields&);
+    ArtifactScriptValue evalCall(const ArtifactScriptExpr*, ArtifactScriptFields&, const ArtifactScriptLocals&);
+    bool execStmt(const ArtifactScriptStmt*, ArtifactScriptFields&, ArtifactScriptLocals& locals);
+    ArtifactScriptValue callUserMethod(const ArtifactScriptMethod&, std::span<const ArtifactScriptValue>, ArtifactScriptFields&);
     ArtifactScriptValue callInstanceMethod(const ArtifactScriptObjectInstancePtr&, const ArtifactScriptMethod&, std::span<const ArtifactScriptValue>);
     const ArtifactScriptClass* findClass(std::string_view) const;
     const ArtifactScriptMethod* findMethodInChain(std::string_view, std::string_view) const;
@@ -1585,13 +1647,14 @@ bool ArtifactScriptEvaluator::execute(
     impl_->returned_ = false;
     impl_->breakRequested_ = false;
     impl_->continueRequested_ = false;
+    ArtifactScriptFields fieldScope(fields);
     for (std::size_t i = 0; i < args.size() && i < body.parameters.size(); ++i) {
-        fields[body.parameters[i]] = args[i];
+        fieldScope[body.parameters[i]] = args[i];
     }
     ArtifactScriptLocals locals;
     locals.reserve(countLocalDeclarations(body));
     for (auto& st : body.statements) {
-        if (!impl_->execStmt(st.get(), fields, locals)) return false;
+        if (!impl_->execStmt(st.get(), fieldScope, locals)) return false;
         if (impl_->returned_) break;
         // break/continue at method top level ends the body gracefully.
         if (impl_->breakRequested_ || impl_->continueRequested_) {
@@ -1604,7 +1667,7 @@ bool ArtifactScriptEvaluator::execute(
 }
 
 ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalExpr(
-    const ArtifactScriptExpr* e, ArtifactScriptSerializedFields& fields,
+    const ArtifactScriptExpr* e, ArtifactScriptFields& fields,
     const ArtifactScriptLocals& locals) {
     if (!e) { error_ = "null expr"; return {}; }
     switch (e->kind) {
@@ -1657,8 +1720,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalExpr(
             return activeThis_;
         }
         if (const auto* local = locals.find(e->variableName)) return local->value;
-        auto it = fields.find(e->variableName);
-        if (it != fields.end()) return it->second;
+        if (auto* field = fields.find(e->variableName)) return *field;
         error_ = "undefined: " + e->variableName; return {};
     }
     case ArtifactScriptExpr::Kind::FieldAccess: {
@@ -1666,12 +1728,12 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalExpr(
             e->fieldObject->kind == ArtifactScriptExpr::Kind::Variable &&
             e->fieldObject->variableName == "this";
         if (isActiveThisAccess) {
-            const auto field = fields.find(e->fieldName);
-            if (field == fields.end()) {
+            const auto* field = fields.find(e->fieldName);
+            if (!field) {
                 error_ = "undefined field: " + e->fieldName;
                 return {};
             }
-            return field->second;
+            return *field;
         }
         const bool isThisAccess =
             !activeThis_ && e->fieldObject &&
@@ -1868,7 +1930,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalUnary(
 }
 
 ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
-    const ArtifactScriptExpr* e, ArtifactScriptSerializedFields& fields,
+    const ArtifactScriptExpr* e, ArtifactScriptFields& fields,
     const ArtifactScriptLocals& locals) {
     ArtifactScriptCallArguments args(e->callArgs.size());
     for (auto& a : e->callArgs) args.append(evalExpr(a.get(), fields, locals));
@@ -2026,7 +2088,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
 ArtifactScriptValue ArtifactScriptEvaluator::Impl::callUserMethod(
     const ArtifactScriptMethod& resolvedMethod,
     std::span<const ArtifactScriptValue> args,
-    ArtifactScriptSerializedFields& fields) {
+    ArtifactScriptFields& fields) {
     constexpr int kMaxCallDepth = 64;
     if (callDepth_ >= kMaxCallDepth) {
         error_ = "script call depth limit";
@@ -2059,7 +2121,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::callUserMethod(
 }
 
 bool ArtifactScriptEvaluator::Impl::execStmt(
-    const ArtifactScriptStmt* s, ArtifactScriptSerializedFields& fields,
+    const ArtifactScriptStmt* s, ArtifactScriptFields& fields,
     ArtifactScriptLocals& locals) {
     if (!s) return true;
     switch (s->kind) {
@@ -2083,9 +2145,9 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
         if (s->assignIndex) {
             auto* target = locals.find(s->assignTarget);
             if (!target) {
-                auto field = fields.find(s->assignTarget);
-                if (field == fields.end()) { error_ = "undefined array: " + s->assignTarget; return false; }
-                target = &locals.emplace(s->assignTarget, field->second);
+                auto* field = fields.find(s->assignTarget);
+                if (!field) { error_ = "undefined array: " + s->assignTarget; return false; }
+                target = &locals.emplace(s->assignTarget, *field);
             }
             auto indexValue = evalExpr(s->assignIndex.get(), fields, locals);
             if (!std::holds_alternative<ArtifactScriptArrayPtr>(target->value) ||
@@ -2103,9 +2165,8 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
             lit->value = applyCompound(lit->value);
             return error_.empty();
         }
-        auto fieldIt = fields.find(s->assignTarget);
-        if (fieldIt != fields.end()) {
-            fieldIt->second = applyCompound(fieldIt->second);
+        if (auto* field = fields.find(s->assignTarget)) {
+            *field = applyCompound(*field);
         } else {
             fields[s->assignTarget] = applyCompound({});
         }
@@ -2145,8 +2206,8 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
                 return error_.empty();
             } else if (auto* lit = locals.find(s->declName)) {
                 target = resolveObject(lit->value);
-            } else if (auto fieldIt = fields.find(s->declName); fieldIt != fields.end()) {
-                target = resolveObject(fieldIt->second);
+            } else if (auto* field = fields.find(s->declName)) {
+                target = resolveObject(*field);
             }
             if (!target || !*target) { error_ = "field assign on non-object: " + s->declName; return false; }
             (*target)->fields[s->assignField] = init;
@@ -2187,8 +2248,8 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
         return true; }
     case ArtifactScriptStmt::Kind::Foreach: {
         const ArtifactScriptValue* collection = nullptr;
-        if (const auto it = fields.find(s->foreachCollectionName); it != fields.end()) {
-            collection = &it->second;
+        if (auto* field = fields.find(s->foreachCollectionName)) {
+            collection = field;
         } else if (const auto* lit = locals.find(s->foreachCollectionName)) {
             collection = &lit->value;
         }
@@ -2201,7 +2262,7 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
         // same array, which would invalidate iterators over ->values.
         const std::vector<ArtifactScriptValue> elements =
             array ? array->values : std::vector<ArtifactScriptValue>{};
-        ArtifactScriptSerializedFields scope = fields;
+        ArtifactScriptFields scope(fields);
         for (const auto& element : elements) {
             scope[s->foreachItemName] = element;
             if (!execStmt(s->foreachBody.get(), scope, locals)) return false;
@@ -2209,9 +2270,7 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
             if (continueRequested_) { continueRequested_ = false; }
         }
         // Persist field mutations made inside the loop body.
-        for (const auto& [name, value] : scope) {
-            if (name != s->foreachItemName) fields[name] = value;
-        }
+        scope.commit(s->foreachItemName);
         return true;
     }
     case ArtifactScriptStmt::Kind::If: {
@@ -2648,8 +2707,9 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::callInstanceMethod(
     returned_ = false;
     activeThis_ = instance;
     ArtifactScriptSerializedFields instanceFields = instance->fields;
+    ArtifactScriptFields fieldScope(instanceFields);
     for (const auto& statement : method->body->statements) {
-        if (!execStmt(statement.get(), instanceFields, locals) || returned_) break;
+        if (!execStmt(statement.get(), fieldScope, locals) || returned_) break;
     }
     if (error_.empty()) {
         instance->fields = std::move(instanceFields);
@@ -2692,7 +2752,8 @@ ArtifactScriptValue ArtifactScriptEvaluator::executeResolvedMethod(
     impl_->callDepth_ = 0;
     impl_->returnValue_ = {};
     impl_->returned_ = false;
-    return impl_->callUserMethod(method, args, fields);
+    ArtifactScriptFields fieldScope(fields);
+    return impl_->callUserMethod(method, args, fieldScope);
 }
 
 std::string ArtifactScriptEvaluator::getLastError() const { return impl_->error_; }
