@@ -1473,7 +1473,7 @@ public:
     }
 
 private:
-    static constexpr std::size_t inlineCapacity_ = 4;
+    static constexpr std::size_t inlineCapacity_ = 8;
     ArtifactScriptValue inlineValues_[inlineCapacity_]{};
     std::optional<std::vector<ArtifactScriptValue>> overflow_;
     mutable std::optional<std::vector<ArtifactScriptValue>> materialized_;
