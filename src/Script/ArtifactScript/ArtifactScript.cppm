@@ -1536,12 +1536,17 @@ struct ArtifactScriptFieldBinding {
     ArtifactScriptValue value;
 };
 
+constexpr std::size_t kArtifactScriptInlineOverlayCapacity = 4;
+
 class ArtifactScriptFields {
 public:
     explicit ArtifactScriptFields(ArtifactScriptSerializedFields& root)
-        : root_(&root) {}
-    explicit ArtifactScriptFields(ArtifactScriptFields& parent)
-        : parent_(&parent) {}
+        : root_(&root), inlineOverlay_(ownedInlineOverlay_.data()) {}
+    explicit ArtifactScriptFields(
+        ArtifactScriptFields& parent,
+        ArtifactScriptFieldBinding* reusableOverlay = nullptr)
+        : parent_(&parent),
+          inlineOverlay_(reusableOverlay ? reusableOverlay : ownedInlineOverlay_.data()) {}
 
     ArtifactScriptValue* find(const std::string& name) {
         if (root_) {
@@ -1570,8 +1575,6 @@ public:
     }
 
 private:
-    static constexpr std::size_t inlineOverlayCapacity_ = 4;
-
     void commitEntry(const ArtifactScriptFieldBinding& entry,
                      std::string_view excludedName) const {
         if (*entry.name != excludedName) (*parent_)[*entry.name] = entry.value;
@@ -1587,9 +1590,11 @@ private:
 
     ArtifactScriptFieldBinding& insertOverlay(
         const std::string& name, const ArtifactScriptValue& value) {
-        if (overlaySize_ < inlineOverlayCapacity_) {
-            inlineOverlay_[overlaySize_] = ArtifactScriptFieldBinding{&name, value};
-            return inlineOverlay_[overlaySize_++];
+        if (overlaySize_ < kArtifactScriptInlineOverlayCapacity) {
+            auto& entry = inlineOverlay_[overlaySize_++];
+            entry.name = &name;
+            entry.value = value;
+            return entry;
         }
         overflowOverlay_.append(ArtifactScriptFieldBinding{&name, value});
         return overflowOverlay_[overflowOverlay_.size() - 1];
@@ -1597,9 +1602,16 @@ private:
 
     ArtifactScriptSerializedFields* root_ = nullptr;
     ArtifactScriptFields* parent_ = nullptr;
-    std::array<ArtifactScriptFieldBinding, inlineOverlayCapacity_> inlineOverlay_{};
+    std::array<ArtifactScriptFieldBinding, kArtifactScriptInlineOverlayCapacity>
+        ownedInlineOverlay_{};
+    ArtifactScriptFieldBinding* inlineOverlay_ = nullptr;
     std::size_t overlaySize_ = 0;
     ArtifactCore::Array<ArtifactScriptFieldBinding> overflowOverlay_;
+};
+
+struct ArtifactScriptForeachWorkspace {
+    ArtifactCore::Array<ArtifactScriptValue> snapshot;
+    std::array<ArtifactScriptFieldBinding, kArtifactScriptInlineOverlayCapacity> overlay{};
 };
 
 std::size_t countLocalDeclarations(const ArtifactScriptStmt* statement) {
@@ -1651,10 +1663,34 @@ public:
     struct ForeachSnapshotScope {
         Impl& owner;
         std::size_t depth;
-        bool reusesStorage = false;
+        ArtifactScriptForeachWorkspace* workspace = nullptr;
 
         ~ForeachSnapshotScope() {
-            if (reusesStorage) owner.foreachSnapshots_[depth].removeAll();
+            if (workspace) {
+                std::size_t retainedStringCapacity = 0;
+                for (std::size_t i = 0; i < workspace->snapshot.size(); ++i) {
+                    auto& value = workspace->snapshot[i];
+                    if (auto* text = std::get_if<std::string>(&value)) {
+                        if (text->capacity() <= 1024 - retainedStringCapacity) {
+                            retainedStringCapacity += text->capacity();
+                            text->clear();
+                        } else {
+                            value = std::monostate{};
+                        }
+                    } else {
+                        value = std::monostate{};
+                    }
+                }
+                for (auto& binding : workspace->overlay) {
+                    binding.name = nullptr;
+                    if (auto* text = std::get_if<std::string>(&binding.value)) {
+                        if (text->capacity() <= 256) text->clear();
+                        else binding.value = std::monostate{};
+                    } else {
+                        binding.value = std::monostate{};
+                    }
+                }
+            }
             owner.foreachDepth_ = depth;
         }
     };
@@ -1669,8 +1705,8 @@ public:
     int callDepth_ = 0;
     // Retain at most 1024 values across 8 nested snapshots. Deeper/larger
     // loops use a transient snapshot so scripts cannot grow this workspace
-    // without bound.
-    ArtifactCore::Array<ArtifactCore::Array<ArtifactScriptValue>> foreachSnapshots_;
+    // without bound. Reserving the outer array once keeps overlay pointers stable.
+    ArtifactCore::Array<ArtifactScriptForeachWorkspace> foreachWorkspaces_;
     std::size_t foreachDepth_ = 0;
     ArtifactScriptValue evalExpr(const ArtifactScriptExpr*, ArtifactScriptFields&, const ArtifactScriptLocals&);
     ArtifactScriptValue evalBinary(ArtifactScriptBinaryOp, const ArtifactScriptValue&, const ArtifactScriptValue&);
@@ -2318,12 +2354,23 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
         foreachDepth_ = snapshotDepth + 1;
         std::optional<std::vector<ArtifactScriptValue>> transientElements;
         std::span<const ArtifactScriptValue> elements;
-        bool reuseSnapshot = false;
+        ArtifactScriptForeachWorkspace* workspace = nullptr;
         if (array && !array->values.empty() && snapshotDepth < kReusableForeachDepth) {
+            if (foreachWorkspaces_.capacity() < kReusableForeachDepth) {
+                foreachWorkspaces_.reserve(kReusableForeachDepth);
+            }
+            while (foreachWorkspaces_.size() <= snapshotDepth) {
+                foreachWorkspaces_.append(ArtifactScriptForeachWorkspace{});
+            }
+            workspace = &foreachWorkspaces_[snapshotDepth];
+            snapshotScope.workspace = workspace;
+        }
+        bool reuseSnapshot = false;
+        if (workspace) {
             std::size_t retainedCapacityElsewhere = 0;
-            for (std::size_t i = 0; i < foreachSnapshots_.size(); ++i) {
+            for (std::size_t i = 0; i < foreachWorkspaces_.size(); ++i) {
                 if (i != snapshotDepth) {
-                    retainedCapacityElsewhere += foreachSnapshots_[i].capacity();
+                    retainedCapacityElsewhere += foreachWorkspaces_[i].snapshot.capacity();
                 }
             }
             const auto availableSnapshotCapacity = retainedCapacityElsewhere <
@@ -2332,22 +2379,22 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
             reuseSnapshot = array->values.size() <= availableSnapshotCapacity;
         }
         if (reuseSnapshot) {
-            while (foreachSnapshots_.size() <= snapshotDepth) {
-                foreachSnapshots_.append(ArtifactCore::Array<ArtifactScriptValue>{});
+            auto& snapshot = workspace->snapshot;
+            if (snapshot.capacity() < array->values.size()) {
+                snapshot.reserve(array->values.size());
             }
-            snapshotScope.reusesStorage = true;
-            auto& snapshot = foreachSnapshots_[snapshotDepth];
-            snapshot.removeAll();
-            snapshot.reserve(array->values.size());
-            for (const auto& element : array->values) snapshot.append(element);
+            snapshot.resize(array->values.size());
+            for (std::size_t i = 0; i < array->values.size(); ++i) {
+                snapshot[i] = array->values[i];
+            }
             elements = std::span<const ArtifactScriptValue>(
-                snapshot.data(), snapshot.size());
+                snapshot.data(), array->values.size());
         } else if (array && !array->values.empty()) {
             transientElements.emplace(array->values);
             elements = std::span<const ArtifactScriptValue>(
                 transientElements->data(), transientElements->size());
         }
-        ArtifactScriptFields scope(fields);
+        ArtifactScriptFields scope(fields, workspace ? workspace->overlay.data() : nullptr);
         for (const auto& element : elements) {
             scope[s->foreachItemName] = element;
             if (!execStmt(s->foreachBody.get(), scope, locals)) return false;
