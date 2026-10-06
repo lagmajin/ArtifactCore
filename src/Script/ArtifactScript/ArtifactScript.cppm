@@ -1324,7 +1324,7 @@ const ArtifactScriptMethod* ArtifactScriptInstance::findMethodInDefinition(
     if (!cls) {
         return nullptr;
     }
-    std::string current(cls->name);
+    std::string_view current = cls->name;
     for (int depth = 0; depth < 32; ++depth) {
         const ArtifactScriptClass* level = findClassByName(current);
         if (!level) {
@@ -1353,7 +1353,7 @@ const ArtifactScriptMethod* ArtifactScriptInstance::findLifecycleHookInDefinitio
     if (!root) {
         return nullptr;
     }
-    std::string current(root->name);
+    std::string_view current = root->name;
     for (int depth = 0; depth < 32; ++depth) {
         const ArtifactScriptClass* level = findClassByName(current);
         if (!level) {
@@ -2658,7 +2658,7 @@ const ArtifactScriptClass* ArtifactScriptEvaluator::Impl::findClass(std::string_
 const ArtifactScriptMethod* ArtifactScriptEvaluator::Impl::findMethodInChain(
     std::string_view className, std::string_view methodName) const {
     if (!activeDefinition_ || className.empty() || methodName.empty()) return nullptr;
-    std::string current(className);
+    std::string_view current = className;
     for (int depth = 0; depth < 32; ++depth) {
         const ArtifactScriptClass* cls = findClass(current);
         if (!cls) return nullptr;
