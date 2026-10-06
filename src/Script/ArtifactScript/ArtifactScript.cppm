@@ -550,6 +550,11 @@ ArtifactScriptDefinition ArtifactScriptParser::parse(std::string_view source) co
                 fieldName = std::string(trim(nameRaw.substr(attrEnd + 1)).data(),
                                         trim(nameRaw.substr(attrEnd + 1)).length());
             }
+            if (!fieldName.empty() && fieldName.back() == ';') {
+                fieldName.pop_back();
+                const ZeroString normalizedName = trim(fieldName);
+                fieldName.assign(normalizedName.data(), normalizedName.length());
+            }
             field.name = fieldName;
             field.isPublic = isPublic;
             field.serialized = isPublic;
@@ -624,6 +629,28 @@ ArtifactScriptDefinition ArtifactScriptParser::parse(std::string_view source) co
                                 : methodColumn + 1;
             pendingAttributes.clear();
             method.parameters.clear();
+            const auto parameterListEnd = paren == static_cast<std::size_t>(-1)
+                ? static_cast<std::size_t>(-1) : trimmed.find(')', paren + 1);
+            if (parameterListEnd != static_cast<std::size_t>(-1)) {
+                const ZeroString parameterList = trimmed.substr(
+                    paren + 1, parameterListEnd - paren - 1);
+                for (std::size_t parameterStart = 0; parameterStart < parameterList.length();) {
+                    const auto comma = parameterList.find(',', parameterStart);
+                    const auto parameterEnd = comma == static_cast<std::size_t>(-1)
+                        ? parameterList.length() : comma;
+                    ZeroString parameter = trim(parameterList.substr(
+                        parameterStart, parameterEnd - parameterStart));
+                    const auto lastSpace = parameter.lastIndexOf(' ');
+                    if (lastSpace >= 0) {
+                        parameter = trim(parameter.substr(static_cast<std::size_t>(lastSpace + 1)));
+                    }
+                    if (!parameter.isEmpty()) {
+                        method.parameters.emplace_back(parameter.data(), parameter.length());
+                    }
+                    if (comma == static_cast<std::size_t>(-1)) break;
+                    parameterStart = comma + 1;
+                }
+            }
             if (const auto hook = hookFromName(method.name)) {
                 method.isLifecycleHook = true;
                 method.hook = *hook;
