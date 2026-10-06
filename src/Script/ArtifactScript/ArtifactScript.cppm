@@ -1712,6 +1712,14 @@ class ArtifactScriptEvaluator::Impl {
 public:
     static constexpr std::size_t kReusableForeachDepth = 8;
     static constexpr std::size_t kReusableForeachValueBudget = 1024;
+    static constexpr std::size_t kMethodCallCacheCapacity = 32;
+
+    struct MethodCallCacheEntry {
+        const ArtifactScriptExpr* callSite = nullptr;
+        const ArtifactScriptDefinition* definition = nullptr;
+        const ArtifactScriptMethod* method = nullptr;
+        std::uint32_t generation = 0;
+    };
 
     struct ForeachSnapshotScope {
         Impl& owner;
@@ -1756,6 +1764,8 @@ public:
     const ArtifactScriptDefinition* activeDefinition_ = nullptr;
     ArtifactScriptObjectInstancePtr activeThis_;
     int callDepth_ = 0;
+    std::array<MethodCallCacheEntry, kMethodCallCacheCapacity> methodCallCache_{};
+    std::uint32_t methodCallCacheGeneration_ = 0;
     // Retain at most 1024 values across 8 nested snapshots. Deeper/larger
     // loops use a transient snapshot so scripts cannot grow this workspace
     // without bound. Reserving the outer array once keeps overlay pointers stable.
@@ -1770,6 +1780,8 @@ public:
     ArtifactScriptValue callInstanceMethod(const ArtifactScriptObjectInstancePtr&, const ArtifactScriptMethod&, std::span<const ArtifactScriptValue>);
     const ArtifactScriptClass* findClass(std::string_view) const;
     const ArtifactScriptMethod* findMethodInChain(std::string_view, std::string_view) const;
+    const ArtifactScriptMethod* findMethodAtCallSite(const ArtifactScriptExpr*);
+    void beginMethodCallCacheGeneration();
     bool isInstanceOf(const ArtifactScriptObjectInstance&, std::string_view) const;
 };
 
@@ -1783,6 +1795,7 @@ bool ArtifactScriptEvaluator::execute(
     const ArtifactScriptMethodBody& body,
     const std::vector<ArtifactScriptValue>& args,
     ArtifactScriptSerializedFields& fields) {
+    impl_->beginMethodCallCacheGeneration();
     impl_->error_.clear();
     impl_->returnValue_ = {};
     impl_->returned_ = false;
@@ -2207,7 +2220,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
     if (e->callName == "cos" && !argumentValues.empty()) return std::cos(num(argumentValues[0]));
     if (activeDefinition_) {
         if (const ArtifactScriptMethod* method =
-                findMethodInChain(activeDefinition_->rootClass.name, e->callName)) {
+                findMethodAtCallSite(e)) {
             return callUserMethod(*method, argumentValues, fields);
         }
     }
@@ -2858,6 +2871,31 @@ const ArtifactScriptMethod* ArtifactScriptEvaluator::Impl::findMethodInChain(
     return nullptr;
 }
 
+void ArtifactScriptEvaluator::Impl::beginMethodCallCacheGeneration() {
+    ++methodCallCacheGeneration_;
+    if (methodCallCacheGeneration_ == 0) {
+        for (auto& entry : methodCallCache_) entry.generation = 0;
+        methodCallCacheGeneration_ = 1;
+    }
+}
+
+const ArtifactScriptMethod* ArtifactScriptEvaluator::Impl::findMethodAtCallSite(
+    const ArtifactScriptExpr* callSite) {
+    if (!activeDefinition_ || !callSite) return nullptr;
+    static_assert((kMethodCallCacheCapacity & (kMethodCallCacheCapacity - 1)) == 0);
+    const auto address = reinterpret_cast<std::uintptr_t>(callSite);
+    const auto slot = (address >> 4) & (kMethodCallCacheCapacity - 1);
+    auto& entry = methodCallCache_[slot];
+    if (entry.generation == methodCallCacheGeneration_ &&
+        entry.callSite == callSite && entry.definition == activeDefinition_) {
+        return entry.method;
+    }
+    const auto* method = findMethodInChain(
+        activeDefinition_->rootClass.name, callSite->callName);
+    entry = {callSite, activeDefinition_, method, methodCallCacheGeneration_};
+    return method;
+}
+
 bool ArtifactScriptEvaluator::Impl::isInstanceOf(
     const ArtifactScriptObjectInstance& instance, std::string_view className) const {
     if (!activeDefinition_ || className.empty()) return false;
@@ -2934,6 +2972,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::executeResolvedMethod(
     ArtifactScriptSerializedFields& fields) {
     impl_->error_.clear();
     impl_->activeDefinition_ = &definition;
+    impl_->beginMethodCallCacheGeneration();
     impl_->callDepth_ = 0;
     impl_->returnValue_ = {};
     impl_->returned_ = false;
