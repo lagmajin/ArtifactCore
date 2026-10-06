@@ -4,6 +4,7 @@ module;
 #include <cctype>
 #include <charconv>
 #include <cstdlib>
+#include <cstdint>
 #include <string>
 #include <string_view>
 #include <chrono>
@@ -1487,15 +1488,31 @@ public:
     }
 
     ArtifactScriptLocalBinding* find(std::string_view name) {
-        for (std::size_t i = 0; i < inlineSize_; ++i)
-            if (inlineEntries_[i].name == name) return &inlineEntries_[i];
+        if (inlineSize_ != 0) {
+            auto bucket = hashName(name) & (inlineNameIndex_.size() - 1);
+            for (std::size_t probe = 0; probe < inlineNameIndex_.size(); ++probe) {
+                const auto encodedIndex = inlineNameIndex_[bucket];
+                if (encodedIndex == 0) break;
+                auto& entry = inlineEntries_[encodedIndex - 1];
+                if (entry.name == name) return &entry;
+                bucket = (bucket + 1) & (inlineNameIndex_.size() - 1);
+            }
+        }
         for (auto& entry : overflowEntries_) if (entry.name == name) return &entry;
         return nullptr;
     }
 
     const ArtifactScriptLocalBinding* find(std::string_view name) const {
-        for (std::size_t i = 0; i < inlineSize_; ++i)
-            if (inlineEntries_[i].name == name) return &inlineEntries_[i];
+        if (inlineSize_ != 0) {
+            auto bucket = hashName(name) & (inlineNameIndex_.size() - 1);
+            for (std::size_t probe = 0; probe < inlineNameIndex_.size(); ++probe) {
+                const auto encodedIndex = inlineNameIndex_[bucket];
+                if (encodedIndex == 0) break;
+                const auto& entry = inlineEntries_[encodedIndex - 1];
+                if (entry.name == name) return &entry;
+                bucket = (bucket + 1) & (inlineNameIndex_.size() - 1);
+            }
+        }
         for (const auto& entry : overflowEntries_) if (entry.name == name) return &entry;
         return nullptr;
     }
@@ -1513,19 +1530,37 @@ public:
 
 private:
     static constexpr std::size_t inlineCapacity_ = 12;
+    static constexpr std::size_t inlineNameIndexCapacity_ = 32;
+    static_assert((inlineNameIndexCapacity_ & (inlineNameIndexCapacity_ - 1)) == 0);
+
+    static std::size_t hashName(std::string_view name) {
+        std::uint64_t hash = 14695981039346656037ull;
+        for (const unsigned char character : name) {
+            hash ^= character;
+            hash *= 1099511628211ull;
+        }
+        return static_cast<std::size_t>(hash);
+    }
 
     ArtifactScriptLocalBinding& append(std::string_view name,
                                        const ArtifactScriptValue& value) {
         ArtifactScriptLocalBinding binding{name, value};
         if (inlineSize_ < inlineCapacity_) {
-            inlineEntries_[inlineSize_] = std::move(binding);
-            return inlineEntries_[inlineSize_++];
+            const auto index = inlineSize_++;
+            inlineEntries_[index] = std::move(binding);
+            auto bucket = hashName(name) & (inlineNameIndex_.size() - 1);
+            while (inlineNameIndex_[bucket] != 0) {
+                bucket = (bucket + 1) & (inlineNameIndex_.size() - 1);
+            }
+            inlineNameIndex_[bucket] = static_cast<std::uint8_t>(index + 1);
+            return inlineEntries_[index];
         }
         overflowEntries_.append(std::move(binding));
         return overflowEntries_[overflowEntries_.size() - 1];
     }
 
     std::array<ArtifactScriptLocalBinding, inlineCapacity_> inlineEntries_{};
+    std::array<std::uint8_t, inlineNameIndexCapacity_> inlineNameIndex_{};
     std::size_t inlineSize_ = 0;
     ArtifactCore::Array<ArtifactScriptLocalBinding> overflowEntries_;
 };
