@@ -362,6 +362,12 @@ public:
     std::string getLastError() const;
     bool hasError() const;
 private:
+    friend class ArtifactScriptInstance;
+    ArtifactScriptValue executeResolvedMethod(
+        const ArtifactScriptDefinition& definition,
+        const ArtifactScriptMethod& method,
+        const std::vector<ArtifactScriptValue>& args,
+        ArtifactScriptSerializedFields& fields);
     class Impl;
     std::unique_ptr<Impl> impl_;
 };
@@ -462,8 +468,6 @@ private:
     class Impl;
     std::unique_ptr<Impl> impl_;
 };
-
-// ─── Evaluator ───
 
 // ─── Hot Reload ───
 

@@ -1318,13 +1318,12 @@ const ArtifactScriptMethod* ArtifactScriptInstance::findMethodInDefinition(
     if (name.empty() || definition_.rootClass.name.empty()) {
         return nullptr;
     }
-    // Walk base -> derived so a derived override wins over a base declaration.
+    // Walk derived -> base so a derived override wins over a base declaration.
     const ArtifactScriptClass* cls = findClassByName(definition_.rootClass.name);
     if (!cls) {
         return nullptr;
     }
     std::string current(cls->name);
-    const ArtifactScriptMethod* found = nullptr;
     for (int depth = 0; depth < 32; ++depth) {
         const ArtifactScriptClass* level = findClassByName(current);
         if (!level) {
@@ -1332,8 +1331,7 @@ const ArtifactScriptMethod* ArtifactScriptInstance::findMethodInDefinition(
         }
         for (const auto& method : level->methods) {
             if (method.name == name && method.body) {
-                found = &method;
-                break;
+                return &method;
             }
         }
         if (level->parentName.empty()) {
@@ -1341,7 +1339,7 @@ const ArtifactScriptMethod* ArtifactScriptInstance::findMethodInDefinition(
         }
         current = level->parentName;
     }
-    return found;
+    return nullptr;
 }
 
 const ArtifactScriptMethod* ArtifactScriptInstance::findLifecycleHookInDefinition(
@@ -1355,7 +1353,6 @@ const ArtifactScriptMethod* ArtifactScriptInstance::findLifecycleHookInDefinitio
         return nullptr;
     }
     std::string current(root->name);
-    const ArtifactScriptMethod* found = nullptr;
     for (int depth = 0; depth < 32; ++depth) {
         const ArtifactScriptClass* level = findClassByName(current);
         if (!level) {
@@ -1363,8 +1360,7 @@ const ArtifactScriptMethod* ArtifactScriptInstance::findLifecycleHookInDefinitio
         }
         for (const auto& method : level->methods) {
             if (method.isLifecycleHook && method.hook == hook && method.body) {
-                found = &method;
-                break;
+                return &method;
             }
         }
         if (level->parentName.empty()) {
@@ -1372,7 +1368,7 @@ const ArtifactScriptMethod* ArtifactScriptInstance::findLifecycleHookInDefinitio
         }
         current = level->parentName;
     }
-    return found;
+    return nullptr;
 }
 
 const ArtifactScriptClass* ArtifactScriptInstance::findClassByName(
@@ -1401,20 +1397,10 @@ std::string ArtifactScriptInstance::lastError() const {
 }
 
 bool ArtifactScriptInstance::invokeHook(ArtifactScriptHook hook) {
-    if (!hasHook(hook)) {
+    const ArtifactScriptMethod* method = findLifecycleHookInDefinition(hook);
+    if (!method) {
         return false;
     }
-    const auto hookName = [hook]() -> std::string {
-        switch (hook) {
-        case ArtifactScriptHook::OnCreate: return "OnCreate";
-        case ArtifactScriptHook::OnStart: return "OnStart";
-        case ArtifactScriptHook::OnEnable: return "OnEnable";
-        case ArtifactScriptHook::OnDisable: return "OnDisable";
-        case ArtifactScriptHook::OnUpdate: return "OnUpdate";
-        case ArtifactScriptHook::OnDestroy: return "OnDestroy";
-        }
-        return "OnUpdate";
-    }();
 
     if (component_) {
         fields_ = component_->publicFields();
@@ -1426,7 +1412,7 @@ bool ArtifactScriptInstance::invokeHook(ArtifactScriptHook hook) {
     }
     // Lifecycle hooks receive no arguments; dt is provided as a field when
     // the host sets it (fields()["dt"]).
-    evaluator_.executeMethod(definition_, hookName, {}, fields_);
+    evaluator_.executeResolvedMethod(definition_, *method, {}, fields_);
     const bool ok = !evaluator_.hasError();
     lastHookError_ = ok ? std::string() : evaluator_.getLastError();
     lastInvokedHook_ = hook;
@@ -1455,8 +1441,8 @@ public:
     ArtifactScriptValue evalUnary(ArtifactScriptUnaryOp, const ArtifactScriptValue&);
     ArtifactScriptValue evalCall(const ArtifactScriptExpr*, ArtifactScriptSerializedFields&, const std::unordered_map<std::string, ArtifactScriptValue>&);
     bool execStmt(const ArtifactScriptStmt*, ArtifactScriptSerializedFields&, std::unordered_map<std::string, ArtifactScriptValue>& locals);
-    ArtifactScriptValue callUserMethod(std::string_view, const std::vector<ArtifactScriptValue>&, ArtifactScriptSerializedFields&);
-    ArtifactScriptValue callInstanceMethod(const ArtifactScriptObjectInstancePtr&, std::string_view, const std::vector<ArtifactScriptValue>&);
+    ArtifactScriptValue callUserMethod(const ArtifactScriptMethod&, const std::vector<ArtifactScriptValue>&, ArtifactScriptSerializedFields&);
+    ArtifactScriptValue callInstanceMethod(const ArtifactScriptObjectInstancePtr&, const ArtifactScriptMethod&, const std::vector<ArtifactScriptValue>&);
     const ArtifactScriptClass* findClass(std::string_view) const;
     const ArtifactScriptMethod* findMethodInChain(std::string_view, std::string_view) const;
     bool isInstanceOf(const ArtifactScriptObjectInstance&, std::string_view) const;
@@ -1620,8 +1606,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalExpr(
             }
         }
         if (const ArtifactScriptMethod* ctor = findMethodInChain(cls->name, "OnConstruct")) {
-            (void)ctor;
-            const auto result = callInstanceMethod(instance, "OnConstruct", args);
+            const auto result = callInstanceMethod(instance, *ctor, args);
             if (!error_.empty()) return {};
             (void)result;
         } else if (!args.empty()) {
@@ -1776,8 +1761,11 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
         if (std::holds_alternative<ArtifactScriptObjectInstancePtr>(target) &&
             std::get<ArtifactScriptObjectInstancePtr>(target)) {
             const auto& instance = std::get<ArtifactScriptObjectInstancePtr>(target);
-            if (activeDefinition_ && findMethodInChain(instance->className, e->callName)) {
-                return callInstanceMethod(instance, e->callName, args);
+            if (activeDefinition_) {
+                if (const ArtifactScriptMethod* method =
+                        findMethodInChain(instance->className, e->callName)) {
+                    return callInstanceMethod(instance, *method, args);
+                }
             }
             ArtifactScriptValue hostResult;
             const std::string classLabel = instance->className.empty() ? "Object" : instance->className;
@@ -1890,8 +1878,11 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
     }
     if (e->callName == "sin" && !args.empty()) return std::sin(num(args[0]));
     if (e->callName == "cos" && !args.empty()) return std::cos(num(args[0]));
-    if (activeDefinition_ && findMethodInChain(activeDefinition_->rootClass.name, e->callName)) {
-        return callUserMethod(e->callName, args, fields);
+    if (activeDefinition_) {
+        if (const ArtifactScriptMethod* method =
+                findMethodInChain(activeDefinition_->rootClass.name, e->callName)) {
+            return callUserMethod(*method, args, fields);
+        }
     }
     ArtifactScriptValue hostResult;
     ArtifactScriptHost& host = ArtifactScriptHost::global();
@@ -1909,15 +1900,16 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
 }
 
 ArtifactScriptValue ArtifactScriptEvaluator::Impl::callUserMethod(
-    std::string_view name, const std::vector<ArtifactScriptValue>& args,
+    const ArtifactScriptMethod& resolvedMethod,
+    const std::vector<ArtifactScriptValue>& args,
     ArtifactScriptSerializedFields& fields) {
     constexpr int kMaxCallDepth = 64;
     if (callDepth_ >= kMaxCallDepth) {
         error_ = "script call depth limit";
         return {};
     }
-    const ArtifactScriptMethod* method = findMethodInChain(activeDefinition_->rootClass.name, name);
-    if (!method || !method->body) return {};
+    const ArtifactScriptMethod* method = &resolvedMethod;
+    if (!method->body) return {};
     std::unordered_map<std::string, ArtifactScriptValue> locals;
     for (std::size_t i = 0; i < args.size() && i < method->parameters.size(); ++i)
         locals[method->parameters[i]] = args[i];
@@ -2509,16 +2501,14 @@ bool ArtifactScriptEvaluator::Impl::isInstanceOf(
 }
 
 ArtifactScriptValue ArtifactScriptEvaluator::Impl::callInstanceMethod(
-    const ArtifactScriptObjectInstancePtr& instance, std::string_view name,
+    const ArtifactScriptObjectInstancePtr& instance,
+    const ArtifactScriptMethod& resolvedMethod,
     const std::vector<ArtifactScriptValue>& args) {
     constexpr int kMaxCallDepth = 64;
     if (!instance) { error_ = "null object"; return {}; }
     if (callDepth_ >= kMaxCallDepth) { error_ = "script call depth limit"; return {}; }
-    const ArtifactScriptMethod* method = findMethodInChain(instance->className, name);
-    if (!method || !method->body) {
-        error_ = "unknown method: " + std::string(name);
-        return {};
-    }
+    const ArtifactScriptMethod* method = &resolvedMethod;
+    if (!method->body) return {};
     std::unordered_map<std::string, ArtifactScriptValue> locals;
     for (std::size_t i = 0; i < args.size() && i < method->parameters.size(); ++i)
         locals[method->parameters[i]] = args[i];
@@ -2562,10 +2552,19 @@ ArtifactScriptValue ArtifactScriptEvaluator::executeMethod(
         impl_->error_ = "unknown method: " + std::string(methodName);
         return {};
     }
+    return executeResolvedMethod(definition, *method, args, fields);
+}
+
+ArtifactScriptValue ArtifactScriptEvaluator::executeResolvedMethod(
+    const ArtifactScriptDefinition& definition, const ArtifactScriptMethod& method,
+    const std::vector<ArtifactScriptValue>& args,
+    ArtifactScriptSerializedFields& fields) {
+    impl_->error_.clear();
+    impl_->activeDefinition_ = &definition;
     impl_->callDepth_ = 0;
     impl_->returnValue_ = {};
     impl_->returned_ = false;
-    return impl_->callUserMethod(methodName, args, fields);
+    return impl_->callUserMethod(method, args, fields);
 }
 
 std::string ArtifactScriptEvaluator::getLastError() const { return impl_->error_; }
