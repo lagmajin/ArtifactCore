@@ -11,6 +11,7 @@ module;
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <optional>
 #include <unordered_map>
 #include <variant>
 
@@ -1413,9 +1414,11 @@ bool ArtifactScriptInstance::invokeHook(ArtifactScriptHook hook) {
     }
     // Lifecycle hooks receive no arguments; dt is provided as a field when
     // the host sets it (fields()["dt"]).
-    evaluator_.executeResolvedMethod(definition_, *method, {}, fields_);
+    static const std::vector<ArtifactScriptValue> noArguments;
+    evaluator_.executeResolvedMethod(definition_, *method, noArguments, fields_);
     const bool ok = !evaluator_.hasError();
-    lastHookError_ = ok ? std::string() : evaluator_.getLastError();
+    if (ok) lastHookError_.clear();
+    else lastHookError_ = evaluator_.getLastError();
     lastInvokedHook_ = hook;
     return ok;
 }
@@ -1430,7 +1433,8 @@ bool ArtifactScriptInstance::wasHookInvoked(ArtifactScriptHook hook) const {
 namespace {
 
 struct ArtifactScriptLocalBinding {
-    std::string name;
+    // Local names refer to strings owned by the live method AST.
+    std::string_view name;
     ArtifactScriptValue value;
 };
 
@@ -1438,11 +1442,14 @@ class ArtifactScriptCallArguments {
 public:
     explicit ArtifactScriptCallArguments(std::size_t expected)
         : useOverflow_(expected > inlineCapacity_) {
-        if (useOverflow_) overflow_.reserve(expected);
+        if (useOverflow_) {
+            overflow_.emplace();
+            overflow_->reserve(expected);
+        }
     }
 
     void append(ArtifactScriptValue value) {
-        if (useOverflow_) overflow_.push_back(std::move(value));
+        if (useOverflow_) overflow_->push_back(std::move(value));
         else inlineValues_[size_] = std::move(value);
         ++size_;
     }
@@ -1450,61 +1457,77 @@ public:
     std::size_t size() const { return size_; }
     bool empty() const { return size_ == 0; }
     const ArtifactScriptValue& operator[](std::size_t index) const {
-        return useOverflow_ ? overflow_[index] : inlineValues_[index];
+        return useOverflow_ ? (*overflow_)[index] : inlineValues_[index];
     }
     std::span<const ArtifactScriptValue> span() const {
         return useOverflow_
-            ? std::span<const ArtifactScriptValue>(overflow_.data(), overflow_.size())
+            ? std::span<const ArtifactScriptValue>(overflow_->data(), overflow_->size())
             : std::span<const ArtifactScriptValue>(inlineValues_, size_);
     }
     const std::vector<ArtifactScriptValue>& vector() const {
-        if (useOverflow_) return overflow_;
-        materialized_.assign(inlineValues_, inlineValues_ + size_);
-        return materialized_;
+        if (useOverflow_) return *overflow_;
+        if (!materialized_) materialized_.emplace();
+        materialized_->assign(inlineValues_, inlineValues_ + size_);
+        return *materialized_;
     }
 
 private:
     static constexpr std::size_t inlineCapacity_ = 4;
     ArtifactScriptValue inlineValues_[inlineCapacity_]{};
-    std::vector<ArtifactScriptValue> overflow_;
-    mutable std::vector<ArtifactScriptValue> materialized_;
+    std::optional<std::vector<ArtifactScriptValue>> overflow_;
+    mutable std::optional<std::vector<ArtifactScriptValue>> materialized_;
     std::size_t size_ = 0;
     bool useOverflow_ = false;
 };
 
 class ArtifactScriptLocals {
 public:
-    void reserve(std::size_t count) { entries_.reserve(count); }
+    void reserve(std::size_t count) {
+        if (count > inlineCapacity_) overflowEntries_.reserve(count - inlineCapacity_);
+    }
 
     ArtifactScriptLocalBinding* find(std::string_view name) {
-        for (auto& entry : entries_) {
-            if (entry.name == name) return &entry;
-        }
+        for (std::size_t i = 0; i < inlineSize_; ++i)
+            if (inlineEntries_[i].name == name) return &inlineEntries_[i];
+        for (auto& entry : overflowEntries_) if (entry.name == name) return &entry;
         return nullptr;
     }
 
     const ArtifactScriptLocalBinding* find(std::string_view name) const {
-        for (const auto& entry : entries_) {
-            if (entry.name == name) return &entry;
-        }
+        for (std::size_t i = 0; i < inlineSize_; ++i)
+            if (inlineEntries_[i].name == name) return &inlineEntries_[i];
+        for (const auto& entry : overflowEntries_) if (entry.name == name) return &entry;
         return nullptr;
     }
 
     ArtifactScriptValue& operator[](std::string_view name) {
         if (auto* entry = find(name)) return entry->value;
-        entries_.append(ArtifactScriptLocalBinding{std::string(name), {}});
-        return entries_[entries_.size() - 1].value;
+        return append(name, {}).value;
     }
 
     ArtifactScriptLocalBinding& emplace(std::string_view name,
                                          const ArtifactScriptValue& value) {
         if (auto* entry = find(name)) return *entry;
-        entries_.append(ArtifactScriptLocalBinding{std::string(name), value});
-        return entries_[entries_.size() - 1];
+        return append(name, value);
     }
 
 private:
-    ArtifactCore::Array<ArtifactScriptLocalBinding> entries_;
+    static constexpr std::size_t inlineCapacity_ = 8;
+
+    ArtifactScriptLocalBinding& append(std::string_view name,
+                                       const ArtifactScriptValue& value) {
+        ArtifactScriptLocalBinding binding{name, value};
+        if (inlineSize_ < inlineCapacity_) {
+            inlineEntries_[inlineSize_] = std::move(binding);
+            return inlineEntries_[inlineSize_++];
+        }
+        overflowEntries_.append(std::move(binding));
+        return overflowEntries_[overflowEntries_.size() - 1];
+    }
+
+    std::array<ArtifactScriptLocalBinding, inlineCapacity_> inlineEntries_{};
+    std::size_t inlineSize_ = 0;
+    ArtifactCore::Array<ArtifactScriptLocalBinding> overflowEntries_;
 };
 
 struct ArtifactScriptFieldBinding {
@@ -1518,10 +1541,7 @@ public:
     explicit ArtifactScriptFields(ArtifactScriptSerializedFields& root)
         : root_(&root) {}
     explicit ArtifactScriptFields(ArtifactScriptFields& parent)
-        : parent_(&parent) {
-        // Reserve the common small field working set in one allocation.
-        overlay_.reserve(4);
-    }
+        : parent_(&parent) {}
 
     ArtifactScriptValue* find(const std::string& name) {
         if (root_) {
@@ -1545,28 +1565,41 @@ public:
     }
 
     void commit(std::string_view excludedName) {
-        for (const auto& entry : overlay_) {
-            if (*entry.name != excludedName) (*parent_)[*entry.name] = entry.value;
-        }
+        for (std::size_t i = 0; i < overlaySize_; ++i) commitEntry(inlineOverlay_[i], excludedName);
+        for (const auto& entry : overflowOverlay_) commitEntry(entry, excludedName);
     }
 
 private:
+    static constexpr std::size_t inlineOverlayCapacity_ = 4;
+
+    void commitEntry(const ArtifactScriptFieldBinding& entry,
+                     std::string_view excludedName) const {
+        if (*entry.name != excludedName) (*parent_)[*entry.name] = entry.value;
+    }
+
     ArtifactScriptFieldBinding* findOverlay(const std::string& name) {
-        for (auto& entry : overlay_) {
-            if (*entry.name == name) return &entry;
+        for (std::size_t i = 0; i < overlaySize_; ++i) {
+            if (*inlineOverlay_[i].name == name) return &inlineOverlay_[i];
         }
+        for (auto& entry : overflowOverlay_) if (*entry.name == name) return &entry;
         return nullptr;
     }
 
     ArtifactScriptFieldBinding& insertOverlay(
         const std::string& name, const ArtifactScriptValue& value) {
-        overlay_.append(ArtifactScriptFieldBinding{&name, value});
-        return overlay_[overlay_.size() - 1];
+        if (overlaySize_ < inlineOverlayCapacity_) {
+            inlineOverlay_[overlaySize_] = ArtifactScriptFieldBinding{&name, value};
+            return inlineOverlay_[overlaySize_++];
+        }
+        overflowOverlay_.append(ArtifactScriptFieldBinding{&name, value});
+        return overflowOverlay_[overflowOverlay_.size() - 1];
     }
 
     ArtifactScriptSerializedFields* root_ = nullptr;
     ArtifactScriptFields* parent_ = nullptr;
-    ArtifactCore::Array<ArtifactScriptFieldBinding> overlay_;
+    std::array<ArtifactScriptFieldBinding, inlineOverlayCapacity_> inlineOverlay_{};
+    std::size_t overlaySize_ = 0;
+    ArtifactCore::Array<ArtifactScriptFieldBinding> overflowOverlay_;
 };
 
 std::size_t countLocalDeclarations(const ArtifactScriptStmt* statement) {
@@ -1591,7 +1624,7 @@ std::size_t countLocalDeclarations(const ArtifactScriptStmt* statement) {
         count += countLocalDeclarations(statement->forBody.get());
         break;
     case ArtifactScriptStmt::Kind::Foreach:
-        ++count;
+        // The iteration binding lives in ArtifactScriptFields, not locals.
         count += countLocalDeclarations(statement->foreachBody.get());
         break;
     default:
@@ -1612,6 +1645,20 @@ std::size_t countLocalDeclarations(const ArtifactScriptMethodBody& body) {
 
 class ArtifactScriptEvaluator::Impl {
 public:
+    static constexpr std::size_t kReusableForeachDepth = 8;
+    static constexpr std::size_t kReusableForeachElements = 256;
+
+    struct ForeachSnapshotScope {
+        Impl& owner;
+        std::size_t depth;
+        bool reusesStorage = false;
+
+        ~ForeachSnapshotScope() {
+            if (reusesStorage) owner.foreachSnapshots_[depth].removeAll();
+            owner.foreachDepth_ = depth;
+        }
+    };
+
     std::string error_;
     ArtifactScriptValue returnValue_{};
     bool returned_ = false;
@@ -1620,6 +1667,11 @@ public:
     const ArtifactScriptDefinition* activeDefinition_ = nullptr;
     ArtifactScriptObjectInstancePtr activeThis_;
     int callDepth_ = 0;
+    // Retain at most 8 nested snapshots of 256 values each. Deeper/larger
+    // loops use a transient snapshot so scripts cannot grow this workspace
+    // without bound.
+    ArtifactCore::Array<ArtifactCore::Array<ArtifactScriptValue>> foreachSnapshots_;
+    std::size_t foreachDepth_ = 0;
     ArtifactScriptValue evalExpr(const ArtifactScriptExpr*, ArtifactScriptFields&, const ArtifactScriptLocals&);
     ArtifactScriptValue evalBinary(ArtifactScriptBinaryOp, const ArtifactScriptValue&, const ArtifactScriptValue&);
     ArtifactScriptValue evalUnary(ArtifactScriptUnaryOp, const ArtifactScriptValue&);
@@ -2258,10 +2310,32 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
             error_ = "foreach requires an array"; return false;
         }
         const auto& array = std::get<ArtifactScriptArrayPtr>(*collection);
-        // Copy the element list: the loop body may mutate (push/clear) the
-        // same array, which would invalidate iterators over ->values.
-        const std::vector<ArtifactScriptValue> elements =
-            array ? array->values : std::vector<ArtifactScriptValue>{};
+        // Snapshot the element list because the loop body may mutate the same
+        // array. Reuse bounded evaluator-owned storage in the common case;
+        // large/deep loops keep the previous transient-copy behavior.
+        const auto snapshotDepth = foreachDepth_;
+        ForeachSnapshotScope snapshotScope{*this, snapshotDepth};
+        foreachDepth_ = snapshotDepth + 1;
+        std::optional<std::vector<ArtifactScriptValue>> transientElements;
+        std::span<const ArtifactScriptValue> elements;
+        const bool reuseSnapshot = array &&
+            snapshotDepth < kReusableForeachDepth &&
+            array->values.size() <= kReusableForeachElements;
+        if (reuseSnapshot) {
+            while (foreachSnapshots_.size() <= snapshotDepth) {
+                foreachSnapshots_.append(ArtifactCore::Array<ArtifactScriptValue>{});
+            }
+            snapshotScope.reusesStorage = true;
+            auto& snapshot = foreachSnapshots_[snapshotDepth];
+            snapshot.removeAll();
+            for (const auto& element : array->values) snapshot.append(element);
+            elements = std::span<const ArtifactScriptValue>(
+                snapshot.data(), snapshot.size());
+        } else if (array) {
+            transientElements.emplace(array->values);
+            elements = std::span<const ArtifactScriptValue>(
+                transientElements->data(), transientElements->size());
+        }
         ArtifactScriptFields scope(fields);
         for (const auto& element : elements) {
             scope[s->foreachItemName] = element;
