@@ -1434,6 +1434,44 @@ struct ArtifactScriptLocalBinding {
     ArtifactScriptValue value;
 };
 
+class ArtifactScriptCallArguments {
+public:
+    explicit ArtifactScriptCallArguments(std::size_t expected)
+        : useOverflow_(expected > inlineCapacity_) {
+        if (useOverflow_) overflow_.reserve(expected);
+    }
+
+    void append(ArtifactScriptValue value) {
+        if (useOverflow_) overflow_.push_back(std::move(value));
+        else inlineValues_[size_] = std::move(value);
+        ++size_;
+    }
+
+    std::size_t size() const { return size_; }
+    bool empty() const { return size_ == 0; }
+    const ArtifactScriptValue& operator[](std::size_t index) const {
+        return useOverflow_ ? overflow_[index] : inlineValues_[index];
+    }
+    std::span<const ArtifactScriptValue> span() const {
+        return useOverflow_
+            ? std::span<const ArtifactScriptValue>(overflow_.data(), overflow_.size())
+            : std::span<const ArtifactScriptValue>(inlineValues_, size_);
+    }
+    const std::vector<ArtifactScriptValue>& vector() const {
+        if (useOverflow_) return overflow_;
+        materialized_.assign(inlineValues_, inlineValues_ + size_);
+        return materialized_;
+    }
+
+private:
+    static constexpr std::size_t inlineCapacity_ = 4;
+    ArtifactScriptValue inlineValues_[inlineCapacity_]{};
+    std::vector<ArtifactScriptValue> overflow_;
+    mutable std::vector<ArtifactScriptValue> materialized_;
+    std::size_t size_ = 0;
+    bool useOverflow_ = false;
+};
+
 class ArtifactScriptLocals {
 public:
     void reserve(std::size_t count) { entries_.reserve(count); }
@@ -1525,8 +1563,8 @@ public:
     ArtifactScriptValue evalUnary(ArtifactScriptUnaryOp, const ArtifactScriptValue&);
     ArtifactScriptValue evalCall(const ArtifactScriptExpr*, ArtifactScriptSerializedFields&, const ArtifactScriptLocals&);
     bool execStmt(const ArtifactScriptStmt*, ArtifactScriptSerializedFields&, ArtifactScriptLocals& locals);
-    ArtifactScriptValue callUserMethod(const ArtifactScriptMethod&, const std::vector<ArtifactScriptValue>&, ArtifactScriptSerializedFields&);
-    ArtifactScriptValue callInstanceMethod(const ArtifactScriptObjectInstancePtr&, const ArtifactScriptMethod&, const std::vector<ArtifactScriptValue>&);
+    ArtifactScriptValue callUserMethod(const ArtifactScriptMethod&, std::span<const ArtifactScriptValue>, ArtifactScriptSerializedFields&);
+    ArtifactScriptValue callInstanceMethod(const ArtifactScriptObjectInstancePtr&, const ArtifactScriptMethod&, std::span<const ArtifactScriptValue>);
     const ArtifactScriptClass* findClass(std::string_view) const;
     const ArtifactScriptMethod* findMethodInChain(std::string_view, std::string_view) const;
     bool isInstanceOf(const ArtifactScriptObjectInstance&, std::string_view) const;
@@ -1667,10 +1705,9 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalExpr(
         if (!activeDefinition_) { error_ = "new requires a script definition"; return {}; }
         const ArtifactScriptClass* cls = findClass(e->newClassName);
         if (!cls) { error_ = "unknown class: " + e->newClassName; return {}; }
-        std::vector<ArtifactScriptValue> args;
-        args.reserve(e->newArgs.size());
+        ArtifactScriptCallArguments args(e->newArgs.size());
         for (const auto& arg : e->newArgs) {
-            args.push_back(evalExpr(arg.get(), fields, locals));
+            args.append(evalExpr(arg.get(), fields, locals));
             if (!error_.empty()) return {};
         }
         auto instance = makeShared<ArtifactScriptObjectInstance>();
@@ -1690,7 +1727,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalExpr(
             }
         }
         if (const ArtifactScriptMethod* ctor = findMethodInChain(cls->name, "OnConstruct")) {
-            const auto result = callInstanceMethod(instance, *ctor, args);
+            const auto result = callInstanceMethod(instance, *ctor, args.span());
             if (!error_.empty()) return {};
             (void)result;
         } else if (!args.empty()) {
@@ -1833,10 +1870,10 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalUnary(
 ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
     const ArtifactScriptExpr* e, ArtifactScriptSerializedFields& fields,
     const ArtifactScriptLocals& locals) {
-    std::vector<ArtifactScriptValue> args;
-    args.reserve(e->callArgs.size());
-    for (auto& a : e->callArgs) args.push_back(evalExpr(a.get(), fields, locals));
+    ArtifactScriptCallArguments args(e->callArgs.size());
+    for (auto& a : e->callArgs) args.append(evalExpr(a.get(), fields, locals));
     if (!error_.empty()) return {};
+    const auto argumentValues = args.span();
     if (e->callTarget) {
         const auto target = evalExpr(e->callTarget.get(), fields, locals);
         if (!error_.empty()) return {};
@@ -1849,12 +1886,13 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
             if (activeDefinition_) {
                 if (const ArtifactScriptMethod* method =
                         findMethodInChain(instance->className, e->callName)) {
-                    return callInstanceMethod(instance, *method, args);
+                    return callInstanceMethod(instance, *method, argumentValues);
                 }
             }
             ArtifactScriptValue hostResult;
             const std::string classLabel = instance->className.empty() ? "Object" : instance->className;
-            if (ArtifactScriptHost::global().callMethod(classLabel, e->callName, target, args, hostResult)) {
+            if (ArtifactScriptHost::global().callMethod(
+                    classLabel, e->callName, target, args.vector(), hostResult)) {
                 if (!ArtifactScriptHost::global().lastError().empty()) {
                     error_ = "host: " + ArtifactScriptHost::global().lastError();
                     return {};
@@ -1866,7 +1904,8 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
         // Host objects arrive as ObjectRef (e.g. getLayer() handles).
         if (std::holds_alternative<ArtifactScriptRef>(target)) {
             ArtifactScriptValue hostResult;
-            if (ArtifactScriptHost::global().callMethod("ObjectRef", e->callName, target, args, hostResult)) {
+            if (ArtifactScriptHost::global().callMethod(
+                    "ObjectRef", e->callName, target, args.vector(), hostResult)) {
                 if (!ArtifactScriptHost::global().lastError().empty()) {
                     error_ = "host: " + ArtifactScriptHost::global().lastError();
                     return {};
@@ -1882,7 +1921,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
         if (std::holds_alternative<std::int64_t>(v)) return (double)std::get<std::int64_t>(v);
         return 0.0;
     };
-    if (e->callName == "array" && args.empty())
+    if (e->callName == "array" && argumentValues.empty())
         return makeShared<ArtifactScriptArray>();
     if (e->callName == "print" || e->callName == "log") {
         auto toString = [](const ArtifactScriptValue& v) -> std::string {
@@ -1898,82 +1937,82 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
             return {};
         };
         std::string line;
-        for (std::size_t i = 0; i < args.size(); ++i) {
+        for (std::size_t i = 0; i < argumentValues.size(); ++i) {
             if (i > 0) line += " ";
-            line += toString(args[i]);
+            line += toString(argumentValues[i]);
         }
         ArtifactScriptHost::global().appendLog(std::move(line));
         return {};
     }
-    if (e->callName == "size" && args.size() == 1 &&
-        std::holds_alternative<ArtifactScriptArrayPtr>(args[0])) {
-        const auto& array = std::get<ArtifactScriptArrayPtr>(args[0]);
+    if (e->callName == "size" && argumentValues.size() == 1 &&
+        std::holds_alternative<ArtifactScriptArrayPtr>(argumentValues[0])) {
+        const auto& array = std::get<ArtifactScriptArrayPtr>(argumentValues[0]);
         return static_cast<std::int64_t>(array ? array->values.size() : 0);
     }
-    if (e->callName == "push" && args.size() == 2 &&
-        std::holds_alternative<ArtifactScriptArrayPtr>(args[0])) {
-        const auto& array = std::get<ArtifactScriptArrayPtr>(args[0]);
+    if (e->callName == "push" && argumentValues.size() == 2 &&
+        std::holds_alternative<ArtifactScriptArrayPtr>(argumentValues[0])) {
+        const auto& array = std::get<ArtifactScriptArrayPtr>(argumentValues[0]);
         if (!array) { error_ = "push on null array"; return {}; }
-        array->values.push_back(args[1]);
+        array->values.push_back(argumentValues[1]);
         return static_cast<std::int64_t>(array->values.size());
     }
-    if (e->callName == "clear" && args.size() == 1 &&
-        std::holds_alternative<ArtifactScriptArrayPtr>(args[0])) {
-        const auto& array = std::get<ArtifactScriptArrayPtr>(args[0]);
+    if (e->callName == "clear" && argumentValues.size() == 1 &&
+        std::holds_alternative<ArtifactScriptArrayPtr>(argumentValues[0])) {
+        const auto& array = std::get<ArtifactScriptArrayPtr>(argumentValues[0]);
         if (!array) { error_ = "clear on null array"; return {}; }
         array->values.clear();
         return static_cast<std::int64_t>(0);
     }
-    if (e->callName == "empty" && args.size() == 1 &&
-        std::holds_alternative<ArtifactScriptArrayPtr>(args[0])) {
-        const auto& array = std::get<ArtifactScriptArrayPtr>(args[0]);
+    if (e->callName == "empty" && argumentValues.size() == 1 &&
+        std::holds_alternative<ArtifactScriptArrayPtr>(argumentValues[0])) {
+        const auto& array = std::get<ArtifactScriptArrayPtr>(argumentValues[0]);
         return !array || array->values.empty();
     }
-    if (e->callName == "pop" && args.size() == 1 &&
-        std::holds_alternative<ArtifactScriptArrayPtr>(args[0])) {
-        const auto& array = std::get<ArtifactScriptArrayPtr>(args[0]);
+    if (e->callName == "pop" && argumentValues.size() == 1 &&
+        std::holds_alternative<ArtifactScriptArrayPtr>(argumentValues[0])) {
+        const auto& array = std::get<ArtifactScriptArrayPtr>(argumentValues[0]);
         if (!array || array->values.empty()) { error_ = "pop from empty array"; return {}; }
         auto value = array->values.back();
         array->values.pop_back();
         return value;
     }
-    if ((e->callName == "contains" || e->callName == "indexOf") && args.size() == 2 &&
-        std::holds_alternative<ArtifactScriptArrayPtr>(args[0])) {
-        const auto& array = std::get<ArtifactScriptArrayPtr>(args[0]);
+    if ((e->callName == "contains" || e->callName == "indexOf") && argumentValues.size() == 2 &&
+        std::holds_alternative<ArtifactScriptArrayPtr>(argumentValues[0])) {
+        const auto& array = std::get<ArtifactScriptArrayPtr>(argumentValues[0]);
         if (!array) return e->callName == "contains" ? ArtifactScriptValue(false) : ArtifactScriptValue(std::int64_t(-1));
         for (std::size_t i = 0; i < array->values.size(); ++i) {
             const auto& item = array->values[i];
             bool equal = false;
-            if (item.index() == args[1].index()) {
-                if (std::holds_alternative<double>(item)) equal = std::get<double>(item) == num(args[1]);
-                else if (std::holds_alternative<std::int64_t>(item)) equal = std::get<std::int64_t>(item) == static_cast<std::int64_t>(num(args[1]));
-                else if (std::holds_alternative<std::string>(item)) equal = std::get<std::string>(item) == std::get<std::string>(args[1]);
-                else if (std::holds_alternative<bool>(item)) equal = std::get<bool>(item) == std::get<bool>(args[1]);
+            if (item.index() == argumentValues[1].index()) {
+                if (std::holds_alternative<double>(item)) equal = std::get<double>(item) == num(argumentValues[1]);
+                else if (std::holds_alternative<std::int64_t>(item)) equal = std::get<std::int64_t>(item) == static_cast<std::int64_t>(num(argumentValues[1]));
+                else if (std::holds_alternative<std::string>(item)) equal = std::get<std::string>(item) == std::get<std::string>(argumentValues[1]);
+                else if (std::holds_alternative<bool>(item)) equal = std::get<bool>(item) == std::get<bool>(argumentValues[1]);
             }
             if (equal) return e->callName == "contains" ? ArtifactScriptValue(true) : ArtifactScriptValue(static_cast<std::int64_t>(i));
         }
         return e->callName == "contains" ? ArtifactScriptValue(false) : ArtifactScriptValue(std::int64_t(-1));
     }
-    if (e->callName == "abs" && !args.empty()) return std::abs(num(args[0]));
-    if (e->callName == "min" && args.size() >= 2) return std::min(num(args[0]), num(args[1]));
-    if (e->callName == "max" && args.size() >= 2) return std::max(num(args[0]), num(args[1]));
-    if (e->callName == "clamp" && args.size() >= 3) return std::clamp(num(args[0]), num(args[1]), num(args[2]));
-    if (e->callName == "lerp" && args.size() >= 3) {
-        double a = num(args[0]), b = num(args[1]), t = num(args[2]); return a + (b - a) * t;
+    if (e->callName == "abs" && !argumentValues.empty()) return std::abs(num(argumentValues[0]));
+    if (e->callName == "min" && argumentValues.size() >= 2) return std::min(num(argumentValues[0]), num(argumentValues[1]));
+    if (e->callName == "max" && argumentValues.size() >= 2) return std::max(num(argumentValues[0]), num(argumentValues[1]));
+    if (e->callName == "clamp" && argumentValues.size() >= 3) return std::clamp(num(argumentValues[0]), num(argumentValues[1]), num(argumentValues[2]));
+    if (e->callName == "lerp" && argumentValues.size() >= 3) {
+        double a = num(argumentValues[0]), b = num(argumentValues[1]), t = num(argumentValues[2]); return a + (b - a) * t;
     }
-    if (e->callName == "sin" && !args.empty()) return std::sin(num(args[0]));
-    if (e->callName == "cos" && !args.empty()) return std::cos(num(args[0]));
+    if (e->callName == "sin" && !argumentValues.empty()) return std::sin(num(argumentValues[0]));
+    if (e->callName == "cos" && !argumentValues.empty()) return std::cos(num(argumentValues[0]));
     if (activeDefinition_) {
         if (const ArtifactScriptMethod* method =
                 findMethodInChain(activeDefinition_->rootClass.name, e->callName)) {
-            return callUserMethod(*method, args, fields);
+            return callUserMethod(*method, argumentValues, fields);
         }
     }
     ArtifactScriptValue hostResult;
     ArtifactScriptHost& host = ArtifactScriptHost::global();
     if (host.hasFunction(e->callName)) {
         host.setLastError(std::string());
-        if (host.callFunction(e->callName, args, hostResult)) {
+        if (host.callFunction(e->callName, args.vector(), hostResult)) {
             // Host callbacks may report failures via setLastError; surface
             // them through the evaluator's diagnostic path.
             const std::string hostError = host.lastError();
@@ -1986,7 +2025,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
 
 ArtifactScriptValue ArtifactScriptEvaluator::Impl::callUserMethod(
     const ArtifactScriptMethod& resolvedMethod,
-    const std::vector<ArtifactScriptValue>& args,
+    std::span<const ArtifactScriptValue> args,
     ArtifactScriptSerializedFields& fields) {
     constexpr int kMaxCallDepth = 64;
     if (callDepth_ >= kMaxCallDepth) {
@@ -2591,7 +2630,7 @@ bool ArtifactScriptEvaluator::Impl::isInstanceOf(
 ArtifactScriptValue ArtifactScriptEvaluator::Impl::callInstanceMethod(
     const ArtifactScriptObjectInstancePtr& instance,
     const ArtifactScriptMethod& resolvedMethod,
-    const std::vector<ArtifactScriptValue>& args) {
+    std::span<const ArtifactScriptValue> args) {
     constexpr int kMaxCallDepth = 64;
     if (!instance) { error_ = "null object"; return {}; }
     if (callDepth_ >= kMaxCallDepth) { error_ = "script call depth limit"; return {}; }
