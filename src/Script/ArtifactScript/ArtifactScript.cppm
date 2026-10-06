@@ -156,11 +156,6 @@ ArtifactScriptExprPtr parsePrimary(ParseCtx& c) {
         }
         return e;
     }
-    if (matchKw(c, "this")) {
-        e->kind = ArtifactScriptExpr::Kind::Variable;
-        e->variableName = "this";
-        return e;
-    }
     if (c.src[c.pos] == '[') {
         ++c.pos; e->kind = ArtifactScriptExpr::Kind::ArrayLiteral;
         if (!matchCh(c, ']')) {
@@ -1557,6 +1552,17 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalExpr(
         error_ = "undefined: " + e->variableName; return {};
     }
     case ArtifactScriptExpr::Kind::FieldAccess: {
+        const bool isActiveThisAccess = activeThis_ && e->fieldObject &&
+            e->fieldObject->kind == ArtifactScriptExpr::Kind::Variable &&
+            e->fieldObject->variableName == "this";
+        if (isActiveThisAccess) {
+            const auto field = fields.find(e->fieldName);
+            if (field == fields.end()) {
+                error_ = "undefined field: " + e->fieldName;
+                return {};
+            }
+            return field->second;
+        }
         const bool isThisAccess =
             !activeThis_ && e->fieldObject &&
             e->fieldObject->kind == ArtifactScriptExpr::Kind::Variable &&
@@ -1998,7 +2004,6 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
                 return nullptr;
             };
             ArtifactScriptObjectInstancePtr* target = nullptr;
-            ArtifactScriptObjectInstancePtr thisCopy;
             if (s->declName == "this") {
                 // At the top level `this` is the owning layer rather than a
                 // script instance, so the assignment goes to a host property
@@ -2015,8 +2020,8 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
                     }
                     return error_.empty();
                 }
-                thisCopy = activeThis_;
-                target = &thisCopy;
+                fields[s->assignField] = init;
+                return error_.empty();
             } else if (auto lit = locals.find(s->declName); lit != locals.end()) {
                 target = resolveObject(lit->second);
             } else if (auto fieldIt = fields.find(s->declName); fieldIt != fields.end()) {
@@ -2024,7 +2029,6 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
             }
             if (!target || !*target) { error_ = "field assign on non-object: " + s->declName; return false; }
             (*target)->fields[s->assignField] = init;
-            if (s->declName == "this") activeThis_ = thisCopy;
             return error_.empty();
         }
         locals[s->declName] = (s->declInit || s->declType == ArtifactScriptValueType::Array)
