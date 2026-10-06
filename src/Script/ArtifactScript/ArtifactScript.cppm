@@ -1717,6 +1717,7 @@ public:
     struct MethodCallCacheEntry {
         const ArtifactScriptExpr* callSite = nullptr;
         const ArtifactScriptDefinition* definition = nullptr;
+        const ArtifactScriptClass* targetClass = nullptr;
         const ArtifactScriptMethod* method = nullptr;
         std::uint32_t generation = 0;
     };
@@ -1781,6 +1782,8 @@ public:
     const ArtifactScriptClass* findClass(std::string_view) const;
     const ArtifactScriptMethod* findMethodInChain(std::string_view, std::string_view) const;
     const ArtifactScriptMethod* findMethodAtCallSite(const ArtifactScriptExpr*);
+    const ArtifactScriptMethod* findObjectMethodAtCallSite(
+        const ArtifactScriptExpr*, std::string_view);
     void beginMethodCallCacheGeneration();
     bool isInstanceOf(const ArtifactScriptObjectInstance&, std::string_view) const;
 };
@@ -2101,7 +2104,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
             const auto& instance = std::get<ArtifactScriptObjectInstancePtr>(target);
             if (activeDefinition_) {
                 if (const ArtifactScriptMethod* method =
-                        findMethodInChain(instance->className, e->callName)) {
+                        findObjectMethodAtCallSite(e, instance->className)) {
                     return callInstanceMethod(instance, *method, argumentValues);
                 }
             }
@@ -2892,7 +2895,41 @@ const ArtifactScriptMethod* ArtifactScriptEvaluator::Impl::findMethodAtCallSite(
     }
     const auto* method = findMethodInChain(
         activeDefinition_->rootClass.name, callSite->callName);
-    entry = {callSite, activeDefinition_, method, methodCallCacheGeneration_};
+    entry = {callSite, activeDefinition_, nullptr, method, methodCallCacheGeneration_};
+    return method;
+}
+
+const ArtifactScriptMethod* ArtifactScriptEvaluator::Impl::findObjectMethodAtCallSite(
+    const ArtifactScriptExpr* callSite, std::string_view className) {
+    if (!activeDefinition_ || !callSite || className.empty()) return nullptr;
+    const auto* targetClass = findClass(className);
+    if (!targetClass) return nullptr;
+    static_assert((kMethodCallCacheCapacity & (kMethodCallCacheCapacity - 1)) == 0);
+    const auto address = reinterpret_cast<std::uintptr_t>(callSite);
+    const auto classAddress = reinterpret_cast<std::uintptr_t>(targetClass);
+    const auto slot = ((address >> 4) ^ (classAddress >> 4)) &
+        (kMethodCallCacheCapacity - 1);
+    auto& entry = methodCallCache_[slot];
+    if (entry.generation == methodCallCacheGeneration_ &&
+        entry.callSite == callSite && entry.definition == activeDefinition_ &&
+        entry.targetClass == targetClass) {
+        return entry.method;
+    }
+
+    const ArtifactScriptMethod* method = nullptr;
+    const ArtifactScriptClass* current = targetClass;
+    for (int depth = 0; current && depth < 32; ++depth) {
+        for (const auto& candidate : current->methods) {
+            if (candidate.name == callSite->callName) {
+                method = &candidate;
+                break;
+            }
+        }
+        if (method || current->parentName.empty()) break;
+        current = findClass(current->parentName);
+    }
+    entry = {callSite, activeDefinition_, targetClass, method,
+             methodCallCacheGeneration_};
     return method;
 }
 
@@ -2929,13 +2966,13 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::callInstanceMethod(
     returnValue_ = {};
     returned_ = false;
     activeThis_ = instance;
-    ArtifactScriptSerializedFields instanceFields = instance->fields;
+    ArtifactScriptFields instanceFields(instance->fields);
     ArtifactScriptFields fieldScope(instanceFields);
     for (const auto& statement : method->body->statements) {
         if (!execStmt(statement.get(), fieldScope, locals) || returned_) break;
     }
     if (error_.empty()) {
-        instance->fields = std::move(instanceFields);
+        fieldScope.commit(std::string_view{});
     }
     if (!error_.empty() && method->line != 0) {
         error_ = "line " + std::to_string(method->line) + ":" +
