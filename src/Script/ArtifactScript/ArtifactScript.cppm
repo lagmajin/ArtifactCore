@@ -123,7 +123,59 @@ struct ParseCtx {
     size_t pos = 0;
     size_t len = 0;
     bool stalled = false;
+    bool failed = false;
+    size_t failurePosition = std::string_view::npos;
 };
+
+std::optional<std::size_t> findMethodBodyEnd(
+    std::string_view source, std::size_t openBracePosition) {
+    if (openBracePosition >= source.size() || source[openBracePosition] != '{') {
+        return std::nullopt;
+    }
+    std::size_t depth = 1;
+    bool inString = false;
+    bool escaped = false;
+    bool inLineComment = false;
+    bool inBlockComment = false;
+    for (std::size_t position = openBracePosition + 1;
+         position < source.size(); ++position) {
+        const char current = source[position];
+        const char next = position + 1 < source.size()
+            ? source[position + 1] : '\0';
+        if (inString) {
+            if (escaped) escaped = false;
+            else if (current == '\\') escaped = true;
+            else if (current == '"') inString = false;
+            continue;
+        }
+        if (inLineComment) {
+            if (current == '\n') inLineComment = false;
+            continue;
+        }
+        if (inBlockComment) {
+            if (current == '*' && next == '/') {
+                inBlockComment = false;
+                ++position;
+            }
+            continue;
+        }
+        if (current == '/' && next == '/') {
+            inLineComment = true;
+            ++position;
+        } else if (current == '/' && next == '*') {
+            inBlockComment = true;
+            ++position;
+        } else if (current == '"') {
+            inString = true;
+        } else if (current == '{') {
+            ++depth;
+        } else if (current == '}' && --depth == 0) {
+            return position;
+        }
+    }
+    return std::nullopt;
+}
+
 void skipWS(ParseCtx& c) {
     while (c.pos < c.len) {
         if (std::isspace(static_cast<unsigned char>(c.src[c.pos]))) {
@@ -340,9 +392,17 @@ ArtifactScriptStmtPtr parseStmt(ParseCtx& c) {
             const auto positionBeforeStatement = c.pos;
             auto s = parseStmt(c);
             if (s) b->blockStmts.push_back(std::move(s));
-            else break;
+            else {
+                if (c.pos < c.len && c.src[c.pos] != '}') {
+                    c.failed = true;
+                    c.failurePosition = positionBeforeStatement;
+                }
+                break;
+            }
             if (c.pos == positionBeforeStatement) {
                 c.stalled = true;
+                c.failed = true;
+                c.failurePosition = positionBeforeStatement;
                 break;
             }
         }
@@ -443,19 +503,32 @@ ArtifactScriptStmtPtr parseStmt(ParseCtx& c) {
 }
 
 ArtifactScriptMethodBodyPtr parseMethodBody(
-    std::string_view src, const std::vector<std::string>& params, bool& stalled) {
+    std::string_view src, const std::vector<std::string>& params,
+    bool& failed, std::size_t& failurePosition) {
     auto body = std::make_unique<ArtifactScriptMethodBody>(); body->parameters = params;
     ParseCtx c{src, 0, src.size()};
     while (c.pos < c.len) {
         const auto positionBeforeStatement = c.pos;
         auto s = parseStmt(c);
         if (s) body->statements.push_back(std::move(s));
-        else break;
+        else {
+            if (c.pos < c.len) {
+                c.failed = true;
+                c.failurePosition = positionBeforeStatement;
+            }
+            break;
+        }
         if (c.stalled || c.pos == positionBeforeStatement) {
-            stalled = true;
-            return nullptr;
+            c.failed = true;
+            if (c.failurePosition == std::string_view::npos) {
+                c.failurePosition = positionBeforeStatement;
+            }
+            break;
         }
     }
+    failed = c.failed;
+    failurePosition = c.failurePosition;
+    if (failed) return nullptr;
     return body;
 }
 
@@ -680,7 +753,10 @@ ArtifactScriptDefinition ArtifactScriptParser::parse(std::string_view source) co
                 method.hook = *hook;
             }
             // Parse method body if present
-            std::string bodyText;
+            // The definition owns source for the full parse; keep the body as
+            // a view instead of allocating and copying it per method.
+            std::string_view bodyText;
+            size_t bodyContentStart = std::string_view::npos;
             bool hasBody = false;
             size_t bodyStart = trimmed.find('{');
             if (bodyStart != std::string::npos) {
@@ -690,20 +766,13 @@ ArtifactScriptDefinition ArtifactScriptParser::parse(std::string_view source) co
                        std::isspace(static_cast<unsigned char>(line[leadingWhitespace]))) {
                     ++leadingWhitespace;
                 }
-                const size_t bodyStartInSource = pos + leadingWhitespace + bodyStart;
-                size_t depth = 1;
-                size_t searchPos = bodyStartInSource + 1;
-                size_t bodyEnd = searchPos;
-                for (; searchPos < sourceView.size() && depth > 0; ++searchPos) {
-                    if (sourceView[searchPos] == '{') ++depth;
-                    else if (sourceView[searchPos] == '}') --depth;
-                    if (depth == 0) bodyEnd = searchPos;
-                }
-                if (depth == 0) {
-                    bodyText = std::string(sourceView.substr(
-                        bodyStartInSource + 1, bodyEnd - (bodyStartInSource + 1)));
+                const size_t openBracePosition = pos + leadingWhitespace + bodyStart;
+                if (const auto bodyEnd = findMethodBodyEnd(sourceView, openBracePosition)) {
+                    bodyContentStart = openBracePosition + 1;
+                    bodyText = sourceView.substr(
+                        bodyContentStart, *bodyEnd - bodyContentStart);
                     hasBody = true;
-                    pos = bodyEnd + 1;
+                    pos = *bodyEnd + 1;
                     nextPos = sourceView.find('\n', pos);
                 }
             } else {
@@ -712,31 +781,38 @@ ArtifactScriptDefinition ArtifactScriptParser::parse(std::string_view source) co
                 while (lookPos < sourceView.size() && std::isspace(static_cast<unsigned char>(sourceView[lookPos])))
                     ++lookPos;
                 if (lookPos < sourceView.size() && sourceView[lookPos] == '{') {
-                    const size_t bodyStartInSource = lookPos + 1;
-                    size_t depth = 1;
-                    size_t bodyEndInSource = bodyStartInSource;
-                    size_t scanPos = bodyStartInSource;
-                    for (; scanPos < sourceView.size() && depth > 0; ++scanPos) {
-                        if (sourceView[scanPos] == '{') ++depth;
-                        else if (sourceView[scanPos] == '}') {
-                            --depth;
-                            if (depth == 0) bodyEndInSource = scanPos;
-                        }
-                    }
-                    if (depth == 0) {
-                        bodyText = std::string(
-                            sourceView.substr(bodyStartInSource, bodyEndInSource - bodyStartInSource));
+                    if (const auto bodyEnd = findMethodBodyEnd(sourceView, lookPos)) {
+                        bodyContentStart = lookPos + 1;
+                        bodyText = sourceView.substr(
+                            bodyContentStart, *bodyEnd - bodyContentStart);
                         hasBody = true;
-                        pos = bodyEndInSource + 1;
+                        pos = *bodyEnd + 1;
                         nextPos = sourceView.find('\n', pos);
                     }
                 }
             }
             if (hasBody) {
-                bool parserStalled = false;
-                method.body = parseMethodBody(bodyText, method.parameters, parserStalled);
-                if (parserStalled) {
-                    def.diagnostics.push_back({method.line, method.column,
+                bool parseFailed = false;
+                std::size_t failurePosition = std::string_view::npos;
+                method.body = parseMethodBody(
+                    bodyText, method.parameters, parseFailed, failurePosition);
+                if (parseFailed) {
+                    std::size_t diagnosticLine = 1;
+                    std::size_t diagnosticColumn = 1;
+                    const std::size_t absoluteFailurePosition = bodyContentStart +
+                        (failurePosition == std::string_view::npos
+                            ? 0 : failurePosition);
+                    for (std::size_t sourcePosition = 0;
+                         sourcePosition < absoluteFailurePosition &&
+                         sourcePosition < sourceView.size(); ++sourcePosition) {
+                        if (sourceView[sourcePosition] == '\n') {
+                            ++diagnosticLine;
+                            diagnosticColumn = 1;
+                        } else {
+                            ++diagnosticColumn;
+                        }
+                    }
+                    def.diagnostics.push_back({diagnosticLine, diagnosticColumn,
                         "unsupported or invalid syntax in method body"});
                 }
             }
