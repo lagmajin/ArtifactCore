@@ -2760,8 +2760,8 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
         if (!error_.empty()) return false;
         // Compound assignment folds the current value with the right side.
         const std::string& op = s->assignOp;
+        const bool isSimpleAssignment = op.empty() || op == "=";
         auto applyCompound = [&](const ArtifactScriptValue& current) -> ArtifactScriptValue {
-            if (op.empty() || op == "=") return v;
             if (op == "+=") return evalBinary(ArtifactScriptBinaryOp::Add, current, v);
             if (op == "-=") return evalBinary(ArtifactScriptBinaryOp::Sub, current, v);
             if (op == "*=") return evalBinary(ArtifactScriptBinaryOp::Mul, current, v);
@@ -2795,23 +2795,30 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
                 ? std::get<double>(indexValue) : std::get<std::int64_t>(indexValue));
             if (!array || index >= array->values.size()) { error_ = "array index out of range"; return false; }
             auto& targetValue = array->values[index];
-            if (!appendStringCompound(targetValue)) {
+            if (isSimpleAssignment) {
+                targetValue = std::move(v);
+            } else if (!appendStringCompound(targetValue)) {
                 targetValue = applyCompound(targetValue);
             }
             return error_.empty();
         }
         if (auto* lit = locals.find(s->assignTarget)) {
-            if (!appendStringCompound(lit->value)) {
+            if (isSimpleAssignment) {
+                lit->value = std::move(v);
+            } else if (!appendStringCompound(lit->value)) {
                 lit->value = applyCompound(lit->value);
             }
             return error_.empty();
         }
         if (auto* field = fields.findForWrite(s->assignTarget)) {
-            if (!appendStringCompound(*field)) {
+            if (isSimpleAssignment) {
+                *field = std::move(v);
+            } else if (!appendStringCompound(*field)) {
                 *field = applyCompound(*field);
             }
         } else {
-            fields[s->assignTarget] = applyCompound({});
+            fields[s->assignTarget] = isSimpleAssignment
+                ? std::move(v) : applyCompound({});
         }
         return error_.empty();
     }
