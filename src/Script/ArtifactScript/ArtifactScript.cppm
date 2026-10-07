@@ -197,7 +197,7 @@ void skipWS(ParseCtx& c) {
     }
 }
 bool matchCh(ParseCtx& c, char ch) { skipWS(c); if (c.pos < c.len && c.src[c.pos] == ch) { ++c.pos; return true; } return false; }
-bool matchKw(ParseCtx& c, const char* wd) { skipWS(c); size_t n = std::strlen(wd); if (c.pos + n <= c.len && c.src.substr(c.pos, n) == wd && (c.pos + n >= c.len || !std::isalnum(static_cast<unsigned char>(c.src[c.pos + n])))) { c.pos += n; return true; } return false; }
+bool matchKw(ParseCtx& c, const char* wd) { skipWS(c); size_t n = std::strlen(wd); if (c.pos + n <= c.len && c.src.substr(c.pos, n) == wd && (c.pos + n >= c.len || (!std::isalnum(static_cast<unsigned char>(c.src[c.pos + n])) && c.src[c.pos + n] != '_'))) { c.pos += n; return true; } return false; }
 std::string parseId(ParseCtx& c) { skipWS(c); size_t s = c.pos; while (c.pos < c.len && (std::isalnum(static_cast<unsigned char>(c.src[c.pos])) || c.src[c.pos] == '_')) ++c.pos; return std::string(c.src.substr(s, c.pos - s)); }
 ArtifactScriptExprPtr parseExpr(ParseCtx& c);
 ArtifactScriptExprPtr parseRequiredExpr(ParseCtx& c);
@@ -247,6 +247,7 @@ ArtifactScriptExprPtr parsePrimary(ParseCtx& c) {
     if (std::isdigit(static_cast<unsigned char>(c.src[c.pos]))) { e->kind = ArtifactScriptExpr::Kind::Literal; e->literalValue = parseNum(c); return e; }
     if (matchKw(c, "true")) { e->kind = ArtifactScriptExpr::Kind::Literal; e->literalValue = true; return e; }
     if (matchKw(c, "false")) { e->kind = ArtifactScriptExpr::Kind::Literal; e->literalValue = false; return e; }
+    if (matchKw(c, "null")) { e->kind = ArtifactScriptExpr::Kind::Literal; e->literalValue = std::monostate{}; return e; }
     // Vector / colour constructors. These parse into an ArrayLiteral node tagged
 // with the target type, so evaluation builds a typed value without a host call
 // and normalize/mix stay usable in constant sub-expressions.
@@ -2799,6 +2800,14 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalExpr(
 
 ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalBinary(
     ArtifactScriptBinaryOp op, const ArtifactScriptValue& l, const ArtifactScriptValue& r) {
+    if (op == ArtifactScriptBinaryOp::Eq || op == ArtifactScriptBinaryOp::Neq) {
+        const bool leftIsNull = std::holds_alternative<std::monostate>(l);
+        const bool rightIsNull = std::holds_alternative<std::monostate>(r);
+        if (leftIsNull || rightIsNull) {
+            const bool equal = leftIsNull && rightIsNull;
+            return op == ArtifactScriptBinaryOp::Eq ? equal : !equal;
+        }
+    }
     auto d = [](const ArtifactScriptValue& v) -> double {
         if (std::holds_alternative<double>(v)) return std::get<double>(v);
         if (std::holds_alternative<std::int64_t>(v)) return (double)std::get<std::int64_t>(v);
