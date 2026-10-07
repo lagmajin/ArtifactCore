@@ -237,6 +237,17 @@ struct ParseCtx {
     bool stalled = false;
     bool failed = false;
     size_t failurePosition = std::string_view::npos;
+    std::size_t loopDepth = 0;
+};
+
+struct ParseLoopDepthScope {
+    ParseCtx& context;
+
+    explicit ParseLoopDepthScope(ParseCtx& value) : context(value) {
+        ++context.loopDepth;
+    }
+
+    ~ParseLoopDepthScope() { --context.loopDepth; }
 };
 
 std::optional<std::size_t> findMethodBodyEnd(
@@ -702,7 +713,10 @@ ArtifactScriptStmtPtr parseStmt(ParseCtx& c) {
     if (matchKw(c, "do")) {
         auto s = std::make_unique<ArtifactScriptStmt>();
         s->kind = ArtifactScriptStmt::Kind::DoWhile;
-        s->whileBody = parseStmt(c);
+        {
+            ParseLoopDepthScope loopScope(c);
+            s->whileBody = parseStmt(c);
+        }
         if (!s->whileBody) {
             c.failed = true;
             if (c.failurePosition == std::string_view::npos) c.failurePosition = c.pos;
@@ -745,7 +759,10 @@ ArtifactScriptStmtPtr parseStmt(ParseCtx& c) {
         s->kind = ArtifactScriptStmt::Kind::While;
         s->whileCond = parseRequiredExpr(c);
         if (!s->whileCond || !expectCh(c, ')')) return nullptr;
-        s->whileBody = parseStmt(c);
+        {
+            ParseLoopDepthScope loopScope(c);
+            s->whileBody = parseStmt(c);
+        }
         if (!s->whileBody) {
             c.failed = true;
             if (c.failurePosition == std::string_view::npos) c.failurePosition = c.pos;
@@ -779,7 +796,10 @@ ArtifactScriptStmtPtr parseStmt(ParseCtx& c) {
             s->forIncrement = parseStmt(c);
             if (!s->forIncrement || !expectCh(c, ')')) return nullptr;
         }
-        s->forBody = parseStmt(c);
+        {
+            ParseLoopDepthScope loopScope(c);
+            s->forBody = parseStmt(c);
+        }
         if (!s->forBody) {
             c.failed = true;
             if (c.failurePosition == std::string_view::npos) c.failurePosition = c.pos;
@@ -787,8 +807,31 @@ ArtifactScriptStmtPtr parseStmt(ParseCtx& c) {
         }
         return s;
     }
-    if (matchKw(c, "break")) { auto s = std::make_unique<ArtifactScriptStmt>(); s->kind = ArtifactScriptStmt::Kind::Break; matchCh(c, ';'); return s; }
-    if (matchKw(c, "continue")) { auto s = std::make_unique<ArtifactScriptStmt>(); s->kind = ArtifactScriptStmt::Kind::Continue; matchCh(c, ';'); return s; }
+    const std::size_t statementPosition = c.pos;
+    if (matchKw(c, "break")) {
+        if (c.loopDepth == 0) {
+            c.failed = true;
+            if (c.failurePosition == std::string_view::npos)
+                c.failurePosition = statementPosition;
+            return nullptr;
+        }
+        auto s = std::make_unique<ArtifactScriptStmt>();
+        s->kind = ArtifactScriptStmt::Kind::Break;
+        matchCh(c, ';');
+        return s;
+    }
+    if (matchKw(c, "continue")) {
+        if (c.loopDepth == 0) {
+            c.failed = true;
+            if (c.failurePosition == std::string_view::npos)
+                c.failurePosition = statementPosition;
+            return nullptr;
+        }
+        auto s = std::make_unique<ArtifactScriptStmt>();
+        s->kind = ArtifactScriptStmt::Kind::Continue;
+        matchCh(c, ';');
+        return s;
+    }
     if (matchKw(c, "return")) { auto s = std::make_unique<ArtifactScriptStmt>(); s->kind = ArtifactScriptStmt::Kind::Return;
         skipWS(c);
         if (c.pos < c.len && c.src[c.pos] != ';') s->expr = parseRequiredExpr(c);
@@ -875,7 +918,10 @@ ArtifactScriptStmtPtr parseStmt(ParseCtx& c) {
         }
         s->foreachCollectionName = parseId(c);
         if (s->foreachCollectionName.empty() || !expectCh(c, ')')) return nullptr;
-        s->foreachBody = parseStmt(c);
+        {
+            ParseLoopDepthScope loopScope(c);
+            s->foreachBody = parseStmt(c);
+        }
         if (!s->foreachBody) {
             c.failed = true;
             if (c.failurePosition == std::string_view::npos) c.failurePosition = c.pos;
