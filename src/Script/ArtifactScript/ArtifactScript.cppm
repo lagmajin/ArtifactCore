@@ -3900,11 +3900,63 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
         }
         return total;
     };
+    const auto extremumArray = [&](const ArtifactScriptArrayPtr& array,
+                                   bool findMaximum)
+        -> ArtifactScriptValue {
+        if (!array || array->values.empty()) {
+            error_ = e->callName + " expects a non-empty array of numbers";
+            return {};
+        }
+        const ArtifactScriptValue* extremum = &array->values.front();
+        if (!std::holds_alternative<std::int64_t>(*extremum) &&
+            !std::holds_alternative<double>(*extremum)) {
+            error_ = e->callName + " expects an array of numbers";
+            return {};
+        }
+        const auto comparison = findMaximum
+            ? ArtifactScriptBinaryOp::Gt
+            : ArtifactScriptBinaryOp::Lt;
+        for (std::size_t i = 1; i < array->values.size(); ++i) {
+            const auto& candidate = array->values[i];
+            const auto* extremumInteger = std::get_if<std::int64_t>(extremum);
+            const auto* candidateInteger = std::get_if<std::int64_t>(&candidate);
+            const auto* extremumNumber = std::get_if<double>(extremum);
+            const auto* candidateNumber = std::get_if<double>(&candidate);
+            if ((!extremumInteger && !extremumNumber) ||
+                (!candidateInteger && !candidateNumber)) {
+                error_ = e->callName + " expects an array of numbers";
+                return {};
+            }
+            bool candidateIsBetter = false;
+            if (extremumInteger && candidateInteger) {
+                candidateIsBetter = findMaximum
+                    ? *candidateInteger > *extremumInteger
+                    : *candidateInteger < *extremumInteger;
+            } else if (extremumNumber && candidateNumber) {
+                candidateIsBetter = findMaximum
+                    ? *candidateNumber > *extremumNumber
+                    : *candidateNumber < *extremumNumber;
+            } else {
+                candidateIsBetter = std::get<bool>(
+                    evalBinary(comparison, candidate, *extremum));
+            }
+            if (candidateIsBetter) extremum = &candidate;
+        }
+        return *extremum;
+    };
     if (e->callName == "sum" && !e->callTarget &&
         e->callArgs.size() == 1) {
         if (const auto* value = valueReference(e->callArgs[0].get())) {
             if (const auto* array = std::get_if<ArtifactScriptArrayPtr>(value)) {
                 return sumArray(*array);
+            }
+        }
+    }
+    if ((e->callName == "min" || e->callName == "max") &&
+        !e->callTarget && e->callArgs.size() == 1) {
+        if (const auto* value = valueReference(e->callArgs[0].get())) {
+            if (const auto* array = std::get_if<ArtifactScriptArrayPtr>(value)) {
+                return extremumArray(*array, e->callName == "max");
             }
         }
     }
@@ -4355,6 +4407,16 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
             return {};
         }
         return sumArray(std::get<ArtifactScriptArrayPtr>(argumentValues[0]));
+    }
+    if ((e->callName == "min" || e->callName == "max") &&
+        argumentValues.size() == 1) {
+        if (!std::holds_alternative<ArtifactScriptArrayPtr>(argumentValues[0])) {
+            error_ = e->callName + " expects a non-empty array of numbers";
+            return {};
+        }
+        return extremumArray(
+            std::get<ArtifactScriptArrayPtr>(argumentValues[0]),
+            e->callName == "max");
     }
     ArtifactScriptValue hostResult;
     ArtifactScriptHost& host = ArtifactScriptHost::global();
