@@ -266,8 +266,11 @@ ArtifactScriptExprPtr parsePrimary(ParseCtx& c) {
     if (c.src[c.pos] == '"') {
         const std::size_t openingQuote = c.pos++;
         const std::size_t contentStart = c.pos;
-        const std::size_t marker = c.src.find_first_of("\\\"", contentStart);
-        if (marker == std::string_view::npos || marker >= c.len) {
+        std::size_t marker = contentStart;
+        while (marker < c.len && c.src[marker] != '"' && c.src[marker] != '\\') {
+            ++marker;
+        }
+        if (marker >= c.len) {
             c.failed = true;
             if (c.failurePosition == std::string_view::npos)
                 c.failurePosition = openingQuote;
@@ -283,7 +286,8 @@ ArtifactScriptExprPtr parsePrimary(ParseCtx& c) {
 
         std::string decoded;
         decoded.reserve(marker - contentStart);
-        c.pos = contentStart;
+        decoded.append(c.src.substr(contentStart, marker - contentStart));
+        c.pos = marker;
         while (c.pos < c.len) {
             const char current = c.src[c.pos++];
             if (current == '"') {
