@@ -310,6 +310,20 @@ void skipWS(ParseCtx& c) {
 }
 bool matchCh(ParseCtx& c, char ch) { skipWS(c); if (c.pos < c.len && c.src[c.pos] == ch) { ++c.pos; return true; } return false; }
 bool matchKw(ParseCtx& c, const char* wd) { skipWS(c); size_t n = std::strlen(wd); if (c.pos + n <= c.len && c.src.substr(c.pos, n) == wd && (c.pos + n >= c.len || (!std::isalnum(static_cast<unsigned char>(c.src[c.pos + n])) && c.src[c.pos + n] != '_'))) { c.pos += n; return true; } return false; }
+bool expectCh(ParseCtx& c, char ch) {
+    if (matchCh(c, ch)) return true;
+    c.failed = true;
+    if (c.failurePosition == std::string_view::npos) c.failurePosition = c.pos;
+    return false;
+}
+bool previousNonWhitespaceIs(ParseCtx& c, std::size_t lowerBound, char ch) {
+    std::size_t position = c.pos;
+    while (position > lowerBound &&
+           std::isspace(static_cast<unsigned char>(c.src[position - 1]))) {
+        --position;
+    }
+    return position > lowerBound && c.src[position - 1] == ch;
+}
 std::string parseId(ParseCtx& c) { skipWS(c); size_t s = c.pos; while (c.pos < c.len && (std::isalnum(static_cast<unsigned char>(c.src[c.pos])) || c.src[c.pos] == '_')) ++c.pos; return std::string(c.src.substr(s, c.pos - s)); }
 ArtifactScriptExprPtr parseExpr(ParseCtx& c);
 ArtifactScriptExprPtr parseRequiredExpr(ParseCtx& c);
@@ -685,18 +699,75 @@ std::string parseAssignmentOperator(ParseCtx& c) {
 
 ArtifactScriptStmtPtr parseStmt(ParseCtx& c) {
     skipWS(c); if (c.pos >= c.len || c.src[c.pos] == '}') return nullptr;
-    if (matchKw(c, "if")) { matchCh(c, '('); auto s = std::make_unique<ArtifactScriptStmt>(); s->kind = ArtifactScriptStmt::Kind::If;
-        s->ifCond = parseRequiredExpr(c); matchCh(c, ')'); s->ifThen = parseStmt(c);
-        if (matchKw(c, "else")) s->ifElse = parseStmt(c); return s; }
-    if (matchKw(c, "while")) { matchCh(c, '('); auto s = std::make_unique<ArtifactScriptStmt>(); s->kind = ArtifactScriptStmt::Kind::While;
-        s->whileCond = parseRequiredExpr(c); matchCh(c, ')'); s->whileBody = parseStmt(c); return s; }
+    if (matchKw(c, "if")) {
+        if (!expectCh(c, '(')) return nullptr;
+        auto s = std::make_unique<ArtifactScriptStmt>();
+        s->kind = ArtifactScriptStmt::Kind::If;
+        s->ifCond = parseRequiredExpr(c);
+        if (!s->ifCond || !expectCh(c, ')')) return nullptr;
+        s->ifThen = parseStmt(c);
+        if (!s->ifThen) {
+            c.failed = true;
+            if (c.failurePosition == std::string_view::npos) c.failurePosition = c.pos;
+            return nullptr;
+        }
+        if (matchKw(c, "else")) {
+            s->ifElse = parseStmt(c);
+            if (!s->ifElse) {
+                c.failed = true;
+                if (c.failurePosition == std::string_view::npos) c.failurePosition = c.pos;
+                return nullptr;
+            }
+        }
+        return s;
+    }
+    if (matchKw(c, "while")) {
+        if (!expectCh(c, '(')) return nullptr;
+        auto s = std::make_unique<ArtifactScriptStmt>();
+        s->kind = ArtifactScriptStmt::Kind::While;
+        s->whileCond = parseRequiredExpr(c);
+        if (!s->whileCond || !expectCh(c, ')')) return nullptr;
+        s->whileBody = parseStmt(c);
+        if (!s->whileBody) {
+            c.failed = true;
+            if (c.failurePosition == std::string_view::npos) c.failurePosition = c.pos;
+            return nullptr;
+        }
+        return s;
+    }
     if (matchKw(c, "for")) {
-        matchCh(c, '(');
+        if (!expectCh(c, '(')) return nullptr;
         auto s = std::make_unique<ArtifactScriptStmt>(); s->kind = ArtifactScriptStmt::Kind::For;
-        if (!matchCh(c, ';')) s->forInit = parseStmt(c);
-        s->forCond = parseExpr(c); matchCh(c, ';');
-        if (!matchCh(c, ')')) { s->forIncrement = parseStmt(c); matchCh(c, ')'); }
-        s->forBody = parseStmt(c); return s;
+        if (!matchCh(c, ';')) {
+            const std::size_t initializerStart = c.pos;
+            s->forInit = parseStmt(c);
+            if (c.failed) return nullptr;
+            if (!s->forInit ||
+                !previousNonWhitespaceIs(c, initializerStart, ';')) {
+                c.failed = true;
+                if (c.failurePosition == std::string_view::npos) {
+                    c.failurePosition = c.pos;
+                }
+                return nullptr;
+            }
+        }
+        if (c.failed) return nullptr;
+        if (!matchCh(c, ';')) {
+            s->forCond = parseRequiredExpr(c);
+            if (!s->forCond) return nullptr;
+        }
+        if (!expectCh(c, ';')) return nullptr;
+        if (!matchCh(c, ')')) {
+            s->forIncrement = parseStmt(c);
+            if (!s->forIncrement || !expectCh(c, ')')) return nullptr;
+        }
+        s->forBody = parseStmt(c);
+        if (!s->forBody) {
+            c.failed = true;
+            if (c.failurePosition == std::string_view::npos) c.failurePosition = c.pos;
+            return nullptr;
+        }
+        return s;
     }
     if (matchKw(c, "break")) { auto s = std::make_unique<ArtifactScriptStmt>(); s->kind = ArtifactScriptStmt::Kind::Break; matchCh(c, ';'); return s; }
     if (matchKw(c, "continue")) { auto s = std::make_unique<ArtifactScriptStmt>(); s->kind = ArtifactScriptStmt::Kind::Continue; matchCh(c, ';'); return s; }
@@ -712,7 +783,9 @@ ArtifactScriptStmtPtr parseStmt(ParseCtx& c) {
             else {
                 if (c.pos < c.len && c.src[c.pos] != '}') {
                     c.failed = true;
-                    c.failurePosition = positionBeforeStatement;
+                    if (c.failurePosition == std::string_view::npos) {
+                        c.failurePosition = positionBeforeStatement;
+                    }
                 }
                 break;
             }
@@ -723,7 +796,8 @@ ArtifactScriptStmtPtr parseStmt(ParseCtx& c) {
                 break;
             }
         }
-        matchCh(c, '}'); return b; }
+        if (!expectCh(c, '}')) return nullptr;
+        return b; }
     skipWS(c);
     const bool isPrefixInc = c.pos + 1 < c.len &&
         c.src[c.pos] == '+' && c.src[c.pos + 1] == '+';
@@ -774,12 +848,21 @@ ArtifactScriptStmtPtr parseStmt(ParseCtx& c) {
     }
     if (id == "foreach") {
         auto s = std::make_unique<ArtifactScriptStmt>(); s->kind = ArtifactScriptStmt::Kind::Foreach;
-        matchCh(c, '(');
+        if (!expectCh(c, '(')) return nullptr;
         s->foreachItemName = parseId(c);
-        if (!matchKw(c, "in")) { return nullptr; }
+        if (s->foreachItemName.empty() || !matchKw(c, "in")) {
+            c.failed = true;
+            if (c.failurePosition == std::string_view::npos) c.failurePosition = c.pos;
+            return nullptr;
+        }
         s->foreachCollectionName = parseId(c);
-        matchCh(c, ')');
+        if (s->foreachCollectionName.empty() || !expectCh(c, ')')) return nullptr;
         s->foreachBody = parseStmt(c);
+        if (!s->foreachBody) {
+            c.failed = true;
+            if (c.failurePosition == std::string_view::npos) c.failurePosition = c.pos;
+            return nullptr;
+        }
         return s;
     }
     // Increment / decrement on a plain variable: "x++;" or "x--;"
@@ -878,7 +961,9 @@ ArtifactScriptMethodBodyPtr parseMethodBody(
         else {
             if (c.pos < c.len) {
                 c.failed = true;
-                c.failurePosition = positionBeforeStatement;
+                if (c.failurePosition == std::string_view::npos) {
+                    c.failurePosition = positionBeforeStatement;
+                }
             }
             break;
         }
