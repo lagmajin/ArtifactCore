@@ -1560,7 +1560,7 @@ public:
     }
 
 private:
-    static constexpr std::size_t inlineCapacity_ = 5;
+    static constexpr std::size_t inlineCapacity_ = 4;
     ArtifactScriptValue inlineValues_[inlineCapacity_]{};
     Workspace* workspace_ = nullptr;
     std::optional<ArtifactCore::Array<ArtifactScriptValue>> fallbackOverflow_;
