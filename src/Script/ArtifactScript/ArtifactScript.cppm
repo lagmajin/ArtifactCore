@@ -737,6 +737,10 @@ ArtifactScriptStmtPtr parseStmt(ParseCtx& c);
 std::string parseAssignmentOperator(ParseCtx& c) {
     skipWS(c);
     if (c.pos >= c.len) return {};
+    if (c.pos + 2 < c.len && c.src.substr(c.pos, 3) == "??=") {
+        c.pos += 3;
+        return "??=";
+    }
     if (c.pos + 1 < c.len && c.src[c.pos + 1] == '=') {
         switch (c.src[c.pos]) {
         case '+': case '-': case '*': case '/': case '%':
@@ -4054,10 +4058,25 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
     case ArtifactScriptStmt::Kind::Expr:
         evalExpr(s->expr.get(), fields, locals); return error_.empty();
     case ArtifactScriptStmt::Kind::Assign: {
-        auto v = evalExpr(s->assignValue.get(), fields, locals);
-        if (!error_.empty()) return false;
-        // Compound assignment folds the current value with the right side.
         const std::string& op = s->assignOp;
+        const bool isCoalescingAssignment = op == "??=";
+        ArtifactScriptValue v = isCoalescingAssignment
+            ? ArtifactScriptValue{}
+            : evalExpr(s->assignValue.get(), fields, locals);
+        bool valueEvaluated = !isCoalescingAssignment;
+        if (!isCoalescingAssignment && !error_.empty()) return false;
+        const auto evaluateRight = [&]() {
+            if (!valueEvaluated) {
+                v = evalExpr(s->assignValue.get(), fields, locals);
+                valueEvaluated = true;
+            }
+            return error_.empty();
+        };
+        // Preserve existing assignment evaluation order. `??=` is the sole
+        // exception: resolve/read the target first so its right side can stay
+        // unevaluated when the target already has a value.
+        if (!isCoalescingAssignment && !evaluateRight()) return false;
+        // Compound assignment folds the current value with the right side.
         const bool isSimpleAssignment = op.empty() || op == "=";
         auto applyCompound = [&](const ArtifactScriptValue& current) -> ArtifactScriptValue {
             if (op == "+=") return evalBinary(ArtifactScriptBinaryOp::Add, current, v);
@@ -4198,7 +4217,13 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
                 error_ = "invalid assignment target";
                 return false;
             }
-            if (isSimpleAssignment) {
+            if (isCoalescingAssignment) {
+                if (!std::holds_alternative<std::monostate>(*targetValue)) {
+                    return true;
+                }
+                if (!evaluateRight()) return false;
+                *targetValue = std::move(v);
+            } else if (isSimpleAssignment) {
                 *targetValue = std::move(v);
             } else if (!applyNumericCompound(*targetValue) &&
                        !appendStringCompound(*targetValue)) {
@@ -4238,12 +4263,35 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
                 error_ = "array index out of range"; return false;
             }
             auto& targetValue = array->values[index];
-            if (isSimpleAssignment) {
+            if (isCoalescingAssignment) {
+                if (!std::holds_alternative<std::monostate>(targetValue)) {
+                    return true;
+                }
+                if (!evaluateRight()) return false;
+                targetValue = std::move(v);
+            } else if (isSimpleAssignment) {
                 targetValue = std::move(v);
             } else if (!applyNumericCompound(targetValue) &&
                        !appendStringCompound(targetValue)) {
                 targetValue = applyCompound(targetValue);
             }
+            return error_.empty();
+        }
+        if (isCoalescingAssignment) {
+            if (auto* local = locals.find(s->assignTarget)) {
+                if (!std::holds_alternative<std::monostate>(local->value)) {
+                    return true;
+                }
+                if (!evaluateRight()) return false;
+                local->value = std::move(v);
+                return true;
+            }
+            if (const auto* field = fields.find(s->assignTarget);
+                field && !std::holds_alternative<std::monostate>(*field)) {
+                return true;
+            }
+            if (!evaluateRight()) return false;
+            fields[s->assignTarget] = std::move(v);
             return error_.empty();
         }
         if (auto* lit = locals.find(s->assignTarget)) {
