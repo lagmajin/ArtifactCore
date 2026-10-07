@@ -693,7 +693,7 @@ ArtifactScriptStmtPtr parseStmt(ParseCtx& c) {
         s->foreachBody = parseStmt(c);
         return s;
     }
-    // Increment / decrement: "x++;" or "--x;"
+    // Increment / decrement on a plain variable: "x++;" or "x--;"
     const bool isPostInc = matchKw(c, "++");
     const bool isPostDec = !isPostInc && matchKw(c, "--");
     if ((isPostInc || isPostDec) && !id.empty()) {
@@ -718,6 +718,15 @@ ArtifactScriptStmtPtr parseStmt(ParseCtx& c) {
         if (target && (target->kind == ArtifactScriptExpr::Kind::Index ||
                        target->kind == ArtifactScriptExpr::Kind::FieldAccess)) {
             std::string op = parseAssignmentOperator(c);
+            bool isIncrement = false;
+            if (op.empty()) {
+                const bool isPostInc = matchKw(c, "++");
+                const bool isPostDec = !isPostInc && matchKw(c, "--");
+                if (isPostInc || isPostDec) {
+                    op = isPostInc ? "+=" : "-=";
+                    isIncrement = true;
+                }
+            }
             if (!op.empty()) {
                 auto statement = std::make_unique<ArtifactScriptStmt>();
                 const bool legacyDirectFieldAssignment =
@@ -737,7 +746,15 @@ ArtifactScriptStmtPtr parseStmt(ParseCtx& c) {
                     statement->kind = ArtifactScriptStmt::Kind::Assign;
                     statement->assignTargetExpression = std::move(target);
                     statement->assignOp = std::move(op);
-                    statement->assignValue = parseRequiredExpr(c);
+                    if (isIncrement) {
+                        statement->assignValue =
+                            std::make_unique<ArtifactScriptExpr>();
+                        statement->assignValue->kind =
+                            ArtifactScriptExpr::Kind::Literal;
+                        statement->assignValue->literalValue = 1.0;
+                    } else {
+                        statement->assignValue = parseRequiredExpr(c);
+                    }
                 }
                 matchCh(c, ';');
                 return statement;
