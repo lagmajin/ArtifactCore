@@ -51,26 +51,103 @@ bool starts_with(std::string_view text, std::string_view prefix) {
 
 bool decodeStringContent(std::string_view content, std::string& decoded,
                          std::size_t* invalidOffset = nullptr) {
-    decoded.clear();
-    decoded.reserve(content.size());
+    if (content.size() <= decoded.max_size() - decoded.size()) {
+        decoded.reserve(decoded.size() + content.size());
+    }
+    const auto fail = [&](std::size_t offset) {
+        if (invalidOffset) *invalidOffset = offset;
+        return false;
+    };
+    const auto readHex = [&](std::size_t start, std::size_t digits,
+                             std::uint32_t& value) {
+        if (start > content.size() || digits > content.size() - start) {
+            return false;
+        }
+        value = 0;
+        for (std::size_t digit = 0; digit < digits; ++digit) {
+            const unsigned char current =
+                static_cast<unsigned char>(content[start + digit]);
+            unsigned int nibble = 0;
+            if (current >= '0' && current <= '9') nibble = current - '0';
+            else if (current >= 'a' && current <= 'f') nibble = current - 'a' + 10;
+            else if (current >= 'A' && current <= 'F') nibble = current - 'A' + 10;
+            else return false;
+            value = (value << 4) | nibble;
+        }
+        return true;
+    };
+    const auto appendCodePoint = [&](std::uint32_t codePoint) {
+        if (codePoint <= 0x7f) {
+            decoded.push_back(static_cast<char>(codePoint));
+        } else if (codePoint <= 0x7ff) {
+            decoded.push_back(static_cast<char>(0xc0 | (codePoint >> 6)));
+            decoded.push_back(static_cast<char>(0x80 | (codePoint & 0x3f)));
+        } else if (codePoint <= 0xffff) {
+            decoded.push_back(static_cast<char>(0xe0 | (codePoint >> 12)));
+            decoded.push_back(static_cast<char>(0x80 | ((codePoint >> 6) & 0x3f)));
+            decoded.push_back(static_cast<char>(0x80 | (codePoint & 0x3f)));
+        } else {
+            decoded.push_back(static_cast<char>(0xf0 | (codePoint >> 18)));
+            decoded.push_back(static_cast<char>(0x80 | ((codePoint >> 12) & 0x3f)));
+            decoded.push_back(static_cast<char>(0x80 | ((codePoint >> 6) & 0x3f)));
+            decoded.push_back(static_cast<char>(0x80 | (codePoint & 0x3f)));
+        }
+    };
     for (std::size_t i = 0; i < content.size(); ++i) {
         if (content[i] != '\\') {
             decoded.push_back(content[i]);
             continue;
         }
+        const std::size_t escapePosition = i;
         if (++i >= content.size()) {
-            if (invalidOffset) *invalidOffset = i - 1;
-            return false;
+            return fail(escapePosition);
         }
         switch (content[i]) {
         case '"': decoded.push_back('"'); break;
         case '\\': decoded.push_back('\\'); break;
+        case 'a': decoded.push_back('\a'); break;
+        case 'b': decoded.push_back('\b'); break;
+        case 'f': decoded.push_back('\f'); break;
         case 'n': decoded.push_back('\n'); break;
+        case '0': decoded.push_back('\0'); break;
         case 'r': decoded.push_back('\r'); break;
         case 't': decoded.push_back('\t'); break;
+        case 'v': decoded.push_back('\v'); break;
+        case 'u':
+        case 'U': {
+            const std::size_t digitCount = content[i] == 'u' ? 4 : 8;
+            const std::size_t digitsStart = i + 1;
+            std::uint32_t codePoint = 0;
+            if (!readHex(digitsStart, digitCount, codePoint)) {
+                return fail(escapePosition);
+            }
+            i = digitsStart + digitCount - 1;
+            if (content[escapePosition + 1] == 'u' &&
+                codePoint >= 0xd800 && codePoint <= 0xdbff) {
+                const std::size_t lowEscape = i + 1;
+                if (lowEscape + 2 > content.size() ||
+                    content[lowEscape] != '\\' ||
+                    content[lowEscape + 1] != 'u') {
+                    return fail(escapePosition);
+                }
+                const std::size_t lowDigits = lowEscape + 2;
+                std::uint32_t lowSurrogate = 0;
+                if (!readHex(lowDigits, 4, lowSurrogate) ||
+                    lowSurrogate < 0xdc00 || lowSurrogate > 0xdfff) {
+                    return fail(escapePosition);
+                }
+                codePoint = 0x10000 + ((codePoint - 0xd800) << 10) +
+                            (lowSurrogate - 0xdc00);
+                i = lowDigits + 3;
+            } else if ((codePoint >= 0xd800 && codePoint <= 0xdfff) ||
+                       codePoint > 0x10ffff) {
+                return fail(escapePosition);
+            }
+            appendCodePoint(codePoint);
+            break;
+        }
         default:
-            if (invalidOffset) *invalidOffset = i - 1;
-            return false;
+            return fail(escapePosition);
         }
     }
     return true;
@@ -288,40 +365,36 @@ ArtifactScriptExprPtr parsePrimary(ParseCtx& c) {
         decoded.reserve(marker - contentStart);
         decoded.append(c.src.substr(contentStart, marker - contentStart));
         c.pos = marker;
+        bool escaped = false;
         while (c.pos < c.len) {
-            const char current = c.src[c.pos++];
-            if (current == '"') {
-                e->literalValue = std::move(decoded);
-                return e;
-            }
-            if (current != '\\') {
-                decoded.push_back(current);
-                continue;
-            }
-            const std::size_t escapePosition = c.pos - 1;
-            if (c.pos >= c.len) {
-                c.failed = true;
-                if (c.failurePosition == std::string_view::npos)
-                    c.failurePosition = escapePosition;
-                return nullptr;
-            }
-            switch (c.src[c.pos++]) {
-            case '"': decoded.push_back('"'); break;
-            case '\\': decoded.push_back('\\'); break;
-            case 'n': decoded.push_back('\n'); break;
-            case 'r': decoded.push_back('\r'); break;
-            case 't': decoded.push_back('\t'); break;
-            default:
-                c.failed = true;
-                if (c.failurePosition == std::string_view::npos)
-                    c.failurePosition = escapePosition;
-                return nullptr;
+            const char current = c.src[c.pos];
+            if (!escaped && current == '"') break;
+            ++c.pos;
+            if (escaped) {
+                escaped = false;
+            } else if (current == '\\') {
+                escaped = true;
             }
         }
-        c.failed = true;
-        if (c.failurePosition == std::string_view::npos)
-            c.failurePosition = openingQuote;
-        return nullptr;
+        if (c.pos >= c.len || escaped) {
+            c.failed = true;
+            if (c.failurePosition == std::string_view::npos)
+                c.failurePosition = escaped ? c.pos - 1 : openingQuote;
+            return nullptr;
+        }
+        const std::size_t closingQuote = c.pos;
+        std::size_t invalidOffset = 0;
+        const std::string_view escapedContent =
+            c.src.substr(marker, closingQuote - marker);
+        if (!decodeStringContent(escapedContent, decoded, &invalidOffset)) {
+            c.failed = true;
+            if (c.failurePosition == std::string_view::npos)
+                c.failurePosition = marker + invalidOffset;
+            return nullptr;
+        }
+        e->literalValue = std::move(decoded);
+        c.pos = closingQuote + 1;
+        return e;
     }
     if (c.src[c.pos] == '-' || c.src[c.pos] == '!') { e->kind = ArtifactScriptExpr::Kind::Unary;
         e->unaryOp = c.src[c.pos] == '-' ? ArtifactScriptUnaryOp::Neg : ArtifactScriptUnaryOp::Not;
