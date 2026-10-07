@@ -1777,6 +1777,15 @@ public:
         return nullptr;
     }
 
+    const ArtifactScriptValue* findWithoutCaching(const std::string& name) const {
+        if (root_) {
+            if (auto it = root_->find(name); it != root_->end()) return &it->second;
+            return nullptr;
+        }
+        if (const auto* entry = findOverlay(name)) return bindingValue(*entry);
+        return parent_ ? parent_->findWithoutCaching(name) : nullptr;
+    }
+
     ArtifactScriptValue* findForWrite(const std::string& name) {
         if (root_) {
             if (auto it = root_->find(name); it != root_->end()) return &it->second;
@@ -1856,6 +1865,14 @@ private:
             if (*inlineOverlay_[i].name == name) return &inlineOverlay_[i];
         }
         for (auto& entry : overflowOverlay_) if (*entry.name == name) return &entry;
+        return nullptr;
+    }
+
+    const ArtifactScriptFieldBinding* findOverlay(const std::string& name) const {
+        for (std::size_t i = 0; i < overlaySize_; ++i) {
+            if (*inlineOverlay_[i].name == name) return &inlineOverlay_[i];
+        }
+        for (const auto& entry : overflowOverlay_) if (*entry.name == name) return &entry;
         return nullptr;
     }
 
@@ -2347,10 +2364,51 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalExpr(
                 if (std::holds_alternative<std::int64_t>(v)) return std::get<std::int64_t>(v) != 0;
                 return false;
             };
-            if (e->binaryOp == ArtifactScriptBinaryOp::And && !truthy(left)) return left;
-            if (e->binaryOp == ArtifactScriptBinaryOp::Or && truthy(left)) return left;
-            const auto right = evalExpr(e->right.get(), fields, locals);
-            return right;
+        if (e->binaryOp == ArtifactScriptBinaryOp::And && !truthy(left)) return left;
+        if (e->binaryOp == ArtifactScriptBinaryOp::Or && truthy(left)) return left;
+        const auto right = evalExpr(e->right.get(), fields, locals);
+        return right;
+        }
+        const bool isStringComparison =
+            e->binaryOp == ArtifactScriptBinaryOp::Eq ||
+            e->binaryOp == ArtifactScriptBinaryOp::Neq ||
+            e->binaryOp == ArtifactScriptBinaryOp::Lt ||
+            e->binaryOp == ArtifactScriptBinaryOp::Gt ||
+            e->binaryOp == ArtifactScriptBinaryOp::Le ||
+            e->binaryOp == ArtifactScriptBinaryOp::Ge;
+        if (isStringComparison) {
+            const auto stringOperand = [&](const ArtifactScriptExpr* operand)
+                -> const std::string* {
+                if (!operand) return nullptr;
+                if (operand->kind == ArtifactScriptExpr::Kind::Literal) {
+                    return std::get_if<std::string>(&operand->literalValue);
+                }
+                if (operand->kind != ArtifactScriptExpr::Kind::Variable ||
+                    operand->variableName == "this") {
+                    return nullptr;
+                }
+                if (const auto* local = locals.find(operand->variableName)) {
+                    return std::get_if<std::string>(&local->value);
+                }
+                if (const auto* field =
+                        fields.findWithoutCaching(operand->variableName)) {
+                    return std::get_if<std::string>(field);
+                }
+                return nullptr;
+            };
+            const auto* left = stringOperand(e->left.get());
+            const auto* right = stringOperand(e->right.get());
+            if (left && right) {
+                switch (e->binaryOp) {
+                case ArtifactScriptBinaryOp::Eq: return *left == *right;
+                case ArtifactScriptBinaryOp::Neq: return *left != *right;
+                case ArtifactScriptBinaryOp::Lt: return *left < *right;
+                case ArtifactScriptBinaryOp::Gt: return *left > *right;
+                case ArtifactScriptBinaryOp::Le: return *left <= *right;
+                case ArtifactScriptBinaryOp::Ge: return *left >= *right;
+                default: break;
+                }
+            }
         }
         return evalBinary(e->binaryOp, evalExpr(e->left.get(), fields, locals), evalExpr(e->right.get(), fields, locals));
     }
