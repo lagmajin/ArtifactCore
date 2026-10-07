@@ -3894,6 +3894,7 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
                    : std::holds_alternative<std::int64_t>(cond) ? std::get<std::int64_t>(cond) != 0 : false);
             if (!t) break;
             if (!execStmt(s->whileBody.get(), fields, locals)) return false;
+            if (returned_) break;
             if (breakRequested_) { breakRequested_ = false; break; }
             if (continueRequested_) { continueRequested_ = false; }
             ++iter; }
@@ -3930,6 +3931,7 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
                    : std::holds_alternative<std::int64_t>(cond) ? std::get<std::int64_t>(cond) != 0 : false);
             if (!truthy) break;
             if (s->forBody && !execStmt(s->forBody.get(), fields, locals)) return false;
+            if (returned_) break;
             if (breakRequested_) { breakRequested_ = false; break; }
             if (continueRequested_) { continueRequested_ = false; }
             if (s->forIncrement && !execStmt(s->forIncrement.get(), fields, locals)) return false;
@@ -4010,6 +4012,7 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
             if (loopBinding) scope.bindLoopValue(*loopBinding, element);
             else scope.bindLoopValue(s->foreachItemName, element);
             if (!execStmt(s->foreachBody.get(), scope, locals)) return false;
+            if (returned_) break;
             if (breakRequested_) { breakRequested_ = false; break; }
             if (continueRequested_) { continueRequested_ = false; }
         }
