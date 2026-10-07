@@ -3838,11 +3838,78 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
     const bool isContainsCall = e->callName == "contains";
     const bool isIndexOfCall = e->callName == "indexOf";
     const bool isLastIndexOfCall = e->callName == "lastIndexOf";
+    const bool isCountCall = e->callName == "count";
     const bool isStartsWithCall = e->callName == "startsWith";
     const bool isEndsWithCall = e->callName == "endsWith";
     const bool isStringSearchCall = isContainsCall || isIndexOfCall ||
-        isLastIndexOfCall ||
+        isLastIndexOfCall || isCountCall ||
         isStartsWithCall || isEndsWithCall;
+    if (isCountCall && !e->callTarget && e->callArgs.size() == 2) {
+        const auto valueReference = [&](const ArtifactScriptExpr* argument)
+            -> const ArtifactScriptValue* {
+            if (!argument) return nullptr;
+            if (argument->kind == ArtifactScriptExpr::Kind::Literal) {
+                return &argument->literalValue;
+            }
+            if (argument->kind == ArtifactScriptExpr::Kind::Variable &&
+                argument->variableName != "this") {
+                if (const auto* local = locals.find(argument->variableName)) {
+                    return &local->value;
+                }
+                return fields.findWithoutCaching(argument->variableName);
+            }
+            if (argument->kind == ArtifactScriptExpr::Kind::FieldAccess &&
+                activeThis_ && argument->fieldObject &&
+                argument->fieldObject->kind == ArtifactScriptExpr::Kind::Variable &&
+                argument->fieldObject->variableName == "this") {
+                return fields.findWithoutCaching(argument->fieldName);
+            }
+            return nullptr;
+        };
+        const auto* arrayValue = valueReference(e->callArgs[0].get());
+        const auto* matchValue = valueReference(e->callArgs[1].get());
+        if (arrayValue && matchValue) {
+            if (const auto* array = std::get_if<ArtifactScriptArrayPtr>(arrayValue)) {
+                if (!*array) return std::int64_t{0};
+                std::int64_t matchCount = 0;
+                for (const auto& item : (*array)->values) {
+                    const bool equal = std::get<bool>(evalBinary(
+                        ArtifactScriptBinaryOp::Eq, item, *matchValue));
+                    if (!equal) continue;
+                    if (matchCount == std::numeric_limits<std::int64_t>::max()) {
+                        error_ = "array count exceeds int64 range";
+                        return {};
+                    }
+                    ++matchCount;
+                }
+                return matchCount;
+            }
+        }
+    }
+    const auto countStringMatches = [&](std::string_view source,
+                                        std::string_view substring)
+        -> ArtifactScriptValue {
+        const auto maxCount = static_cast<std::size_t>(
+            std::numeric_limits<std::int64_t>::max());
+        if (substring.empty()) {
+            if (source.size() >= maxCount) {
+                error_ = "string count exceeds int64 range";
+                return {};
+            }
+            return static_cast<std::int64_t>(source.size() + 1);
+        }
+        std::size_t matchCount = 0;
+        for (std::size_t position = source.find(substring);
+             position != std::string_view::npos;
+             position = source.find(substring, position + substring.size())) {
+            ++matchCount;
+        }
+        if (matchCount > maxCount) {
+            error_ = "string count exceeds int64 range";
+            return {};
+        }
+        return static_cast<std::int64_t>(matchCount);
+    };
     if (isStringSearchCall && !e->callTarget &&
         e->callArgs.size() == 2) {
         const auto stringReference = [&](const ArtifactScriptExpr* argument)
@@ -3875,6 +3942,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
         if (source && substring) {
             if (isStartsWithCall) return source->starts_with(*substring);
             if (isEndsWithCall) return source->ends_with(*substring);
+            if (isCountCall) return countStringMatches(*source, *substring);
             const auto position = isLastIndexOfCall
                 ? source->rfind(*substring)
                 : source->find(*substring);
@@ -4174,6 +4242,36 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
         return e->callName == "startsWith"
             ? source.starts_with(substring)
             : source.ends_with(substring);
+    }
+    if (e->callName == "count") {
+        if (argumentValues.size() != 2) {
+            error_ = "count expects a string and substring or an array and value";
+            return {};
+        }
+        if (std::holds_alternative<std::string>(argumentValues[0]) &&
+            std::holds_alternative<std::string>(argumentValues[1])) {
+            const auto& source = std::get<std::string>(argumentValues[0]);
+            const auto& substring = std::get<std::string>(argumentValues[1]);
+            return countStringMatches(source, substring);
+        }
+        if (std::holds_alternative<ArtifactScriptArrayPtr>(argumentValues[0])) {
+            const auto& array = std::get<ArtifactScriptArrayPtr>(argumentValues[0]);
+            if (!array) return std::int64_t{0};
+            std::int64_t matchCount = 0;
+            for (const auto& item : array->values) {
+                const bool equal = std::get<bool>(evalBinary(
+                    ArtifactScriptBinaryOp::Eq, item, argumentValues[1]));
+                if (!equal) continue;
+                if (matchCount == std::numeric_limits<std::int64_t>::max()) {
+                    error_ = "array count exceeds int64 range";
+                    return {};
+                }
+                ++matchCount;
+            }
+            return matchCount;
+        }
+        error_ = "count expects a string and substring or an array and value";
+        return {};
     }
     if ((e->callName == "contains" || e->callName == "indexOf" ||
          e->callName == "lastIndexOf") && argumentValues.size() == 2 &&
