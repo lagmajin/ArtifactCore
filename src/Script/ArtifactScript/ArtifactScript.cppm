@@ -2989,10 +2989,63 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalBinary(
     if (op == ArtifactScriptBinaryOp::Eq || op == ArtifactScriptBinaryOp::Neq) {
         const bool leftIsNull = std::holds_alternative<std::monostate>(l);
         const bool rightIsNull = std::holds_alternative<std::monostate>(r);
-        if (leftIsNull || rightIsNull) {
-            const bool equal = leftIsNull && rightIsNull;
-            return op == ArtifactScriptBinaryOp::Eq ? equal : !equal;
+        bool equal = leftIsNull && rightIsNull;
+        if (!leftIsNull && !rightIsNull) {
+            const auto* leftInteger = std::get_if<std::int64_t>(&l);
+            const auto* rightInteger = std::get_if<std::int64_t>(&r);
+            const auto* leftNumber = std::get_if<double>(&l);
+            const auto* rightNumber = std::get_if<double>(&r);
+            if (leftInteger && rightInteger) {
+                equal = *leftInteger == *rightInteger;
+            } else if ((leftInteger || leftNumber) &&
+                       (rightInteger || rightNumber)) {
+                const double leftValue = leftNumber
+                    ? *leftNumber : static_cast<double>(*leftInteger);
+                const double rightValue = rightNumber
+                    ? *rightNumber : static_cast<double>(*rightInteger);
+                equal = leftValue == rightValue;
+            } else if (const auto* leftBoolean = std::get_if<bool>(&l)) {
+                const auto* rightBoolean = std::get_if<bool>(&r);
+                equal = rightBoolean && *leftBoolean == *rightBoolean;
+            } else if (const auto* leftString = std::get_if<std::string>(&l)) {
+                const auto* rightString = std::get_if<std::string>(&r);
+                equal = rightString && *leftString == *rightString;
+            } else if (const auto* leftReference = std::get_if<ArtifactScriptRef>(&l)) {
+                const auto* rightReference = std::get_if<ArtifactScriptRef>(&r);
+                equal = rightReference && leftReference->id == rightReference->id;
+            } else if (const auto* leftArray =
+                           std::get_if<ArtifactScriptArrayPtr>(&l)) {
+                const auto* rightArray = std::get_if<ArtifactScriptArrayPtr>(&r);
+                equal = rightArray && *leftArray == *rightArray;
+            } else if (const auto* leftObject =
+                           std::get_if<ArtifactScriptObjectInstancePtr>(&l)) {
+                const auto* rightObject =
+                    std::get_if<ArtifactScriptObjectInstancePtr>(&r);
+                equal = rightObject && *leftObject == *rightObject;
+            } else if (const auto* leftVec2 = std::get_if<ArtifactScriptVec2>(&l)) {
+                const auto* rightVec2 = std::get_if<ArtifactScriptVec2>(&r);
+                equal = rightVec2 && leftVec2->x == rightVec2->x &&
+                        leftVec2->y == rightVec2->y;
+            } else if (const auto* leftVec3 = std::get_if<ArtifactScriptVec3>(&l)) {
+                const auto* rightVec3 = std::get_if<ArtifactScriptVec3>(&r);
+                equal = rightVec3 && leftVec3->x == rightVec3->x &&
+                        leftVec3->y == rightVec3->y &&
+                        leftVec3->z == rightVec3->z;
+            } else if (const auto* leftVec4 = std::get_if<ArtifactScriptVec4>(&l)) {
+                const auto* rightVec4 = std::get_if<ArtifactScriptVec4>(&r);
+                equal = rightVec4 && leftVec4->x == rightVec4->x &&
+                        leftVec4->y == rightVec4->y &&
+                        leftVec4->z == rightVec4->z &&
+                        leftVec4->w == rightVec4->w;
+            } else if (const auto* leftColor = std::get_if<ArtifactScriptColor>(&l)) {
+                const auto* rightColor = std::get_if<ArtifactScriptColor>(&r);
+                equal = rightColor && leftColor->r == rightColor->r &&
+                        leftColor->g == rightColor->g &&
+                        leftColor->b == rightColor->b &&
+                        leftColor->a == rightColor->a;
+            }
         }
+        return op == ArtifactScriptBinaryOp::Eq ? equal : !equal;
     }
     auto d = [](const ArtifactScriptValue& v) -> double {
         if (std::holds_alternative<double>(v)) return std::get<double>(v);
