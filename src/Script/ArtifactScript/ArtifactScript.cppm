@@ -699,6 +699,24 @@ std::string parseAssignmentOperator(ParseCtx& c) {
 
 ArtifactScriptStmtPtr parseStmt(ParseCtx& c) {
     skipWS(c); if (c.pos >= c.len || c.src[c.pos] == '}') return nullptr;
+    if (matchKw(c, "do")) {
+        auto s = std::make_unique<ArtifactScriptStmt>();
+        s->kind = ArtifactScriptStmt::Kind::DoWhile;
+        s->whileBody = parseStmt(c);
+        if (!s->whileBody) {
+            c.failed = true;
+            if (c.failurePosition == std::string_view::npos) c.failurePosition = c.pos;
+            return nullptr;
+        }
+        if (!matchKw(c, "while") || !expectCh(c, '(')) {
+            c.failed = true;
+            if (c.failurePosition == std::string_view::npos) c.failurePosition = c.pos;
+            return nullptr;
+        }
+        s->whileCond = parseRequiredExpr(c);
+        if (!s->whileCond || !expectCh(c, ')') || !expectCh(c, ';')) return nullptr;
+        return s;
+    }
     if (matchKw(c, "if")) {
         if (!expectCh(c, '(')) return nullptr;
         auto s = std::make_unique<ArtifactScriptStmt>();
@@ -2526,6 +2544,7 @@ bool statementMayMutateArray(const ArtifactScriptStmt* statement) {
     case ArtifactScriptStmt::Kind::Decl:
         return expressionMayMutateArray(statement->declInit.get());
     case ArtifactScriptStmt::Kind::While:
+    case ArtifactScriptStmt::Kind::DoWhile:
         return expressionMayMutateArray(statement->whileCond.get()) ||
                statementMayMutateArray(statement->whileBody.get());
     case ArtifactScriptStmt::Kind::For:
@@ -3879,6 +3898,28 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
             if (continueRequested_) { continueRequested_ = false; }
             ++iter; }
         if (iter >= 10000) { error_ = "loop limit"; return false; } return true; }
+    case ArtifactScriptStmt::Kind::DoWhile: {
+        int iter = 0;
+        while (iter < 10000) {
+            if (!execStmt(s->whileBody.get(), fields, locals)) return false;
+            if (returned_) return true;
+            if (breakRequested_) { breakRequested_ = false; break; }
+            if (continueRequested_) continueRequested_ = false;
+            const auto cond = evalExpr(s->whileCond.get(), fields, locals);
+            if (!error_.empty()) return false;
+            const bool truthy = std::holds_alternative<bool>(cond)
+                ? std::get<bool>(cond)
+                : std::holds_alternative<double>(cond)
+                    ? std::get<double>(cond) != 0.0
+                    : std::holds_alternative<std::int64_t>(cond)
+                        ? std::get<std::int64_t>(cond) != 0
+                        : false;
+            if (!truthy) break;
+            ++iter;
+        }
+        if (iter >= 10000) { error_ = "loop limit"; return false; }
+        return true;
+    }
     case ArtifactScriptStmt::Kind::For: {
         if (s->forInit && !execStmt(s->forInit.get(), fields, locals)) return false;
         int iter = 0;

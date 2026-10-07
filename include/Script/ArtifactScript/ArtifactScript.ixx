@@ -213,7 +213,7 @@ struct ArtifactScriptExpr {
 };
 
 struct ArtifactScriptStmt {
-    enum class Kind { Expr, Assign, If, Return, Block, Decl, While, For, Break, Continue, Foreach };
+    enum class Kind { Expr, Assign, If, Return, Block, Decl, While, For, Break, Continue, Foreach, DoWhile };
     Kind kind = Kind::Expr;
 
     // Expr
