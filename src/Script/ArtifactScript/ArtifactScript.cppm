@@ -1433,6 +1433,51 @@ bool ArtifactScriptInstance::wasHookInvoked(ArtifactScriptHook hook) const {
 
 namespace {
 
+struct ArtifactScriptHostMethodKey {
+    std::string className;
+    std::string methodName;
+};
+
+struct ArtifactScriptHostMethodKeyView {
+    std::string_view className;
+    std::string_view methodName;
+};
+
+struct ArtifactScriptHostMethodKeyHash {
+    using is_transparent = void;
+
+    static std::size_t combine(std::string_view className, std::string_view methodName) {
+        const auto classHash = std::hash<std::string_view>{}(className);
+        const auto methodHash = std::hash<std::string_view>{}(methodName);
+        return classHash ^ (methodHash + 0x9e3779b97f4a7c15ull +
+                            (classHash << 6) + (classHash >> 2));
+    }
+
+    std::size_t operator()(const ArtifactScriptHostMethodKey& key) const {
+        return combine(key.className, key.methodName);
+    }
+    std::size_t operator()(const ArtifactScriptHostMethodKeyView& key) const {
+        return combine(key.className, key.methodName);
+    }
+};
+
+struct ArtifactScriptHostMethodKeyEqual {
+    using is_transparent = void;
+
+    bool operator()(const ArtifactScriptHostMethodKey& left,
+                    const ArtifactScriptHostMethodKey& right) const {
+        return left.className == right.className && left.methodName == right.methodName;
+    }
+    bool operator()(const ArtifactScriptHostMethodKey& left,
+                    const ArtifactScriptHostMethodKeyView& right) const {
+        return left.className == right.className && left.methodName == right.methodName;
+    }
+    bool operator()(const ArtifactScriptHostMethodKeyView& left,
+                    const ArtifactScriptHostMethodKey& right) const {
+        return (*this)(right, left);
+    }
+};
+
 struct ArtifactScriptLocalBinding {
     // Local names refer to strings owned by the live method AST.
     std::string_view name;
@@ -2222,15 +2267,12 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
     }
     ArtifactScriptValue hostResult;
     ArtifactScriptHost& host = ArtifactScriptHost::global();
-    if (host.hasFunction(e->callName)) {
-        host.setLastError(std::string());
-        if (host.callFunctionView(e->callName, argumentValues, hostResult)) {
-            // Host callbacks may report failures via setLastError; surface
-            // them through the evaluator's diagnostic path.
-            const std::string hostError = host.lastError();
-            if (!hostError.empty()) error_ = "host: " + hostError;
-            return hostResult;
-        }
+    if (host.callFunctionView(e->callName, argumentValues, hostResult)) {
+        // Host callbacks may report failures via setLastError; surface
+        // them through the evaluator's diagnostic path.
+        const std::string hostError = host.lastError();
+        if (!hostError.empty()) error_ = "host: " + hostError;
+        return hostResult;
     }
     error_ = "unknown function: " + e->callName; return {};
 }
@@ -2502,7 +2544,8 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
 class ArtifactScriptHost::Impl {
 public:
     std::unordered_map<std::string, ArtifactScriptNativeFn> functions;
-    std::unordered_map<std::string, ArtifactScriptNativeMethodFn> methods;
+    std::unordered_map<ArtifactScriptHostMethodKey, ArtifactScriptNativeMethodFn,
+                       ArtifactScriptHostMethodKeyHash, ArtifactScriptHostMethodKeyEqual> methods;
     NamedVector<std::string> logRing;
     std::string lastError;
     static constexpr std::size_t kMaxLogLines = 256;
@@ -2544,11 +2587,13 @@ void ArtifactScriptHost::registerFunction(const std::string& name, ArtifactScrip
 
 void ArtifactScriptHost::registerMethod(const std::string& className, const std::string& methodName,
                                         ArtifactScriptNativeMethodFn function) {
-    impl_->methods.insert_or_assign(className + "." + methodName, std::move(function));
+    impl_->methods.insert_or_assign(
+        ArtifactScriptHostMethodKey{className, methodName}, std::move(function));
 }
 
 bool ArtifactScriptHost::hasMethod(const std::string& className, const std::string& methodName) const {
-    return impl_->methods.find(className + "." + methodName) != impl_->methods.end();
+    return impl_->methods.find(ArtifactScriptHostMethodKeyView{className, methodName}) !=
+           impl_->methods.end();
 }
 
 bool ArtifactScriptHost::callMethod(const std::string& className, const std::string& methodName,
@@ -2563,7 +2608,8 @@ bool ArtifactScriptHost::callMethodView(const std::string& className, const std:
                                         const ArtifactScriptValue& self,
                                         std::span<const ArtifactScriptValue> args,
                                         ArtifactScriptValue& result) const {
-    const auto it = impl_->methods.find(className + "." + methodName);
+    const auto it = impl_->methods.find(
+        ArtifactScriptHostMethodKeyView{className, methodName});
     if (it == impl_->methods.end()) return false;
     result = it->second(self, args);
     return true;
@@ -2683,7 +2729,10 @@ bool ArtifactScriptHost::callFunction(
     const std::string& name,
     const std::vector<ArtifactScriptValue>& args,
     ArtifactScriptValue& result) const {
-    return callFunctionView(name, std::span<const ArtifactScriptValue>(args.data(), args.size()), result);
+    const auto it = impl_->functions.find(name);
+    if (it == impl_->functions.end()) return false;
+    result = it->second(std::span<const ArtifactScriptValue>(args.data(), args.size()));
+    return true;
 }
 
 bool ArtifactScriptHost::callFunctionView(
@@ -2692,6 +2741,7 @@ bool ArtifactScriptHost::callFunctionView(
     ArtifactScriptValue& result) const {
     const auto it = impl_->functions.find(name);
     if (it == impl_->functions.end()) return false;
+    impl_->lastError.clear();
     result = it->second(args);
     return true;
 }
