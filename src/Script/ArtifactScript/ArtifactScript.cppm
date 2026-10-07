@@ -2902,20 +2902,24 @@ const ArtifactScriptMethod* ArtifactScriptEvaluator::Impl::findMethodAtCallSite(
 const ArtifactScriptMethod* ArtifactScriptEvaluator::Impl::findObjectMethodAtCallSite(
     const ArtifactScriptExpr* callSite, std::string_view className) {
     if (!activeDefinition_ || !callSite || className.empty()) return nullptr;
-    const auto* targetClass = findClass(className);
-    if (!targetClass) return nullptr;
     static_assert((kMethodCallCacheCapacity & (kMethodCallCacheCapacity - 1)) == 0);
     const auto address = reinterpret_cast<std::uintptr_t>(callSite);
-    const auto classAddress = reinterpret_cast<std::uintptr_t>(targetClass);
-    const auto slot = ((address >> 4) ^ (classAddress >> 4)) &
+    std::uint64_t classHash = 14695981039346656037ull;
+    for (const unsigned char character : className) {
+        classHash ^= character;
+        classHash *= 1099511628211ull;
+    }
+    const auto slot = ((address >> 4) ^ static_cast<std::uintptr_t>(classHash)) &
         (kMethodCallCacheCapacity - 1);
     auto& entry = methodCallCache_[slot];
     if (entry.generation == methodCallCacheGeneration_ &&
         entry.callSite == callSite && entry.definition == activeDefinition_ &&
-        entry.targetClass == targetClass) {
+        entry.targetClass && entry.targetClass->name == className) {
         return entry.method;
     }
 
+    const auto* targetClass = findClass(className);
+    if (!targetClass) return nullptr;
     const ArtifactScriptMethod* method = nullptr;
     const ArtifactScriptClass* current = targetClass;
     for (int depth = 0; current && depth < 32; ++depth) {
