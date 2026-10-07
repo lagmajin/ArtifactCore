@@ -3837,7 +3837,11 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
     const ArtifactScriptLocals& locals) {
     const bool isContainsCall = e->callName == "contains";
     const bool isIndexOfCall = e->callName == "indexOf";
-    if ((isContainsCall || isIndexOfCall) && !e->callTarget &&
+    const bool isStartsWithCall = e->callName == "startsWith";
+    const bool isEndsWithCall = e->callName == "endsWith";
+    const bool isStringSearchCall = isContainsCall || isIndexOfCall ||
+        isStartsWithCall || isEndsWithCall;
+    if (isStringSearchCall && !e->callTarget &&
         e->callArgs.size() == 2) {
         const auto stringReference = [&](const ArtifactScriptExpr* argument)
             -> const std::string* {
@@ -3867,6 +3871,8 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
         const auto* source = stringReference(e->callArgs[0].get());
         const auto* substring = stringReference(e->callArgs[1].get());
         if (source && substring) {
+            if (isStartsWithCall) return source->starts_with(*substring);
+            if (isEndsWithCall) return source->ends_with(*substring);
             const auto position = source->find(*substring);
             if (isContainsCall) return position != std::string::npos;
             if (position == std::string::npos) return std::int64_t{-1};
@@ -4146,6 +4152,21 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
             return {};
         }
         return static_cast<std::int64_t>(position);
+    }
+    if (e->callName == "startsWith" || e->callName == "endsWith") {
+        if (argumentValues.size() != 2 ||
+            !std::holds_alternative<std::string>(argumentValues[0]) ||
+            !std::holds_alternative<std::string>(argumentValues[1])) {
+            error_ = e->callName == "startsWith"
+                ? "startsWith expects a source string and a prefix string"
+                : "endsWith expects a source string and a suffix string";
+            return {};
+        }
+        const auto& source = std::get<std::string>(argumentValues[0]);
+        const auto& substring = std::get<std::string>(argumentValues[1]);
+        return e->callName == "startsWith"
+            ? source.starts_with(substring)
+            : source.ends_with(substring);
     }
     if ((e->callName == "contains" || e->callName == "indexOf") && argumentValues.size() == 2 &&
         std::holds_alternative<ArtifactScriptArrayPtr>(argumentValues[0])) {
