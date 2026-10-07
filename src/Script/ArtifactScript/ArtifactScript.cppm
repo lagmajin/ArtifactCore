@@ -1894,6 +1894,79 @@ struct ArtifactScriptForeachWorkspace {
     std::array<ArtifactScriptFieldBinding, kArtifactScriptInlineOverlayCapacity> overlay{};
 };
 
+bool expressionMayMutateArray(const ArtifactScriptExpr* expression) {
+    if (!expression) return false;
+    switch (expression->kind) {
+    case ArtifactScriptExpr::Kind::Literal:
+    case ArtifactScriptExpr::Kind::Variable:
+        return false;
+    case ArtifactScriptExpr::Kind::Binary:
+        return expressionMayMutateArray(expression->left.get()) ||
+               expressionMayMutateArray(expression->right.get());
+    case ArtifactScriptExpr::Kind::Unary:
+        return expressionMayMutateArray(expression->operand.get());
+    case ArtifactScriptExpr::Kind::Call:
+    case ArtifactScriptExpr::Kind::New:
+        // Host and user calls can mutate arrays through shared Array values.
+        return true;
+    case ArtifactScriptExpr::Kind::FieldAccess:
+        return expressionMayMutateArray(expression->fieldObject.get());
+    case ArtifactScriptExpr::Kind::Index:
+        return expressionMayMutateArray(expression->indexTarget.get()) ||
+               expressionMayMutateArray(expression->indexExpr.get());
+    case ArtifactScriptExpr::Kind::ArrayLiteral:
+        for (const auto& element : expression->arrayElements) {
+            if (expressionMayMutateArray(element.get())) return true;
+        }
+        return false;
+    case ArtifactScriptExpr::Kind::Ternary:
+        return expressionMayMutateArray(expression->ternaryCondition.get()) ||
+               expressionMayMutateArray(expression->ternaryThen.get()) ||
+               expressionMayMutateArray(expression->ternaryElse.get());
+    case ArtifactScriptExpr::Kind::Is:
+        return expressionMayMutateArray(expression->isTarget.get());
+    }
+    return true;
+}
+
+bool statementMayMutateArray(const ArtifactScriptStmt* statement) {
+    if (!statement) return false;
+    switch (statement->kind) {
+    case ArtifactScriptStmt::Kind::Expr:
+        return expressionMayMutateArray(statement->expr.get());
+    case ArtifactScriptStmt::Kind::Assign:
+        return statement->assignIndex ||
+               expressionMayMutateArray(statement->assignValue.get());
+    case ArtifactScriptStmt::Kind::If:
+        return expressionMayMutateArray(statement->ifCond.get()) ||
+               statementMayMutateArray(statement->ifThen.get()) ||
+               statementMayMutateArray(statement->ifElse.get());
+    case ArtifactScriptStmt::Kind::Return:
+        return expressionMayMutateArray(statement->expr.get());
+    case ArtifactScriptStmt::Kind::Block:
+        for (const auto& child : statement->blockStmts) {
+            if (statementMayMutateArray(child.get())) return true;
+        }
+        return false;
+    case ArtifactScriptStmt::Kind::Decl:
+        return expressionMayMutateArray(statement->declInit.get());
+    case ArtifactScriptStmt::Kind::While:
+        return expressionMayMutateArray(statement->whileCond.get()) ||
+               statementMayMutateArray(statement->whileBody.get());
+    case ArtifactScriptStmt::Kind::For:
+        return statementMayMutateArray(statement->forInit.get()) ||
+               expressionMayMutateArray(statement->forCond.get()) ||
+               statementMayMutateArray(statement->forIncrement.get()) ||
+               statementMayMutateArray(statement->forBody.get());
+    case ArtifactScriptStmt::Kind::Break:
+    case ArtifactScriptStmt::Kind::Continue:
+        return false;
+    case ArtifactScriptStmt::Kind::Foreach:
+        return statementMayMutateArray(statement->foreachBody.get());
+    }
+    return true;
+}
+
 }  // namespace
 
 class ArtifactScriptEvaluator::Impl {
@@ -2744,7 +2817,9 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
         if (!std::holds_alternative<ArtifactScriptArrayPtr>(*collection)) {
             error_ = "foreach requires an array"; return false;
         }
-        const auto& array = std::get<ArtifactScriptArrayPtr>(*collection);
+        // Keep the original array alive if the loop body replaces its source
+        // field. Read-only bodies can then iterate it without copying values.
+        const auto array = std::get<ArtifactScriptArrayPtr>(*collection);
         // Snapshot the element list because the loop body may mutate the same
         // array. Reuse bounded evaluator-owned storage in the common case;
         // large/deep loops keep the previous transient-copy behavior.
@@ -2764,8 +2839,13 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
             workspace = &foreachWorkspaces_[snapshotDepth];
             snapshotScope.workspace = workspace;
         }
+        const bool snapshotRequired = statementMayMutateArray(s->foreachBody.get());
+        if (array && !array->values.empty() && !snapshotRequired) {
+            elements = std::span<const ArtifactScriptValue>(
+                array->values.data(), array->values.size());
+        }
         bool reuseSnapshot = false;
-        if (workspace) {
+        if (snapshotRequired && workspace) {
             std::size_t retainedCapacityElsewhere = 0;
             for (std::size_t i = 0; i < foreachWorkspaces_.size(); ++i) {
                 if (i != snapshotDepth) {
@@ -2777,7 +2857,7 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
                 ? kReusableForeachValueBudget - retainedCapacityElsewhere : 0;
             reuseSnapshot = array->values.size() <= availableSnapshotCapacity;
         }
-        if (reuseSnapshot) {
+        if (snapshotRequired && reuseSnapshot) {
             auto& snapshot = workspace->snapshot;
             if (snapshot.capacity() < array->values.size()) {
                 snapshot.reserve(array->values.size());
@@ -2788,7 +2868,7 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
             }
             elements = std::span<const ArtifactScriptValue>(
                 snapshot.data(), array->values.size());
-        } else if (array && !array->values.empty()) {
+        } else if (snapshotRequired && array && !array->values.empty()) {
             transientElements.emplace(array->values);
             elements = std::span<const ArtifactScriptValue>(
                 transientElements->data(), transientElements->size());
