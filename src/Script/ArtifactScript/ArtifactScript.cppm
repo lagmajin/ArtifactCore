@@ -1817,21 +1817,21 @@ public:
             (*root_)[name] = value;
             return;
         }
+        // Read iteration values through an alias; findForWrite materializes a
+        // private copy if the script assigns to the loop variable.
         if (auto* entry = findOverlay(name)) {
-            entry->value = value;
-            entry->inheritedValue = nullptr;
+            entry->inheritedValue = &value;
             entry->dirty = false;
             return;
         }
         if (overlaySize_ < kArtifactScriptInlineOverlayCapacity) {
             auto& entry = inlineOverlay_[overlaySize_++];
             entry.name = &name;
-            entry.value = value;
-            entry.inheritedValue = nullptr;
+            entry.inheritedValue = &value;
             entry.dirty = false;
             return;
         }
-        overflowOverlay_.append(ArtifactScriptFieldBinding{&name, value, nullptr, false});
+        overflowOverlay_.append(ArtifactScriptFieldBinding{&name, {}, &value, false});
     }
 
     void commit(std::string_view excludedName) {
@@ -2021,6 +2021,7 @@ public:
                 }
                 for (auto& binding : workspace->overlay) {
                     binding.name = nullptr;
+                    binding.inheritedValue = nullptr;
                     if (auto* text = std::get_if<std::string>(&binding.value)) {
                         if (text->capacity() <= 256) text->clear();
                         else binding.value = std::monostate{};
