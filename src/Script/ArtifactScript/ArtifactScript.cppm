@@ -12,6 +12,7 @@ module;
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <limits>
 #include <optional>
 #include <unordered_map>
 #include <variant>
@@ -2070,6 +2071,118 @@ bool ArtifactScriptInstance::invokeHook(ArtifactScriptHook hook) {
     else lastHookError_ = evaluator_.getLastError();
     lastInvokedHook_ = hook;
     return ok;
+}
+
+void ArtifactScriptLayerRuntime::bind(ArtifactScriptDefinition definition) {
+    release();
+    instance_ = ArtifactScriptInstance(std::move(definition));
+    hasInstance_ = true;
+    ArtifactScriptComponent defaults;
+    defaults.setScriptClass(instance_.definition().rootClass.name);
+    defaults.applyDefaults(instance_.definition());
+    instance_.fields() = defaults.publicFields();
+}
+
+void ArtifactScriptLayerRuntime::replaceDefinition(
+    ArtifactScriptDefinition definition, ArtifactScriptSerializedFields fields) {
+    if (!hasInstance_) {
+        bind(std::move(definition));
+        instance_.fields() = std::move(fields);
+        return;
+    }
+    instance_ = ArtifactScriptInstance(std::move(definition));
+    instance_.fields() = std::move(fields);
+}
+
+void ArtifactScriptLayerRuntime::release() {
+    instance_ = ArtifactScriptInstance{};
+    hasInstance_ = false;
+    runState_ = ArtifactScriptLayerRunState::Unbound;
+    lastFrame_ = std::numeric_limits<std::int64_t>::min();
+    lastError_.clear();
+}
+
+bool ArtifactScriptLayerRuntime::hasInstance() const {
+    return hasInstance_;
+}
+
+ArtifactScriptInstance* ArtifactScriptLayerRuntime::instance() {
+    return hasInstance_ ? &instance_ : nullptr;
+}
+
+const ArtifactScriptInstance* ArtifactScriptLayerRuntime::instance() const {
+    return hasInstance_ ? &instance_ : nullptr;
+}
+
+bool ArtifactScriptLayerRuntime::advanceLifecycle(
+    ArtifactScriptLayerRunState target, bool enabled) {
+    if (!enabled || !hasInstance_) {
+        target = ArtifactScriptLayerRunState::Unbound;
+    }
+    if (runState_ == target) {
+        return false;
+    }
+
+    const ArtifactScriptLayerRunState previous = runState_;
+    runState_ = target;
+    lastError_.clear();
+    const auto invoke = [this](ArtifactScriptHook hook) {
+        if (!instance_.hasHook(hook)) {
+            return;
+        }
+        if (!instance_.invokeHook(hook) && lastError_.empty()) {
+            lastError_ = instance_.lastError();
+        }
+    };
+
+    switch (target) {
+    case ArtifactScriptLayerRunState::Created:
+        invoke(ArtifactScriptHook::OnCreate);
+        invoke(ArtifactScriptHook::OnStart);
+        break;
+    case ArtifactScriptLayerRunState::Enabled:
+        if (previous == ArtifactScriptLayerRunState::Unbound) {
+            invoke(ArtifactScriptHook::OnCreate);
+            invoke(ArtifactScriptHook::OnStart);
+        }
+        invoke(ArtifactScriptHook::OnEnable);
+        break;
+    case ArtifactScriptLayerRunState::Unbound:
+        if (previous == ArtifactScriptLayerRunState::Enabled) {
+            invoke(ArtifactScriptHook::OnDisable);
+        }
+        if (previous != ArtifactScriptLayerRunState::Unbound) {
+            invoke(ArtifactScriptHook::OnDestroy);
+        }
+        break;
+    }
+    return true;
+}
+
+bool ArtifactScriptLayerRuntime::evaluateFrame(
+    std::int64_t frame, double timeSeconds, double deltaSeconds) {
+    if (!hasInstance_ || frame == lastFrame_) {
+        return false;
+    }
+    lastFrame_ = frame;
+    auto& fields = instance_.fields();
+    fields["dt"] = ArtifactScriptValue(deltaSeconds);
+    fields["time"] = ArtifactScriptValue(timeSeconds);
+    fields["frame"] = ArtifactScriptValue(frame);
+    if (!instance_.invokeHook(ArtifactScriptHook::OnUpdate)) {
+        lastError_ = instance_.lastError();
+        return false;
+    }
+    lastError_.clear();
+    return true;
+}
+
+const std::string& ArtifactScriptLayerRuntime::lastError() const {
+    return lastError_;
+}
+
+void ArtifactScriptLayerRuntime::setLastError(std::string error) {
+    lastError_ = std::move(error);
 }
 
 bool ArtifactScriptInstance::wasHookInvoked(ArtifactScriptHook hook) const {

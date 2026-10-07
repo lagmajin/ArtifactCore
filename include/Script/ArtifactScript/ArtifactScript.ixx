@@ -1,6 +1,7 @@
 module;
 #include <cstdint>
 #include <cstddef>
+#include <limits>
 #include <span>
 #include <string>
 #include <string_view>
@@ -415,6 +416,39 @@ private:
     ArtifactScriptSerializedFields fields_;
     std::string lastHookError_;
     ArtifactScriptEvaluator evaluator_;
+};
+
+enum class ArtifactScriptLayerRunState {
+    Unbound,
+    Created,
+    Enabled
+};
+
+// Shared layer-script lifecycle and frame runtime. Artifact layers bind parsed
+// definitions here so lifecycle, same-frame, and built-in frame-field behavior
+// can be exercised without linking the monolithic application executable.
+class ArtifactScriptLayerRuntime {
+public:
+    void bind(ArtifactScriptDefinition definition);
+    void replaceDefinition(ArtifactScriptDefinition definition,
+                           ArtifactScriptSerializedFields fields);
+    void release();
+    bool hasInstance() const;
+    ArtifactScriptInstance* instance();
+    const ArtifactScriptInstance* instance() const;
+    bool advanceLifecycle(ArtifactScriptLayerRunState target, bool enabled);
+    bool evaluateFrame(std::int64_t frame, double timeSeconds,
+                       double deltaSeconds);
+    const std::string& lastError() const;
+    void setLastError(std::string error);
+
+private:
+    ArtifactScriptInstance instance_;
+    ArtifactScriptLayerRunState runState_ =
+        ArtifactScriptLayerRunState::Unbound;
+    std::int64_t lastFrame_ = std::numeric_limits<std::int64_t>::min();
+    std::string lastError_;
+    bool hasInstance_ = false;
 };
 
 // ─── Host Binding API ───
