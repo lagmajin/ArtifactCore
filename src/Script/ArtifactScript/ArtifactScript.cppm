@@ -2385,6 +2385,46 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalExpr(
             e->binaryOp == ArtifactScriptBinaryOp::Gt ||
             e->binaryOp == ArtifactScriptBinaryOp::Le ||
             e->binaryOp == ArtifactScriptBinaryOp::Ge;
+        const auto isSimpleValue = [](const ArtifactScriptExpr* operand) {
+            return operand &&
+                   (operand->kind == ArtifactScriptExpr::Kind::Literal ||
+                    operand->kind == ArtifactScriptExpr::Kind::Variable);
+        };
+        const auto simpleValue = [&](const ArtifactScriptExpr* operand)
+            -> const ArtifactScriptValue* {
+            if (!operand) return nullptr;
+            if (operand->kind == ArtifactScriptExpr::Kind::Literal)
+                return &operand->literalValue;
+            if (operand->kind != ArtifactScriptExpr::Kind::Variable ||
+                operand->variableName == "this") {
+                return nullptr;
+            }
+            if (const auto* local = locals.find(operand->variableName))
+                return &local->value;
+            return fields.findWithoutCaching(operand->variableName);
+        };
+        if (e->binaryOp != ArtifactScriptBinaryOp::And &&
+            e->binaryOp != ArtifactScriptBinaryOp::Or &&
+            isSimpleValue(e->left.get()) && isSimpleValue(e->right.get())) {
+            const auto* left = simpleValue(e->left.get());
+            const auto* right = simpleValue(e->right.get());
+            if (left && right) {
+                const auto* leftString = std::get_if<std::string>(left);
+                const auto* rightString = std::get_if<std::string>(right);
+                if (e->binaryOp == ArtifactScriptBinaryOp::Add &&
+                    leftString && rightString) {
+                    std::string result;
+                    if (leftString->size() <=
+                        result.max_size() - rightString->size()) {
+                        result.reserve(leftString->size() + rightString->size());
+                    }
+                    result.append(*leftString);
+                    result.append(*rightString);
+                    return result;
+                }
+                return evalBinary(e->binaryOp, *left, *right);
+            }
+        }
         if (isStringAddition || isStringComparison) {
             const auto stringOperand = [&](const ArtifactScriptExpr* operand)
                 -> const std::string* {
