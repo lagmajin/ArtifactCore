@@ -2786,11 +2786,21 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
             return {};
         };
         const auto appendStringCompound = [&](ArtifactScriptValue& current) {
-            if (op != "+=" || !std::holds_alternative<std::string>(current) ||
-                !std::holds_alternative<std::string>(v)) {
+            if (op != "+=" || !std::holds_alternative<std::string>(current)) {
                 return false;
             }
-            std::get<std::string>(current).append(std::get<std::string>(v));
+            auto& target = std::get<std::string>(current);
+            if (const auto* text = std::get_if<std::string>(&v)) {
+                target.append(*text);
+            } else if (const auto* boolean = std::get_if<bool>(&v)) {
+                target.append(*boolean ? "true" : "false");
+            } else if (const auto* integer = std::get_if<std::int64_t>(&v)) {
+                target.append(std::to_string(*integer));
+            } else if (const auto* number = std::get_if<double>(&v)) {
+                std::ostringstream stream;
+                stream << *number;
+                target.append(stream.str());
+            }
             return true;
         };
         if (s->assignIndex) {
