@@ -2833,6 +2833,40 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
             error_ = "unsupported assign op: " + op;
             return {};
         };
+        const auto applyNumericCompound = [&](ArtifactScriptValue& current) {
+            auto* target = std::get_if<double>(&current);
+            if (!target) return false;
+            double right = 0.0;
+            if (const auto* number = std::get_if<double>(&v)) {
+                right = *number;
+            } else if (const auto* integer = std::get_if<std::int64_t>(&v)) {
+                right = static_cast<double>(*integer);
+            } else {
+                return false;
+            }
+            if (op == "+=") {
+                *target += right;
+            } else if (op == "-=") {
+                *target -= right;
+            } else if (op == "*=") {
+                *target *= right;
+            } else if (op == "/=") {
+                if (right == 0.0) {
+                    error_ = "div0";
+                    return true;
+                }
+                *target /= right;
+            } else if (op == "%=") {
+                if (right == 0.0) {
+                    error_ = "div0";
+                    return true;
+                }
+                *target = std::fmod(*target, right);
+            } else {
+                return false;
+            }
+            return true;
+        };
         const auto appendStringCompound = [&](ArtifactScriptValue& current) {
             if (op != "+=" || !std::holds_alternative<std::string>(current)) {
                 return false;
@@ -2870,7 +2904,8 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
             auto& targetValue = array->values[index];
             if (isSimpleAssignment) {
                 targetValue = std::move(v);
-            } else if (!appendStringCompound(targetValue)) {
+            } else if (!applyNumericCompound(targetValue) &&
+                       !appendStringCompound(targetValue)) {
                 targetValue = applyCompound(targetValue);
             }
             return error_.empty();
@@ -2878,7 +2913,8 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
         if (auto* lit = locals.find(s->assignTarget)) {
             if (isSimpleAssignment) {
                 lit->value = std::move(v);
-            } else if (!appendStringCompound(lit->value)) {
+            } else if (!applyNumericCompound(lit->value) &&
+                       !appendStringCompound(lit->value)) {
                 lit->value = applyCompound(lit->value);
             }
             return error_.empty();
@@ -2886,7 +2922,8 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
         if (auto* field = fields.findForWrite(s->assignTarget)) {
             if (isSimpleAssignment) {
                 *field = std::move(v);
-            } else if (!appendStringCompound(*field)) {
+            } else if (!applyNumericCompound(*field) &&
+                       !appendStringCompound(*field)) {
                 *field = applyCompound(*field);
             }
         } else {
