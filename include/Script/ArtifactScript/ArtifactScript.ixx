@@ -152,7 +152,7 @@ struct ArtifactScriptMethod {
 enum class ArtifactScriptBinaryOp {
     Add, Sub, Mul, Div, Mod,
     Eq, Neq, Lt, Gt, Le, Ge,
-    And, Or
+    And, Or, Coalesce
 };
 
 enum class ArtifactScriptUnaryOp {

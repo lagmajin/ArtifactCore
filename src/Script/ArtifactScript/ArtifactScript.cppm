@@ -560,7 +560,7 @@ BIN_PARSE(parseAndOr, parseCmp,
     else if (matchKw(c, "||")) { op = ArtifactScriptBinaryOp::Or; matched = 1; })
 #undef BIN_PARSE
 
-// Is: postfix `expr is Name` (inheritance-aware), tighter than ternary.
+// Is: postfix `expr is Name` (inheritance-aware), tighter than coalescing.
 ArtifactScriptExprPtr parseIs(ParseCtx& c) {
     auto target = parseAndOr(c);
     if (!target) return nullptr;
@@ -577,9 +577,33 @@ ArtifactScriptExprPtr parseIs(ParseCtx& c) {
     return e;
 }
 
+// Null coalescing is right-associative and binds more tightly than ternary,
+// but less tightly than `is` and the logical operators.
+ArtifactScriptExprPtr parseCoalesce(ParseCtx& c) {
+    auto left = parseIs(c);
+    if (!left) return nullptr;
+    skipWS(c);
+    if (c.pos + 1 >= c.len || c.src[c.pos] != '?' || c.src[c.pos + 1] != '?') {
+        return left;
+    }
+    c.pos += 2;
+    auto right = parseCoalesce(c);
+    if (!right) {
+        c.failed = true;
+        if (c.failurePosition == std::string_view::npos) c.failurePosition = c.pos;
+        return nullptr;
+    }
+    auto expression = std::make_unique<ArtifactScriptExpr>();
+    expression->kind = ArtifactScriptExpr::Kind::Binary;
+    expression->binaryOp = ArtifactScriptBinaryOp::Coalesce;
+    expression->left = std::move(left);
+    expression->right = std::move(right);
+    return expression;
+}
+
 // Ternary: cond ? a : b — lowest precedence, right-associative.
 ArtifactScriptExprPtr parseTernary(ParseCtx& c) {
-    auto condition = parseIs(c);
+    auto condition = parseCoalesce(c);
     if (!condition) return nullptr;
     skipWS(c);
     if (c.pos >= c.len || c.src[c.pos] != '?') return condition;
@@ -3239,6 +3263,14 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalExpr(
         return isInstanceOf(*std::get<ArtifactScriptObjectInstancePtr>(target), e->isClassName);
     }
     case ArtifactScriptExpr::Kind::Binary: {
+        // `??` is both lazy and null-specific: false, zero, and empty strings
+        // are valid left-hand values and must not evaluate the fallback.
+        if (e->binaryOp == ArtifactScriptBinaryOp::Coalesce) {
+            auto left = evalExpr(e->left.get(), fields, locals);
+            if (!error_.empty()) return {};
+            if (!std::holds_alternative<std::monostate>(left)) return left;
+            return evalExpr(e->right.get(), fields, locals);
+        }
         // Short-circuit evaluation for && and ||: the right operand must not
         // be evaluated when the left already decides the result.
         if (e->binaryOp == ArtifactScriptBinaryOp::And || e->binaryOp == ArtifactScriptBinaryOp::Or) {
@@ -3347,6 +3379,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalExpr(
             isSimpleValue(e->left.get()) && isSimpleValue(e->right.get());
         if (e->binaryOp != ArtifactScriptBinaryOp::And &&
             e->binaryOp != ArtifactScriptBinaryOp::Or &&
+            e->binaryOp != ArtifactScriptBinaryOp::Coalesce &&
             (simpleOperands ||
              (isReferenceExpression(isReferenceExpression, e->left.get(), 0) &&
               isReferenceExpression(isReferenceExpression, e->right.get(), 0)))) {
@@ -3617,6 +3650,8 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalBinary(
     case ArtifactScriptBinaryOp::Ge:  return ld >= rd;
     case ArtifactScriptBinaryOp::And: return b(l) && b(r);
     case ArtifactScriptBinaryOp::Or:  return b(l) || b(r);
+    case ArtifactScriptBinaryOp::Coalesce:
+        return std::holds_alternative<std::monostate>(l) ? r : l;
     }
     return {};
 }
