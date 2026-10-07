@@ -2377,6 +2377,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalExpr(
         const auto right = evalExpr(e->right.get(), fields, locals);
         return right;
         }
+        const bool isStringAddition = e->binaryOp == ArtifactScriptBinaryOp::Add;
         const bool isStringComparison =
             e->binaryOp == ArtifactScriptBinaryOp::Eq ||
             e->binaryOp == ArtifactScriptBinaryOp::Neq ||
@@ -2384,7 +2385,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalExpr(
             e->binaryOp == ArtifactScriptBinaryOp::Gt ||
             e->binaryOp == ArtifactScriptBinaryOp::Le ||
             e->binaryOp == ArtifactScriptBinaryOp::Ge;
-        if (isStringComparison) {
+        if (isStringAddition || isStringComparison) {
             const auto stringOperand = [&](const ArtifactScriptExpr* operand)
                 -> const std::string* {
                 if (!operand) return nullptr;
@@ -2407,6 +2408,15 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalExpr(
             const auto* left = stringOperand(e->left.get());
             const auto* right = stringOperand(e->right.get());
             if (left && right) {
+                if (isStringAddition) {
+                    std::string result;
+                    if (left->size() <= result.max_size() - right->size()) {
+                        result.reserve(left->size() + right->size());
+                    }
+                    result.append(*left);
+                    result.append(*right);
+                    return result;
+                }
                 switch (e->binaryOp) {
                 case ArtifactScriptBinaryOp::Eq: return *left == *right;
                 case ArtifactScriptBinaryOp::Neq: return *left != *right;
@@ -2464,19 +2474,24 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalBinary(
     auto b = [&](const ArtifactScriptValue& v) { return std::holds_alternative<bool>(v) ? std::get<bool>(v) : d(v) != 0.0; };
     if (op == ArtifactScriptBinaryOp::Add &&
         (std::holds_alternative<std::string>(l) || std::holds_alternative<std::string>(r))) {
-        auto toString = [](const ArtifactScriptValue& v) -> std::string {
-            if (std::holds_alternative<std::string>(v)) return std::get<std::string>(v);
-            if (std::holds_alternative<bool>(v)) return std::get<bool>(v) ? "true" : "false";
-            if (std::holds_alternative<std::int64_t>(v)) return std::to_string(std::get<std::int64_t>(v));
-            if (std::holds_alternative<double>(v)) {
-                const double value = std::get<double>(v);
+        std::string result;
+        const auto appendValue = [&](const ArtifactScriptValue& value) {
+            if (const auto* text = std::get_if<std::string>(&value)) {
+                result.append(*text);
+            } else if (const auto* boolean = std::get_if<bool>(&value)) {
+                result.append(*boolean ? "true" : "false");
+            } else if (const auto* integer = std::get_if<std::int64_t>(&value)) {
+                const auto converted = std::to_string(*integer);
+                result.append(converted);
+            } else if (const auto* number = std::get_if<double>(&value)) {
                 std::ostringstream stream;
-                stream << value;
-                return stream.str();
+                stream << *number;
+                result.append(stream.str());
             }
-            return {};
         };
-        return toString(l) + toString(r);
+        appendValue(l);
+        appendValue(r);
+        return result;
     }
     if (std::holds_alternative<std::string>(l) && std::holds_alternative<std::string>(r)) {
         const auto& ls = std::get<std::string>(l);
