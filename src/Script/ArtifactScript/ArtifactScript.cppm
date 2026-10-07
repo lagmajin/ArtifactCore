@@ -3835,6 +3835,40 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalUnary(
 ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
     const ArtifactScriptExpr* e, ArtifactScriptFields& fields,
     const ArtifactScriptLocals& locals) {
+    if (e->callName == "contains" && !e->callTarget &&
+        e->callArgs.size() == 2) {
+        const auto stringReference = [&](const ArtifactScriptExpr* argument)
+            -> const std::string* {
+            if (!argument) return nullptr;
+            if (argument->kind == ArtifactScriptExpr::Kind::Literal) {
+                return std::get_if<std::string>(&argument->literalValue);
+            }
+            if (argument->kind == ArtifactScriptExpr::Kind::Variable &&
+                argument->variableName != "this") {
+                if (const auto* local = locals.find(argument->variableName)) {
+                    return std::get_if<std::string>(&local->value);
+                }
+                if (const auto* field = fields.findWithoutCaching(argument->variableName)) {
+                    return std::get_if<std::string>(field);
+                }
+            }
+            if (argument->kind == ArtifactScriptExpr::Kind::FieldAccess &&
+                activeThis_ && argument->fieldObject &&
+                argument->fieldObject->kind == ArtifactScriptExpr::Kind::Variable &&
+                argument->fieldObject->variableName == "this") {
+                if (const auto* field = fields.findWithoutCaching(argument->fieldName)) {
+                    return std::get_if<std::string>(field);
+                }
+            }
+            return nullptr;
+        };
+        const auto* source = stringReference(e->callArgs[0].get());
+        const auto* substring = stringReference(e->callArgs[1].get());
+        if (source && substring) {
+            return source->find(*substring) != std::string::npos;
+        }
+    }
+
     ArtifactScriptCallArguments args(e->callArgs.size(), callArgumentWorkspace_);
     for (auto& a : e->callArgs) args.append(evalExpr(a.get(), fields, locals));
     if (!error_.empty()) return {};
