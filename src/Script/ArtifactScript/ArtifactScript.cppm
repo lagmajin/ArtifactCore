@@ -3844,28 +3844,51 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
     const bool isStringSearchCall = isContainsCall || isIndexOfCall ||
         isLastIndexOfCall || isCountCall ||
         isStartsWithCall || isEndsWithCall;
+    const auto valueReference = [&](const ArtifactScriptExpr* argument)
+        -> const ArtifactScriptValue* {
+        if (!argument) return nullptr;
+        if (argument->kind == ArtifactScriptExpr::Kind::Literal) {
+            return &argument->literalValue;
+        }
+        if (argument->kind == ArtifactScriptExpr::Kind::Variable &&
+            argument->variableName != "this") {
+            if (const auto* local = locals.find(argument->variableName)) {
+                return &local->value;
+            }
+            return fields.findWithoutCaching(argument->variableName);
+        }
+        if (argument->kind == ArtifactScriptExpr::Kind::FieldAccess &&
+            activeThis_ && argument->fieldObject &&
+            argument->fieldObject->kind == ArtifactScriptExpr::Kind::Variable &&
+            argument->fieldObject->variableName == "this") {
+            return fields.findWithoutCaching(argument->fieldName);
+        }
+        return nullptr;
+    };
+    const auto sumArray = [&](const ArtifactScriptArrayPtr& array)
+        -> ArtifactScriptValue {
+        if (!array) return std::int64_t{0};
+        ArtifactScriptValue total = std::int64_t{0};
+        for (const auto& item : array->values) {
+            if (!std::holds_alternative<std::int64_t>(item) &&
+                !std::holds_alternative<double>(item)) {
+                error_ = "sum expects an array of numbers";
+                return {};
+            }
+            total = evalBinary(ArtifactScriptBinaryOp::Add, total, item);
+            if (!error_.empty()) return {};
+        }
+        return total;
+    };
+    if (e->callName == "sum" && !e->callTarget &&
+        e->callArgs.size() == 1) {
+        if (const auto* value = valueReference(e->callArgs[0].get())) {
+            if (const auto* array = std::get_if<ArtifactScriptArrayPtr>(value)) {
+                return sumArray(*array);
+            }
+        }
+    }
     if (isCountCall && !e->callTarget && e->callArgs.size() == 2) {
-        const auto valueReference = [&](const ArtifactScriptExpr* argument)
-            -> const ArtifactScriptValue* {
-            if (!argument) return nullptr;
-            if (argument->kind == ArtifactScriptExpr::Kind::Literal) {
-                return &argument->literalValue;
-            }
-            if (argument->kind == ArtifactScriptExpr::Kind::Variable &&
-                argument->variableName != "this") {
-                if (const auto* local = locals.find(argument->variableName)) {
-                    return &local->value;
-                }
-                return fields.findWithoutCaching(argument->variableName);
-            }
-            if (argument->kind == ArtifactScriptExpr::Kind::FieldAccess &&
-                activeThis_ && argument->fieldObject &&
-                argument->fieldObject->kind == ArtifactScriptExpr::Kind::Variable &&
-                argument->fieldObject->variableName == "this") {
-                return fields.findWithoutCaching(argument->fieldName);
-            }
-            return nullptr;
-        };
         const auto* arrayValue = valueReference(e->callArgs[0].get());
         const auto* matchValue = valueReference(e->callArgs[1].get());
         if (arrayValue && matchValue) {
@@ -4304,6 +4327,14 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
                 findMethodAtCallSite(e)) {
             return callUserMethod(*method, args.mutableSpan(), fields);
         }
+    }
+    if (e->callName == "sum") {
+        if (argumentValues.size() != 1 ||
+            !std::holds_alternative<ArtifactScriptArrayPtr>(argumentValues[0])) {
+            error_ = "sum expects one array of numbers";
+            return {};
+        }
+        return sumArray(std::get<ArtifactScriptArrayPtr>(argumentValues[0]));
     }
     ArtifactScriptValue hostResult;
     ArtifactScriptHost& host = ArtifactScriptHost::global();
