@@ -3865,7 +3865,8 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
         }
         return nullptr;
     };
-    const auto sumArray = [&](const ArtifactScriptArrayPtr& array)
+    const auto sumArray = [&](const ArtifactScriptArrayPtr& array,
+                              std::string_view functionName)
         -> ArtifactScriptValue {
         if (!array) return std::int64_t{0};
         ArtifactScriptValue total = std::int64_t{0};
@@ -3873,7 +3874,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
             const auto* itemInteger = std::get_if<std::int64_t>(&item);
             const auto* itemNumber = std::get_if<double>(&item);
             if (!itemInteger && !itemNumber) {
-                error_ = "sum expects an array of numbers";
+                error_ = std::string(functionName) + " expects an array of numbers";
                 return {};
             }
             if (auto* totalInteger = std::get_if<std::int64_t>(&total);
@@ -3944,11 +3945,32 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
         }
         return *extremum;
     };
+    const auto averageArray = [&](const ArtifactScriptArrayPtr& array)
+        -> ArtifactScriptValue {
+        if (!array || array->values.empty()) {
+            error_ = "average expects a non-empty array of numbers";
+            return {};
+        }
+        const auto total = sumArray(array, "average");
+        if (!error_.empty()) return {};
+        const double numericTotal = std::holds_alternative<std::int64_t>(total)
+            ? static_cast<double>(std::get<std::int64_t>(total))
+            : std::get<double>(total);
+        return numericTotal / static_cast<double>(array->values.size());
+    };
     if (e->callName == "sum" && !e->callTarget &&
         e->callArgs.size() == 1) {
         if (const auto* value = valueReference(e->callArgs[0].get())) {
             if (const auto* array = std::get_if<ArtifactScriptArrayPtr>(value)) {
-                return sumArray(*array);
+                return sumArray(*array, "sum");
+            }
+        }
+    }
+    if (e->callName == "average" && !e->callTarget &&
+        e->callArgs.size() == 1) {
+        if (const auto* value = valueReference(e->callArgs[0].get())) {
+            if (const auto* array = std::get_if<ArtifactScriptArrayPtr>(value)) {
+                return averageArray(*array);
             }
         }
     }
@@ -4406,7 +4428,17 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
             error_ = "sum expects one array of numbers";
             return {};
         }
-        return sumArray(std::get<ArtifactScriptArrayPtr>(argumentValues[0]));
+        return sumArray(
+            std::get<ArtifactScriptArrayPtr>(argumentValues[0]), "sum");
+    }
+    if (e->callName == "average") {
+        if (argumentValues.size() != 1 ||
+            !std::holds_alternative<ArtifactScriptArrayPtr>(argumentValues[0])) {
+            error_ = "average expects a non-empty array of numbers";
+            return {};
+        }
+        return averageArray(
+            std::get<ArtifactScriptArrayPtr>(argumentValues[0]));
     }
     if ((e->callName == "min" || e->callName == "max") &&
         argumentValues.size() == 1) {
