@@ -466,7 +466,13 @@ ArtifactScriptExprPtr parsePrimary(ParseCtx& c) {
             return nullptr;
         }
         return parsePostfixSuffix(c, std::move(e)); }
-    if (std::isdigit(static_cast<unsigned char>(c.src[c.pos]))) { e->kind = ArtifactScriptExpr::Kind::Literal; e->literalValue = parseNum(c); return parsePostfixSuffix(c, std::move(e)); }
+    if (std::isdigit(static_cast<unsigned char>(c.src[c.pos])) ||
+        (c.src[c.pos] == '.' && c.pos + 1 < c.len &&
+         std::isdigit(static_cast<unsigned char>(c.src[c.pos + 1])))) {
+        e->kind = ArtifactScriptExpr::Kind::Literal;
+        e->literalValue = parseNum(c);
+        return parsePostfixSuffix(c, std::move(e));
+    }
     if (matchKw(c, "true")) { e->kind = ArtifactScriptExpr::Kind::Literal; e->literalValue = true; return parsePostfixSuffix(c, std::move(e)); }
     if (matchKw(c, "false")) { e->kind = ArtifactScriptExpr::Kind::Literal; e->literalValue = false; return parsePostfixSuffix(c, std::move(e)); }
     if (matchKw(c, "null")) { e->kind = ArtifactScriptExpr::Kind::Literal; e->literalValue = std::monostate{}; return parsePostfixSuffix(c, std::move(e)); }
@@ -601,7 +607,59 @@ bool parseDelimitedExpressions(
     }
 }
 
-double parseNum(ParseCtx& c) { skipWS(c); size_t s = c.pos; while (c.pos < c.len && (std::isdigit(static_cast<unsigned char>(c.src[c.pos])) || c.src[c.pos] == '.')) ++c.pos; return std::strtod(std::string(c.src.substr(s, c.pos - s)).c_str(), nullptr); }
+double parseNum(ParseCtx& c) {
+    skipWS(c);
+    const std::size_t start = c.pos;
+    bool hasDigits = false;
+    while (c.pos < c.len &&
+           std::isdigit(static_cast<unsigned char>(c.src[c.pos]))) {
+        ++c.pos;
+        hasDigits = true;
+    }
+    if (c.pos < c.len && c.src[c.pos] == '.') {
+        ++c.pos;
+        while (c.pos < c.len &&
+               std::isdigit(static_cast<unsigned char>(c.src[c.pos]))) {
+            ++c.pos;
+            hasDigits = true;
+        }
+    }
+    if (!hasDigits) {
+        c.failed = true;
+        if (c.failurePosition == std::string_view::npos)
+            c.failurePosition = start;
+        return 0.0;
+    }
+    if (c.pos < c.len && (c.src[c.pos] == 'e' || c.src[c.pos] == 'E')) {
+        const std::size_t exponentPosition = c.pos++;
+        if (c.pos < c.len && (c.src[c.pos] == '+' || c.src[c.pos] == '-'))
+            ++c.pos;
+        const std::size_t exponentDigits = c.pos;
+        while (c.pos < c.len &&
+               std::isdigit(static_cast<unsigned char>(c.src[c.pos]))) {
+            ++c.pos;
+        }
+        if (c.pos == exponentDigits) {
+            c.failed = true;
+            if (c.failurePosition == std::string_view::npos)
+                c.failurePosition = exponentPosition;
+            return 0.0;
+        }
+    }
+
+    double value = 0.0;
+    const char* begin = c.src.data() + start;
+    const char* end = c.src.data() + c.pos;
+    const auto [parsedEnd, error] = std::from_chars(
+        begin, end, value, std::chars_format::general);
+    if (error != std::errc{} || parsedEnd != end) {
+        c.failed = true;
+        if (c.failurePosition == std::string_view::npos)
+            c.failurePosition = start;
+        return 0.0;
+    }
+    return value;
+}
 
 ArtifactScriptExprPtr parseExpr(ParseCtx& c);
 ArtifactScriptStmtPtr parseStmt(ParseCtx& c);
