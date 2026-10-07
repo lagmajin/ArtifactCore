@@ -3214,6 +3214,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalExpr(
             }
         }
         auto array = makeShared<ArtifactScriptArray>();
+        array->values.reserve(e->arrayElements.size());
         for (const auto& element : e->arrayElements)
             array->values.push_back(evalExpr(element.get(), fields, locals));
         return array;
