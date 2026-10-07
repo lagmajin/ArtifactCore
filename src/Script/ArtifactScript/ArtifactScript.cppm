@@ -2420,6 +2420,24 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalExpr(
                     ? &(*array)->values[index]
                     : nullptr;
             }
+            if (operand->kind == ArtifactScriptExpr::Kind::FieldAccess) {
+                if (!operand->fieldObject ||
+                    (operand->fieldObject->kind ==
+                         ArtifactScriptExpr::Kind::Variable &&
+                     operand->fieldObject->variableName == "this")) {
+                    return nullptr;
+                }
+                const auto* objectValue = self(
+                    self, operand->fieldObject.get(), depth + 1);
+                const auto* object = objectValue
+                    ? std::get_if<ArtifactScriptObjectInstancePtr>(objectValue)
+                    : nullptr;
+                if (!object || !*object) return nullptr;
+                const auto field = (*object)->fields.find(operand->fieldName);
+                return field != (*object)->fields.end()
+                    ? &field->second
+                    : nullptr;
+            }
             return nullptr;
         };
         const auto isReferenceExpression = [&](auto&& self,
@@ -2435,6 +2453,12 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalExpr(
             case ArtifactScriptExpr::Kind::Index:
                 return self(self, operand->indexTarget.get(), depth + 1) &&
                        self(self, operand->indexExpr.get(), depth + 1);
+            case ArtifactScriptExpr::Kind::FieldAccess:
+                return operand->fieldObject &&
+                       !(operand->fieldObject->kind ==
+                             ArtifactScriptExpr::Kind::Variable &&
+                         operand->fieldObject->variableName == "this") &&
+                       self(self, operand->fieldObject.get(), depth + 1);
             default:
                 return false;
             }
