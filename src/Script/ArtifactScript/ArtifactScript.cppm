@@ -2741,7 +2741,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::runUserMethodBody(
                  std::to_string(method->column == 0 ? 1 : method->column) +
                  ": " + error_;
     }
-    const auto result = returnValue_;
+    auto result = std::move(returnValue_);
     --callDepth_;
     returnValue_ = previousReturn;
     returned_ = previousReturned;
@@ -3563,7 +3563,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::callInstanceMethod(
                  std::to_string(method->column == 0 ? 1 : method->column) +
                  ": " + error_;
     }
-    const auto result = returnValue_;
+    auto result = std::move(returnValue_);
     --callDepth_;
     returnValue_ = previousReturn;
     returned_ = previousReturned;
