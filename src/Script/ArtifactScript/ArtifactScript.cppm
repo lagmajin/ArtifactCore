@@ -2102,9 +2102,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalExpr(
         }
         const auto inheritFields = [&](const ArtifactScriptClass& classDefinition) {
             for (const auto& field : classDefinition.fields) {
-                if (instance->fields.find(field.name) == instance->fields.end()) {
-                    instance->fields.emplace(field.name, field.defaultValue);
-                }
+                instance->fields.try_emplace(field.name, field.defaultValue);
             }
         };
         for (auto chainIt = deepChain.rbegin(); chainIt != deepChain.rend(); ++chainIt) {
