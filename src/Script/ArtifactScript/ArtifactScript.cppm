@@ -370,6 +370,17 @@ ArtifactScriptExprPtr parsePostfixSuffix(
 ArtifactScriptExprPtr parsePrimary(ParseCtx& c) {
     skipWS(c); if (c.pos >= c.len) return nullptr;
     auto e = std::make_unique<ArtifactScriptExpr>();
+    if (c.src[c.pos] == '(') {
+        ++c.pos;
+        auto expression = parseRequiredExpr(c);
+        if (!matchCh(c, ')')) {
+            c.failed = true;
+            if (c.failurePosition == std::string_view::npos)
+                c.failurePosition = c.pos;
+            return nullptr;
+        }
+        return parsePostfixSuffix(c, std::move(expression));
+    }
     if (matchKw(c, "new")) {
         const std::string className = parseId(c);
         if (className.empty()) {
