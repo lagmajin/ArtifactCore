@@ -2223,10 +2223,13 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
                 static const std::string genericObjectClassLabel{"Object"};
                 classLabel = &genericObjectClassLabel;
             }
-            if (ArtifactScriptHost::global().callMethodView(
+            ArtifactScriptHost& host = ArtifactScriptHost::global();
+            if (host.callMethodView(
                     *classLabel, e->callName, target, argumentValues, hostResult)) {
-                if (!ArtifactScriptHost::global().lastError().empty()) {
-                    error_ = "host: " + ArtifactScriptHost::global().lastError();
+                const std::string_view hostError = host.lastErrorView();
+                if (!hostError.empty()) {
+                    error_ = "host: ";
+                    error_.append(hostError);
                     return {};
                 }
                 return hostResult;
@@ -2236,10 +2239,13 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
         // Host objects arrive as ObjectRef (e.g. getLayer() handles).
         if (std::holds_alternative<ArtifactScriptRef>(target)) {
             ArtifactScriptValue hostResult;
-            if (ArtifactScriptHost::global().callMethodView(
+            ArtifactScriptHost& host = ArtifactScriptHost::global();
+            if (host.callMethodView(
                     "ObjectRef", e->callName, target, argumentValues, hostResult)) {
-                if (!ArtifactScriptHost::global().lastError().empty()) {
-                    error_ = "host: " + ArtifactScriptHost::global().lastError();
+                const std::string_view hostError = host.lastErrorView();
+                if (!hostError.empty()) {
+                    error_ = "host: ";
+                    error_.append(hostError);
                     return {};
                 }
                 return hostResult;
@@ -2345,8 +2351,11 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
     if (host.callFunctionView(e->callName, argumentValues, hostResult)) {
         // Host callbacks may report failures via setLastError; surface
         // them through the evaluator's diagnostic path.
-        const std::string hostError = host.lastError();
-        if (!hostError.empty()) error_ = "host: " + hostError;
+        const std::string_view hostError = host.lastErrorView();
+        if (!hostError.empty()) {
+            error_ = "host: ";
+            error_.append(hostError);
+        }
         return hostResult;
     }
     error_ = "unknown function: " + e->callName; return {};
@@ -2846,6 +2855,10 @@ void ArtifactScriptHost::setLastError(std::string message) {
 }
 
 std::string ArtifactScriptHost::lastError() const {
+    return impl_->lastError;
+}
+
+std::string_view ArtifactScriptHost::lastErrorView() const noexcept {
     return impl_->lastError;
 }
 

@@ -467,6 +467,8 @@ public:
     // evaluator as a diagnostic.
     void setLastError(std::string message);
     std::string lastError() const;
+    // View remains valid until the next host call or setLastError().
+    std::string_view lastErrorView() const noexcept;
 
     // Process-wide default registry used by every evaluator instance.
     static ArtifactScriptHost& global();
