@@ -200,6 +200,7 @@ bool matchCh(ParseCtx& c, char ch) { skipWS(c); if (c.pos < c.len && c.src[c.pos
 bool matchKw(ParseCtx& c, const char* wd) { skipWS(c); size_t n = std::strlen(wd); if (c.pos + n <= c.len && c.src.substr(c.pos, n) == wd && (c.pos + n >= c.len || !std::isalnum(static_cast<unsigned char>(c.src[c.pos + n])))) { c.pos += n; return true; } return false; }
 std::string parseId(ParseCtx& c) { skipWS(c); size_t s = c.pos; while (c.pos < c.len && (std::isalnum(static_cast<unsigned char>(c.src[c.pos])) || c.src[c.pos] == '_')) ++c.pos; return std::string(c.src.substr(s, c.pos - s)); }
 ArtifactScriptExprPtr parseExpr(ParseCtx& c);
+ArtifactScriptExprPtr parseRequiredExpr(ParseCtx& c);
 double parseNum(ParseCtx& c);
 
 ArtifactScriptExprPtr parsePrimary(ParseCtx& c) {
@@ -303,7 +304,7 @@ ArtifactScriptExprPtr parsePrimary(ParseCtx& c) {
 }
 
 #define BIN_PARSE(name, next, ...) \
-ArtifactScriptExprPtr name(ParseCtx& c) { auto l = next(c); while (l) { ArtifactScriptBinaryOp op; int matched = 0; __VA_ARGS__ if (!matched) break; auto e = std::make_unique<ArtifactScriptExpr>(); e->kind = ArtifactScriptExpr::Kind::Binary; e->binaryOp = op; e->left = std::move(l); e->right = next(c); l = std::move(e); } return l; }
+ArtifactScriptExprPtr name(ParseCtx& c) { auto l = next(c); while (l) { ArtifactScriptBinaryOp op; int matched = 0; __VA_ARGS__ if (!matched) break; auto e = std::make_unique<ArtifactScriptExpr>(); e->kind = ArtifactScriptExpr::Kind::Binary; e->binaryOp = op; e->left = std::move(l); e->right = next(c); if (!e->right) { c.failed = true; if (c.failurePosition == std::string_view::npos) c.failurePosition = c.pos; return nullptr; } l = std::move(e); } return l; }
 
 BIN_PARSE(parseMulDiv, parsePrimary,
     if (matchCh(c, '*')) { op = ArtifactScriptBinaryOp::Mul; matched = 1; }
@@ -354,14 +355,29 @@ ArtifactScriptExprPtr parseTernary(ParseCtx& c) {
     auto e = std::make_unique<ArtifactScriptExpr>();
     e->kind = ArtifactScriptExpr::Kind::Ternary;
     e->ternaryCondition = std::move(condition);
-    e->ternaryThen = parseExpr(c);
-    if (!matchCh(c, ':')) return nullptr;
-    e->ternaryElse = parseExpr(c);
+    e->ternaryThen = parseRequiredExpr(c);
+    if (!matchCh(c, ':')) {
+        c.failed = true;
+        if (c.failurePosition == std::string_view::npos) c.failurePosition = c.pos;
+        return nullptr;
+    }
+    e->ternaryElse = parseRequiredExpr(c);
     if (!e->ternaryThen || !e->ternaryElse) return nullptr;
     return e;
 }
 
 ArtifactScriptExprPtr parseExpr(ParseCtx& c) { return parseTernary(c); }
+
+ArtifactScriptExprPtr parseRequiredExpr(ParseCtx& c) {
+    auto expression = parseExpr(c);
+    if (!expression) {
+        c.failed = true;
+        if (c.failurePosition == std::string_view::npos) {
+            c.failurePosition = c.pos;
+        }
+    }
+    return expression;
+}
 
 double parseNum(ParseCtx& c) { skipWS(c); size_t s = c.pos; while (c.pos < c.len && (std::isdigit(static_cast<unsigned char>(c.src[c.pos])) || c.src[c.pos] == '.')) ++c.pos; return std::strtod(std::string(c.src.substr(s, c.pos - s)).c_str(), nullptr); }
 
@@ -371,10 +387,10 @@ ArtifactScriptStmtPtr parseStmt(ParseCtx& c);
 ArtifactScriptStmtPtr parseStmt(ParseCtx& c) {
     skipWS(c); if (c.pos >= c.len || c.src[c.pos] == '}') return nullptr;
     if (matchKw(c, "if")) { matchCh(c, '('); auto s = std::make_unique<ArtifactScriptStmt>(); s->kind = ArtifactScriptStmt::Kind::If;
-        s->ifCond = parseExpr(c); matchCh(c, ')'); s->ifThen = parseStmt(c);
+        s->ifCond = parseRequiredExpr(c); matchCh(c, ')'); s->ifThen = parseStmt(c);
         if (matchKw(c, "else")) s->ifElse = parseStmt(c); return s; }
     if (matchKw(c, "while")) { matchCh(c, '('); auto s = std::make_unique<ArtifactScriptStmt>(); s->kind = ArtifactScriptStmt::Kind::While;
-        s->whileCond = parseExpr(c); matchCh(c, ')'); s->whileBody = parseStmt(c); return s; }
+        s->whileCond = parseRequiredExpr(c); matchCh(c, ')'); s->whileBody = parseStmt(c); return s; }
     if (matchKw(c, "for")) {
         matchCh(c, '(');
         auto s = std::make_unique<ArtifactScriptStmt>(); s->kind = ArtifactScriptStmt::Kind::For;
@@ -386,7 +402,9 @@ ArtifactScriptStmtPtr parseStmt(ParseCtx& c) {
     if (matchKw(c, "break")) { auto s = std::make_unique<ArtifactScriptStmt>(); s->kind = ArtifactScriptStmt::Kind::Break; matchCh(c, ';'); return s; }
     if (matchKw(c, "continue")) { auto s = std::make_unique<ArtifactScriptStmt>(); s->kind = ArtifactScriptStmt::Kind::Continue; matchCh(c, ';'); return s; }
     if (matchKw(c, "return")) { auto s = std::make_unique<ArtifactScriptStmt>(); s->kind = ArtifactScriptStmt::Kind::Return;
-        auto e = parseExpr(c); if (e) s->expr = std::move(e); matchCh(c, ';'); return s; }
+        skipWS(c);
+        if (c.pos < c.len && c.src[c.pos] != ';') s->expr = parseRequiredExpr(c);
+        matchCh(c, ';'); return s; }
     if (matchCh(c, '{')) { auto b = std::make_unique<ArtifactScriptStmt>(); b->kind = ArtifactScriptStmt::Kind::Block;
         while (c.pos < c.len && c.src[c.pos] != '}') {
             const auto positionBeforeStatement = c.pos;
@@ -410,17 +428,17 @@ ArtifactScriptStmtPtr parseStmt(ParseCtx& c) {
     // Variable declaration: "float x" or "float x = expr", or type-inferred "var x = expr"
     std::string id = parseId(c);
     if (id.empty()) { matchCh(c, ';'); return std::make_unique<ArtifactScriptStmt>(); }
-    if (id == "float" || id == "int" || id == "bool" || id == "string" || id == "Array" || id == "array") {
+        if (id == "float" || id == "int" || id == "bool" || id == "string" || id == "Array" || id == "array") {
         auto s = std::make_unique<ArtifactScriptStmt>(); s->kind = ArtifactScriptStmt::Kind::Decl;
         s->declType = parseFieldType(id); s->declName = parseId(c);
-        if (matchCh(c, '=')) s->declInit = parseExpr(c);
+        if (matchCh(c, '=')) s->declInit = parseRequiredExpr(c);
         matchCh(c, ';'); return s;
     }
     if (id == "var") {
         auto s = std::make_unique<ArtifactScriptStmt>(); s->kind = ArtifactScriptStmt::Kind::Decl;
         s->declType = ArtifactScriptValueType::Null;  // Null type marks type inference
         s->declName = parseId(c);
-        if (matchCh(c, '=')) s->declInit = parseExpr(c);
+        if (matchCh(c, '=')) s->declInit = parseRequiredExpr(c);
         matchCh(c, ';'); return s;
     }
     if (id == "foreach") {
@@ -448,7 +466,7 @@ ArtifactScriptStmtPtr parseStmt(ParseCtx& c) {
         return inc;
     }
     if (matchCh(c, '[')) {
-        auto index = parseExpr(c); matchCh(c, ']');
+        auto index = parseRequiredExpr(c); matchCh(c, ']');
         std::string op;
         if (matchCh(c, '=')) op = "=";
         else if (c.pos + 1 < c.len && c.src[c.pos] == '+' && c.src[c.pos+1] == '=') { op = "+="; c.pos += 2; }
@@ -457,7 +475,7 @@ ArtifactScriptStmtPtr parseStmt(ParseCtx& c) {
         else if (c.pos + 1 < c.len && c.src[c.pos] == '/' && c.src[c.pos+1] == '=') { op = "/="; c.pos += 2; }
         if (!op.empty()) {
             auto s = std::make_unique<ArtifactScriptStmt>(); s->kind = ArtifactScriptStmt::Kind::Assign;
-            s->assignTarget = id; s->assignIndex = std::move(index); s->assignOp = op; s->assignValue = parseExpr(c); matchCh(c, ';'); return s;
+            s->assignTarget = id; s->assignIndex = std::move(index); s->assignOp = op; s->assignValue = parseRequiredExpr(c); matchCh(c, ';'); return s;
         }
         c.pos -= id.size();
     }
@@ -475,10 +493,10 @@ ArtifactScriptStmtPtr parseStmt(ParseCtx& c) {
     }
     if (!compoundOp.empty()) {
         auto s = std::make_unique<ArtifactScriptStmt>(); s->kind = ArtifactScriptStmt::Kind::Assign;
-        s->assignTarget = id; s->assignOp = compoundOp; s->assignValue = parseExpr(c); matchCh(c, ';'); return s;
+        s->assignTarget = id; s->assignOp = compoundOp; s->assignValue = parseRequiredExpr(c); matchCh(c, ';'); return s;
     }
     if (matchCh(c, '=')) { auto s = std::make_unique<ArtifactScriptStmt>(); s->kind = ArtifactScriptStmt::Kind::Assign;
-        s->assignTarget = id; s->assignValue = parseExpr(c); matchCh(c, ';'); return s; }
+        s->assignTarget = id; s->assignValue = parseRequiredExpr(c); matchCh(c, ';'); return s; }
     if (matchCh(c, '.')) {
         std::string field = parseId(c);
         if (!field.empty()) {
@@ -488,7 +506,7 @@ ArtifactScriptStmtPtr parseStmt(ParseCtx& c) {
                 s->declName = id;
                 s->fieldAssign = true;
                 s->assignField = field;
-                s->declInit = parseExpr(c);
+                s->declInit = parseRequiredExpr(c);
                 matchCh(c, ';');
                 return s;
             }
