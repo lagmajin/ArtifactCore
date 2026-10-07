@@ -485,6 +485,7 @@ ArtifactScriptDefinition ArtifactScriptParser::parse(std::string_view source) co
     };
 
     for (std::size_t pos = 0; pos < sourceView.size();) {
+        const std::size_t lineStart = pos;
         const std::size_t end = sourceView.find('\n', pos);
         const std::size_t lineEnd = end == std::string_view::npos ? sourceView.size() : end;
         const std::string_view line(sourceView.data() + pos, lineEnd - pos);
@@ -742,6 +743,12 @@ ArtifactScriptDefinition ArtifactScriptParser::parse(std::string_view source) co
             activeClass().methods.push_back(std::move(method));
             pos = nextPos;
             continue;
+        }
+
+        if (pos == lineStart) {
+            def.diagnostics.push_back({lineNo, 1,
+                "unsupported or invalid class member syntax"});
+            pos = nextPos;
         }
     }
 
@@ -2084,18 +2091,27 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalExpr(
         auto instance = makeShared<ArtifactScriptObjectInstance>();
         instance->className = cls->name;
         // Inherit default fields along the parent chain (base first).
-        std::vector<const ArtifactScriptClass*> chain;
+        std::array<const ArtifactScriptClass*, 32> chain{};
+        std::size_t chainSize = 0;
+        std::vector<const ArtifactScriptClass*> deepChain;
         const ArtifactScriptClass* cursor = cls;
         while (cursor) {
-            chain.push_back(cursor);
+            if (chainSize < chain.size()) chain[chainSize++] = cursor;
+            else deepChain.push_back(cursor);
             cursor = !cursor->parentName.empty() ? findClass(cursor->parentName) : nullptr;
         }
-        for (auto chainIt = chain.rbegin(); chainIt != chain.rend(); ++chainIt) {
-            for (const auto& field : (*chainIt)->fields) {
+        const auto inheritFields = [&](const ArtifactScriptClass& classDefinition) {
+            for (const auto& field : classDefinition.fields) {
                 if (instance->fields.find(field.name) == instance->fields.end()) {
                     instance->fields.emplace(field.name, field.defaultValue);
                 }
             }
+        };
+        for (auto chainIt = deepChain.rbegin(); chainIt != deepChain.rend(); ++chainIt) {
+            inheritFields(**chainIt);
+        }
+        for (std::size_t i = chainSize; i > 0; --i) {
+            inheritFields(*chain[i - 1]);
         }
         if (const ArtifactScriptMethod* ctor = findMethodInChain(cls->name, "OnConstruct")) {
             const auto result = callInstanceMethod(instance, *ctor, args.span());
