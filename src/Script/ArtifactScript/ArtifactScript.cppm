@@ -1970,6 +1970,8 @@ public:
                kMethodCallCacheCapacity * kObjectMethodCallCacheWays>
         objectMethodCallCache_{};
     std::uint32_t methodCallCacheGeneration_ = 0;
+    const ArtifactScriptDefinition* methodCallCacheDefinition_ = nullptr;
+    bool methodCallCacheReusable_ = false;
     std::array<ClassLookupIndexEntry, kClassLookupIndexCapacity>
         classLookupIndex_{};
     std::array<LifecycleHookCacheEntry, 6> lifecycleHookCache_{};
@@ -2079,6 +2081,8 @@ bool ArtifactScriptEvaluator::execute(
     const std::vector<ArtifactScriptValue>& args,
     ArtifactScriptSerializedFields& fields) {
     impl_->beginMethodCallCacheGeneration();
+    impl_->methodCallCacheDefinition_ = nullptr;
+    impl_->methodCallCacheReusable_ = false;
     impl_->invalidateClassLookupIndex();
     impl_->error_.clear();
     impl_->returnValue_ = {};
@@ -3419,7 +3423,14 @@ ArtifactScriptValue ArtifactScriptEvaluator::executeResolvedMethod(
         impl_->classLookupIndexReusable_ =
             reuseDefinitionCache && !impl_->classLookupReuseDisabled_;
     }
-    impl_->beginMethodCallCacheGeneration();
+    if (!reuseDefinitionCache || impl_->classLookupReuseDisabled_ ||
+        !impl_->methodCallCacheReusable_ ||
+        impl_->methodCallCacheDefinition_ != &definition) {
+        impl_->beginMethodCallCacheGeneration();
+    }
+    impl_->methodCallCacheDefinition_ = &definition;
+    impl_->methodCallCacheReusable_ =
+        reuseDefinitionCache && !impl_->classLookupReuseDisabled_;
     impl_->callDepth_ = 0;
     impl_->returnValue_ = {};
     impl_->returned_ = false;
