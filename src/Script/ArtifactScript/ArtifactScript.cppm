@@ -2085,6 +2085,7 @@ void ArtifactScriptLayerRuntime::bind(ArtifactScriptDefinition definition) {
 
 void ArtifactScriptLayerRuntime::replaceDefinition(
     ArtifactScriptDefinition definition, ArtifactScriptSerializedFields fields) {
+    lastError_.clear();
     if (!hasInstance_) {
         bind(std::move(definition));
         instance_.fields() = std::move(fields);
