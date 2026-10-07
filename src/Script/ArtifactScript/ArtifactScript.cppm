@@ -3837,9 +3837,11 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
     const ArtifactScriptLocals& locals) {
     const bool isContainsCall = e->callName == "contains";
     const bool isIndexOfCall = e->callName == "indexOf";
+    const bool isLastIndexOfCall = e->callName == "lastIndexOf";
     const bool isStartsWithCall = e->callName == "startsWith";
     const bool isEndsWithCall = e->callName == "endsWith";
     const bool isStringSearchCall = isContainsCall || isIndexOfCall ||
+        isLastIndexOfCall ||
         isStartsWithCall || isEndsWithCall;
     if (isStringSearchCall && !e->callTarget &&
         e->callArgs.size() == 2) {
@@ -3873,7 +3875,9 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
         if (source && substring) {
             if (isStartsWithCall) return source->starts_with(*substring);
             if (isEndsWithCall) return source->ends_with(*substring);
-            const auto position = source->find(*substring);
+            const auto position = isLastIndexOfCall
+                ? source->rfind(*substring)
+                : source->find(*substring);
             if (isContainsCall) return position != std::string::npos;
             if (position == std::string::npos) return std::int64_t{-1};
             if (position > static_cast<std::size_t>(
@@ -4139,12 +4143,15 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
         const auto& substring = std::get<std::string>(argumentValues[1]);
         return source.find(substring) != std::string::npos;
     }
-    if (e->callName == "indexOf" && argumentValues.size() == 2 &&
+    if ((e->callName == "indexOf" || e->callName == "lastIndexOf") &&
+        argumentValues.size() == 2 &&
         std::holds_alternative<std::string>(argumentValues[0]) &&
         std::holds_alternative<std::string>(argumentValues[1])) {
         const auto& source = std::get<std::string>(argumentValues[0]);
         const auto& substring = std::get<std::string>(argumentValues[1]);
-        const auto position = source.find(substring);
+        const auto position = e->callName == "lastIndexOf"
+            ? source.rfind(substring)
+            : source.find(substring);
         if (position == std::string::npos) return std::int64_t{-1};
         if (position > static_cast<std::size_t>(
                            std::numeric_limits<std::int64_t>::max())) {
@@ -4168,11 +4175,16 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
             ? source.starts_with(substring)
             : source.ends_with(substring);
     }
-    if ((e->callName == "contains" || e->callName == "indexOf") && argumentValues.size() == 2 &&
+    if ((e->callName == "contains" || e->callName == "indexOf" ||
+         e->callName == "lastIndexOf") && argumentValues.size() == 2 &&
         std::holds_alternative<ArtifactScriptArrayPtr>(argumentValues[0])) {
         const auto& array = std::get<ArtifactScriptArrayPtr>(argumentValues[0]);
         if (!array) return e->callName == "contains" ? ArtifactScriptValue(false) : ArtifactScriptValue(std::int64_t(-1));
-        for (std::size_t i = 0; i < array->values.size(); ++i) {
+        const bool reverse = e->callName == "lastIndexOf";
+        for (std::size_t step = 0; step < array->values.size(); ++step) {
+            const std::size_t i = reverse
+                ? array->values.size() - step - 1
+                : step;
             const auto& item = array->values[i];
             const bool equal = std::get<bool>(evalBinary(
                 ArtifactScriptBinaryOp::Eq, item, argumentValues[1]));
