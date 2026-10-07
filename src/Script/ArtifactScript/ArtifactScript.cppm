@@ -789,9 +789,8 @@ ArtifactScriptStmtPtr parseStmt(ParseCtx& c) {
         if (c.failed) return nullptr;
         if (!matchCh(c, ';')) {
             s->forCond = parseRequiredExpr(c);
-            if (!s->forCond) return nullptr;
+            if (!s->forCond || !expectCh(c, ';')) return nullptr;
         }
-        if (!expectCh(c, ';')) return nullptr;
         if (!matchCh(c, ')')) {
             s->forIncrement = parseStmt(c);
             if (!s->forIncrement || !expectCh(c, ')')) return nullptr;
@@ -3971,10 +3970,17 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
         if (s->forInit && !execStmt(s->forInit.get(), fields, locals)) return false;
         int iter = 0;
         while (iter < 10000) {
-            auto cond = evalExpr(s->forCond.get(), fields, locals);
-            const bool truthy = std::holds_alternative<bool>(cond) ? std::get<bool>(cond)
-                : (std::holds_alternative<double>(cond) ? std::get<double>(cond) != 0.0
-                   : std::holds_alternative<std::int64_t>(cond) ? std::get<std::int64_t>(cond) != 0 : false);
+            bool truthy = true;
+            if (s->forCond) {
+                const auto cond = evalExpr(s->forCond.get(), fields, locals);
+                truthy = std::holds_alternative<bool>(cond)
+                    ? std::get<bool>(cond)
+                    : std::holds_alternative<double>(cond)
+                        ? std::get<double>(cond) != 0.0
+                        : std::holds_alternative<std::int64_t>(cond)
+                            ? std::get<std::int64_t>(cond) != 0
+                            : false;
+            }
             if (!truthy) break;
             if (s->forBody && !execStmt(s->forBody.get(), fields, locals)) return false;
             if (returned_) break;
