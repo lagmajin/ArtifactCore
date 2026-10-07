@@ -1076,6 +1076,7 @@ ArtifactScriptDefinition ArtifactScriptParser::parse(std::string_view source) co
     std::size_t lineNo = 0;
     std::optional<ArtifactScriptClass> pendingClass;
     std::string pendingAttributes;
+    std::size_t pendingAttributesLine = 0;
 
     auto finishClass = [&]() {
         if (pendingClass) {
@@ -1146,10 +1147,13 @@ ArtifactScriptDefinition ArtifactScriptParser::parse(std::string_view source) co
         const bool isPublic = starts_with(trimmed, "public ");
         const bool isPrivate = starts_with(trimmed, "private ");
         const bool isField = isPublic || isPrivate;
-        const bool isMethod = trimmed.find('(') != static_cast<std::size_t>(-1) && trimmed.find(')') != static_cast<std::size_t>(-1);
         const bool isAttributeLine = !trimmed.isEmpty() && trimmed.data()[0] == '[' &&
-            trimmed.find(']') != static_cast<std::size_t>(-1) && !isField && !isMethod;
+            !isField;
+        const bool isMethod = !isAttributeLine &&
+            trimmed.find('(') != static_cast<std::size_t>(-1) &&
+            trimmed.find(')') != static_cast<std::size_t>(-1);
         if (isAttributeLine) {
+            if (pendingAttributes.empty()) pendingAttributesLine = lineNo;
             if (!pendingAttributes.empty()) pendingAttributes += " ";
             pendingAttributes += std::string(trimmed.data(), trimmed.length());
             pos = nextPos;
@@ -1170,7 +1174,10 @@ ArtifactScriptDefinition ArtifactScriptParser::parse(std::string_view source) co
             ArtifactScriptField field;
             // Phase 4a: attribute prefix e.g. [Range(0,1)] [Header("X")] [SerializeField].
             std::string attributes = pendingAttributes;
+            const std::size_t attributesLine =
+                pendingAttributesLine == 0 ? lineNo : pendingAttributesLine;
             pendingAttributes.clear();
+            pendingAttributesLine = 0;
             const std::string nameRaw(namePart.data(), namePart.length());
             std::string fieldName = nameRaw;
             const auto attrEnd = nameRaw.rfind(']');
@@ -1214,45 +1221,91 @@ ArtifactScriptDefinition ArtifactScriptParser::parse(std::string_view source) co
                     }
                 }
             }
-            if (eq != static_cast<std::size_t>(-1)) {
-                field.defaultValue = parseDefaultValue(body.substr(eq + 1), field.type);
-            } else if (field.type == ArtifactScriptValueType::Array) {
-                field.defaultValue = makeShared<ArtifactScriptArray>();
-            }
             if (!attributes.empty()) {
                 std::size_t cursor = 0;
                 while (cursor < attributes.size()) {
                     const auto open = attributes.find('[', cursor);
                     if (open == std::string::npos) break;
-                    const auto close = attributes.find(']', open + 1);
-                    if (close == std::string::npos) break;
+                    std::size_t close = std::string::npos;
+                    bool inString = false;
+                    bool escaped = false;
+                    for (std::size_t scan = open + 1; scan < attributes.size(); ++scan) {
+                        const char current = attributes[scan];
+                        if (inString) {
+                            if (escaped) escaped = false;
+                            else if (current == '\\') escaped = true;
+                            else if (current == '"') inString = false;
+                        } else if (current == '"') {
+                            inString = true;
+                        } else if (current == ']') {
+                            close = scan;
+                            break;
+                        }
+                    }
+                    if (close == std::string::npos) {
+                        def.diagnostics.push_back({attributesLine, 1, "unterminated field attribute"});
+                        break;
+                    }
                     const ZeroString itemView = trim(attributes.substr(open + 1, close - open - 1));
                     const std::string item(itemView.data(), itemView.length());
                     if (item == "SerializeField") {
                         field.serialized = true;
-                    } else if (starts_with(item, "Range(") && !item.empty() && item.back() == ')') {
-                        const std::string inner = item.substr(6, item.size() - 7);
+                    } else if (starts_with(item, "Range")) {
+                        const bool validSyntax = starts_with(item, "Range(") &&
+                            item.size() > 7 && item.back() == ')';
+                        const std::string_view inner = validSyntax
+                            ? std::string_view(item.data() + 6, item.size() - 7)
+                            : std::string_view{};
                         const auto comma = inner.find(',');
-                        const ZeroString loView = trim(inner.substr(0, comma));
-                        const ZeroString hiView = trim(comma == std::string::npos ? std::string() : inner.substr(comma + 1));
-                        try {
+                        const auto parseBound = [](std::string_view text, double& value) {
+                            const ZeroString trimmedBound = trim(text);
+                            const char* begin = trimmedBound.data();
+                            const char* end = begin + trimmedBound.length();
+                            if (begin == end) return false;
+                            if (*begin == '+') ++begin;
+                            const auto [parsedEnd, error] = std::from_chars(
+                                begin, end, value, std::chars_format::general);
+                            return error == std::errc{} && parsedEnd == end &&
+                                   std::isfinite(value);
+                        };
+                        double rangeMin = 0.0;
+                        double rangeMax = 0.0;
+                        const bool validRange = validSyntax &&
+                            comma != std::string_view::npos &&
+                            inner.find(',', comma + 1) == std::string_view::npos &&
+                            parseBound(inner.substr(0, comma), rangeMin) &&
+                            parseBound(inner.substr(comma + 1), rangeMax) &&
+                            rangeMin <= rangeMax;
+                        if (!validRange) {
+                            def.diagnostics.push_back({attributesLine, 1, "invalid Range attribute"});
+                        } else {
                             field.hasRange = true;
-                            field.rangeMin = std::stod(std::string(loView.data(), loView.length()));
-                            field.rangeMax = std::stod(std::string(hiView.data(), hiView.length()));
-                        } catch (...) {
-                            field.hasRange = false;
+                            field.rangeMin = rangeMin;
+                            field.rangeMax = rangeMax;
                         }
-                    } else if (starts_with(item, "Header(")) {
-                        const auto first = item.find('"');
-                        const auto last = item.rfind('"');
-                        if (first != std::string::npos && last != std::string::npos && last > first) {
-                            field.header = item.substr(first + 1, last - first - 1);
+                    } else if (starts_with(item, "Header") || starts_with(item, "Tooltip")) {
+                        const bool isHeader = starts_with(item, "Header");
+                        const std::string_view prefix = isHeader ? "Header(" : "Tooltip(";
+                        bool validTextAttribute = starts_with(item, prefix) &&
+                            item.size() > prefix.size() && item.back() == ')';
+                        std::string decoded;
+                        if (validTextAttribute) {
+                            const ZeroString argument = trim(std::string_view(
+                                item.data() + prefix.size(), item.size() - prefix.size() - 1));
+                            validTextAttribute = argument.length() >= 2 &&
+                                argument.data()[0] == '"' &&
+                                argument.data()[argument.length() - 1] == '"' &&
+                                decodeStringContent(std::string_view(
+                                    argument.data() + 1, argument.length() - 2), decoded);
                         }
-                    } else if (starts_with(item, "Tooltip(")) {
-                        const auto first = item.find('"');
-                        const auto last = item.rfind('"');
-                        if (first != std::string::npos && last != std::string::npos && last > first) {
-                            field.tooltip = item.substr(first + 1, last - first - 1);
+                        if (!validTextAttribute) {
+                            def.diagnostics.push_back({
+                                attributesLine, 1, isHeader ? "invalid Header attribute"
+                                                    : "invalid Tooltip attribute"});
+                        } else if (isHeader) {
+                            field.header = std::move(decoded);
+                        } else {
+                            field.tooltip = std::move(decoded);
                         }
                     }
                     cursor = close + 1;
