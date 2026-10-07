@@ -3870,13 +3870,33 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
         if (!array) return std::int64_t{0};
         ArtifactScriptValue total = std::int64_t{0};
         for (const auto& item : array->values) {
-            if (!std::holds_alternative<std::int64_t>(item) &&
-                !std::holds_alternative<double>(item)) {
+            const auto* itemInteger = std::get_if<std::int64_t>(&item);
+            const auto* itemNumber = std::get_if<double>(&item);
+            if (!itemInteger && !itemNumber) {
                 error_ = "sum expects an array of numbers";
                 return {};
             }
-            total = evalBinary(ArtifactScriptBinaryOp::Add, total, item);
-            if (!error_.empty()) return {};
+            if (auto* totalInteger = std::get_if<std::int64_t>(&total);
+                totalInteger && itemInteger) {
+                constexpr auto minimum =
+                    std::numeric_limits<std::int64_t>::min();
+                constexpr auto maximum =
+                    std::numeric_limits<std::int64_t>::max();
+                if ((*itemInteger > 0 && *totalInteger > maximum - *itemInteger) ||
+                    (*itemInteger < 0 && *totalInteger < minimum - *itemInteger)) {
+                    error_ = "integer overflow";
+                    return {};
+                }
+                *totalInteger += *itemInteger;
+                continue;
+            }
+            const double left = std::holds_alternative<std::int64_t>(total)
+                ? static_cast<double>(std::get<std::int64_t>(total))
+                : std::get<double>(total);
+            const double right = itemInteger
+                ? static_cast<double>(*itemInteger)
+                : *itemNumber;
+            total = left + right;
         }
         return total;
     };
