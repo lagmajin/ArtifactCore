@@ -3957,6 +3957,49 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
         array->values.push_back(source.substr(elementStart));
         return array;
     }
+    if (e->callName == "join") {
+        if (argumentValues.size() != 2 ||
+            !std::holds_alternative<ArtifactScriptArrayPtr>(argumentValues[0]) ||
+            !std::holds_alternative<std::string>(argumentValues[1])) {
+            error_ = "join expects an array and a delimiter string";
+            return {};
+        }
+        const auto& array = std::get<ArtifactScriptArrayPtr>(argumentValues[0]);
+        if (!array) {
+            error_ = "join on null array";
+            return {};
+        }
+        const auto& delimiter = std::get<std::string>(argumentValues[1]);
+        std::string result;
+        const std::size_t maximumSize = result.max_size();
+        std::size_t outputSize = 0;
+        if (array->values.size() > 1) {
+            const std::size_t delimiterCount = array->values.size() - 1;
+            if (delimiter.size() > maximumSize / delimiterCount) {
+                error_ = "join result is too large";
+                return {};
+            }
+            outputSize = delimiter.size() * delimiterCount;
+        }
+        for (const auto& value : array->values) {
+            const auto* part = std::get_if<std::string>(&value);
+            if (!part) {
+                error_ = "join expects an array of strings";
+                return {};
+            }
+            if (part->size() > maximumSize - outputSize) {
+                error_ = "join result is too large";
+                return {};
+            }
+            outputSize += part->size();
+        }
+        result.reserve(outputSize);
+        for (std::size_t i = 0; i < array->values.size(); ++i) {
+            if (i != 0) result.append(delimiter);
+            result.append(std::get<std::string>(array->values[i]));
+        }
+        return result;
+    }
     if (e->callName == "push" && argumentValues.size() == 2 &&
         std::holds_alternative<ArtifactScriptArrayPtr>(argumentValues[0])) {
         const auto& array = std::get<ArtifactScriptArrayPtr>(argumentValues[0]);
