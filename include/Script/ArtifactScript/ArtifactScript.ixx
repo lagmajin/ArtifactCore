@@ -223,6 +223,8 @@ struct ArtifactScriptStmt {
     std::string assignTarget;
     ArtifactScriptExprPtr assignValue;
     ArtifactScriptExprPtr assignIndex;
+    // Full lvalue expression for chained index/member assignments.
+    ArtifactScriptExprPtr assignTargetExpression;
     // Compound assignment operator (e.g. "+="); empty for plain "=".
     std::string assignOp;
 

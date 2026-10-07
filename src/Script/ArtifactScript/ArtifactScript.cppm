@@ -606,6 +606,25 @@ double parseNum(ParseCtx& c) { skipWS(c); size_t s = c.pos; while (c.pos < c.len
 ArtifactScriptExprPtr parseExpr(ParseCtx& c);
 ArtifactScriptStmtPtr parseStmt(ParseCtx& c);
 
+std::string parseAssignmentOperator(ParseCtx& c) {
+    skipWS(c);
+    if (c.pos >= c.len) return {};
+    if (c.pos + 1 < c.len && c.src[c.pos + 1] == '=') {
+        switch (c.src[c.pos]) {
+        case '+': case '-': case '*': case '/': case '%':
+            c.pos += 2;
+            return std::string(c.src.substr(c.pos - 2, 2));
+        default:
+            return {};
+        }
+    }
+    if (c.src[c.pos] == '=') {
+        ++c.pos;
+        return "=";
+    }
+    return {};
+}
+
 ArtifactScriptStmtPtr parseStmt(ParseCtx& c) {
     skipWS(c); if (c.pos >= c.len || c.src[c.pos] == '}') return nullptr;
     if (matchKw(c, "if")) { matchCh(c, '('); auto s = std::make_unique<ArtifactScriptStmt>(); s->kind = ArtifactScriptStmt::Kind::If;
@@ -648,6 +667,7 @@ ArtifactScriptStmtPtr parseStmt(ParseCtx& c) {
         }
         matchCh(c, '}'); return b; }
     // Variable declaration: "float x" or "float x = expr", or type-inferred "var x = expr"
+    const std::size_t expressionStart = c.pos;
     std::string id = parseId(c);
     if (id.empty()) { matchCh(c, ';'); return std::make_unique<ArtifactScriptStmt>(); }
         if (id == "float" || id == "int" || id == "bool" || id == "string" || id == "Array" || id == "array") {
@@ -687,57 +707,55 @@ ArtifactScriptStmtPtr parseStmt(ParseCtx& c) {
         matchCh(c, ';');
         return inc;
     }
-    if (matchCh(c, '[')) {
-        auto index = parseRequiredExpr(c); matchCh(c, ']');
-        std::string op;
-        if (matchCh(c, '=')) op = "=";
-        else if (c.pos + 1 < c.len && c.src[c.pos] == '+' && c.src[c.pos+1] == '=') { op = "+="; c.pos += 2; }
-        else if (c.pos + 1 < c.len && c.src[c.pos] == '-' && c.src[c.pos+1] == '=') { op = "-="; c.pos += 2; }
-        else if (c.pos + 1 < c.len && c.src[c.pos] == '*' && c.src[c.pos+1] == '=') { op = "*="; c.pos += 2; }
-        else if (c.pos + 1 < c.len && c.src[c.pos] == '/' && c.src[c.pos+1] == '=') { op = "/="; c.pos += 2; }
-        if (!op.empty()) {
-            auto s = std::make_unique<ArtifactScriptStmt>(); s->kind = ArtifactScriptStmt::Kind::Assign;
-            s->assignTarget = id; s->assignIndex = std::move(index); s->assignOp = op; s->assignValue = parseRequiredExpr(c); matchCh(c, ';'); return s;
-        }
-        c.pos -= id.size();
-    }
-    // Compound assignment: "x += expr;"
-    std::string compoundOp;
-    {
-        skipWS(c);
-        if (c.pos + 1 < c.len && c.src[c.pos+1] == '=' ) {
-            if (c.src[c.pos] == '+') { compoundOp = "+="; c.pos += 2; }
-            else if (c.src[c.pos] == '-') { compoundOp = "-="; c.pos += 2; }
-            else if (c.src[c.pos] == '*') { compoundOp = "*="; c.pos += 2; }
-            else if (c.src[c.pos] == '/') { compoundOp = "/="; c.pos += 2; }
-            else if (c.src[c.pos] == '%') { compoundOp = "%="; c.pos += 2; }
-        }
-    }
-    if (!compoundOp.empty()) {
-        auto s = std::make_unique<ArtifactScriptStmt>(); s->kind = ArtifactScriptStmt::Kind::Assign;
-        s->assignTarget = id; s->assignOp = compoundOp; s->assignValue = parseRequiredExpr(c); matchCh(c, ';'); return s;
-    }
-    if (matchCh(c, '=')) { auto s = std::make_unique<ArtifactScriptStmt>(); s->kind = ArtifactScriptStmt::Kind::Assign;
-        s->assignTarget = id; s->assignValue = parseRequiredExpr(c); matchCh(c, ';'); return s; }
-    if (matchCh(c, '.')) {
-        std::string field = parseId(c);
-        if (!field.empty()) {
-            if (matchCh(c, '=')) {
-                auto s = std::make_unique<ArtifactScriptStmt>();
-                s->kind = ArtifactScriptStmt::Kind::Decl;
-                s->declName = id;
-                s->fieldAssign = true;
-                s->assignField = field;
-                s->declInit = parseRequiredExpr(c);
+    skipWS(c);
+    if (!id.empty() && c.pos < c.len &&
+        (c.src[c.pos] == '[' || c.src[c.pos] == '.')) {
+        auto target = std::make_unique<ArtifactScriptExpr>();
+        target->kind = ArtifactScriptExpr::Kind::Variable;
+        target->variableName = id;
+        target = parsePostfixSuffix(c, std::move(target));
+        if (c.failed) return nullptr;
+        if (target && (target->kind == ArtifactScriptExpr::Kind::Index ||
+                       target->kind == ArtifactScriptExpr::Kind::FieldAccess)) {
+            std::string op = parseAssignmentOperator(c);
+            if (!op.empty()) {
+                auto statement = std::make_unique<ArtifactScriptStmt>();
+                const bool legacyDirectFieldAssignment =
+                    op == "=" &&
+                    target->kind == ArtifactScriptExpr::Kind::FieldAccess &&
+                    target->fieldObject &&
+                    target->fieldObject->kind ==
+                        ArtifactScriptExpr::Kind::Variable;
+                if (legacyDirectFieldAssignment) {
+                    statement->kind = ArtifactScriptStmt::Kind::Decl;
+                    statement->declName =
+                        target->fieldObject->variableName;
+                    statement->fieldAssign = true;
+                    statement->assignField = target->fieldName;
+                    statement->declInit = parseRequiredExpr(c);
+                } else {
+                    statement->kind = ArtifactScriptStmt::Kind::Assign;
+                    statement->assignTargetExpression = std::move(target);
+                    statement->assignOp = std::move(op);
+                    statement->assignValue = parseRequiredExpr(c);
+                }
                 matchCh(c, ';');
-                return s;
+                return statement;
             }
-            c.pos -= (field.size() + 1);
-        } else {
-            c.pos -= 1;
+        }
+    } else {
+        std::string op = parseAssignmentOperator(c);
+        if (!op.empty()) {
+            auto statement = std::make_unique<ArtifactScriptStmt>();
+            statement->kind = ArtifactScriptStmt::Kind::Assign;
+            statement->assignTarget = id;
+            statement->assignOp = std::move(op);
+            statement->assignValue = parseRequiredExpr(c);
+            matchCh(c, ';');
+            return statement;
         }
     }
-    c.pos -= id.size();
+    c.pos = expressionStart;
     auto s = std::make_unique<ArtifactScriptStmt>(); s->kind = ArtifactScriptStmt::Kind::Expr;
     s->expr = parseExpr(c); matchCh(c, ';'); return s;
 }
@@ -2301,7 +2319,7 @@ bool statementMayMutateArray(const ArtifactScriptStmt* statement) {
     case ArtifactScriptStmt::Kind::Expr:
         return expressionMayMutateArray(statement->expr.get());
     case ArtifactScriptStmt::Kind::Assign:
-        return statement->assignIndex ||
+        return statement->assignIndex || statement->assignTargetExpression ||
                expressionMayMutateArray(statement->assignValue.get());
     case ArtifactScriptStmt::Kind::If:
         return expressionMayMutateArray(statement->ifCond.get()) ||
@@ -3467,6 +3485,105 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
             }
             return true;
         };
+        if (s->assignTargetExpression) {
+            ArtifactScriptExpr* targetExpression =
+                s->assignTargetExpression.get();
+            ArtifactScriptValue* targetValue = nullptr;
+            ArtifactScriptValue hostPropertyValue;
+            bool writesHostProperty = false;
+
+            if (targetExpression->kind == ArtifactScriptExpr::Kind::Index) {
+                const auto arrayValue = evalExpr(
+                    targetExpression->indexTarget.get(), fields, locals);
+                if (!error_.empty()) return false;
+                const auto indexValue = evalExpr(
+                    targetExpression->indexExpr.get(), fields, locals);
+                if (!error_.empty()) return false;
+                if (!std::holds_alternative<ArtifactScriptArrayPtr>(arrayValue) ||
+                    (!std::holds_alternative<double>(indexValue) &&
+                     !std::holds_alternative<std::int64_t>(indexValue))) {
+                    error_ = "invalid array assignment";
+                    return false;
+                }
+                const auto& array = std::get<ArtifactScriptArrayPtr>(arrayValue);
+                std::size_t index = 0;
+                if (!array || !tryResolveArrayIndex(
+                                  indexValue, array->values.size(), index)) {
+                    error_ = "array index out of range";
+                    return false;
+                }
+                targetValue = &array->values[index];
+            } else if (targetExpression->kind ==
+                       ArtifactScriptExpr::Kind::FieldAccess) {
+                const bool isThis = targetExpression->fieldObject &&
+                    targetExpression->fieldObject->kind ==
+                        ArtifactScriptExpr::Kind::Variable &&
+                    targetExpression->fieldObject->variableName == "this";
+                if (isThis && !activeThis_) {
+                    writesHostProperty = true;
+                    if (!isSimpleAssignment &&
+                        !ArtifactScriptHost::global().callFunction(
+                            "getSelfProperty",
+                            {ArtifactScriptValue(targetExpression->fieldName)},
+                            hostPropertyValue)) {
+                        error_ = "this." + targetExpression->fieldName +
+                                 ": host property read is not wired";
+                        return false;
+                    }
+                    targetValue = &hostPropertyValue;
+                } else if (isThis) {
+                    targetValue = fields.findForWrite(
+                        targetExpression->fieldName);
+                    if (!targetValue) {
+                        fields[targetExpression->fieldName] = {};
+                        targetValue = fields.findForWrite(
+                            targetExpression->fieldName);
+                    }
+                } else {
+                    const auto objectValue = evalExpr(
+                        targetExpression->fieldObject.get(), fields, locals);
+                    if (!error_.empty()) return false;
+                    if (!std::holds_alternative<ArtifactScriptObjectInstancePtr>(
+                            objectValue) ||
+                        !std::get<ArtifactScriptObjectInstancePtr>(objectValue)) {
+                        error_ = "field assign on non-object: " +
+                                 targetExpression->fieldName;
+                        return false;
+                    }
+                    const auto& object = std::get<ArtifactScriptObjectInstancePtr>(
+                        objectValue);
+                    targetValue = &object->fields[targetExpression->fieldName];
+                }
+            } else {
+                error_ = "invalid assignment target";
+                return false;
+            }
+
+            if (!targetValue) {
+                error_ = "invalid assignment target";
+                return false;
+            }
+            if (isSimpleAssignment) {
+                *targetValue = std::move(v);
+            } else if (!applyNumericCompound(*targetValue) &&
+                       !appendStringCompound(*targetValue)) {
+                *targetValue = applyCompound(*targetValue);
+            }
+            if (!error_.empty()) return false;
+            if (writesHostProperty) {
+                ArtifactScriptValue written;
+                if (!ArtifactScriptHost::global().callFunction(
+                        "setSelfProperty",
+                        {ArtifactScriptValue(targetExpression->fieldName),
+                         *targetValue},
+                        written)) {
+                    error_ = "this." + targetExpression->fieldName +
+                             ": host property write is not wired";
+                    return false;
+                }
+            }
+            return error_.empty();
+        }
         if (s->assignIndex) {
             auto* target = locals.find(s->assignTarget);
             if (!target) {
