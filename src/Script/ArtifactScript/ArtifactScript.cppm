@@ -118,7 +118,12 @@ ArtifactScriptValueType parseFieldType(std::string_view typeName) {
 
 namespace {
 
-struct ParseCtx { std::string_view src; size_t pos = 0; size_t len = 0; };
+struct ParseCtx {
+    std::string_view src;
+    size_t pos = 0;
+    size_t len = 0;
+    bool stalled = false;
+};
 void skipWS(ParseCtx& c) {
     while (c.pos < c.len) {
         if (std::isspace(static_cast<unsigned char>(c.src[c.pos]))) {
@@ -250,7 +255,8 @@ ArtifactScriptExprPtr name(ParseCtx& c) { auto l = next(c); while (l) { Artifact
 
 BIN_PARSE(parseMulDiv, parsePrimary,
     if (matchCh(c, '*')) { op = ArtifactScriptBinaryOp::Mul; matched = 1; }
-    else if (matchCh(c, '/')) { op = ArtifactScriptBinaryOp::Div; matched = 1; })
+    else if (matchCh(c, '/')) { op = ArtifactScriptBinaryOp::Div; matched = 1; }
+    else if (matchCh(c, '%')) { op = ArtifactScriptBinaryOp::Mod; matched = 1; })
 
 BIN_PARSE(parseAddSub, parseMulDiv,
     if (matchCh(c, '+')) { op = ArtifactScriptBinaryOp::Add; matched = 1; }
@@ -330,7 +336,16 @@ ArtifactScriptStmtPtr parseStmt(ParseCtx& c) {
     if (matchKw(c, "return")) { auto s = std::make_unique<ArtifactScriptStmt>(); s->kind = ArtifactScriptStmt::Kind::Return;
         auto e = parseExpr(c); if (e) s->expr = std::move(e); matchCh(c, ';'); return s; }
     if (matchCh(c, '{')) { auto b = std::make_unique<ArtifactScriptStmt>(); b->kind = ArtifactScriptStmt::Kind::Block;
-        while (c.pos < c.len && c.src[c.pos] != '}') { auto s = parseStmt(c); if (s) b->blockStmts.push_back(std::move(s)); else break; }
+        while (c.pos < c.len && c.src[c.pos] != '}') {
+            const auto positionBeforeStatement = c.pos;
+            auto s = parseStmt(c);
+            if (s) b->blockStmts.push_back(std::move(s));
+            else break;
+            if (c.pos == positionBeforeStatement) {
+                c.stalled = true;
+                break;
+            }
+        }
         matchCh(c, '}'); return b; }
     // Variable declaration: "float x" or "float x = expr", or type-inferred "var x = expr"
     std::string id = parseId(c);
@@ -427,10 +442,20 @@ ArtifactScriptStmtPtr parseStmt(ParseCtx& c) {
     s->expr = parseExpr(c); matchCh(c, ';'); return s;
 }
 
-ArtifactScriptMethodBodyPtr parseMethodBody(std::string_view src, const std::vector<std::string>& params) {
+ArtifactScriptMethodBodyPtr parseMethodBody(
+    std::string_view src, const std::vector<std::string>& params, bool& stalled) {
     auto body = std::make_unique<ArtifactScriptMethodBody>(); body->parameters = params;
     ParseCtx c{src, 0, src.size()};
-    while (c.pos < c.len) { auto s = parseStmt(c); if (s) body->statements.push_back(std::move(s)); else break; }
+    while (c.pos < c.len) {
+        const auto positionBeforeStatement = c.pos;
+        auto s = parseStmt(c);
+        if (s) body->statements.push_back(std::move(s));
+        else break;
+        if (c.stalled || c.pos == positionBeforeStatement) {
+            stalled = true;
+            return nullptr;
+        }
+    }
     return body;
 }
 
@@ -707,7 +732,12 @@ ArtifactScriptDefinition ArtifactScriptParser::parse(std::string_view source) co
                 }
             }
             if (hasBody) {
-                method.body = parseMethodBody(bodyText, method.parameters);
+                bool parserStalled = false;
+                method.body = parseMethodBody(bodyText, method.parameters, parserStalled);
+                if (parserStalled) {
+                    def.diagnostics.push_back({method.line, method.column,
+                        "unsupported or invalid syntax in method body"});
+                }
             }
             activeClass().methods.push_back(std::move(method));
             pos = nextPos;
@@ -1842,6 +1872,8 @@ public:
     ArtifactScriptLocals::Workspace localsWorkspace_;
     ArtifactScriptCallArguments::Workspace callArgumentWorkspace_;
     std::array<MethodCallCacheEntry, kMethodCallCacheCapacity> methodCallCache_{};
+    std::array<MethodCallCacheEntry, kMethodCallCacheCapacity * 2>
+        objectMethodCallCache_{};
     std::uint32_t methodCallCacheGeneration_ = 0;
     // Retain at most 1024 values across 8 nested snapshots. Deeper/larger
     // loops use a transient snapshot so scripts cannot grow this workspace
@@ -2972,6 +3004,7 @@ void ArtifactScriptEvaluator::Impl::beginMethodCallCacheGeneration() {
     ++methodCallCacheGeneration_;
     if (methodCallCacheGeneration_ == 0) {
         for (auto& entry : methodCallCache_) entry.generation = 0;
+        for (auto& entry : objectMethodCallCache_) entry.generation = 0;
         methodCallCacheGeneration_ = 1;
     }
 }
@@ -2998,14 +3031,17 @@ const ArtifactScriptMethod* ArtifactScriptEvaluator::Impl::findObjectMethodAtCal
     if (!activeDefinition_ || !callSite || className.empty()) return nullptr;
     static_assert((kMethodCallCacheCapacity & (kMethodCallCacheCapacity - 1)) == 0);
     const auto address = reinterpret_cast<std::uintptr_t>(callSite);
-    // The call-site address chooses the cache slot; the hit check below still
-    // validates the runtime class, avoiding a class-name hash on every hit.
-    const auto slot = (address >> 4) & (kMethodCallCacheCapacity - 1);
-    auto& entry = methodCallCache_[slot];
-    if (entry.generation == methodCallCacheGeneration_ &&
-        entry.callSite == callSite && entry.definition == activeDefinition_ &&
-        entry.targetClass && entry.targetClass->name == className) {
-        return entry.method;
+    // Two ways preserve monomorphic and common polymorphic call sites without
+    // hashing the runtime class name on each cache hit.
+    const auto set = (address >> 4) & (kMethodCallCacheCapacity - 1);
+    const auto firstSlot = set * 2;
+    for (std::size_t way = 0; way < 2; ++way) {
+        auto& entry = objectMethodCallCache_[firstSlot + way];
+        if (entry.generation == methodCallCacheGeneration_ &&
+            entry.callSite == callSite && entry.definition == activeDefinition_ &&
+            entry.targetClass && entry.targetClass->name == className) {
+            return entry.method;
+        }
     }
 
     const auto* targetClass = findClass(className);
@@ -3022,8 +3058,13 @@ const ArtifactScriptMethod* ArtifactScriptEvaluator::Impl::findObjectMethodAtCal
         if (method || current->parentName.empty()) break;
         current = findClass(current->parentName);
     }
-    entry = {callSite, activeDefinition_, targetClass, method,
-             methodCallCacheGeneration_};
+    auto& firstEntry = objectMethodCallCache_[firstSlot];
+    auto& secondEntry = objectMethodCallCache_[firstSlot + 1];
+    auto& replacement = firstEntry.generation != methodCallCacheGeneration_
+        ? firstEntry
+        : secondEntry;
+    replacement = {callSite, activeDefinition_, targetClass, method,
+                   methodCallCacheGeneration_};
     return method;
 }
 
