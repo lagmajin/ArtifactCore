@@ -3094,7 +3094,7 @@ const ArtifactScriptMethod* ArtifactScriptEvaluator::Impl::findObjectMethodAtCal
 bool ArtifactScriptEvaluator::Impl::isInstanceOf(
     const ArtifactScriptObjectInstance& instance, std::string_view className) const {
     if (!activeDefinition_ || className.empty()) return false;
-    std::string current = instance.className;
+    std::string_view current = instance.className;
     for (int depth = 0; depth < 32; ++depth) {
         if (current == className) return true;
         const ArtifactScriptClass* cls = findClass(current);
