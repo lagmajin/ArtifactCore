@@ -1868,6 +1868,9 @@ public:
     static constexpr std::size_t kReusableForeachValueBudget = 1024;
     static constexpr std::size_t kMethodCallCacheCapacity = 32;
     static constexpr std::size_t kObjectMethodCallCacheWays = 3;
+    static constexpr std::size_t kClassLookupIndexCapacity = 128;
+    static constexpr std::size_t kClassLookupMaxClasses =
+        kClassLookupIndexCapacity / 2;
 
     struct MethodCallCacheEntry {
         const ArtifactScriptExpr* callSite = nullptr;
@@ -1875,6 +1878,11 @@ public:
         const ArtifactScriptClass* targetClass = nullptr;
         const ArtifactScriptMethod* method = nullptr;
         std::uint32_t generation = 0;
+    };
+
+    struct ClassLookupIndexEntry {
+        std::uint32_t generation = 0;
+        const ArtifactScriptClass* classDefinition = nullptr;
     };
 
     struct ForeachSnapshotScope {
@@ -1927,6 +1935,11 @@ public:
                kMethodCallCacheCapacity * kObjectMethodCallCacheWays>
         objectMethodCallCache_{};
     std::uint32_t methodCallCacheGeneration_ = 0;
+    std::array<ClassLookupIndexEntry, kClassLookupIndexCapacity>
+        classLookupIndex_{};
+    const ArtifactScriptDefinition* classLookupDefinition_ = nullptr;
+    std::uint32_t classLookupGeneration_ = 0;
+    bool classLookupIndexEnabled_ = false;
     // Retain at most 1024 values across 8 nested snapshots. Deeper/larger
     // loops use a transient snapshot so scripts cannot grow this workspace
     // without bound. Reserving the outer array once keeps overlay pointers stable.
@@ -1945,6 +1958,8 @@ public:
     const ArtifactScriptMethod* findObjectMethodAtCallSite(
         const ArtifactScriptExpr*, std::string_view);
     void beginMethodCallCacheGeneration();
+    void beginClassLookupGeneration(const ArtifactScriptDefinition&);
+    void invalidateClassLookupIndex();
     bool isInstanceOf(const ArtifactScriptObjectInstance&, std::string_view) const;
 };
 
@@ -1959,6 +1974,7 @@ bool ArtifactScriptEvaluator::execute(
     const std::vector<ArtifactScriptValue>& args,
     ArtifactScriptSerializedFields& fields) {
     impl_->beginMethodCallCacheGeneration();
+    impl_->invalidateClassLookupIndex();
     impl_->error_.clear();
     impl_->returnValue_ = {};
     impl_->returned_ = false;
@@ -3052,6 +3068,25 @@ const ArtifactScriptSerializedFields* ArtifactScriptHotReload::fieldsFor(const s
 const ArtifactScriptClass* ArtifactScriptEvaluator::Impl::findClass(std::string_view name) const {
     if (!activeDefinition_ || name.empty()) return nullptr;
     if (name == activeDefinition_->rootClass.name) return &activeDefinition_->rootClass;
+    if (classLookupIndexEnabled_ &&
+        classLookupDefinition_ == activeDefinition_) {
+        static_assert((kClassLookupIndexCapacity &
+                       (kClassLookupIndexCapacity - 1)) == 0);
+        std::uint64_t hash = 14695981039346656037ull;
+        for (const unsigned char character : name) {
+            hash ^= character;
+            hash *= 1099511628211ull;
+        }
+        auto slot = static_cast<std::size_t>(hash) &
+                    (kClassLookupIndexCapacity - 1);
+        for (std::size_t probe = 0; probe < kClassLookupIndexCapacity; ++probe) {
+            const auto& entry = classLookupIndex_[slot];
+            if (entry.generation != classLookupGeneration_) return nullptr;
+            if (entry.classDefinition->name == name) return entry.classDefinition;
+            slot = (slot + 1) & (kClassLookupIndexCapacity - 1);
+        }
+        return nullptr;
+    }
     for (const auto& cls : activeDefinition_->classes) {
         if (cls.name == name) return &cls;
     }
@@ -3148,6 +3183,47 @@ const ArtifactScriptMethod* ArtifactScriptEvaluator::Impl::findObjectMethodAtCal
     return method;
 }
 
+void ArtifactScriptEvaluator::Impl::beginClassLookupGeneration(
+    const ArtifactScriptDefinition& definition) {
+    classLookupDefinition_ = &definition;
+    classLookupIndexEnabled_ =
+        definition.classes.size() <= kClassLookupMaxClasses;
+    if (!classLookupIndexEnabled_) return;
+
+    ++classLookupGeneration_;
+    if (classLookupGeneration_ == 0) {
+        for (auto& entry : classLookupIndex_) entry.generation = 0;
+        classLookupGeneration_ = 1;
+    }
+
+    for (const auto& cls : definition.classes) {
+        std::uint64_t hash = 14695981039346656037ull;
+        for (const unsigned char character : cls.name) {
+            hash ^= character;
+            hash *= 1099511628211ull;
+        }
+        auto slot = static_cast<std::size_t>(hash) &
+                    (kClassLookupIndexCapacity - 1);
+        for (std::size_t probe = 0; probe < kClassLookupIndexCapacity; ++probe) {
+            auto& entry = classLookupIndex_[slot];
+            if (entry.generation != classLookupGeneration_) {
+                entry.classDefinition = &cls;
+                entry.generation = classLookupGeneration_;
+                break;
+            }
+            // Preserve the original linear scan's first-match behavior for
+            // duplicate class names.
+            if (entry.classDefinition->name == cls.name) break;
+            slot = (slot + 1) & (kClassLookupIndexCapacity - 1);
+        }
+    }
+}
+
+void ArtifactScriptEvaluator::Impl::invalidateClassLookupIndex() {
+    classLookupIndexEnabled_ = false;
+    classLookupDefinition_ = nullptr;
+}
+
 bool ArtifactScriptEvaluator::Impl::isInstanceOf(
     const ArtifactScriptObjectInstance& instance, std::string_view className) const {
     if (!activeDefinition_ || className.empty()) return false;
@@ -3205,6 +3281,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::executeMethod(
     const ArtifactScriptDefinition& definition, std::string_view methodName,
     const std::vector<ArtifactScriptValue>& args, ArtifactScriptSerializedFields& fields) {
     impl_->error_.clear();
+    impl_->invalidateClassLookupIndex();
     impl_->activeDefinition_ = &definition;
     // Resolve through the inheritance chain so a hook declared on a derived
     // class is found, not only one on the root class.
@@ -3223,6 +3300,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::executeResolvedMethod(
     ArtifactScriptSerializedFields& fields) {
     impl_->error_.clear();
     impl_->activeDefinition_ = &definition;
+    impl_->beginClassLookupGeneration(definition);
     impl_->beginMethodCallCacheGeneration();
     impl_->callDepth_ = 0;
     impl_->returnValue_ = {};
