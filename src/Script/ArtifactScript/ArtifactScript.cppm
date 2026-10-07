@@ -3302,10 +3302,14 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalExpr(
                 if (std::holds_alternative<std::int64_t>(v)) return std::get<std::int64_t>(v) != 0;
                 return false;
             };
-        if (e->binaryOp == ArtifactScriptBinaryOp::And && !truthy(left)) return left;
-        if (e->binaryOp == ArtifactScriptBinaryOp::Or && truthy(left)) return left;
-        const auto right = evalExpr(e->right.get(), fields, locals);
-        return right;
+            const bool leftIsTruthy = truthy(left);
+            if (e->binaryOp == ArtifactScriptBinaryOp::And && !leftIsTruthy)
+                return false;
+            if (e->binaryOp == ArtifactScriptBinaryOp::Or && leftIsTruthy)
+                return true;
+            const auto right = evalExpr(e->right.get(), fields, locals);
+            if (!error_.empty()) return {};
+            return truthy(right);
         }
         const bool isStringAddition = e->binaryOp == ArtifactScriptBinaryOp::Add;
         const bool isStringComparison =
