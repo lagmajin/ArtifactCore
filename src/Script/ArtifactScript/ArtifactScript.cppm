@@ -1742,7 +1742,9 @@ public:
     }
 
 private:
-    static constexpr std::size_t inlineCapacity_ = 12;
+    // Benchmarks favor keeping common-sized local sets inline; larger frames
+    // continue through the bounded evaluator-owned overflow workspace.
+    static constexpr std::size_t inlineCapacity_ = 16;
     static constexpr std::size_t inlineNameIndexCapacity_ = 32;
     static constexpr std::size_t overflowNameIndexCapacity_ = 64;
     static_assert((inlineNameIndexCapacity_ & (inlineNameIndexCapacity_ - 1)) == 0);
