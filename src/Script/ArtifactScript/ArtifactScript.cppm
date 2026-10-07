@@ -2427,6 +2427,54 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalExpr(
                 default: break;
                 }
             }
+            const auto isAdditionNode = [](const ArtifactScriptExpr* node) {
+                return node && node->kind == ArtifactScriptExpr::Kind::Binary &&
+                       node->binaryOp == ArtifactScriptBinaryOp::Add;
+            };
+            if (isStringAddition &&
+                (isAdditionNode(e->left.get()) || isAdditionNode(e->right.get()))) {
+                constexpr std::size_t maxFusionDepth = 64;
+                std::size_t totalSize = 0;
+                const auto measureStringTree = [&](auto&& self,
+                                                   const ArtifactScriptExpr* node,
+                                                   std::size_t depth) -> bool {
+                    if (!node || depth > maxFusionDepth) return false;
+                    if (isAdditionNode(node)) {
+                        return self(self, node->left.get(), depth + 1) &&
+                               self(self, node->right.get(), depth + 1);
+                    }
+                    const auto* text = stringOperand(node);
+                    if (!text || text->size() >
+                                     static_cast<std::size_t>(-1) - totalSize)
+                        return false;
+                    totalSize += text->size();
+                    return true;
+                };
+                if (measureStringTree(measureStringTree, e, 0)) {
+                    std::string result;
+                    if (totalSize > result.max_size()) {
+                        return evalBinary(
+                            e->binaryOp,
+                            evalExpr(e->left.get(), fields, locals),
+                            evalExpr(e->right.get(), fields, locals));
+                    }
+                    result.reserve(totalSize);
+                    const auto appendStringTree = [&](auto&& self,
+                                                      const ArtifactScriptExpr* node,
+                                                      std::size_t depth) -> bool {
+                        if (!node || depth > maxFusionDepth) return false;
+                        if (isAdditionNode(node)) {
+                            return self(self, node->left.get(), depth + 1) &&
+                                   self(self, node->right.get(), depth + 1);
+                        }
+                        const auto* text = stringOperand(node);
+                        if (!text) return false;
+                        result.append(*text);
+                        return true;
+                    };
+                    if (appendStringTree(appendStringTree, e, 0)) return result;
+                }
+            }
         }
         return evalBinary(e->binaryOp, evalExpr(e->left.get(), fields, locals), evalExpr(e->right.get(), fields, locals));
     }
