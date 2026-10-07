@@ -1514,12 +1514,16 @@ struct ArtifactScriptLocalBinding {
     ArtifactScriptValue value;
 };
 
+// The argument workspace covers every accepted method-call frame, so deep
+// recursion with overflow arguments does not fall back to per-call storage.
+constexpr std::size_t kArtifactScriptMaxCallDepth = 64;
+
 class ArtifactScriptCallArguments {
 public:
     struct Workspace {
-        static constexpr std::size_t maxDepth = 8;
+        static constexpr std::size_t maxDepth = kArtifactScriptMaxCallDepth;
         static constexpr std::size_t maxRetainedArguments = 32;
-        std::array<std::vector<ArtifactScriptValue>, maxDepth> overflow;
+        std::array<ArtifactCore::Array<ArtifactScriptValue>, maxDepth> overflow;
         std::size_t depth = 0;
     };
 
@@ -1530,7 +1534,7 @@ public:
         if (expected <= Workspace::maxRetainedArguments &&
             workspace.depth < workspace.overflow.size()) {
             auto& reusable = workspace.overflow[workspace.depth];
-            reusable.clear();
+            reusable.removeAll();
             if (reusable.capacity() < expected) reusable.reserve(expected);
             workspace_ = &workspace;
             overflow_ = &reusable;
@@ -1545,7 +1549,7 @@ public:
 
     ~ArtifactScriptCallArguments() {
         if (useWorkspace_) {
-            overflow_->clear();
+            overflow_->removeAll();
             --workspace_->depth;
         }
     }
@@ -1554,7 +1558,7 @@ public:
     ArtifactScriptCallArguments& operator=(const ArtifactScriptCallArguments&) = delete;
 
     void append(ArtifactScriptValue value) {
-        if (useOverflow_) overflow_->push_back(std::move(value));
+        if (useOverflow_) overflow_->append(std::move(value));
         else inlineValues_[size_] = std::move(value);
         ++size_;
     }
@@ -1574,8 +1578,8 @@ private:
     static constexpr std::size_t inlineCapacity_ = 5;
     ArtifactScriptValue inlineValues_[inlineCapacity_]{};
     Workspace* workspace_ = nullptr;
-    std::optional<std::vector<ArtifactScriptValue>> fallbackOverflow_;
-    std::vector<ArtifactScriptValue>* overflow_ = nullptr;
+    std::optional<ArtifactCore::Array<ArtifactScriptValue>> fallbackOverflow_;
+    ArtifactCore::Array<ArtifactScriptValue>* overflow_ = nullptr;
     std::size_t size_ = 0;
     bool useOverflow_ = false;
     bool useWorkspace_ = false;
@@ -2365,7 +2369,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::callUserMethod(
     const ArtifactScriptMethod& resolvedMethod,
     std::span<const ArtifactScriptValue> args,
     ArtifactScriptFields& fields) {
-    constexpr int kMaxCallDepth = 64;
+    constexpr int kMaxCallDepth = static_cast<int>(kArtifactScriptMaxCallDepth);
     if (callDepth_ >= kMaxCallDepth) {
         error_ = "script call depth limit";
         return {};
@@ -3108,7 +3112,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::callInstanceMethod(
     const ArtifactScriptObjectInstancePtr& instance,
     const ArtifactScriptMethod& resolvedMethod,
     std::span<const ArtifactScriptValue> args) {
-    constexpr int kMaxCallDepth = 64;
+    constexpr int kMaxCallDepth = static_cast<int>(kArtifactScriptMaxCallDepth);
     if (!instance) { error_ = "null object"; return {}; }
     if (callDepth_ >= kMaxCallDepth) { error_ = "script call depth limit"; return {}; }
     const ArtifactScriptMethod* method = &resolvedMethod;
