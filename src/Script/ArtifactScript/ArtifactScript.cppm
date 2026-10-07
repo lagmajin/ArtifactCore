@@ -2134,6 +2134,9 @@ void ArtifactScriptLayerRuntime::bind(ArtifactScriptDefinition definition) {
     defaults.setScriptClass(instance_.definition().rootClass.name);
     defaults.applyDefaults(instance_.definition());
     instance_.fields() = defaults.publicFields();
+    for (const auto& field : instance_.definition().rootClass.fields) {
+        instance_.fields().try_emplace(field.name, field.defaultValue);
+    }
 }
 
 void ArtifactScriptLayerRuntime::replaceDefinition(
@@ -2142,10 +2145,13 @@ void ArtifactScriptLayerRuntime::replaceDefinition(
     if (!hasInstance_) {
         bind(std::move(definition));
         instance_.fields() = std::move(fields);
-        return;
+    } else {
+        instance_ = ArtifactScriptInstance(std::move(definition));
+        instance_.fields() = std::move(fields);
     }
-    instance_ = ArtifactScriptInstance(std::move(definition));
-    instance_.fields() = std::move(fields);
+    for (const auto& field : instance_.definition().rootClass.fields) {
+        instance_.fields().try_emplace(field.name, field.defaultValue);
+    }
 }
 
 void ArtifactScriptLayerRuntime::release() {
@@ -4465,13 +4471,12 @@ ArtifactScriptReloadResult ArtifactScriptHotReload::reloadWithSaved(
         }
     }
 
-    // Defaults for everything still missing.
-    ArtifactScriptComponent tmp;
-    tmp.setScriptClass(r.definition.rootClass.name);
-    tmp.applyDefaults(r.definition);
-    for (const auto& [name, value] : tmp.publicFields()) {
-        if (r.migratedFields.find(name) == r.migratedFields.end()) {
-            r.migratedFields[name] = value;
+    // Defaults for every serialized field, including [SerializeField] private
+    // fields, that is still missing.
+    for (const auto& field : r.definition.rootClass.fields) {
+        if (field.serialized &&
+            r.migratedFields.find(field.name) == r.migratedFields.end()) {
+            r.migratedFields[field.name] = field.defaultValue;
         }
     }
 
@@ -4568,22 +4573,24 @@ ArtifactScriptReloadResult ArtifactScriptHotReload::reload(
     // Migrate existing field values
     if (prevFields && prevDef) {
         for (const auto& of : prevDef->rootClass.fields) {
-            if (!of.isPublic) continue;
+            if (!of.serialized) continue;
             auto it = prevFields->find(of.name);
             if (it == prevFields->end()) continue;
             for (const auto& nf : r.definition.rootClass.fields) {
-                if (nf.name == of.name && nf.isPublic && nf.type == of.type) {
+                if (nf.name == of.name && nf.serialized && nf.type == of.type) {
                     r.migratedFields[of.name] = it->second; break;
                 }
             }
         }
     }
-    // Apply defaults for new fields
-    ArtifactScriptComponent tmp;
-    tmp.setScriptClass(r.definition.rootClass.name);
-    tmp.applyDefaults(r.definition);
-    for (const auto& [k, v] : tmp.publicFields())
-        if (r.migratedFields.find(k) == r.migratedFields.end()) r.migratedFields[k] = v;
+    // Apply defaults to every serialized field, including private fields opted
+    // in with [SerializeField].
+    for (const auto& field : r.definition.rootClass.fields) {
+        if (field.serialized &&
+            r.migratedFields.find(field.name) == r.migratedFields.end()) {
+            r.migratedFields[field.name] = field.defaultValue;
+        }
+    }
 
     r.success = true; return r;
 }
@@ -4624,7 +4631,7 @@ bool ArtifactScriptHotReload::addFile(
     if (!result.success) return false;
     for (const auto& [name, value] : initialFields) {
         for (const auto& field : result.definition.rootClass.fields) {
-            if (field.isPublic && field.name == name) {
+            if (field.serialized && field.name == name) {
                 result.migratedFields[name] = value;
                 break;
             }
