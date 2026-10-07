@@ -1486,13 +1486,42 @@ struct ArtifactScriptLocalBinding {
 
 class ArtifactScriptCallArguments {
 public:
-    explicit ArtifactScriptCallArguments(std::size_t expected)
+    struct Workspace {
+        static constexpr std::size_t maxDepth = 8;
+        static constexpr std::size_t maxRetainedArguments = 32;
+        std::array<std::vector<ArtifactScriptValue>, maxDepth> overflow;
+        std::size_t depth = 0;
+    };
+
+    ArtifactScriptCallArguments(std::size_t expected, Workspace& workspace)
         : useOverflow_(expected > inlineCapacity_) {
-        if (useOverflow_) {
-            overflow_.emplace();
-            overflow_->reserve(expected);
+        if (!useOverflow_) return;
+
+        if (expected <= Workspace::maxRetainedArguments &&
+            workspace.depth < workspace.overflow.size()) {
+            auto& reusable = workspace.overflow[workspace.depth];
+            reusable.clear();
+            if (reusable.capacity() < expected) reusable.reserve(expected);
+            workspace_ = &workspace;
+            overflow_ = &reusable;
+            ++workspace.depth;
+            useWorkspace_ = true;
+        } else {
+            fallbackOverflow_.emplace();
+            fallbackOverflow_->reserve(expected);
+            overflow_ = &*fallbackOverflow_;
         }
     }
+
+    ~ArtifactScriptCallArguments() {
+        if (useWorkspace_) {
+            overflow_->clear();
+            --workspace_->depth;
+        }
+    }
+
+    ArtifactScriptCallArguments(const ArtifactScriptCallArguments&) = delete;
+    ArtifactScriptCallArguments& operator=(const ArtifactScriptCallArguments&) = delete;
 
     void append(ArtifactScriptValue value) {
         if (useOverflow_) overflow_->push_back(std::move(value));
@@ -1514,9 +1543,12 @@ public:
 private:
     static constexpr std::size_t inlineCapacity_ = 5;
     ArtifactScriptValue inlineValues_[inlineCapacity_]{};
-    std::optional<std::vector<ArtifactScriptValue>> overflow_;
+    Workspace* workspace_ = nullptr;
+    std::optional<std::vector<ArtifactScriptValue>> fallbackOverflow_;
+    std::vector<ArtifactScriptValue>* overflow_ = nullptr;
     std::size_t size_ = 0;
     bool useOverflow_ = false;
+    bool useWorkspace_ = false;
 };
 
 class ArtifactScriptLocals {
@@ -1803,6 +1835,7 @@ public:
     const ArtifactScriptDefinition* activeDefinition_ = nullptr;
     ArtifactScriptObjectInstancePtr activeThis_;
     int callDepth_ = 0;
+    ArtifactScriptCallArguments::Workspace callArgumentWorkspace_;
     std::array<MethodCallCacheEntry, kMethodCallCacheCapacity> methodCallCache_{};
     std::uint32_t methodCallCacheGeneration_ = 0;
     // Retain at most 1024 values across 8 nested snapshots. Deeper/larger
@@ -1962,7 +1995,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalExpr(
         if (!activeDefinition_) { error_ = "new requires a script definition"; return {}; }
         const ArtifactScriptClass* cls = findClass(e->newClassName);
         if (!cls) { error_ = "unknown class: " + e->newClassName; return {}; }
-        ArtifactScriptCallArguments args(e->newArgs.size());
+        ArtifactScriptCallArguments args(e->newArgs.size(), callArgumentWorkspace_);
         for (const auto& arg : e->newArgs) {
             args.append(evalExpr(arg.get(), fields, locals));
             if (!error_.empty()) return {};
@@ -2127,7 +2160,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalUnary(
 ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
     const ArtifactScriptExpr* e, ArtifactScriptFields& fields,
     const ArtifactScriptLocals& locals) {
-    ArtifactScriptCallArguments args(e->callArgs.size());
+    ArtifactScriptCallArguments args(e->callArgs.size(), callArgumentWorkspace_);
     for (auto& a : e->callArgs) args.append(evalExpr(a.get(), fields, locals));
     if (!error_.empty()) return {};
     const auto argumentValues = args.span();
