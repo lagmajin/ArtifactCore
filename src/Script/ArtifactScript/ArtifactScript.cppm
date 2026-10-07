@@ -3361,13 +3361,8 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
         if (!array) return e->callName == "contains" ? ArtifactScriptValue(false) : ArtifactScriptValue(std::int64_t(-1));
         for (std::size_t i = 0; i < array->values.size(); ++i) {
             const auto& item = array->values[i];
-            bool equal = false;
-            if (item.index() == argumentValues[1].index()) {
-                if (std::holds_alternative<double>(item)) equal = std::get<double>(item) == num(argumentValues[1]);
-                else if (std::holds_alternative<std::int64_t>(item)) equal = std::get<std::int64_t>(item) == static_cast<std::int64_t>(num(argumentValues[1]));
-                else if (std::holds_alternative<std::string>(item)) equal = std::get<std::string>(item) == std::get<std::string>(argumentValues[1]);
-                else if (std::holds_alternative<bool>(item)) equal = std::get<bool>(item) == std::get<bool>(argumentValues[1]);
-            }
+            const bool equal = std::get<bool>(evalBinary(
+                ArtifactScriptBinaryOp::Eq, item, argumentValues[1]));
             if (equal) return e->callName == "contains" ? ArtifactScriptValue(true) : ArtifactScriptValue(static_cast<std::int64_t>(i));
         }
         return e->callName == "contains" ? ArtifactScriptValue(false) : ArtifactScriptValue(std::int64_t(-1));
