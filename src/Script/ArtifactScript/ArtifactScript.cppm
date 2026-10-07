@@ -1553,9 +1553,35 @@ private:
 
 class ArtifactScriptLocals {
 public:
-    void reserve(std::size_t count) {
-        if (count > inlineCapacity_) overflowEntries_.reserve(count - inlineCapacity_);
+    struct Workspace {
+        static constexpr std::size_t maxDepth = 8;
+        static constexpr std::size_t maxRetainedOverflowEntries = 32;
+        std::array<ArtifactCore::Array<ArtifactScriptLocalBinding>, maxDepth> overflow;
+        std::size_t depth = 0;
+    };
+
+    explicit ArtifactScriptLocals(Workspace& workspace) {
+        if (workspace.depth < workspace.overflow.size()) {
+            workspace_ = &workspace;
+            workspaceIndex_ = workspace.depth++;
+            overflowEntries_ = &workspace.overflow[workspaceIndex_];
+            overflowEntries_->removeAll();
+            useWorkspace_ = true;
+        } else {
+            fallbackOverflow_.emplace();
+            overflowEntries_ = &*fallbackOverflow_;
+        }
     }
+
+    ~ArtifactScriptLocals() {
+        if (workspace_) {
+            workspace_->overflow[workspaceIndex_].removeAll();
+            --workspace_->depth;
+        }
+    }
+
+    ArtifactScriptLocals(const ArtifactScriptLocals&) = delete;
+    ArtifactScriptLocals& operator=(const ArtifactScriptLocals&) = delete;
 
     ArtifactScriptLocalBinding* find(std::string_view name) {
         if (inlineSize_ != 0) {
@@ -1568,7 +1594,7 @@ public:
                 bucket = (bucket + 1) & (inlineNameIndex_.size() - 1);
             }
         }
-        for (auto& entry : overflowEntries_) if (entry.name == name) return &entry;
+        for (auto& entry : *overflowEntries_) if (entry.name == name) return &entry;
         return nullptr;
     }
 
@@ -1583,7 +1609,7 @@ public:
                 bucket = (bucket + 1) & (inlineNameIndex_.size() - 1);
             }
         }
-        for (const auto& entry : overflowEntries_) if (entry.name == name) return &entry;
+        for (const auto& entry : *overflowEntries_) if (entry.name == name) return &entry;
         return nullptr;
     }
 
@@ -1625,14 +1651,31 @@ private:
             inlineNameIndex_[bucket] = static_cast<std::uint8_t>(index + 1);
             return inlineEntries_[index];
         }
-        overflowEntries_.append(std::move(binding));
-        return overflowEntries_[overflowEntries_.size() - 1];
+        if (useWorkspace_ &&
+            overflowEntries_->size() == Workspace::maxRetainedOverflowEntries) {
+            fallbackOverflow_.emplace();
+            fallbackOverflow_->reserve(overflowEntries_->size() + 1);
+            for (auto& entry : *overflowEntries_) {
+                fallbackOverflow_->append(std::move(entry));
+            }
+            overflowEntries_->removeAll();
+            overflowEntries_ = &*fallbackOverflow_;
+            useWorkspace_ = false;
+        } else if (useWorkspace_ && overflowEntries_->capacity() == 0) {
+            overflowEntries_->reserve(Workspace::maxRetainedOverflowEntries);
+        }
+        overflowEntries_->append(std::move(binding));
+        return (*overflowEntries_)[overflowEntries_->size() - 1];
     }
 
     std::array<ArtifactScriptLocalBinding, inlineCapacity_> inlineEntries_{};
     std::array<std::uint8_t, inlineNameIndexCapacity_> inlineNameIndex_{};
     std::size_t inlineSize_ = 0;
-    ArtifactCore::Array<ArtifactScriptLocalBinding> overflowEntries_;
+    Workspace* workspace_ = nullptr;
+    std::size_t workspaceIndex_ = 0;
+    std::optional<ArtifactCore::Array<ArtifactScriptLocalBinding>> fallbackOverflow_;
+    ArtifactCore::Array<ArtifactScriptLocalBinding>* overflowEntries_ = nullptr;
+    bool useWorkspace_ = false;
 };
 
 struct ArtifactScriptFieldBinding {
@@ -1737,45 +1780,6 @@ struct ArtifactScriptForeachWorkspace {
     std::array<ArtifactScriptFieldBinding, kArtifactScriptInlineOverlayCapacity> overlay{};
 };
 
-std::size_t countLocalDeclarations(const ArtifactScriptStmt* statement) {
-    if (!statement) return 0;
-    std::size_t count = statement->kind == ArtifactScriptStmt::Kind::Decl ? 1 : 0;
-    switch (statement->kind) {
-    case ArtifactScriptStmt::Kind::If:
-        count += countLocalDeclarations(statement->ifThen.get());
-        count += countLocalDeclarations(statement->ifElse.get());
-        break;
-    case ArtifactScriptStmt::Kind::Block:
-        for (const auto& child : statement->blockStmts) {
-            count += countLocalDeclarations(child.get());
-        }
-        break;
-    case ArtifactScriptStmt::Kind::While:
-        count += countLocalDeclarations(statement->whileBody.get());
-        break;
-    case ArtifactScriptStmt::Kind::For:
-        count += countLocalDeclarations(statement->forInit.get());
-        count += countLocalDeclarations(statement->forIncrement.get());
-        count += countLocalDeclarations(statement->forBody.get());
-        break;
-    case ArtifactScriptStmt::Kind::Foreach:
-        // The iteration binding lives in ArtifactScriptFields, not locals.
-        count += countLocalDeclarations(statement->foreachBody.get());
-        break;
-    default:
-        break;
-    }
-    return count;
-}
-
-std::size_t countLocalDeclarations(const ArtifactScriptMethodBody& body) {
-    std::size_t count = 0;
-    for (const auto& statement : body.statements) {
-        count += countLocalDeclarations(statement.get());
-    }
-    return count;
-}
-
 }  // namespace
 
 class ArtifactScriptEvaluator::Impl {
@@ -1835,6 +1839,7 @@ public:
     const ArtifactScriptDefinition* activeDefinition_ = nullptr;
     ArtifactScriptObjectInstancePtr activeThis_;
     int callDepth_ = 0;
+    ArtifactScriptLocals::Workspace localsWorkspace_;
     ArtifactScriptCallArguments::Workspace callArgumentWorkspace_;
     std::array<MethodCallCacheEntry, kMethodCallCacheCapacity> methodCallCache_{};
     std::uint32_t methodCallCacheGeneration_ = 0;
@@ -1879,8 +1884,7 @@ bool ArtifactScriptEvaluator::execute(
     for (std::size_t i = 0; i < args.size() && i < body.parameters.size(); ++i) {
         fieldScope[body.parameters[i]] = args[i];
     }
-    ArtifactScriptLocals locals;
-    locals.reserve(countLocalDeclarations(body));
+    ArtifactScriptLocals locals(impl_->localsWorkspace_);
     for (auto& st : body.statements) {
         if (!impl_->execStmt(st.get(), fieldScope, locals)) return false;
         if (impl_->returned_) break;
@@ -2321,8 +2325,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::callUserMethod(
     }
     const ArtifactScriptMethod* method = &resolvedMethod;
     if (!method->body) return {};
-    ArtifactScriptLocals locals;
-    locals.reserve(method->parameters.size() + countLocalDeclarations(*method->body));
+    ArtifactScriptLocals locals(localsWorkspace_);
     for (std::size_t i = 0; i < args.size() && i < method->parameters.size(); ++i)
         locals[method->parameters[i]] = args[i];
     const auto previousReturn = returnValue_;
@@ -3050,8 +3053,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::callInstanceMethod(
     if (callDepth_ >= kMaxCallDepth) { error_ = "script call depth limit"; return {}; }
     const ArtifactScriptMethod* method = &resolvedMethod;
     if (!method->body) return {};
-    ArtifactScriptLocals locals;
-    locals.reserve(method->parameters.size() + countLocalDeclarations(*method->body));
+    ArtifactScriptLocals locals(localsWorkspace_);
     for (std::size_t i = 0; i < args.size() && i < method->parameters.size(); ++i)
         locals[method->parameters[i]] = args[i];
     const auto previousReturn = returnValue_;
