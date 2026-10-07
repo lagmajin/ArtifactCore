@@ -915,8 +915,28 @@ ArtifactScriptStmtPtr parseStmt(ParseCtx& c) {
             if (c.failurePosition == std::string_view::npos) c.failurePosition = c.pos;
             return nullptr;
         }
+        const std::size_t collectionStart = c.pos;
         s->foreachCollectionName = parseId(c);
-        if (s->foreachCollectionName.empty() || !expectCh(c, ')')) return nullptr;
+        if (s->foreachCollectionName.empty()) {
+            c.failed = true;
+            if (c.failurePosition == std::string_view::npos)
+                c.failurePosition = c.pos;
+            return nullptr;
+        }
+        skipWS(c);
+        const bool reservedLiteral = s->foreachCollectionName == "true" ||
+                                     s->foreachCollectionName == "false" ||
+                                     s->foreachCollectionName == "null";
+        if (reservedLiteral || c.pos >= c.len || c.src[c.pos] != ')') {
+            // Preserve the compact name-only AST form for the common
+            // `foreach (item in values)` case. General expressions are stored
+            // only when the source actually uses one.
+            s->foreachCollectionName.clear();
+            c.pos = collectionStart;
+            s->foreachCollectionExpr = parseRequiredExpr(c);
+            if (!s->foreachCollectionExpr) return nullptr;
+        }
+        if (!expectCh(c, ')')) return nullptr;
         {
             ParseLoopDepthScope loopScope(c);
             s->foreachBody = parseStmt(c);
@@ -3992,11 +4012,18 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
         if (iter >= 10000) { error_ = "loop limit"; return false; }
         return true; }
     case ArtifactScriptStmt::Kind::Foreach: {
+        ArtifactScriptValue evaluatedCollection;
         const ArtifactScriptValue* collection = nullptr;
-        if (const auto* field = fields.find(s->foreachCollectionName)) {
-            collection = field;
-        } else if (const auto* lit = locals.find(s->foreachCollectionName)) {
-            collection = &lit->value;
+        if (s->foreachCollectionExpr) {
+            evaluatedCollection = evalExpr(s->foreachCollectionExpr.get(), fields, locals);
+            if (!error_.empty()) return false;
+            collection = &evaluatedCollection;
+        } else {
+            if (const auto* field = fields.find(s->foreachCollectionName)) {
+                collection = field;
+            } else if (const auto* lit = locals.find(s->foreachCollectionName)) {
+                collection = &lit->value;
+            }
         }
         if (!collection) { error_ = "undefined: " + s->foreachCollectionName; return false; }
         if (!std::holds_alternative<ArtifactScriptArrayPtr>(*collection)) {

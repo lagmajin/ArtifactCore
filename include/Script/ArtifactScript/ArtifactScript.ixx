@@ -258,6 +258,7 @@ struct ArtifactScriptStmt {
     // Foreach: foreach (item in collection) { ... }
     std::string foreachItemName;
     std::string foreachCollectionName;
+    ArtifactScriptExprPtr foreachCollectionExpr;
     ArtifactScriptStmtPtr foreachBody;
 };
 
