@@ -1388,6 +1388,13 @@ const ArtifactScriptMethod* ArtifactScriptInstance::findLifecycleHookInDefinitio
         return nullptr;
     }
 
+    const auto& root = definition_.rootClass;
+    for (const auto& method : root.methods) {
+        if (method.isLifecycleHook && method.hook == hook && method.body) {
+            return &method;
+        }
+    }
+
     // Lifecycle lookup runs on every hook invocation. For larger class
     // registries, avoid scanning the full registry once per inheritance level.
     constexpr std::size_t kLookupCapacity = 128;
@@ -1437,12 +1444,8 @@ const ArtifactScriptMethod* ArtifactScriptInstance::findLifecycleHookInDefinitio
         return nullptr;
     };
 
-    const ArtifactScriptClass* root = findClass(definition_.rootClass.name);
-    if (!root) {
-        return nullptr;
-    }
-    std::string_view current = root->name;
-    for (int depth = 0; depth < 32; ++depth) {
+    std::string_view current = root.parentName;
+    for (int depth = 1; depth < 32 && !current.empty(); ++depth) {
         const ArtifactScriptClass* level = findClass(current);
         if (!level) {
             break;
