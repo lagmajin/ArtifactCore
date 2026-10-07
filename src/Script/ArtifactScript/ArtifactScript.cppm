@@ -2620,7 +2620,8 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
         std::holds_alternative<ArtifactScriptArrayPtr>(argumentValues[0])) {
         const auto& array = std::get<ArtifactScriptArrayPtr>(argumentValues[0]);
         if (!array) { error_ = "push on null array"; return {}; }
-        array->values.push_back(argumentValues[1]);
+        auto mutableArguments = args.mutableSpan();
+        array->values.push_back(std::move(mutableArguments[1]));
         return static_cast<std::int64_t>(array->values.size());
     }
     if (e->callName == "clear" && argumentValues.size() == 1 &&
@@ -2639,7 +2640,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
         std::holds_alternative<ArtifactScriptArrayPtr>(argumentValues[0])) {
         const auto& array = std::get<ArtifactScriptArrayPtr>(argumentValues[0]);
         if (!array || array->values.empty()) { error_ = "pop from empty array"; return {}; }
-        auto value = array->values.back();
+        auto value = std::move(array->values.back());
         array->values.pop_back();
         return value;
     }
