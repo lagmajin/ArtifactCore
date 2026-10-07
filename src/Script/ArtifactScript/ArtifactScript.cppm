@@ -317,6 +317,56 @@ bool parseDelimitedExpressions(
     ParseCtx& c, char closing, std::vector<ArtifactScriptExprPtr>& expressions);
 double parseNum(ParseCtx& c);
 
+ArtifactScriptExprPtr parsePostfixSuffix(
+    ParseCtx& c, ArtifactScriptExprPtr expression) {
+    while (expression) {
+        skipWS(c);
+        if (c.pos < c.len && c.src[c.pos] == '[') {
+            ++c.pos;
+            auto index = std::make_unique<ArtifactScriptExpr>();
+            index->kind = ArtifactScriptExpr::Kind::Index;
+            index->indexTarget = std::move(expression);
+            index->indexExpr = parseRequiredExpr(c);
+            if (!matchCh(c, ']')) {
+                c.failed = true;
+                if (c.failurePosition == std::string_view::npos)
+                    c.failurePosition = c.pos;
+                return nullptr;
+            }
+            expression = std::move(index);
+            continue;
+        }
+        if (c.pos < c.len && c.src[c.pos] == '.') {
+            ++c.pos;
+            const std::string member = parseId(c);
+            if (member.empty()) {
+                c.failed = true;
+                if (c.failurePosition == std::string_view::npos)
+                    c.failurePosition = c.pos;
+                return nullptr;
+            }
+            if (matchCh(c, '(')) {
+                auto call = std::make_unique<ArtifactScriptExpr>();
+                call->kind = ArtifactScriptExpr::Kind::Call;
+                call->callName = member;
+                call->callTarget = std::move(expression);
+                if (!parseDelimitedExpressions(c, ')', call->callArgs))
+                    return nullptr;
+                expression = std::move(call);
+            } else {
+                auto field = std::make_unique<ArtifactScriptExpr>();
+                field->kind = ArtifactScriptExpr::Kind::FieldAccess;
+                field->fieldObject = std::move(expression);
+                field->fieldName = member;
+                expression = std::move(field);
+            }
+            continue;
+        }
+        break;
+    }
+    return expression;
+}
+
 ArtifactScriptExprPtr parsePrimary(ParseCtx& c) {
     skipWS(c); if (c.pos >= c.len) return nullptr;
     auto e = std::make_unique<ArtifactScriptExpr>();
@@ -333,12 +383,12 @@ ArtifactScriptExprPtr parsePrimary(ParseCtx& c) {
             !parseDelimitedExpressions(c, ')', e->newArgs)) {
             return nullptr;
         }
-        return e;
+        return parsePostfixSuffix(c, std::move(e));
     }
     if (c.src[c.pos] == '[') {
         ++c.pos; e->kind = ArtifactScriptExpr::Kind::ArrayLiteral;
         if (!parseDelimitedExpressions(c, ']', e->arrayElements)) return nullptr;
-        return e;
+        return parsePostfixSuffix(c, std::move(e));
     }
     if (c.src[c.pos] == '"') {
         const std::size_t openingQuote = c.pos++;
@@ -358,7 +408,7 @@ ArtifactScriptExprPtr parsePrimary(ParseCtx& c) {
             // Common unescaped strings take one bounded view scan and one copy.
             e->literalValue = std::string(c.src.substr(contentStart, marker - contentStart));
             c.pos = marker + 1;
-            return e;
+            return parsePostfixSuffix(c, std::move(e));
         }
 
         std::string decoded;
@@ -394,7 +444,7 @@ ArtifactScriptExprPtr parsePrimary(ParseCtx& c) {
         }
         e->literalValue = std::move(decoded);
         c.pos = closingQuote + 1;
-        return e;
+        return parsePostfixSuffix(c, std::move(e));
     }
     if (c.src[c.pos] == '-' || c.src[c.pos] == '!') { e->kind = ArtifactScriptExpr::Kind::Unary;
         e->unaryOp = c.src[c.pos] == '-' ? ArtifactScriptUnaryOp::Neg : ArtifactScriptUnaryOp::Not;
@@ -404,11 +454,11 @@ ArtifactScriptExprPtr parsePrimary(ParseCtx& c) {
             if (c.failurePosition == std::string_view::npos) c.failurePosition = c.pos;
             return nullptr;
         }
-        return e; }
-    if (std::isdigit(static_cast<unsigned char>(c.src[c.pos]))) { e->kind = ArtifactScriptExpr::Kind::Literal; e->literalValue = parseNum(c); return e; }
-    if (matchKw(c, "true")) { e->kind = ArtifactScriptExpr::Kind::Literal; e->literalValue = true; return e; }
-    if (matchKw(c, "false")) { e->kind = ArtifactScriptExpr::Kind::Literal; e->literalValue = false; return e; }
-    if (matchKw(c, "null")) { e->kind = ArtifactScriptExpr::Kind::Literal; e->literalValue = std::monostate{}; return e; }
+        return parsePostfixSuffix(c, std::move(e)); }
+    if (std::isdigit(static_cast<unsigned char>(c.src[c.pos]))) { e->kind = ArtifactScriptExpr::Kind::Literal; e->literalValue = parseNum(c); return parsePostfixSuffix(c, std::move(e)); }
+    if (matchKw(c, "true")) { e->kind = ArtifactScriptExpr::Kind::Literal; e->literalValue = true; return parsePostfixSuffix(c, std::move(e)); }
+    if (matchKw(c, "false")) { e->kind = ArtifactScriptExpr::Kind::Literal; e->literalValue = false; return parsePostfixSuffix(c, std::move(e)); }
+    if (matchKw(c, "null")) { e->kind = ArtifactScriptExpr::Kind::Literal; e->literalValue = std::monostate{}; return parsePostfixSuffix(c, std::move(e)); }
     // Vector / colour constructors. These parse into an ArrayLiteral node tagged
 // with the target type, so evaluation builds a typed value without a host call
 // and normalize/mix stay usable in constant sub-expressions.
@@ -430,51 +480,16 @@ ArtifactScriptExprPtr parsePrimary(ParseCtx& c) {
             e->arrayLiteralIsVector = true;
             e->arrayLiteralType = ctor.type;
             if (!parseDelimitedExpressions(c, ')', e->arrayElements)) return nullptr;
-            return e;
+            return parsePostfixSuffix(c, std::move(e));
         }
     }
     std::string id = parseId(c); if (id.empty()) return nullptr;
     if (matchCh(c, '(')) { e->kind = ArtifactScriptExpr::Kind::Call; e->callName = id;
         if (!parseDelimitedExpressions(c, ')', e->callArgs)) return nullptr;
-        return e; }
-    ArtifactScriptExprPtr base = std::make_unique<ArtifactScriptExpr>();
-    base->kind = ArtifactScriptExpr::Kind::Variable;
-    base->variableName = id;
-    while (matchCh(c, '.')) {
-        const std::string member = parseId(c);
-        if (member.empty()) {
-            c.failed = true;
-            if (c.failurePosition == std::string_view::npos) c.failurePosition = c.pos;
-            return nullptr;
-        }
-        if (matchCh(c, '(')) {
-            auto call = std::make_unique<ArtifactScriptExpr>();
-            call->kind = ArtifactScriptExpr::Kind::Call;
-            call->callName = member;
-            call->callTarget = std::move(base);
-            if (!parseDelimitedExpressions(c, ')', call->callArgs)) return nullptr;
-            base = std::move(call);
-        } else {
-            auto field = std::make_unique<ArtifactScriptExpr>();
-            field->kind = ArtifactScriptExpr::Kind::FieldAccess;
-            field->fieldObject = std::move(base);
-            field->fieldName = member;
-            base = std::move(field);
-        }
-    }
-    if (matchCh(c, '[')) {
-        auto index = std::make_unique<ArtifactScriptExpr>();
-        index->kind = ArtifactScriptExpr::Kind::Index;
-        index->indexTarget = std::move(base);
-        index->indexExpr = parseRequiredExpr(c);
-        if (!matchCh(c, ']')) {
-            c.failed = true;
-            if (c.failurePosition == std::string_view::npos) c.failurePosition = c.pos;
-            return nullptr;
-        }
-        return index;
-    }
-    return base;
+        return parsePostfixSuffix(c, std::move(e)); }
+    e->kind = ArtifactScriptExpr::Kind::Variable;
+    e->variableName = std::move(id);
+    return parsePostfixSuffix(c, std::move(e));
 }
 
 #define BIN_PARSE(name, next, ...) \
