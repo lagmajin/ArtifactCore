@@ -3835,7 +3835,9 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalUnary(
 ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
     const ArtifactScriptExpr* e, ArtifactScriptFields& fields,
     const ArtifactScriptLocals& locals) {
-    if (e->callName == "contains" && !e->callTarget &&
+    const bool isContainsCall = e->callName == "contains";
+    const bool isIndexOfCall = e->callName == "indexOf";
+    if ((isContainsCall || isIndexOfCall) && !e->callTarget &&
         e->callArgs.size() == 2) {
         const auto stringReference = [&](const ArtifactScriptExpr* argument)
             -> const std::string* {
@@ -3865,7 +3867,15 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
         const auto* source = stringReference(e->callArgs[0].get());
         const auto* substring = stringReference(e->callArgs[1].get());
         if (source && substring) {
-            return source->find(*substring) != std::string::npos;
+            const auto position = source->find(*substring);
+            if (isContainsCall) return position != std::string::npos;
+            if (position == std::string::npos) return std::int64_t{-1};
+            if (position > static_cast<std::size_t>(
+                               std::numeric_limits<std::int64_t>::max())) {
+                error_ = "string index exceeds int64 range";
+                return {};
+            }
+            return static_cast<std::int64_t>(position);
         }
     }
 
@@ -4122,6 +4132,20 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
         const auto& source = std::get<std::string>(argumentValues[0]);
         const auto& substring = std::get<std::string>(argumentValues[1]);
         return source.find(substring) != std::string::npos;
+    }
+    if (e->callName == "indexOf" && argumentValues.size() == 2 &&
+        std::holds_alternative<std::string>(argumentValues[0]) &&
+        std::holds_alternative<std::string>(argumentValues[1])) {
+        const auto& source = std::get<std::string>(argumentValues[0]);
+        const auto& substring = std::get<std::string>(argumentValues[1]);
+        const auto position = source.find(substring);
+        if (position == std::string::npos) return std::int64_t{-1};
+        if (position > static_cast<std::size_t>(
+                           std::numeric_limits<std::int64_t>::max())) {
+            error_ = "string index exceeds int64 range";
+            return {};
+        }
+        return static_cast<std::int64_t>(position);
     }
     if ((e->callName == "contains" || e->callName == "indexOf") && argumentValues.size() == 2 &&
         std::holds_alternative<ArtifactScriptArrayPtr>(argumentValues[0])) {
