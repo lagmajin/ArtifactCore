@@ -666,6 +666,37 @@ ArtifactScriptStmtPtr parseStmt(ParseCtx& c) {
             }
         }
         matchCh(c, '}'); return b; }
+    skipWS(c);
+    const bool isPrefixInc = c.pos + 1 < c.len &&
+        c.src[c.pos] == '+' && c.src[c.pos + 1] == '+';
+    const bool isPrefixDec = !isPrefixInc && c.pos + 1 < c.len &&
+        c.src[c.pos] == '-' && c.src[c.pos + 1] == '-';
+    if (isPrefixInc || isPrefixDec) {
+        c.pos += 2;
+        auto target = parsePrimary(c);
+        if (!target ||
+            (target->kind != ArtifactScriptExpr::Kind::Variable &&
+             target->kind != ArtifactScriptExpr::Kind::Index &&
+             target->kind != ArtifactScriptExpr::Kind::FieldAccess)) {
+            c.failed = true;
+            if (c.failurePosition == std::string_view::npos)
+                c.failurePosition = c.pos;
+            return nullptr;
+        }
+        auto statement = std::make_unique<ArtifactScriptStmt>();
+        statement->kind = ArtifactScriptStmt::Kind::Assign;
+        statement->assignOp = isPrefixInc ? "+=" : "-=";
+        if (target->kind == ArtifactScriptExpr::Kind::Variable) {
+            statement->assignTarget = target->variableName;
+        } else {
+            statement->assignTargetExpression = std::move(target);
+        }
+        statement->assignValue = std::make_unique<ArtifactScriptExpr>();
+        statement->assignValue->kind = ArtifactScriptExpr::Kind::Literal;
+        statement->assignValue->literalValue = 1.0;
+        matchCh(c, ';');
+        return statement;
+    }
     // Variable declaration: "float x" or "float x = expr", or type-inferred "var x = expr"
     const std::size_t expressionStart = c.pos;
     std::string id = parseId(c);
