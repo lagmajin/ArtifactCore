@@ -2998,13 +2998,9 @@ const ArtifactScriptMethod* ArtifactScriptEvaluator::Impl::findObjectMethodAtCal
     if (!activeDefinition_ || !callSite || className.empty()) return nullptr;
     static_assert((kMethodCallCacheCapacity & (kMethodCallCacheCapacity - 1)) == 0);
     const auto address = reinterpret_cast<std::uintptr_t>(callSite);
-    std::uint64_t classHash = 14695981039346656037ull;
-    for (const unsigned char character : className) {
-        classHash ^= character;
-        classHash *= 1099511628211ull;
-    }
-    const auto slot = ((address >> 4) ^ static_cast<std::uintptr_t>(classHash)) &
-        (kMethodCallCacheCapacity - 1);
+    // The call-site address chooses the cache slot; the hit check below still
+    // validates the runtime class, avoiding a class-name hash on every hit.
+    const auto slot = (address >> 4) & (kMethodCallCacheCapacity - 1);
     auto& entry = methodCallCache_[slot];
     if (entry.generation == methodCallCacheGeneration_ &&
         entry.callSite == callSite && entry.definition == activeDefinition_ &&
