@@ -1997,6 +1997,8 @@ public:
     ArtifactScriptValue evalCall(const ArtifactScriptExpr*, ArtifactScriptFields&, const ArtifactScriptLocals&);
     bool execStmt(const ArtifactScriptStmt*, ArtifactScriptFields&, ArtifactScriptLocals& locals);
     ArtifactScriptValue callUserMethod(const ArtifactScriptMethod&, std::span<const ArtifactScriptValue>, ArtifactScriptFields&);
+    ArtifactScriptValue callUserMethod(const ArtifactScriptMethod&, std::span<ArtifactScriptValue>, ArtifactScriptFields&);
+    ArtifactScriptValue runUserMethodBody(const ArtifactScriptMethod&, ArtifactScriptLocals&, ArtifactScriptFields&);
     ArtifactScriptValue callInstanceMethod(const ArtifactScriptObjectInstancePtr&, const ArtifactScriptMethod&, std::span<ArtifactScriptValue>);
     const ArtifactScriptClass* findClass(std::string_view) const;
     const ArtifactScriptMethod* findMethodInChain(std::string_view, std::string_view) const;
@@ -2530,7 +2532,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
     if (activeDefinition_) {
         if (const ArtifactScriptMethod* method =
                 findMethodAtCallSite(e)) {
-            return callUserMethod(*method, argumentValues, fields);
+            return callUserMethod(*method, args.mutableSpan(), fields);
         }
     }
     ArtifactScriptValue hostResult;
@@ -2557,11 +2559,34 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::callUserMethod(
         error_ = "script call depth limit";
         return {};
     }
-    const ArtifactScriptMethod* method = &resolvedMethod;
-    if (!method->body) return {};
+    if (!resolvedMethod.body) return {};
     ArtifactScriptLocals locals(localsWorkspace_);
-    for (std::size_t i = 0; i < args.size() && i < method->parameters.size(); ++i)
-        locals[method->parameters[i]] = args[i];
+    for (std::size_t i = 0; i < args.size() && i < resolvedMethod.parameters.size(); ++i)
+        locals[resolvedMethod.parameters[i]] = args[i];
+    return runUserMethodBody(resolvedMethod, locals, fields);
+}
+
+ArtifactScriptValue ArtifactScriptEvaluator::Impl::callUserMethod(
+    const ArtifactScriptMethod& resolvedMethod,
+    std::span<ArtifactScriptValue> args,
+    ArtifactScriptFields& fields) {
+    constexpr int kMaxCallDepth = static_cast<int>(kArtifactScriptMaxCallDepth);
+    if (callDepth_ >= kMaxCallDepth) {
+        error_ = "script call depth limit";
+        return {};
+    }
+    if (!resolvedMethod.body) return {};
+    ArtifactScriptLocals locals(localsWorkspace_);
+    for (std::size_t i = 0; i < args.size() && i < resolvedMethod.parameters.size(); ++i)
+        locals[resolvedMethod.parameters[i]] = std::move(args[i]);
+    return runUserMethodBody(resolvedMethod, locals, fields);
+}
+
+ArtifactScriptValue ArtifactScriptEvaluator::Impl::runUserMethodBody(
+    const ArtifactScriptMethod& resolvedMethod,
+    ArtifactScriptLocals& locals,
+    ArtifactScriptFields& fields) {
+    const ArtifactScriptMethod* method = &resolvedMethod;
     const auto previousReturn = returnValue_;
     const bool previousReturned = returned_;
     ++callDepth_;
