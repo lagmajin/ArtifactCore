@@ -1588,7 +1588,7 @@ private:
 class ArtifactScriptLocals {
 public:
     struct Workspace {
-        static constexpr std::size_t maxDepth = 8;
+        static constexpr std::size_t maxDepth = kArtifactScriptMaxCallDepth;
         static constexpr std::size_t maxRetainedOverflowEntries = 32;
         std::array<ArtifactCore::Array<ArtifactScriptLocalBinding>, maxDepth> overflow;
         std::size_t depth = 0;
