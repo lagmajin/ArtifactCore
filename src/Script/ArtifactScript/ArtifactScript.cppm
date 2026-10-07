@@ -1334,6 +1334,7 @@ const ArtifactScriptDefinition& ArtifactScriptInstance::definition() const {
 }
 
 ArtifactScriptDefinition& ArtifactScriptInstance::definition() {
+    evaluator_.disableClassLookupReuse();
     return definition_;
 }
 
@@ -1384,83 +1385,7 @@ const ArtifactScriptMethod* ArtifactScriptInstance::findMethodInDefinition(
 
 const ArtifactScriptMethod* ArtifactScriptInstance::findLifecycleHookInDefinition(
     ArtifactScriptHook hook) const {
-    if (definition_.rootClass.name.empty()) {
-        return nullptr;
-    }
-
-    const auto& root = definition_.rootClass;
-    for (const auto& method : root.methods) {
-        if (method.isLifecycleHook && method.hook == hook && method.body) {
-            return &method;
-        }
-    }
-
-    // Lifecycle lookup runs on every hook invocation. For larger class
-    // registries, avoid scanning the full registry once per inheritance level.
-    constexpr std::size_t kLookupCapacity = 128;
-    constexpr std::size_t kIndexedClassLimit = 64;
-    constexpr std::size_t kLinearLookupLimit = 8;
-    static_assert((kLookupCapacity & (kLookupCapacity - 1)) == 0);
-    const bool useClassIndex = definition_.classes.size() > kLinearLookupLimit &&
-                               definition_.classes.size() <= kIndexedClassLimit;
-    std::optional<std::array<const ArtifactScriptClass*, kLookupCapacity>>
-        classIndex;
-    if (useClassIndex) {
-        classIndex.emplace();
-        for (const auto& cls : definition_.classes) {
-            std::uint64_t hash = 14695981039346656037ull;
-            for (const unsigned char character : cls.name) {
-                hash ^= character;
-                hash *= 1099511628211ull;
-            }
-            auto slot = static_cast<std::size_t>(hash) & (kLookupCapacity - 1);
-            for (std::size_t probe = 0; probe < kLookupCapacity; ++probe) {
-                auto*& entry = (*classIndex)[slot];
-                if (!entry) {
-                    entry = &cls;
-                    break;
-                }
-                // Keep the existing first-match behavior for duplicate names.
-                if (entry->name == cls.name) break;
-                slot = (slot + 1) & (kLookupCapacity - 1);
-            }
-        }
-    }
-    const auto findClass = [&](std::string_view name) -> const ArtifactScriptClass* {
-        if (name == definition_.rootClass.name) return &definition_.rootClass;
-        if (!useClassIndex) return findClassByName(name);
-        std::uint64_t hash = 14695981039346656037ull;
-        for (const unsigned char character : name) {
-            hash ^= character;
-            hash *= 1099511628211ull;
-        }
-        auto slot = static_cast<std::size_t>(hash) & (kLookupCapacity - 1);
-        for (std::size_t probe = 0; probe < kLookupCapacity; ++probe) {
-            const auto* entry = (*classIndex)[slot];
-            if (!entry) return nullptr;
-            if (entry->name == name) return entry;
-            slot = (slot + 1) & (kLookupCapacity - 1);
-        }
-        return nullptr;
-    };
-
-    std::string_view current = root.parentName;
-    for (int depth = 1; depth < 32 && !current.empty(); ++depth) {
-        const ArtifactScriptClass* level = findClass(current);
-        if (!level) {
-            break;
-        }
-        for (const auto& method : level->methods) {
-            if (method.isLifecycleHook && method.hook == hook && method.body) {
-                return &method;
-            }
-        }
-        if (level->parentName.empty()) {
-            break;
-        }
-        current = level->parentName;
-    }
-    return nullptr;
+    return evaluator_.findLifecycleHook(definition_, hook);
 }
 
 const ArtifactScriptClass* ArtifactScriptInstance::findClassByName(
@@ -1505,7 +1430,8 @@ bool ArtifactScriptInstance::invokeHook(ArtifactScriptHook hook) {
     // Lifecycle hooks receive no arguments; dt is provided as a field when
     // the host sets it (fields()["dt"]).
     static const std::vector<ArtifactScriptValue> noArguments;
-    evaluator_.executeResolvedMethod(definition_, *method, noArguments, fields_);
+    evaluator_.executeResolvedMethod(
+        definition_, *method, noArguments, fields_, true);
     const bool ok = !evaluator_.hasError();
     if (ok) lastHookError_.clear();
     else lastHookError_ = evaluator_.getLastError();
@@ -1939,6 +1865,12 @@ public:
         const ArtifactScriptClass* classDefinition = nullptr;
     };
 
+    struct LifecycleHookCacheEntry {
+        const ArtifactScriptDefinition* definition = nullptr;
+        const ArtifactScriptMethod* method = nullptr;
+        bool resolved = false;
+    };
+
     struct ForeachSnapshotScope {
         Impl& owner;
         std::size_t depth;
@@ -1991,9 +1923,13 @@ public:
     std::uint32_t methodCallCacheGeneration_ = 0;
     std::array<ClassLookupIndexEntry, kClassLookupIndexCapacity>
         classLookupIndex_{};
+    std::array<LifecycleHookCacheEntry, 6> lifecycleHookCache_{};
     const ArtifactScriptDefinition* classLookupDefinition_ = nullptr;
     std::uint32_t classLookupGeneration_ = 0;
     bool classLookupIndexEnabled_ = false;
+    bool classLookupIndexReusable_ = false;
+    bool classLookupReuseDisabled_ = false;
+    bool classLookupIndexPreparedForExecution_ = false;
     // Retain at most 1024 values across 8 nested snapshots. Deeper/larger
     // loops use a transient snapshot so scripts cannot grow this workspace
     // without bound. Reserving the outer array once keeps overlay pointers stable.
@@ -2022,6 +1958,72 @@ ArtifactScriptEvaluator::ArtifactScriptEvaluator() : impl_(std::make_unique<Impl
 ArtifactScriptEvaluator::~ArtifactScriptEvaluator() noexcept = default;
 ArtifactScriptEvaluator::ArtifactScriptEvaluator(ArtifactScriptEvaluator&&) noexcept = default;
 ArtifactScriptEvaluator& ArtifactScriptEvaluator::operator=(ArtifactScriptEvaluator&&) noexcept = default;
+
+void ArtifactScriptEvaluator::prepareClassLookup(
+    const ArtifactScriptDefinition& definition) const {
+    impl_->activeDefinition_ = &definition;
+    if (impl_->classLookupReuseDisabled_ ||
+        !impl_->classLookupIndexReusable_ ||
+        impl_->classLookupDefinition_ != &definition) {
+        impl_->beginClassLookupGeneration(definition);
+        impl_->classLookupIndexReusable_ = !impl_->classLookupReuseDisabled_;
+    }
+    impl_->classLookupIndexPreparedForExecution_ = true;
+}
+
+const ArtifactScriptClass* ArtifactScriptEvaluator::findClassForDefinition(
+    const ArtifactScriptDefinition& definition, std::string_view className) const {
+    if (impl_->activeDefinition_ != &definition ||
+        impl_->classLookupDefinition_ != &definition) {
+        prepareClassLookup(definition);
+    }
+    return impl_->findClass(className);
+}
+
+const ArtifactScriptMethod* ArtifactScriptEvaluator::findLifecycleHook(
+    const ArtifactScriptDefinition& definition, ArtifactScriptHook hook) const {
+    const auto hookIndex = static_cast<std::size_t>(hook);
+    if (hookIndex >= impl_->lifecycleHookCache_.size()) return nullptr;
+    auto& cached = impl_->lifecycleHookCache_[hookIndex];
+    if (!impl_->classLookupReuseDisabled_ && cached.resolved &&
+        cached.definition == &definition) {
+        return cached.method;
+    }
+
+    const auto& root = definition.rootClass;
+    const ArtifactScriptMethod* result = nullptr;
+    for (const auto& method : root.methods) {
+        if (method.isLifecycleHook && method.hook == hook && method.body) {
+            result = &method;
+            break;
+        }
+    }
+
+    std::string_view current = root.parentName;
+    for (int depth = 1; !result && depth < 32 && !current.empty(); ++depth) {
+        const ArtifactScriptClass* level =
+            findClassForDefinition(definition, current);
+        if (!level) break;
+        for (const auto& method : level->methods) {
+            if (method.isLifecycleHook && method.hook == hook && method.body) {
+                result = &method;
+                break;
+            }
+        }
+        current = level->parentName;
+    }
+
+    if (!impl_->classLookupReuseDisabled_) {
+        cached = {&definition, result, true};
+    }
+    return result;
+}
+
+void ArtifactScriptEvaluator::disableClassLookupReuse() const {
+    impl_->classLookupReuseDisabled_ = true;
+    impl_->invalidateClassLookupIndex();
+    for (auto& entry : impl_->lifecycleHookCache_) entry = {};
+}
 
 bool ArtifactScriptEvaluator::execute(
     const ArtifactScriptMethodBody& body,
@@ -3276,6 +3278,8 @@ void ArtifactScriptEvaluator::Impl::beginClassLookupGeneration(
 void ArtifactScriptEvaluator::Impl::invalidateClassLookupIndex() {
     classLookupIndexEnabled_ = false;
     classLookupDefinition_ = nullptr;
+    classLookupIndexReusable_ = false;
+    classLookupIndexPreparedForExecution_ = false;
 }
 
 bool ArtifactScriptEvaluator::Impl::isInstanceOf(
@@ -3345,16 +3349,27 @@ ArtifactScriptValue ArtifactScriptEvaluator::executeMethod(
         impl_->error_ = "unknown method: " + std::string(methodName);
         return {};
     }
-    return executeResolvedMethod(definition, *method, args, fields);
+    return executeResolvedMethod(definition, *method, args, fields, false);
 }
 
 ArtifactScriptValue ArtifactScriptEvaluator::executeResolvedMethod(
     const ArtifactScriptDefinition& definition, const ArtifactScriptMethod& method,
     const std::vector<ArtifactScriptValue>& args,
-    ArtifactScriptSerializedFields& fields) {
+    ArtifactScriptSerializedFields& fields, bool reuseDefinitionCache) {
     impl_->error_.clear();
     impl_->activeDefinition_ = &definition;
-    impl_->beginClassLookupGeneration(definition);
+    const bool preparedForThisExecution =
+        impl_->classLookupIndexPreparedForExecution_ &&
+        impl_->classLookupDefinition_ == &definition;
+    impl_->classLookupIndexPreparedForExecution_ = false;
+    if (!preparedForThisExecution &&
+        !(reuseDefinitionCache && !impl_->classLookupReuseDisabled_ &&
+          impl_->classLookupIndexReusable_ &&
+          impl_->classLookupDefinition_ == &definition)) {
+        impl_->beginClassLookupGeneration(definition);
+        impl_->classLookupIndexReusable_ =
+            reuseDefinitionCache && !impl_->classLookupReuseDisabled_;
+    }
     impl_->beginMethodCallCacheGeneration();
     impl_->callDepth_ = 0;
     impl_->returnValue_ = {};

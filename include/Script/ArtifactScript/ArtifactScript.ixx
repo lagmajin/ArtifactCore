@@ -363,11 +363,18 @@ public:
     bool hasError() const;
 private:
     friend class ArtifactScriptInstance;
+    void prepareClassLookup(const ArtifactScriptDefinition& definition) const;
+    const ArtifactScriptClass* findClassForDefinition(
+        const ArtifactScriptDefinition& definition, std::string_view className) const;
+    const ArtifactScriptMethod* findLifecycleHook(
+        const ArtifactScriptDefinition& definition, ArtifactScriptHook hook) const;
+    void disableClassLookupReuse() const;
     ArtifactScriptValue executeResolvedMethod(
         const ArtifactScriptDefinition& definition,
         const ArtifactScriptMethod& method,
         const std::vector<ArtifactScriptValue>& args,
-        ArtifactScriptSerializedFields& fields);
+        ArtifactScriptSerializedFields& fields,
+        bool reuseDefinitionCache);
     class Impl;
     std::unique_ptr<Impl> impl_;
 };
@@ -378,6 +385,8 @@ public:
     explicit ArtifactScriptInstance(ArtifactScriptDefinition definition);
 
     const ArtifactScriptDefinition& definition() const;
+    // Accessing mutable definition state disables evaluator lookup-cache reuse
+    // for this instance, since the returned reference may outlive the call.
     ArtifactScriptDefinition& definition();
 
     void bindComponent(const ArtifactScriptComponent& component);
