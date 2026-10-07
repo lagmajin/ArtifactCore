@@ -341,7 +341,7 @@ ArtifactScriptExprPtr parseExpr(ParseCtx& c);
 ArtifactScriptExprPtr parseRequiredExpr(ParseCtx& c);
 bool parseDelimitedExpressions(
     ParseCtx& c, char closing, std::vector<ArtifactScriptExprPtr>& expressions);
-double parseNum(ParseCtx& c);
+ArtifactScriptValue parseNum(ParseCtx& c, bool negative = false);
 
 ArtifactScriptExprPtr parsePostfixSuffix(
     ParseCtx& c, ArtifactScriptExprPtr expression) {
@@ -481,6 +481,15 @@ ArtifactScriptExprPtr parsePrimary(ParseCtx& c) {
         }
         e->literalValue = std::move(decoded);
         c.pos = closingQuote + 1;
+        return parsePostfixSuffix(c, std::move(e));
+    }
+    if (c.src[c.pos] == '-' && c.pos + 1 < c.len &&
+        (std::isdigit(static_cast<unsigned char>(c.src[c.pos + 1])) ||
+         (c.src[c.pos + 1] == '.' && c.pos + 2 < c.len &&
+          std::isdigit(static_cast<unsigned char>(c.src[c.pos + 2]))))) {
+        ++c.pos;
+        e->kind = ArtifactScriptExpr::Kind::Literal;
+        e->literalValue = parseNum(c, true);
         return parsePostfixSuffix(c, std::move(e));
     }
     if (c.src[c.pos] == '-' || c.src[c.pos] == '!') { e->kind = ArtifactScriptExpr::Kind::Unary;
@@ -657,7 +666,7 @@ bool parseDelimitedExpressions(
     }
 }
 
-double parseNum(ParseCtx& c) {
+ArtifactScriptValue parseNum(ParseCtx& c, bool negative) {
     skipWS(c);
     const std::size_t start = c.pos;
     bool hasDigits = false;
@@ -697,6 +706,17 @@ double parseNum(ParseCtx& c) {
         }
     }
 
+    const bool isInteger = c.src.substr(start, c.pos - start).find_first_of(".eE") ==
+                           std::string_view::npos;
+    if (isInteger) {
+        std::int64_t integer = 0;
+        const char* begin = c.src.data() + start;
+        const char* end = c.src.data() + c.pos;
+        const char* integerBegin = negative ? begin - 1 : begin;
+        const auto [parsedEnd, error] = std::from_chars(integerBegin, end, integer);
+        if (error == std::errc{} && parsedEnd == end) return integer;
+    }
+
     double value = 0.0;
     const char* begin = c.src.data() + start;
     const char* end = c.src.data() + c.pos;
@@ -708,7 +728,7 @@ double parseNum(ParseCtx& c) {
             c.failurePosition = start;
         return 0.0;
     }
-    return value;
+    return negative ? -value : value;
 }
 
 ArtifactScriptExprPtr parseExpr(ParseCtx& c);
@@ -3595,6 +3615,67 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalBinary(
         }
         return op == ArtifactScriptBinaryOp::Eq ? equal : !equal;
     }
+    const auto* leftInteger = std::get_if<std::int64_t>(&l);
+    const auto* rightInteger = std::get_if<std::int64_t>(&r);
+    if (leftInteger && rightInteger) {
+        const std::int64_t left = *leftInteger;
+        const std::int64_t right = *rightInteger;
+        constexpr std::int64_t minimum = std::numeric_limits<std::int64_t>::min();
+        constexpr std::int64_t maximum = std::numeric_limits<std::int64_t>::max();
+        switch (op) {
+        case ArtifactScriptBinaryOp::Add:
+            if ((right > 0 && left > maximum - right) ||
+                (right < 0 && left < minimum - right)) {
+                error_ = "integer overflow";
+                return {};
+            }
+            return left + right;
+        case ArtifactScriptBinaryOp::Sub:
+            if ((right < 0 && left > maximum + right) ||
+                (right > 0 && left < minimum + right)) {
+                error_ = "integer overflow";
+                return {};
+            }
+            return left - right;
+        case ArtifactScriptBinaryOp::Mul:
+            if (left != 0 && right != 0 &&
+                ((left == -1 && right == minimum) ||
+                 (right == -1 && left == minimum) ||
+                 (left > 0 && right > 0 && left > maximum / right) ||
+                 (left > 0 && right < 0 && right < minimum / left) ||
+                 (left < 0 && right > 0 && left < minimum / right) ||
+                 (left < 0 && right < 0 && left < maximum / right))) {
+                error_ = "integer overflow";
+                return {};
+            }
+            return left * right;
+        case ArtifactScriptBinaryOp::Div:
+            if (right == 0) {
+                error_ = "div0";
+                return {};
+            }
+            if (left == minimum && right == -1) {
+                error_ = "integer overflow";
+                return {};
+            }
+            return left / right;
+        case ArtifactScriptBinaryOp::Mod:
+            if (right == 0) {
+                error_ = "mod0";
+                return {};
+            }
+            if (left == minimum && right == -1) {
+                error_ = "integer overflow";
+                return {};
+            }
+            return left % right;
+        case ArtifactScriptBinaryOp::Lt: return left < right;
+        case ArtifactScriptBinaryOp::Gt: return left > right;
+        case ArtifactScriptBinaryOp::Le: return left <= right;
+        case ArtifactScriptBinaryOp::Ge: return left >= right;
+        default: break;
+        }
+    }
     auto d = [](const ArtifactScriptValue& v) -> double {
         if (std::holds_alternative<double>(v)) return std::get<double>(v);
         if (std::holds_alternative<std::int64_t>(v)) return (double)std::get<std::int64_t>(v);
@@ -3664,7 +3745,15 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalUnary(
         return 0.0;
     };
     switch (op) {
-    case ArtifactScriptUnaryOp::Neg: return -d(v);
+    case ArtifactScriptUnaryOp::Neg:
+        if (const auto* integer = std::get_if<std::int64_t>(&v)) {
+            if (*integer == std::numeric_limits<std::int64_t>::min()) {
+                error_ = "integer overflow";
+                return {};
+            }
+            return -*integer;
+        }
+        return -d(v);
     case ArtifactScriptUnaryOp::Not: return !(std::holds_alternative<bool>(v) ? std::get<bool>(v) : d(v) != 0.0);
     }
     return {};
