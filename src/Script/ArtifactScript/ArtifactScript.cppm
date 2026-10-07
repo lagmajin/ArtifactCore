@@ -2576,6 +2576,29 @@ bool ArtifactScriptEvaluator::execute(
     return impl_->error_.empty();
 }
 
+namespace {
+
+bool tryResolveArrayIndex(const ArtifactScriptValue& value,
+                          std::size_t arraySize, std::size_t& index) {
+    if (const auto* integer = std::get_if<std::int64_t>(&value)) {
+        if (*integer < 0) return false;
+        const auto unsignedIndex = static_cast<std::uint64_t>(*integer);
+        if (unsignedIndex >= arraySize) return false;
+        index = static_cast<std::size_t>(unsignedIndex);
+        return true;
+    }
+    const auto* number = std::get_if<double>(&value);
+    if (!number || !std::isfinite(*number) || *number < 0.0) return false;
+    const double truncated = std::trunc(*number);
+    if (truncated >= static_cast<double>(arraySize)) return false;
+    const auto converted = static_cast<std::size_t>(truncated);
+    if (converted >= arraySize) return false;
+    index = converted;
+    return true;
+}
+
+}  // namespace
+
 ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalExpr(
     const ArtifactScriptExpr* e, ArtifactScriptFields& fields,
     const ArtifactScriptLocals& locals) {
@@ -2775,13 +2798,10 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalExpr(
                      !std::holds_alternative<std::int64_t>(*indexValue))) {
                     return nullptr;
                 }
-                const auto index = static_cast<std::size_t>(
-                    std::holds_alternative<double>(*indexValue)
-                        ? std::get<double>(*indexValue)
-                        : std::get<std::int64_t>(*indexValue));
-                return index < (*array)->values.size()
-                    ? &(*array)->values[index]
-                    : nullptr;
+                std::size_t index = 0;
+                return tryResolveArrayIndex(
+                           *indexValue, (*array)->values.size(), index)
+                    ? &(*array)->values[index] : nullptr;
             }
             if (operand->kind == ArtifactScriptExpr::Kind::FieldAccess) {
                 if (!operand->fieldObject ||
@@ -2969,15 +2989,18 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalExpr(
         return evalCall(e, fields, locals);
     case ArtifactScriptExpr::Kind::Index: {
         const auto arrayValue = evalExpr(e->indexTarget.get(), fields, locals);
+        if (!error_.empty()) return {};
         const auto indexValue = evalExpr(e->indexExpr.get(), fields, locals);
+        if (!error_.empty()) return {};
         if (!std::holds_alternative<ArtifactScriptArrayPtr>(arrayValue) ||
             (!std::holds_alternative<double>(indexValue) && !std::holds_alternative<std::int64_t>(indexValue))) {
             error_ = "invalid array access"; return {};
         }
         const auto& array = std::get<ArtifactScriptArrayPtr>(arrayValue);
-        const auto index = static_cast<std::size_t>(std::holds_alternative<double>(indexValue)
-            ? std::get<double>(indexValue) : std::get<std::int64_t>(indexValue));
-        if (!array || index >= array->values.size()) { error_ = "array index out of range"; return {}; }
+        std::size_t index = 0;
+        if (!array || !tryResolveArrayIndex(indexValue, array->values.size(), index)) {
+            error_ = "array index out of range"; return {};
+        }
         return array->values[index];
     }
     default: return {};
@@ -3426,14 +3449,16 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
                 target = &locals.emplace(s->assignTarget, *field);
             }
             auto indexValue = evalExpr(s->assignIndex.get(), fields, locals);
+            if (!error_.empty()) return false;
             if (!std::holds_alternative<ArtifactScriptArrayPtr>(target->value) ||
                 (!std::holds_alternative<double>(indexValue) && !std::holds_alternative<std::int64_t>(indexValue))) {
                 error_ = "invalid array assignment"; return false;
             }
             const auto& array = std::get<ArtifactScriptArrayPtr>(target->value);
-            const auto index = static_cast<std::size_t>(std::holds_alternative<double>(indexValue)
-                ? std::get<double>(indexValue) : std::get<std::int64_t>(indexValue));
-            if (!array || index >= array->values.size()) { error_ = "array index out of range"; return false; }
+            std::size_t index = 0;
+            if (!array || !tryResolveArrayIndex(indexValue, array->values.size(), index)) {
+                error_ = "array index out of range"; return false;
+            }
             auto& targetValue = array->values[index];
             if (isSimpleAssignment) {
                 targetValue = std::move(v);
