@@ -2385,29 +2385,74 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalExpr(
             e->binaryOp == ArtifactScriptBinaryOp::Gt ||
             e->binaryOp == ArtifactScriptBinaryOp::Le ||
             e->binaryOp == ArtifactScriptBinaryOp::Ge;
+        const auto valueReference = [&](auto&& self,
+                                        const ArtifactScriptExpr* operand,
+                                        std::size_t depth)
+            -> const ArtifactScriptValue* {
+            if (!operand || depth > 64) return nullptr;
+            if (operand->kind == ArtifactScriptExpr::Kind::Literal) {
+                return &operand->literalValue;
+            }
+            if (operand->kind == ArtifactScriptExpr::Kind::Variable) {
+                if (operand->variableName == "this") return nullptr;
+                if (const auto* local = locals.find(operand->variableName))
+                    return &local->value;
+                return fields.findWithoutCaching(operand->variableName);
+            }
+            if (operand->kind == ArtifactScriptExpr::Kind::Index) {
+                const auto* arrayValue = self(
+                    self, operand->indexTarget.get(), depth + 1);
+                const auto* array = arrayValue
+                    ? std::get_if<ArtifactScriptArrayPtr>(arrayValue)
+                    : nullptr;
+                const auto* indexValue = self(
+                    self, operand->indexExpr.get(), depth + 1);
+                if (!array || !*array || !indexValue ||
+                    (!std::holds_alternative<double>(*indexValue) &&
+                     !std::holds_alternative<std::int64_t>(*indexValue))) {
+                    return nullptr;
+                }
+                const auto index = static_cast<std::size_t>(
+                    std::holds_alternative<double>(*indexValue)
+                        ? std::get<double>(*indexValue)
+                        : std::get<std::int64_t>(*indexValue));
+                return index < (*array)->values.size()
+                    ? &(*array)->values[index]
+                    : nullptr;
+            }
+            return nullptr;
+        };
+        const auto isReferenceExpression = [&](auto&& self,
+                                               const ArtifactScriptExpr* operand,
+                                               std::size_t depth)
+            -> bool {
+            if (!operand || depth > 64) return false;
+            switch (operand->kind) {
+            case ArtifactScriptExpr::Kind::Literal:
+                return true;
+            case ArtifactScriptExpr::Kind::Variable:
+                return operand->variableName != "this";
+            case ArtifactScriptExpr::Kind::Index:
+                return self(self, operand->indexTarget.get(), depth + 1) &&
+                       self(self, operand->indexExpr.get(), depth + 1);
+            default:
+                return false;
+            }
+        };
         const auto isSimpleValue = [](const ArtifactScriptExpr* operand) {
             return operand &&
                    (operand->kind == ArtifactScriptExpr::Kind::Literal ||
                     operand->kind == ArtifactScriptExpr::Kind::Variable);
         };
-        const auto simpleValue = [&](const ArtifactScriptExpr* operand)
-            -> const ArtifactScriptValue* {
-            if (!operand) return nullptr;
-            if (operand->kind == ArtifactScriptExpr::Kind::Literal)
-                return &operand->literalValue;
-            if (operand->kind != ArtifactScriptExpr::Kind::Variable ||
-                operand->variableName == "this") {
-                return nullptr;
-            }
-            if (const auto* local = locals.find(operand->variableName))
-                return &local->value;
-            return fields.findWithoutCaching(operand->variableName);
-        };
+        const bool simpleOperands =
+            isSimpleValue(e->left.get()) && isSimpleValue(e->right.get());
         if (e->binaryOp != ArtifactScriptBinaryOp::And &&
             e->binaryOp != ArtifactScriptBinaryOp::Or &&
-            isSimpleValue(e->left.get()) && isSimpleValue(e->right.get())) {
-            const auto* left = simpleValue(e->left.get());
-            const auto* right = simpleValue(e->right.get());
+            (simpleOperands ||
+             (isReferenceExpression(isReferenceExpression, e->left.get(), 0) &&
+              isReferenceExpression(isReferenceExpression, e->right.get(), 0)))) {
+            const auto* left = valueReference(valueReference, e->left.get(), 0);
+            const auto* right = valueReference(valueReference, e->right.get(), 0);
             if (left && right) {
                 const auto* leftString = std::get_if<std::string>(left);
                 const auto* rightString = std::get_if<std::string>(right);
