@@ -1742,6 +1742,10 @@ struct ArtifactScriptFieldBinding {
     // Names point into the live AST; a field scope never outlives evaluation.
     const std::string* name = nullptr;
     ArtifactScriptValue value;
+    // Read-only overlays alias the parent while its scope is suspended. A
+    // write materializes the value locally before changing it.
+    const ArtifactScriptValue* inheritedValue = nullptr;
+    bool dirty = false;
 };
 
 constexpr std::size_t kArtifactScriptInlineOverlayCapacity = 8;
@@ -1756,25 +1760,51 @@ public:
         : parent_(&parent),
           inlineOverlay_(reusableOverlay ? reusableOverlay : ownedInlineOverlay_.data()) {}
 
-    ArtifactScriptValue* find(const std::string& name) {
+    const ArtifactScriptValue* find(const std::string& name) {
         if (root_) {
             if (auto it = root_->find(name); it != root_->end()) return &it->second;
             return nullptr;
         }
-        if (auto* entry = findOverlay(name)) return &entry->value;
-        if (auto* value = parent_->find(name)) {
-            return &insertOverlay(name, *value).value;
+        if (auto* entry = findOverlay(name)) return bindingValue(*entry);
+        if (const auto* value = parent_->find(name)) {
+            return insertAlias(name, value).inheritedValue;
+        }
+        return nullptr;
+    }
+
+    ArtifactScriptValue* findForWrite(const std::string& name) {
+        if (root_) {
+            if (auto it = root_->find(name); it != root_->end()) return &it->second;
+            return nullptr;
+        }
+        if (auto* entry = findOverlay(name)) {
+            if (entry->inheritedValue) {
+                entry->value = *entry->inheritedValue;
+                entry->inheritedValue = nullptr;
+            }
+            entry->dirty = true;
+            return &entry->value;
+        }
+        if (const auto* value = parent_->find(name)) {
+            return &insertOverlay(name, *value, true).value;
         }
         return nullptr;
     }
 
     ArtifactScriptValue& operator[](const std::string& name) {
         if (root_) return (*root_)[name];
-        if (auto* entry = findOverlay(name)) return entry->value;
-        if (auto* value = parent_->find(name)) {
-            return insertOverlay(name, *value).value;
+        if (auto* entry = findOverlay(name)) {
+            if (entry->inheritedValue) {
+                entry->value = *entry->inheritedValue;
+                entry->inheritedValue = nullptr;
+            }
+            entry->dirty = true;
+            return entry->value;
         }
-        return insertOverlay(name, {}).value;
+        if (const auto* value = parent_->find(name)) {
+            return insertOverlay(name, *value, true).value;
+        }
+        return insertOverlay(name, {}, true).value;
     }
 
     void bindLoopValue(const std::string& name, const ArtifactScriptValue& value) {
@@ -1784,15 +1814,19 @@ public:
         }
         if (auto* entry = findOverlay(name)) {
             entry->value = value;
+            entry->inheritedValue = nullptr;
+            entry->dirty = false;
             return;
         }
         if (overlaySize_ < kArtifactScriptInlineOverlayCapacity) {
             auto& entry = inlineOverlay_[overlaySize_++];
             entry.name = &name;
             entry.value = value;
+            entry.inheritedValue = nullptr;
+            entry.dirty = false;
             return;
         }
-        overflowOverlay_.append(ArtifactScriptFieldBinding{&name, value});
+        overflowOverlay_.append(ArtifactScriptFieldBinding{&name, value, nullptr, false});
     }
 
     void commit(std::string_view excludedName) {
@@ -1801,9 +1835,15 @@ public:
     }
 
 private:
+    static const ArtifactScriptValue* bindingValue(
+        const ArtifactScriptFieldBinding& entry) {
+        return entry.inheritedValue ? entry.inheritedValue : &entry.value;
+    }
+
     void commitEntry(const ArtifactScriptFieldBinding& entry,
                      std::string_view excludedName) const {
-        if (*entry.name != excludedName) (*parent_)[*entry.name] = entry.value;
+        if (entry.dirty && *entry.name != excludedName)
+            (*parent_)[*entry.name] = entry.value;
     }
 
     ArtifactScriptFieldBinding* findOverlay(const std::string& name) {
@@ -1815,15 +1855,24 @@ private:
     }
 
     ArtifactScriptFieldBinding& insertOverlay(
-        const std::string& name, const ArtifactScriptValue& value) {
+        const std::string& name, const ArtifactScriptValue& value, bool dirty) {
         if (overlaySize_ < kArtifactScriptInlineOverlayCapacity) {
             auto& entry = inlineOverlay_[overlaySize_++];
             entry.name = &name;
             entry.value = value;
+            entry.inheritedValue = nullptr;
+            entry.dirty = dirty;
             return entry;
         }
-        overflowOverlay_.append(ArtifactScriptFieldBinding{&name, value});
+        overflowOverlay_.append(ArtifactScriptFieldBinding{&name, value, nullptr, dirty});
         return overflowOverlay_[overflowOverlay_.size() - 1];
+    }
+
+    ArtifactScriptFieldBinding& insertAlias(
+        const std::string& name, const ArtifactScriptValue* value) {
+        auto& entry = insertOverlay(name, {}, false);
+        entry.inheritedValue = value;
+        return entry;
     }
 
     ArtifactScriptSerializedFields* root_ = nullptr;
@@ -2569,7 +2618,7 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
             lit->value = applyCompound(lit->value);
             return error_.empty();
         }
-        if (auto* field = fields.find(s->assignTarget)) {
+        if (auto* field = fields.findForWrite(s->assignTarget)) {
             *field = applyCompound(*field);
         } else {
             fields[s->assignTarget] = applyCompound({});
@@ -2583,13 +2632,13 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
             init = makeShared<ArtifactScriptArray>();
         if (!error_.empty()) return false;
         if (s->fieldAssign) {
-            auto resolveObject = [&](ArtifactScriptValue& slot) -> ArtifactScriptObjectInstancePtr* {
+            auto resolveObject = [&](const ArtifactScriptValue& slot) -> const ArtifactScriptObjectInstancePtr* {
                 if (std::holds_alternative<ArtifactScriptObjectInstancePtr>(slot)) {
                     return &std::get<ArtifactScriptObjectInstancePtr>(slot);
                 }
                 return nullptr;
             };
-            ArtifactScriptObjectInstancePtr* target = nullptr;
+            const ArtifactScriptObjectInstancePtr* target = nullptr;
             if (s->declName == "this") {
                 // At the top level `this` is the owning layer rather than a
                 // script instance, so the assignment goes to a host property
@@ -2610,7 +2659,7 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
                 return error_.empty();
             } else if (auto* lit = locals.find(s->declName)) {
                 target = resolveObject(lit->value);
-            } else if (auto* field = fields.find(s->declName)) {
+            } else if (const auto* field = fields.find(s->declName)) {
                 target = resolveObject(*field);
             }
             if (!target || !*target) { error_ = "field assign on non-object: " + s->declName; return false; }
@@ -2652,7 +2701,7 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
         return true; }
     case ArtifactScriptStmt::Kind::Foreach: {
         const ArtifactScriptValue* collection = nullptr;
-        if (auto* field = fields.find(s->foreachCollectionName)) {
+        if (const auto* field = fields.find(s->foreachCollectionName)) {
             collection = field;
         } else if (const auto* lit = locals.find(s->foreachCollectionName)) {
             collection = &lit->value;
