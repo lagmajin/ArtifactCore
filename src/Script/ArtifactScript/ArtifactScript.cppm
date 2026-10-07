@@ -1817,6 +1817,7 @@ public:
     static constexpr std::size_t kReusableForeachDepth = 8;
     static constexpr std::size_t kReusableForeachValueBudget = 1024;
     static constexpr std::size_t kMethodCallCacheCapacity = 32;
+    static constexpr std::size_t kObjectMethodCallCacheWays = 3;
 
     struct MethodCallCacheEntry {
         const ArtifactScriptExpr* callSite = nullptr;
@@ -1872,7 +1873,8 @@ public:
     ArtifactScriptLocals::Workspace localsWorkspace_;
     ArtifactScriptCallArguments::Workspace callArgumentWorkspace_;
     std::array<MethodCallCacheEntry, kMethodCallCacheCapacity> methodCallCache_{};
-    std::array<MethodCallCacheEntry, kMethodCallCacheCapacity * 2>
+    std::array<MethodCallCacheEntry,
+               kMethodCallCacheCapacity * kObjectMethodCallCacheWays>
         objectMethodCallCache_{};
     std::uint32_t methodCallCacheGeneration_ = 0;
     // Retain at most 1024 values across 8 nested snapshots. Deeper/larger
@@ -3031,11 +3033,11 @@ const ArtifactScriptMethod* ArtifactScriptEvaluator::Impl::findObjectMethodAtCal
     if (!activeDefinition_ || !callSite || className.empty()) return nullptr;
     static_assert((kMethodCallCacheCapacity & (kMethodCallCacheCapacity - 1)) == 0);
     const auto address = reinterpret_cast<std::uintptr_t>(callSite);
-    // Two ways preserve monomorphic and common polymorphic call sites without
-    // hashing the runtime class name on each cache hit.
+    // Preserve several runtime classes at a call site without hashing the
+    // runtime class name on each cache hit.
     const auto set = (address >> 4) & (kMethodCallCacheCapacity - 1);
-    const auto firstSlot = set * 2;
-    for (std::size_t way = 0; way < 2; ++way) {
+    const auto firstSlot = set * kObjectMethodCallCacheWays;
+    for (std::size_t way = 0; way < kObjectMethodCallCacheWays; ++way) {
         auto& entry = objectMethodCallCache_[firstSlot + way];
         if (entry.generation == methodCallCacheGeneration_ &&
             entry.callSite == callSite && entry.definition == activeDefinition_ &&
@@ -3058,13 +3060,17 @@ const ArtifactScriptMethod* ArtifactScriptEvaluator::Impl::findObjectMethodAtCal
         if (method || current->parentName.empty()) break;
         current = findClass(current->parentName);
     }
-    auto& firstEntry = objectMethodCallCache_[firstSlot];
-    auto& secondEntry = objectMethodCallCache_[firstSlot + 1];
-    auto& replacement = firstEntry.generation != methodCallCacheGeneration_
-        ? firstEntry
-        : secondEntry;
-    replacement = {callSite, activeDefinition_, targetClass, method,
-                   methodCallCacheGeneration_};
+    auto* replacement = &objectMethodCallCache_[
+        firstSlot + kObjectMethodCallCacheWays - 1];
+    for (std::size_t way = 0; way < kObjectMethodCallCacheWays; ++way) {
+        auto& entry = objectMethodCallCache_[firstSlot + way];
+        if (entry.generation != methodCallCacheGeneration_) {
+            replacement = &entry;
+            break;
+        }
+    }
+    *replacement = {callSite, activeDefinition_, targetClass, method,
+                    methodCallCacheGeneration_};
     return method;
 }
 
