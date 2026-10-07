@@ -1558,6 +1558,11 @@ public:
             ? std::span<const ArtifactScriptValue>(overflow_->data(), overflow_->size())
             : std::span<const ArtifactScriptValue>(inlineValues_, size_);
     }
+    std::span<ArtifactScriptValue> mutableSpan() {
+        return useOverflow_
+            ? std::span<ArtifactScriptValue>(overflow_->data(), overflow_->size())
+            : std::span<ArtifactScriptValue>(inlineValues_, size_);
+    }
 
 private:
     static constexpr std::size_t inlineCapacity_ = 4;
@@ -1992,7 +1997,7 @@ public:
     ArtifactScriptValue evalCall(const ArtifactScriptExpr*, ArtifactScriptFields&, const ArtifactScriptLocals&);
     bool execStmt(const ArtifactScriptStmt*, ArtifactScriptFields&, ArtifactScriptLocals& locals);
     ArtifactScriptValue callUserMethod(const ArtifactScriptMethod&, std::span<const ArtifactScriptValue>, ArtifactScriptFields&);
-    ArtifactScriptValue callInstanceMethod(const ArtifactScriptObjectInstancePtr&, const ArtifactScriptMethod&, std::span<const ArtifactScriptValue>);
+    ArtifactScriptValue callInstanceMethod(const ArtifactScriptObjectInstancePtr&, const ArtifactScriptMethod&, std::span<ArtifactScriptValue>);
     const ArtifactScriptClass* findClass(std::string_view) const;
     const ArtifactScriptMethod* findMethodInChain(std::string_view, std::string_view) const;
     const ArtifactScriptMethod* findMethodAtCallSite(const ArtifactScriptExpr*);
@@ -2237,7 +2242,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalExpr(
             inheritFields(*chain[i - 1]);
         }
         if (const ArtifactScriptMethod* ctor = findMethodInChain(cls->name, "OnConstruct")) {
-            const auto result = callInstanceMethod(instance, *ctor, args.span());
+            const auto result = callInstanceMethod(instance, *ctor, args.mutableSpan());
             if (!error_.empty()) return {};
             (void)result;
         } else if (!args.empty()) {
@@ -2396,7 +2401,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
             if (activeDefinition_) {
                 if (const ArtifactScriptMethod* method =
                         findObjectMethodAtCallSite(e, instance->className)) {
-                    return callInstanceMethod(instance, *method, argumentValues);
+                    return callInstanceMethod(instance, *method, args.mutableSpan());
                 }
             }
             ArtifactScriptValue hostResult;
@@ -3351,7 +3356,7 @@ bool ArtifactScriptEvaluator::Impl::isInstanceOf(
 ArtifactScriptValue ArtifactScriptEvaluator::Impl::callInstanceMethod(
     const ArtifactScriptObjectInstancePtr& instance,
     const ArtifactScriptMethod& resolvedMethod,
-    std::span<const ArtifactScriptValue> args) {
+    std::span<ArtifactScriptValue> args) {
     constexpr int kMaxCallDepth = static_cast<int>(kArtifactScriptMaxCallDepth);
     if (!instance) { error_ = "null object"; return {}; }
     if (callDepth_ >= kMaxCallDepth) { error_ = "script call depth limit"; return {}; }
@@ -3359,7 +3364,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::callInstanceMethod(
     if (!method->body) return {};
     ArtifactScriptLocals locals(localsWorkspace_);
     for (std::size_t i = 0; i < args.size() && i < method->parameters.size(); ++i)
-        locals[method->parameters[i]] = args[i];
+        locals[method->parameters[i]] = std::move(args[i]);
     const auto previousReturn = returnValue_;
     const bool previousReturned = returned_;
     const auto previousThis = activeThis_;
