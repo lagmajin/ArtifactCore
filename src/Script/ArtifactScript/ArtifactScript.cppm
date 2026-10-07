@@ -2841,8 +2841,11 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
             (*target)->fields[s->assignField] = init;
             return error_.empty();
         }
-        locals[s->declName] = (s->declInit || s->declType == ArtifactScriptValueType::Array)
-            ? init : ArtifactScriptValue{};
+        if (s->declInit || s->declType == ArtifactScriptValueType::Array) {
+            locals[s->declName] = std::move(init);
+        } else {
+            locals[s->declName] = ArtifactScriptValue{};
+        }
         return error_.empty(); }
     case ArtifactScriptStmt::Kind::While: {
         int iter = 0;
