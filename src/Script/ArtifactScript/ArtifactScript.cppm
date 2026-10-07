@@ -4082,6 +4082,13 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
         array->values.pop_back();
         return value;
     }
+    if (e->callName == "contains" && argumentValues.size() == 2 &&
+        std::holds_alternative<std::string>(argumentValues[0]) &&
+        std::holds_alternative<std::string>(argumentValues[1])) {
+        const auto& source = std::get<std::string>(argumentValues[0]);
+        const auto& substring = std::get<std::string>(argumentValues[1]);
+        return source.find(substring) != std::string::npos;
+    }
     if ((e->callName == "contains" || e->callName == "indexOf") && argumentValues.size() == 2 &&
         std::holds_alternative<ArtifactScriptArrayPtr>(argumentValues[0])) {
         const auto& array = std::get<ArtifactScriptArrayPtr>(argumentValues[0]);
