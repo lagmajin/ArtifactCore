@@ -3924,6 +3924,39 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
         const auto& array = std::get<ArtifactScriptArrayPtr>(argumentValues[0]);
         return static_cast<std::int64_t>(array ? array->values.size() : 0);
     }
+    if (e->callName == "split") {
+        if (argumentValues.size() != 2 ||
+            !std::holds_alternative<std::string>(argumentValues[0]) ||
+            !std::holds_alternative<std::string>(argumentValues[1])) {
+            error_ = "split expects a source string and a delimiter string";
+            return {};
+        }
+        const auto& source = std::get<std::string>(argumentValues[0]);
+        const auto& delimiter = std::get<std::string>(argumentValues[1]);
+        if (delimiter.empty()) {
+            error_ = "split delimiter must not be empty";
+            return {};
+        }
+
+        std::size_t elementCount = 1;
+        for (std::size_t position = source.find(delimiter);
+             position != std::string::npos;
+             position = source.find(delimiter, position + delimiter.size())) {
+            ++elementCount;
+        }
+
+        auto array = makeShared<ArtifactScriptArray>();
+        array->values.reserve(elementCount);
+        std::size_t elementStart = 0;
+        for (std::size_t position = source.find(delimiter);
+             position != std::string::npos;
+             position = source.find(delimiter, elementStart)) {
+            array->values.push_back(source.substr(elementStart, position - elementStart));
+            elementStart = position + delimiter.size();
+        }
+        array->values.push_back(source.substr(elementStart));
+        return array;
+    }
     if (e->callName == "push" && argumentValues.size() == 2 &&
         std::holds_alternative<ArtifactScriptArrayPtr>(argumentValues[0])) {
         const auto& array = std::get<ArtifactScriptArrayPtr>(argumentValues[0]);
