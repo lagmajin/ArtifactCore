@@ -4000,6 +4000,60 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
         }
         return result;
     }
+    if (e->callName == "replace") {
+        if (argumentValues.size() != 3 ||
+            !std::holds_alternative<std::string>(argumentValues[0]) ||
+            !std::holds_alternative<std::string>(argumentValues[1]) ||
+            !std::holds_alternative<std::string>(argumentValues[2])) {
+            error_ = "replace expects source, search, and replacement strings";
+            return {};
+        }
+        const auto& source = std::get<std::string>(argumentValues[0]);
+        const auto& search = std::get<std::string>(argumentValues[1]);
+        const auto& replacement = std::get<std::string>(argumentValues[2]);
+        if (search.empty()) {
+            error_ = "replace search string must not be empty";
+            return {};
+        }
+
+        std::size_t matchCount = 0;
+        for (std::size_t position = source.find(search);
+             position != std::string::npos;
+             position = source.find(search, position + search.size())) {
+            ++matchCount;
+        }
+
+        std::string result;
+        const std::size_t maximumSize = result.max_size();
+        if (source.size() > maximumSize) {
+            error_ = "replace result is too large";
+            return {};
+        }
+        std::size_t resultSize = source.size();
+        if (replacement.size() > search.size()) {
+            const std::size_t growthPerMatch = replacement.size() - search.size();
+            if (growthPerMatch != 0 &&
+                matchCount > (maximumSize - source.size()) / growthPerMatch) {
+                error_ = "replace result is too large";
+                return {};
+            }
+            resultSize += matchCount * growthPerMatch;
+        } else {
+            resultSize -= matchCount * (search.size() - replacement.size());
+        }
+        result.reserve(resultSize);
+
+        std::size_t sourceStart = 0;
+        for (std::size_t position = source.find(search);
+             position != std::string::npos;
+             position = source.find(search, sourceStart)) {
+            result.append(source, sourceStart, position - sourceStart);
+            result.append(replacement);
+            sourceStart = position + search.size();
+        }
+        result.append(source, sourceStart, std::string::npos);
+        return result;
+    }
     if (e->callName == "push" && argumentValues.size() == 2 &&
         std::holds_alternative<ArtifactScriptArrayPtr>(argumentValues[0])) {
         const auto& array = std::get<ArtifactScriptArrayPtr>(argumentValues[0]);
