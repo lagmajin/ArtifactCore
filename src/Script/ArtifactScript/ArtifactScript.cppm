@@ -930,7 +930,7 @@ ArtifactScriptStmtPtr parseStmt(ParseCtx& c) {
         }
         statement->assignValue = std::make_unique<ArtifactScriptExpr>();
         statement->assignValue->kind = ArtifactScriptExpr::Kind::Literal;
-        statement->assignValue->literalValue = 1.0;
+        statement->assignValue->literalValue = std::int64_t{1};
         matchCh(c, ';');
         return statement;
     }
@@ -1003,7 +1003,7 @@ ArtifactScriptStmtPtr parseStmt(ParseCtx& c) {
         inc->assignOp = isPostInc ? "+=" : "-=";
         inc->assignValue = std::make_unique<ArtifactScriptExpr>();
         inc->assignValue->kind = ArtifactScriptExpr::Kind::Literal;
-        inc->assignValue->literalValue = 1.0;
+        inc->assignValue->literalValue = std::int64_t{1};
         matchCh(c, ';');
         return inc;
     }
@@ -1051,7 +1051,7 @@ ArtifactScriptStmtPtr parseStmt(ParseCtx& c) {
                             std::make_unique<ArtifactScriptExpr>();
                         statement->assignValue->kind =
                             ArtifactScriptExpr::Kind::Literal;
-                        statement->assignValue->literalValue = 1.0;
+                        statement->assignValue->literalValue = std::int64_t{1};
                     } else {
                         statement->assignValue = parseRequiredExpr(c);
                     }
