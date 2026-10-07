@@ -1821,26 +1821,34 @@ public:
         return insertOverlay(name, {}, true).value;
     }
 
+    ArtifactScriptFieldBinding* prepareLoopBinding(const std::string& name) {
+        if (root_) return nullptr;
+        if (auto* entry = findOverlay(name)) return entry;
+        if (overlaySize_ < kArtifactScriptInlineOverlayCapacity) {
+            auto& entry = inlineOverlay_[overlaySize_++];
+            entry.name = &name;
+            entry.inheritedValue = nullptr;
+            entry.dirty = false;
+            return &entry;
+        }
+        overflowOverlay_.append(ArtifactScriptFieldBinding{&name, {}, nullptr, false});
+        return &overflowOverlay_[overflowOverlay_.size() - 1];
+    }
+
+    void bindLoopValue(ArtifactScriptFieldBinding& entry,
+                       const ArtifactScriptValue& value) {
+        // Read iteration values through an alias; findForWrite materializes a
+        // private copy if the script assigns to the loop variable.
+        entry.inheritedValue = &value;
+        entry.dirty = false;
+    }
+
     void bindLoopValue(const std::string& name, const ArtifactScriptValue& value) {
         if (root_) {
             (*root_)[name] = value;
             return;
         }
-        // Read iteration values through an alias; findForWrite materializes a
-        // private copy if the script assigns to the loop variable.
-        if (auto* entry = findOverlay(name)) {
-            entry->inheritedValue = &value;
-            entry->dirty = false;
-            return;
-        }
-        if (overlaySize_ < kArtifactScriptInlineOverlayCapacity) {
-            auto& entry = inlineOverlay_[overlaySize_++];
-            entry.name = &name;
-            entry.inheritedValue = &value;
-            entry.dirty = false;
-            return;
-        }
-        overflowOverlay_.append(ArtifactScriptFieldBinding{&name, {}, &value, false});
+        if (auto* entry = prepareLoopBinding(name)) bindLoopValue(*entry, value);
     }
 
     void commit(std::string_view excludedName) {
@@ -2933,8 +2941,10 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
                 transientElements->data(), transientElements->size());
         }
         ArtifactScriptFields scope(fields, workspace ? workspace->overlay.data() : nullptr);
+        auto* loopBinding = scope.prepareLoopBinding(s->foreachItemName);
         for (const auto& element : elements) {
-            scope.bindLoopValue(s->foreachItemName, element);
+            if (loopBinding) scope.bindLoopValue(*loopBinding, element);
+            else scope.bindLoopValue(s->foreachItemName, element);
             if (!execStmt(s->foreachBody.get(), scope, locals)) return false;
             if (breakRequested_) { breakRequested_ = false; break; }
             if (continueRequested_) { continueRequested_ = false; }
