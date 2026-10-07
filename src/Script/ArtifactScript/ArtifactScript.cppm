@@ -2218,9 +2218,13 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
                 }
             }
             ArtifactScriptValue hostResult;
-            const std::string classLabel = instance->className.empty() ? "Object" : instance->className;
+            const std::string* classLabel = &instance->className;
+            if (classLabel->empty()) {
+                static const std::string genericObjectClassLabel{"Object"};
+                classLabel = &genericObjectClassLabel;
+            }
             if (ArtifactScriptHost::global().callMethodView(
-                    classLabel, e->callName, target, argumentValues, hostResult)) {
+                    *classLabel, e->callName, target, argumentValues, hostResult)) {
                 if (!ArtifactScriptHost::global().lastError().empty()) {
                     error_ = "host: " + ArtifactScriptHost::global().lastError();
                     return {};
