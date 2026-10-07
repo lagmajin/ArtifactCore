@@ -1387,14 +1387,63 @@ const ArtifactScriptMethod* ArtifactScriptInstance::findLifecycleHookInDefinitio
     if (definition_.rootClass.name.empty()) {
         return nullptr;
     }
-    const ArtifactScriptClass* root =
-        findClassByName(definition_.rootClass.name);
+
+    // Lifecycle lookup runs on every hook invocation. For larger class
+    // registries, avoid scanning the full registry once per inheritance level.
+    constexpr std::size_t kLookupCapacity = 128;
+    constexpr std::size_t kIndexedClassLimit = 64;
+    constexpr std::size_t kLinearLookupLimit = 8;
+    static_assert((kLookupCapacity & (kLookupCapacity - 1)) == 0);
+    const bool useClassIndex = definition_.classes.size() > kLinearLookupLimit &&
+                               definition_.classes.size() <= kIndexedClassLimit;
+    std::optional<std::array<const ArtifactScriptClass*, kLookupCapacity>>
+        classIndex;
+    if (useClassIndex) {
+        classIndex.emplace();
+        for (const auto& cls : definition_.classes) {
+            std::uint64_t hash = 14695981039346656037ull;
+            for (const unsigned char character : cls.name) {
+                hash ^= character;
+                hash *= 1099511628211ull;
+            }
+            auto slot = static_cast<std::size_t>(hash) & (kLookupCapacity - 1);
+            for (std::size_t probe = 0; probe < kLookupCapacity; ++probe) {
+                auto*& entry = (*classIndex)[slot];
+                if (!entry) {
+                    entry = &cls;
+                    break;
+                }
+                // Keep the existing first-match behavior for duplicate names.
+                if (entry->name == cls.name) break;
+                slot = (slot + 1) & (kLookupCapacity - 1);
+            }
+        }
+    }
+    const auto findClass = [&](std::string_view name) -> const ArtifactScriptClass* {
+        if (name == definition_.rootClass.name) return &definition_.rootClass;
+        if (!useClassIndex) return findClassByName(name);
+        std::uint64_t hash = 14695981039346656037ull;
+        for (const unsigned char character : name) {
+            hash ^= character;
+            hash *= 1099511628211ull;
+        }
+        auto slot = static_cast<std::size_t>(hash) & (kLookupCapacity - 1);
+        for (std::size_t probe = 0; probe < kLookupCapacity; ++probe) {
+            const auto* entry = (*classIndex)[slot];
+            if (!entry) return nullptr;
+            if (entry->name == name) return entry;
+            slot = (slot + 1) & (kLookupCapacity - 1);
+        }
+        return nullptr;
+    };
+
+    const ArtifactScriptClass* root = findClass(definition_.rootClass.name);
     if (!root) {
         return nullptr;
     }
     std::string_view current = root->name;
     for (int depth = 0; depth < 32; ++depth) {
-        const ArtifactScriptClass* level = findClassByName(current);
+        const ArtifactScriptClass* level = findClass(current);
         if (!level) {
             break;
         }
