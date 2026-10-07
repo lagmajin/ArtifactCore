@@ -1465,18 +1465,11 @@ public:
             ? std::span<const ArtifactScriptValue>(overflow_->data(), overflow_->size())
             : std::span<const ArtifactScriptValue>(inlineValues_, size_);
     }
-    const std::vector<ArtifactScriptValue>& vector() const {
-        if (useOverflow_) return *overflow_;
-        if (!materialized_) materialized_.emplace();
-        materialized_->assign(inlineValues_, inlineValues_ + size_);
-        return *materialized_;
-    }
 
 private:
     static constexpr std::size_t inlineCapacity_ = 5;
     ArtifactScriptValue inlineValues_[inlineCapacity_]{};
     std::optional<std::vector<ArtifactScriptValue>> overflow_;
-    mutable std::optional<std::vector<ArtifactScriptValue>> materialized_;
     std::size_t size_ = 0;
     bool useOverflow_ = false;
 };
@@ -2110,8 +2103,8 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
             }
             ArtifactScriptValue hostResult;
             const std::string classLabel = instance->className.empty() ? "Object" : instance->className;
-            if (ArtifactScriptHost::global().callMethod(
-                    classLabel, e->callName, target, args.vector(), hostResult)) {
+            if (ArtifactScriptHost::global().callMethodView(
+                    classLabel, e->callName, target, argumentValues, hostResult)) {
                 if (!ArtifactScriptHost::global().lastError().empty()) {
                     error_ = "host: " + ArtifactScriptHost::global().lastError();
                     return {};
@@ -2123,8 +2116,8 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
         // Host objects arrive as ObjectRef (e.g. getLayer() handles).
         if (std::holds_alternative<ArtifactScriptRef>(target)) {
             ArtifactScriptValue hostResult;
-            if (ArtifactScriptHost::global().callMethod(
-                    "ObjectRef", e->callName, target, args.vector(), hostResult)) {
+            if (ArtifactScriptHost::global().callMethodView(
+                    "ObjectRef", e->callName, target, argumentValues, hostResult)) {
                 if (!ArtifactScriptHost::global().lastError().empty()) {
                     error_ = "host: " + ArtifactScriptHost::global().lastError();
                     return {};
@@ -2231,7 +2224,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
     ArtifactScriptHost& host = ArtifactScriptHost::global();
     if (host.hasFunction(e->callName)) {
         host.setLastError(std::string());
-        if (host.callFunction(e->callName, args.vector(), hostResult)) {
+        if (host.callFunctionView(e->callName, argumentValues, hostResult)) {
             // Host callbacks may report failures via setLastError; surface
             // them through the evaluator's diagnostic path.
             const std::string hostError = host.lastError();
@@ -2562,9 +2555,17 @@ bool ArtifactScriptHost::callMethod(const std::string& className, const std::str
                                     const ArtifactScriptValue& self,
                                     const std::vector<ArtifactScriptValue>& args,
                                     ArtifactScriptValue& result) const {
+    return callMethodView(className, methodName, self,
+                          std::span<const ArtifactScriptValue>(args.data(), args.size()), result);
+}
+
+bool ArtifactScriptHost::callMethodView(const std::string& className, const std::string& methodName,
+                                        const ArtifactScriptValue& self,
+                                        std::span<const ArtifactScriptValue> args,
+                                        ArtifactScriptValue& result) const {
     const auto it = impl_->methods.find(className + "." + methodName);
     if (it == impl_->methods.end()) return false;
-    result = it->second(self, std::span<const ArtifactScriptValue>(args.data(), args.size()));
+    result = it->second(self, args);
     return true;
 }
 
@@ -2682,9 +2683,16 @@ bool ArtifactScriptHost::callFunction(
     const std::string& name,
     const std::vector<ArtifactScriptValue>& args,
     ArtifactScriptValue& result) const {
+    return callFunctionView(name, std::span<const ArtifactScriptValue>(args.data(), args.size()), result);
+}
+
+bool ArtifactScriptHost::callFunctionView(
+    const std::string& name,
+    std::span<const ArtifactScriptValue> args,
+    ArtifactScriptValue& result) const {
     const auto it = impl_->functions.find(name);
     if (it == impl_->functions.end()) return false;
-    result = it->second(std::span<const ArtifactScriptValue>(args.data(), args.size()));
+    result = it->second(args);
     return true;
 }
 

@@ -441,6 +441,10 @@ public:
                     const ArtifactScriptValue& self,
                     const std::vector<ArtifactScriptValue>& args,
                     ArtifactScriptValue& result) const;
+    bool callMethodView(const std::string& className, const std::string& methodName,
+                        const ArtifactScriptValue& self,
+                        std::span<const ArtifactScriptValue> args,
+                        ArtifactScriptValue& result) const;
     // Installs the stable, composition-facing standard library callbacks.
     // Reinstalling replaces the previous callbacks and keeps the registry
     // ownership in the host.
@@ -451,6 +455,9 @@ public:
     bool callFunction(const std::string& name,
                       const std::vector<ArtifactScriptValue>& args,
                       ArtifactScriptValue& result) const;
+    bool callFunctionView(const std::string& name,
+                          std::span<const ArtifactScriptValue> args,
+                          ArtifactScriptValue& result) const;
     std::vector<std::string> registeredNames() const;
 
     // Script print()/log() output collector (bounded ring).
