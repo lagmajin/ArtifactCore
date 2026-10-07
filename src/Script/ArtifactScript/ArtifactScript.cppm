@@ -1618,8 +1618,10 @@ public:
     ArtifactScriptLocals& operator=(const ArtifactScriptLocals&) = delete;
 
     ArtifactScriptLocalBinding* find(std::string_view name) {
+        if (inlineSize_ == 0 && overflowEntries_->size() == 0) return nullptr;
+        const auto nameHash = hashName(name);
         if (inlineSize_ != 0) {
-            auto bucket = hashName(name) & (inlineNameIndex_.size() - 1);
+            auto bucket = nameHash & (inlineNameIndex_.size() - 1);
             for (std::size_t probe = 0; probe < inlineNameIndex_.size(); ++probe) {
                 const auto encodedIndex = inlineNameIndex_[bucket];
                 if (encodedIndex == 0) break;
@@ -1628,13 +1630,25 @@ public:
                 bucket = (bucket + 1) & (inlineNameIndex_.size() - 1);
             }
         }
-        for (auto& entry : *overflowEntries_) if (entry.name == name) return &entry;
+        for (std::size_t probe = 0; probe < overflowNameIndex_.size(); ++probe) {
+            const auto encodedIndex = overflowNameIndex_[
+                (nameHash + probe) & (overflowNameIndex_.size() - 1)];
+            if (encodedIndex == 0) break;
+            auto& entry = (*overflowEntries_)[encodedIndex - 1];
+            if (entry.name == name) return &entry;
+        }
+        for (std::size_t i = indexedOverflowCount_; i < overflowEntries_->size(); ++i) {
+            auto& entry = (*overflowEntries_)[i];
+            if (entry.name == name) return &entry;
+        }
         return nullptr;
     }
 
     const ArtifactScriptLocalBinding* find(std::string_view name) const {
+        if (inlineSize_ == 0 && overflowEntries_->size() == 0) return nullptr;
+        const auto nameHash = hashName(name);
         if (inlineSize_ != 0) {
-            auto bucket = hashName(name) & (inlineNameIndex_.size() - 1);
+            auto bucket = nameHash & (inlineNameIndex_.size() - 1);
             for (std::size_t probe = 0; probe < inlineNameIndex_.size(); ++probe) {
                 const auto encodedIndex = inlineNameIndex_[bucket];
                 if (encodedIndex == 0) break;
@@ -1643,7 +1657,17 @@ public:
                 bucket = (bucket + 1) & (inlineNameIndex_.size() - 1);
             }
         }
-        for (const auto& entry : *overflowEntries_) if (entry.name == name) return &entry;
+        for (std::size_t probe = 0; probe < overflowNameIndex_.size(); ++probe) {
+            const auto encodedIndex = overflowNameIndex_[
+                (nameHash + probe) & (overflowNameIndex_.size() - 1)];
+            if (encodedIndex == 0) break;
+            const auto& entry = (*overflowEntries_)[encodedIndex - 1];
+            if (entry.name == name) return &entry;
+        }
+        for (std::size_t i = indexedOverflowCount_; i < overflowEntries_->size(); ++i) {
+            const auto& entry = (*overflowEntries_)[i];
+            if (entry.name == name) return &entry;
+        }
         return nullptr;
     }
 
@@ -1661,7 +1685,9 @@ public:
 private:
     static constexpr std::size_t inlineCapacity_ = 12;
     static constexpr std::size_t inlineNameIndexCapacity_ = 32;
+    static constexpr std::size_t overflowNameIndexCapacity_ = 64;
     static_assert((inlineNameIndexCapacity_ & (inlineNameIndexCapacity_ - 1)) == 0);
+    static_assert((overflowNameIndexCapacity_ & (overflowNameIndexCapacity_ - 1)) == 0);
 
     static std::size_t hashName(std::string_view name) {
         std::uint64_t hash = 14695981039346656037ull;
@@ -1698,13 +1724,26 @@ private:
         } else if (useWorkspace_ && overflowEntries_->capacity() == 0) {
             overflowEntries_->reserve(Workspace::maxRetainedOverflowEntries);
         }
+        const auto overflowIndex = overflowEntries_->size();
         overflowEntries_->append(std::move(binding));
+        if (overflowIndex < Workspace::maxRetainedOverflowEntries) {
+            auto bucket = hashName(name) & (overflowNameIndex_.size() - 1);
+            while (overflowNameIndex_[bucket] != 0) {
+                bucket = (bucket + 1) & (overflowNameIndex_.size() - 1);
+            }
+            overflowNameIndex_[bucket] = static_cast<std::uint8_t>(overflowIndex + 1);
+            indexedOverflowCount_ = overflowIndex + 1;
+        }
         return (*overflowEntries_)[overflowEntries_->size() - 1];
     }
 
     std::array<ArtifactScriptLocalBinding, inlineCapacity_> inlineEntries_{};
     std::array<std::uint8_t, inlineNameIndexCapacity_> inlineNameIndex_{};
+    // Index the bounded reusable prefix; any transient locals beyond that
+    // prefix stay on the fallback scan path instead of growing this table.
+    std::array<std::uint8_t, overflowNameIndexCapacity_> overflowNameIndex_{};
     std::size_t inlineSize_ = 0;
+    std::size_t indexedOverflowCount_ = 0;
     Workspace* workspace_ = nullptr;
     std::size_t workspaceIndex_ = 0;
     std::optional<ArtifactCore::Array<ArtifactScriptLocalBinding>> fallbackOverflow_;
