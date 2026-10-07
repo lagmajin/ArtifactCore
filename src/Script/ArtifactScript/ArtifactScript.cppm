@@ -2128,6 +2128,7 @@ public:
     static constexpr std::size_t kReusableForeachValueBudget = 1024;
     static constexpr std::size_t kMethodCallCacheCapacity = 32;
     static constexpr std::size_t kObjectMethodCallCacheWays = 3;
+    static constexpr std::size_t kForeachMutationCacheCapacity = 64;
     static constexpr std::size_t kClassLookupIndexCapacity = 128;
     static constexpr std::size_t kClassLookupMaxClasses =
         kClassLookupIndexCapacity / 2;
@@ -2149,6 +2150,11 @@ public:
         const ArtifactScriptDefinition* definition = nullptr;
         const ArtifactScriptMethod* method = nullptr;
         bool resolved = false;
+    };
+
+    struct ForeachMutationCacheEntry {
+        const ArtifactScriptStmt* statement = nullptr;
+        bool mayMutateArray = false;
     };
 
     struct ForeachSnapshotScope {
@@ -2207,6 +2213,12 @@ public:
     std::array<ClassLookupIndexEntry, kClassLookupIndexCapacity>
         classLookupIndex_{};
     std::array<LifecycleHookCacheEntry, 6> lifecycleHookCache_{};
+    // The parsed AST stays immutable for the lifetime of a normal script
+    // instance. Mutable-definition and direct-evaluator paths keep scanning.
+    std::array<ForeachMutationCacheEntry, kForeachMutationCacheCapacity>
+        foreachMutationCache_{};
+    const ArtifactScriptDefinition* foreachMutationCacheDefinition_ = nullptr;
+    bool foreachMutationCacheReusable_ = false;
     const ArtifactScriptDefinition* classLookupDefinition_ = nullptr;
     std::uint32_t classLookupGeneration_ = 0;
     bool classLookupIndexEnabled_ = false;
@@ -2235,6 +2247,8 @@ public:
     void beginMethodCallCacheGeneration();
     void beginClassLookupGeneration(const ArtifactScriptDefinition&);
     void invalidateClassLookupIndex();
+    void beginForeachMutationCache(const ArtifactScriptDefinition*, bool);
+    bool foreachSnapshotRequired(const ArtifactScriptStmt*);
     bool isInstanceOf(const ArtifactScriptObjectInstance&, std::string_view) const;
 };
 
@@ -2308,6 +2322,39 @@ void ArtifactScriptEvaluator::disableClassLookupReuse() const {
     impl_->classLookupReuseDisabled_ = true;
     impl_->invalidateClassLookupIndex();
     for (auto& entry : impl_->lifecycleHookCache_) entry = {};
+    impl_->beginForeachMutationCache(nullptr, false);
+}
+
+void ArtifactScriptEvaluator::Impl::beginForeachMutationCache(
+    const ArtifactScriptDefinition* definition, bool reusable) {
+    if (!reusable || !definition) {
+        foreachMutationCacheReusable_ = false;
+        foreachMutationCacheDefinition_ = nullptr;
+        foreachMutationCache_.fill({});
+        return;
+    }
+    if (foreachMutationCacheDefinition_ != definition) {
+        foreachMutationCache_.fill({});
+        foreachMutationCacheDefinition_ = definition;
+    }
+    foreachMutationCacheReusable_ = true;
+}
+
+bool ArtifactScriptEvaluator::Impl::foreachSnapshotRequired(
+    const ArtifactScriptStmt* statement) {
+    if (!foreachMutationCacheReusable_ || !statement) {
+        return statementMayMutateArray(statement);
+    }
+    const auto address = reinterpret_cast<std::uintptr_t>(statement);
+    // Bounded direct mapping: collisions only trigger a conservative rescan.
+    constexpr auto kCacheMask = kForeachMutationCacheCapacity - 1;
+    const auto cacheIndex = static_cast<std::size_t>(address >> 4) & kCacheMask;
+    auto& entry = foreachMutationCache_[cacheIndex];
+    if (entry.statement == statement) return entry.mayMutateArray;
+
+    const bool mayMutateArray = statementMayMutateArray(statement);
+    entry = {statement, mayMutateArray};
+    return mayMutateArray;
 }
 
 bool ArtifactScriptEvaluator::execute(
@@ -2317,6 +2364,7 @@ bool ArtifactScriptEvaluator::execute(
     impl_->beginMethodCallCacheGeneration();
     impl_->methodCallCacheDefinition_ = nullptr;
     impl_->methodCallCacheReusable_ = false;
+    impl_->beginForeachMutationCache(nullptr, false);
     impl_->invalidateClassLookupIndex();
     impl_->error_.clear();
     impl_->returnValue_ = {};
@@ -3279,7 +3327,7 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
             workspace = &foreachWorkspaces_[snapshotDepth];
             snapshotScope.workspace = workspace;
         }
-        const bool snapshotRequired = statementMayMutateArray(s->foreachBody.get());
+        const bool snapshotRequired = foreachSnapshotRequired(s->foreachBody.get());
         if (array && !array->values.empty() && !snapshotRequired) {
             elements = std::span<const ArtifactScriptValue>(
                 array->values.data(), array->values.size());
@@ -3983,6 +4031,8 @@ ArtifactScriptValue ArtifactScriptEvaluator::executeResolvedMethod(
     impl_->methodCallCacheDefinition_ = &definition;
     impl_->methodCallCacheReusable_ =
         reuseDefinitionCache && !impl_->classLookupReuseDisabled_;
+    impl_->beginForeachMutationCache(
+        &definition, reuseDefinitionCache && !impl_->classLookupReuseDisabled_);
     impl_->callDepth_ = 0;
     impl_->returnValue_ = {};
     impl_->returned_ = false;
