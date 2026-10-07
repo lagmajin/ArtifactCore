@@ -1638,6 +1638,9 @@ struct ScriptJsonValue {
     Kind kind = Kind::Null;
     bool boolValue = false;
     double numberValue = 0.0;
+    std::int64_t integerValue = 0;
+    bool isIntegerToken = false;
+    bool hasIntegerValue = false;
     std::string stringValue;
     std::vector<ScriptJsonPtr> array;
     std::vector<std::pair<std::string, ScriptJsonPtr>> object;
@@ -1658,8 +1661,16 @@ bool parseJsonNumber(ScriptJsonCursor& cur, ScriptJsonPtr& out) {
     }
     if (!anyDigit) return false;
     const std::string_view token = cur.text.substr(begin, cur.pos - begin);
-    auto [end, ec] = std::from_chars(token.data(), token.data() + token.size(), out->numberValue);
-    if (ec != std::errc{}) return false;
+    out->isIntegerToken = token.find_first_of(".eE") == std::string_view::npos;
+    if (out->isIntegerToken) {
+        const auto [integerEnd, integerError] = std::from_chars(
+            token.data(), token.data() + token.size(), out->integerValue);
+        out->hasIntegerValue = integerError == std::errc{} &&
+                               integerEnd == token.data() + token.size();
+    }
+    const auto [end, ec] = std::from_chars(
+        token.data(), token.data() + token.size(), out->numberValue);
+    if (ec != std::errc{} || end != token.data() + token.size()) return false;
     out->kind = ScriptJsonValue::Kind::Number;
     return true;
 }
@@ -1744,6 +1755,21 @@ const ScriptJsonValue* findMember(const ScriptJsonValue& object, std::string_vie
 }
 
 double jsonNumber(const ScriptJsonValue& value) { return value.numberValue; }
+bool jsonNumberToInt64(const ScriptJsonValue& value, std::int64_t& out) {
+    if (value.hasIntegerValue) {
+        out = value.integerValue;
+        return true;
+    }
+    if (value.isIntegerToken) return false;
+    const double number = value.numberValue;
+    constexpr double int64UpperBound = 9223372036854775808.0;
+    if (!std::isfinite(number) || number < -int64UpperBound ||
+        number >= int64UpperBound || std::trunc(number) != number) {
+        return false;
+    }
+    out = static_cast<std::int64_t>(number);
+    return true;
+}
 bool jsonToScriptValue(const ScriptJsonValue& json, ArtifactScriptValueType type,
                        ArtifactScriptValue& out, std::string& error) {
     using K = ScriptJsonValue::Kind;
@@ -1757,7 +1783,14 @@ bool jsonToScriptValue(const ScriptJsonValue& json, ArtifactScriptValueType type
         return true;
     case ArtifactScriptValueType::Int:
         if (json.kind != K::Number) { error = "expected number"; return false; }
-        out = static_cast<std::int64_t>(json.numberValue);
+        {
+            std::int64_t integer = 0;
+            if (!jsonNumberToInt64(json, integer)) {
+                error = "expected int64";
+                return false;
+            }
+            out = integer;
+        }
         return true;
     case ArtifactScriptValueType::Float:
         if (json.kind != K::Number) { error = "expected number"; return false; }
@@ -1800,10 +1833,10 @@ bool jsonToScriptValue(const ScriptJsonValue& json, ArtifactScriptValueType type
         auto array = std::make_shared<ArtifactScriptArray>();
         for (const auto& element : json.array) {
             if (element->kind == K::Number) {
-                const double n = jsonNumber(*element);
-                array->values.push_back(n == static_cast<double>(static_cast<std::int64_t>(n))
-                                            ? ArtifactScriptValue(static_cast<std::int64_t>(n))
-                                            : ArtifactScriptValue(n));
+                std::int64_t integer = 0;
+                array->values.push_back(jsonNumberToInt64(*element, integer)
+                                            ? ArtifactScriptValue(integer)
+                                            : ArtifactScriptValue(jsonNumber(*element)));
             } else if (element->kind == K::Bool) {
                 array->values.push_back(ArtifactScriptValue(element->boolValue));
             } else if (element->kind == K::String) {
@@ -1960,9 +1993,10 @@ bool deserializeScriptComponent(std::string_view json, ArtifactScriptSerializedC
                 target.emplace(name, ArtifactScriptValue{value->boolValue});
             } else if (value->kind == ScriptJsonValue::Kind::Number) {
                 const double n = jsonNumber(*value);
-                if (n == static_cast<double>(static_cast<std::int64_t>(n)) &&
-                    std::fabs(n) < 1.0e15) {
-                    target.emplace(name, ArtifactScriptValue(static_cast<std::int64_t>(n)));
+                std::int64_t integer = 0;
+                if (jsonNumberToInt64(*value, integer) &&
+                    (value->hasIntegerValue || std::fabs(n) < 1.0e15)) {
+                    target.emplace(name, ArtifactScriptValue(integer));
                 } else {
                     target.emplace(name, ArtifactScriptValue(n));
                 }
