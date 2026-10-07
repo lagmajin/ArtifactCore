@@ -49,6 +49,33 @@ bool starts_with(std::string_view text, std::string_view prefix) {
     return text.size() >= prefix.size() && text.substr(0, prefix.size()) == prefix;
 }
 
+bool decodeStringContent(std::string_view content, std::string& decoded,
+                         std::size_t* invalidOffset = nullptr) {
+    decoded.clear();
+    decoded.reserve(content.size());
+    for (std::size_t i = 0; i < content.size(); ++i) {
+        if (content[i] != '\\') {
+            decoded.push_back(content[i]);
+            continue;
+        }
+        if (++i >= content.size()) {
+            if (invalidOffset) *invalidOffset = i - 1;
+            return false;
+        }
+        switch (content[i]) {
+        case '"': decoded.push_back('"'); break;
+        case '\\': decoded.push_back('\\'); break;
+        case 'n': decoded.push_back('\n'); break;
+        case 'r': decoded.push_back('\r'); break;
+        case 't': decoded.push_back('\t'); break;
+        default:
+            if (invalidOffset) *invalidOffset = i - 1;
+            return false;
+        }
+    }
+    return true;
+}
+
 std::optional<ArtifactScriptHook> hookFromName(std::string_view name) {
     if (name == "OnCreate") return ArtifactScriptHook::OnCreate;
     if (name == "OnStart") return ArtifactScriptHook::OnStart;
@@ -60,7 +87,10 @@ std::optional<ArtifactScriptHook> hookFromName(std::string_view name) {
 }
 
 ArtifactScriptValue parseDefaultValue(std::string_view text, ArtifactScriptValueType type) {
-    const ZeroString value = trim(text);
+    ZeroString value = trim(text);
+    if (value.length() > 0 && value.data()[value.length() - 1] == ';') {
+        value = trim(std::string_view(value.data(), value.length() - 1));
+    }
     switch (type) {
     case ArtifactScriptValueType::Bool:
         return std::string_view(value) == "true";
@@ -74,9 +104,14 @@ ArtifactScriptValue parseDefaultValue(std::string_view text, ArtifactScriptValue
     case ArtifactScriptValueType::Float:
         return std::strtod(value.data(), nullptr);
     case ArtifactScriptValueType::String:
-        return value.length() >= 2 && value.data()[0] == '"' && value.data()[value.length() - 1] == '"'
-            ? std::string(std::string_view(value.data() + 1, value.length() - 2))
-            : std::string(value.data(), value.length());
+        if (value.length() >= 2 && value.data()[0] == '"' && value.data()[value.length() - 1] == '"') {
+            const std::string_view content(value.data() + 1, value.length() - 2);
+            std::string decoded;
+            return decodeStringContent(content, decoded)
+                ? ArtifactScriptValue(std::move(decoded))
+                : ArtifactScriptValue(std::string(content));
+        }
+        return std::string(value.data(), value.length());
     case ArtifactScriptValueType::Array: {
         auto array = makeShared<ArtifactScriptArray>();
         std::string_view source(value.data(), value.length());
@@ -228,13 +263,62 @@ ArtifactScriptExprPtr parsePrimary(ParseCtx& c) {
         if (!parseDelimitedExpressions(c, ']', e->arrayElements)) return nullptr;
         return e;
     }
-    if (c.src[c.pos] == '"') { c.pos++; size_t s = c.pos; while (c.pos < c.len && c.src[c.pos] != '"') ++c.pos;
-        if (c.pos >= c.len) {
+    if (c.src[c.pos] == '"') {
+        const std::size_t openingQuote = c.pos++;
+        const std::size_t contentStart = c.pos;
+        const std::size_t marker = c.src.find_first_of("\\\"", contentStart);
+        if (marker == std::string_view::npos || marker >= c.len) {
             c.failed = true;
-            if (c.failurePosition == std::string_view::npos) c.failurePosition = s - 1;
+            if (c.failurePosition == std::string_view::npos)
+                c.failurePosition = openingQuote;
             return nullptr;
         }
-        e->kind = ArtifactScriptExpr::Kind::Literal; e->literalValue = std::string(c.src.substr(s, c.pos - s)); c.pos++; return e; }
+        e->kind = ArtifactScriptExpr::Kind::Literal;
+        if (c.src[marker] == '"') {
+            // Common unescaped strings take one bounded view scan and one copy.
+            e->literalValue = std::string(c.src.substr(contentStart, marker - contentStart));
+            c.pos = marker + 1;
+            return e;
+        }
+
+        std::string decoded;
+        decoded.reserve(marker - contentStart);
+        c.pos = contentStart;
+        while (c.pos < c.len) {
+            const char current = c.src[c.pos++];
+            if (current == '"') {
+                e->literalValue = std::move(decoded);
+                return e;
+            }
+            if (current != '\\') {
+                decoded.push_back(current);
+                continue;
+            }
+            const std::size_t escapePosition = c.pos - 1;
+            if (c.pos >= c.len) {
+                c.failed = true;
+                if (c.failurePosition == std::string_view::npos)
+                    c.failurePosition = escapePosition;
+                return nullptr;
+            }
+            switch (c.src[c.pos++]) {
+            case '"': decoded.push_back('"'); break;
+            case '\\': decoded.push_back('\\'); break;
+            case 'n': decoded.push_back('\n'); break;
+            case 'r': decoded.push_back('\r'); break;
+            case 't': decoded.push_back('\t'); break;
+            default:
+                c.failed = true;
+                if (c.failurePosition == std::string_view::npos)
+                    c.failurePosition = escapePosition;
+                return nullptr;
+            }
+        }
+        c.failed = true;
+        if (c.failurePosition == std::string_view::npos)
+            c.failurePosition = openingQuote;
+        return nullptr;
+    }
     if (c.src[c.pos] == '-' || c.src[c.pos] == '!') { e->kind = ArtifactScriptExpr::Kind::Unary;
         e->unaryOp = c.src[c.pos] == '-' ? ArtifactScriptUnaryOp::Neg : ArtifactScriptUnaryOp::Not;
         c.pos++; e->operand = parsePrimary(c);
@@ -709,6 +793,31 @@ ArtifactScriptDefinition ArtifactScriptParser::parse(std::string_view source) co
             field.isPublic = isPublic;
             field.serialized = isPublic;
             field.type = parseFieldType(typeName);
+            if (eq != static_cast<std::size_t>(-1) &&
+                field.type == ArtifactScriptValueType::String) {
+                ZeroString initializer = trim(body.substr(eq + 1));
+                if (initializer.length() > 0 &&
+                    initializer.data()[initializer.length() - 1] == ';') {
+                    initializer = trim(std::string_view(
+                        initializer.data(), initializer.length() - 1));
+                }
+                if (initializer.length() >= 2 && initializer.data()[0] == '"' &&
+                    initializer.data()[initializer.length() - 1] == '"') {
+                    std::string decoded;
+                    std::size_t invalidOffset = 0;
+                    const std::string_view content(
+                        initializer.data() + 1, initializer.length() - 2);
+                    if (!decodeStringContent(content, decoded, &invalidOffset)) {
+                        const auto lineOffset = line.find(std::string_view(
+                            initializer.data(), initializer.length()));
+                        def.diagnostics.push_back({
+                            lineNo,
+                            (lineOffset == std::string_view::npos ? 0 : lineOffset) +
+                                invalidOffset + 2,
+                            "unsupported string escape"});
+                    }
+                }
+            }
             if (eq != static_cast<std::size_t>(-1)) {
                 field.defaultValue = parseDefaultValue(body.substr(eq + 1), field.type);
             } else if (field.type == ArtifactScriptValueType::Array) {
