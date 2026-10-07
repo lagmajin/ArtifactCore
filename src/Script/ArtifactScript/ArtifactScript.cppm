@@ -3554,6 +3554,20 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalExpr(
 
 ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalBinary(
     ArtifactScriptBinaryOp op, const ArtifactScriptValue& l, const ArtifactScriptValue& r) {
+    const auto compareIntegerAndDouble = [](std::int64_t integer,
+                                            double number) -> int {
+        if (std::isnan(number)) return 2;
+        constexpr double int64UpperBound = 9223372036854775808.0;
+        if (number >= int64UpperBound) return -1;
+        if (number < -int64UpperBound) return 1;
+
+        const auto truncated = static_cast<std::int64_t>(number);
+        if (integer < truncated) return -1;
+        if (integer > truncated) return 1;
+        const double truncatedAsDouble = static_cast<double>(truncated);
+        if (number == truncatedAsDouble) return 0;
+        return number > truncatedAsDouble ? -1 : 1;
+    };
     if (op == ArtifactScriptBinaryOp::Eq || op == ArtifactScriptBinaryOp::Neq) {
         const bool leftIsNull = std::holds_alternative<std::monostate>(l);
         const bool rightIsNull = std::holds_alternative<std::monostate>(r);
@@ -3567,11 +3581,13 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalBinary(
                 equal = *leftInteger == *rightInteger;
             } else if ((leftInteger || leftNumber) &&
                        (rightInteger || rightNumber)) {
-                const double leftValue = leftNumber
-                    ? *leftNumber : static_cast<double>(*leftInteger);
-                const double rightValue = rightNumber
-                    ? *rightNumber : static_cast<double>(*rightInteger);
-                equal = leftValue == rightValue;
+                if (leftInteger && rightNumber) {
+                    equal = compareIntegerAndDouble(*leftInteger, *rightNumber) == 0;
+                } else if (leftNumber && rightInteger) {
+                    equal = compareIntegerAndDouble(*rightInteger, *leftNumber) == 0;
+                } else {
+                    equal = *leftNumber == *rightNumber;
+                }
             } else if (const auto* leftBoolean = std::get_if<bool>(&l)) {
                 const auto* rightBoolean = std::get_if<bool>(&r);
                 equal = rightBoolean && *leftBoolean == *rightBoolean;
@@ -3617,6 +3633,20 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalBinary(
     }
     const auto* leftInteger = std::get_if<std::int64_t>(&l);
     const auto* rightInteger = std::get_if<std::int64_t>(&r);
+    const auto* leftNumber = std::get_if<double>(&l);
+    const auto* rightNumber = std::get_if<double>(&r);
+    if ((leftInteger && rightNumber) || (leftNumber && rightInteger)) {
+        const int comparison = leftInteger
+            ? compareIntegerAndDouble(*leftInteger, *rightNumber)
+            : -compareIntegerAndDouble(*rightInteger, *leftNumber);
+        switch (op) {
+        case ArtifactScriptBinaryOp::Lt: return comparison == -1;
+        case ArtifactScriptBinaryOp::Gt: return comparison == 1;
+        case ArtifactScriptBinaryOp::Le: return comparison == -1 || comparison == 0;
+        case ArtifactScriptBinaryOp::Ge: return comparison == 1 || comparison == 0;
+        default: break;
+        }
+    }
     if (leftInteger && rightInteger) {
         const std::int64_t left = *leftInteger;
         const std::int64_t right = *rightInteger;
