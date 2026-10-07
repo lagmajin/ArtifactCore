@@ -2770,6 +2770,14 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
             error_ = "unsupported assign op: " + op;
             return {};
         };
+        const auto appendStringCompound = [&](ArtifactScriptValue& current) {
+            if (op != "+=" || !std::holds_alternative<std::string>(current) ||
+                !std::holds_alternative<std::string>(v)) {
+                return false;
+            }
+            std::get<std::string>(current).append(std::get<std::string>(v));
+            return true;
+        };
         if (s->assignIndex) {
             auto* target = locals.find(s->assignTarget);
             if (!target) {
@@ -2786,15 +2794,22 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
             const auto index = static_cast<std::size_t>(std::holds_alternative<double>(indexValue)
                 ? std::get<double>(indexValue) : std::get<std::int64_t>(indexValue));
             if (!array || index >= array->values.size()) { error_ = "array index out of range"; return false; }
-            array->values[index] = applyCompound(array->values[index]);
+            auto& targetValue = array->values[index];
+            if (!appendStringCompound(targetValue)) {
+                targetValue = applyCompound(targetValue);
+            }
             return error_.empty();
         }
         if (auto* lit = locals.find(s->assignTarget)) {
-            lit->value = applyCompound(lit->value);
+            if (!appendStringCompound(lit->value)) {
+                lit->value = applyCompound(lit->value);
+            }
             return error_.empty();
         }
         if (auto* field = fields.findForWrite(s->assignTarget)) {
-            *field = applyCompound(*field);
+            if (!appendStringCompound(*field)) {
+                *field = applyCompound(*field);
+            }
         } else {
             fields[s->assignTarget] = applyCompound({});
         }
