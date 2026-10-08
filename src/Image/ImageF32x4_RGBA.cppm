@@ -382,18 +382,23 @@ namespace ArtifactCore {
 
   QImage ImageF32x4_RGBA::toQImage() const
   {
-   const SurfacePixelBuffer converted = convertSurfacePixels(
+   SurfacePixelBuffer converted = convertSurfacePixels(
        rgba32fData(), rgba8Data(), width(), height(), impl_->colorDescriptor_,
        SurfacePixelTarget::Rgba8SrgbStraight);
    if (!converted.isValid()) {
     return QImage();
    }
-   const QImage image(converted.bytes.data(),
-                      static_cast<int>(converted.width),
-                      static_cast<int>(converted.height),
-                      static_cast<qsizetype>(converted.rowStride),
-                      QImage::Format_RGBA8888);
-   return image.copy();
+   // Ownership of the converted buffer moves to the QImage, removing the
+   // second full-frame copy the previous image.copy() made.
+   auto* owned = new SurfacePixelBuffer(std::move(converted));
+   const QImage image(reinterpret_cast<uchar*>(owned->bytes.data()),
+                      static_cast<int>(owned->width),
+                      static_cast<int>(owned->height),
+                      static_cast<qsizetype>(owned->rowStride),
+                      QImage::Format_RGBA8888,
+                      [](void* info) { delete static_cast<SurfacePixelBuffer*>(info); },
+                      owned);
+   return image;
   }
 
   void ImageF32x4_RGBA::fillAlpha(float alpha/*=1.0f*/)

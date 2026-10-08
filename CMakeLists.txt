@@ -3251,11 +3251,13 @@ list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_COMMAND_IMPL})
 set(ARTIFACTCORE_ACOUSTIC_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Acoustic/Acoustic.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Acoustic/AcousticSystem.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Acoustic/AudioTaskSynthesizer.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Acoustic/FrictionModel.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Acoustic/ModalResonator.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Acoustic/RainModel.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Acoustic/SpatialSystem.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Acoustic/WindModel.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Acoustic/WaveModel.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Diagnostic/DiagnosticRegistry.cppm"
 )
 set(ARTIFACTCORE_ACOUSTIC_IMPL)

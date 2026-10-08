@@ -765,6 +765,12 @@ std::vector<SharedPtr<AudioBus>> AudioMixer::getVcaMembers(SharedPtr<AudioBus> v
 }
 
 void AudioMixer::process(AudioSegment& finalOutput) {
+    process(finalOutput, nullptr, nullptr);
+}
+
+void AudioMixer::process(AudioSegment& finalOutput,
+                         AudioMasterInputCallback masterInputCallback,
+                         void* callbackContext) {
     const int frames = finalOutput.frameCount();
     const int sampleRate = finalOutput.sampleRate;
 
@@ -884,6 +890,9 @@ void AudioMixer::process(AudioSegment& finalOutput) {
                     vcaGain *= std::pow(10.0f, db / 20.0f);
                 }
             }
+        }
+        if (bus == masterBus_ && masterInputCallback) {
+            masterInputCallback(callbackContext, bus->getOutputBuffer());
         }
         bus->process(bus->getOutputBuffer(), vcaGain);
 

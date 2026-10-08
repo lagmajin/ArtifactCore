@@ -31,6 +31,7 @@ void SpatialRenderer::setSampleRate(float sampleRate) {
         reset();
     }
     sampleRate_ = nextRate;
+    ensureRoomLengths();
 }
 
 void SpatialRenderer::publishParams(const SpatialParams& params) {
@@ -70,6 +71,72 @@ void SpatialRenderer::reset() {
     airFilterLeft_ = 0.0f;
     airFilterRight_ = 0.0f;
     lfeFilter_ = 0.0f;
+    for (auto& line : roomBuffers_) line.fill(0.0f);
+    roomWriteIndex_.fill(0);
+    roomDampState_.fill(0.0f);
+    roomWetPrev_ = 0.0f;
+    ensureRoomLengths();
+}
+
+void SpatialRenderer::ensureRoomLengths() {
+    // Fixed prime-ish base delays (samples @48kHz) scaled by sample rate.
+    // Active length never exceeds the fixed buffer: allocation-free.
+    constexpr int kBase[kRoomLines] = { 977, 1327, 1759, 2099 };
+    const float scale = std::clamp(sampleRate_ / 48000.0f, 0.5f, 2.0f);
+    for (int i = 0; i < kRoomLines; ++i) {
+        const int active = std::clamp(static_cast<int>(kBase[i] * scale), 64, kRoomMaxDelay - 2);
+        roomActiveLength_[i] = active;
+        if (roomWriteIndex_[i] >= active) roomWriteIndex_[i] = 0;
+        // R1 fixed feedback: stable tail (~0.4s), RT60 shaping is later work.
+        roomFeedback_[i] = 0.72f;
+    }
+}
+
+float SpatialRenderer::roomSendGain(const SpatialParams& params, float atten, float cone, float airGain) const {
+    if (!(params.roomSend > 0.0f)) return 0.0f;
+    const float send = params.roomSend * atten * cone * airGain;
+    return (std::isfinite(send) && send > 0.0f) ? std::min(send, 1.0f) : 0.0f;
+}
+
+void SpatialRenderer::processRoomTail(const float* mono, int frames, float send, float wet,
+                                      float* tailL, float* tailR) {
+    if (mono == nullptr || tailL == nullptr || tailR == nullptr) return;
+    if (!(send > 0.0f) && !(wet > 0.0f) && !(roomWetPrev_ > 0.0f)) {
+        for (int i = 0; i < frames; ++i) { tailL[i] = 0.0f; tailR[i] = 0.0f; }
+        roomWetPrev_ = wet;
+        return;
+    }
+    const float wetStep = (wet - roomWetPrev_) / static_cast<float>(std::max(frames, 1));
+    for (int i = 0; i < frames; ++i) {
+        const float input = (std::isfinite(mono[i]) ? mono[i] : 0.0f) * send;
+        float accL = 0.0f;
+        float accR = 0.0f;
+        for (int line = 0; line < kRoomLines; ++line) {
+            const int active = roomActiveLength_[line] > 0 ? roomActiveLength_[line] : 64;
+            int& writePos = roomWriteIndex_[line];
+            writePos %= active;
+            int readPos = writePos - active / 2;
+            readPos %= active;
+            if (readPos < 0) readPos += active;
+            const float delayed = roomBuffers_[line][static_cast<std::size_t>(readPos)];
+            // One-pole damping keeps the tail from building HF energy.
+            float& damp = roomDampState_[line];
+            damp += 0.35f * (delayed - damp);
+            const float fed = input + damp * roomFeedback_[line];
+            roomBuffers_[line][static_cast<std::size_t>(writePos)] = std::isfinite(fed) ? fed : 0.0f;
+            writePos = (writePos + 1) % active;
+            // Alternate line polarity per channel for stereo decorrelation.
+            const float tap = std::isfinite(delayed) ? delayed : 0.0f;
+            if ((line & 1) == 0) { accL += tap; accR -= tap * 0.5f; }
+            else { accR += tap; accL -= tap * 0.5f; }
+        }
+        const float wetNow = roomWetPrev_ + wetStep * static_cast<float>(i);
+        tailL[i] = accL * 0.25f * wetNow;
+        tailR[i] = accR * 0.25f * wetNow;
+        if (!std::isfinite(tailL[i])) tailL[i] = 0.0f;
+        if (!std::isfinite(tailR[i])) tailR[i] = 0.0f;
+    }
+    roomWetPrev_ = wet;
 }
 
 float SpatialRenderer::calcAzimuthGain(float azimuth, float* gains, int channels) {
@@ -246,6 +313,40 @@ void SpatialRenderer::processBlock(const AudioSegment& in, AudioSegment& out, in
 
     if (params.renderMode == SpatialRenderMode::Headphone) {
         processAnalyticBinaural(in, out, frames, local, gainCurr, airLowPassAlpha);
+        // R1 room tail mixes into the headphone stereo output. roomSend=0
+        // bypasses entirely so the direct path stays bit-identical.
+        const float send = roomSendGain(params, atten, cone, airGain);
+        if (send > 0.0f && out.channelCount() >= 2 && out.frameCount() >= frames) {
+            ensureRoomLengths();
+            const float* srcL = in.channelData[0].constData();
+            const float* srcR = in.channelData.size() > 1 ? in.channelData[1].constData() : srcL;
+            // HOT_PATH_RULES bounded exception: scratch tail buffers live on
+            // the stack, max 4096 frames, no heap/container growth.
+            constexpr int kRoomScratchMax = 4096;
+            const int scratchFrames = std::min(frames, kRoomScratchMax);
+            float monoScratch[kRoomScratchMax];
+            float tailL[kRoomScratchMax];
+            float tailR[kRoomScratchMax];
+            int done = 0;
+            while (done < frames) {
+                const int chunk = std::min(scratchFrames, frames - done);
+                for (int i = 0; i < chunk; ++i) {
+                    const float l = std::isfinite(srcL[done + i]) ? srcL[done + i] : 0.0f;
+                    const float r = std::isfinite(srcR[done + i]) ? srcR[done + i] : 0.0f;
+                    monoScratch[i] = (l + r) * 0.5f;
+                }
+                processRoomTail(monoScratch, chunk, send, send, tailL, tailR);
+                float* dstL = out.channelData[0].data() + done;
+                float* dstR = out.channelData[1].data() + done;
+                for (int i = 0; i < chunk; ++i) {
+                    dstL[i] = std::isfinite(dstL[i] + tailL[i]) ? dstL[i] + tailL[i] : 0.0f;
+                    dstR[i] = std::isfinite(dstR[i] + tailR[i]) ? dstR[i] + tailR[i] : 0.0f;
+                }
+                done += chunk;
+            }
+        } else if (!(send > 0.0f)) {
+            roomWetPrev_ = 0.0f;
+        }
         return;
     }
 
@@ -340,6 +441,35 @@ void SpatialRenderer::processBlock(const AudioSegment& in, AudioSegment& out, in
             }
         }
         gainPrev_ = gainCurr;
+        // R1 room tail for multichannel VBAP: mono point signal feeds the
+        // tail, stereo tail mixes into L/R. roomSend=0 bypasses entirely.
+        const float roomSend = roomSendGain(params, atten, cone, airGain);
+        if (roomSend > 0.0f && outChannels >= 2 && out.frameCount() >= frames) {
+            ensureRoomLengths();
+            constexpr int kRoomScratchMax = 4096;
+            float monoScratch[kRoomScratchMax];
+            float tailL[kRoomScratchMax];
+            float tailR[kRoomScratchMax];
+            int done = 0;
+            while (done < frames) {
+                const int chunk = std::min(kRoomScratchMax, frames - done);
+                for (int i = 0; i < chunk; ++i) {
+                    const float l = std::isfinite(srcL[done + i]) ? srcL[done + i] : 0.0f;
+                    const float r = std::isfinite(srcR[done + i]) ? srcR[done + i] : 0.0f;
+                    monoScratch[i] = (l + r) * 0.5f;
+                }
+                processRoomTail(monoScratch, chunk, roomSend, roomSend, tailL, tailR);
+                float* dstL = out.channelData[0].data() + done;
+                float* dstR = out.channelData[1].data() + done;
+                for (int i = 0; i < chunk; ++i) {
+                    dstL[i] = std::isfinite(dstL[i] + tailL[i]) ? dstL[i] + tailL[i] : 0.0f;
+                    dstR[i] = std::isfinite(dstR[i] + tailR[i]) ? dstR[i] + tailR[i] : 0.0f;
+                }
+                done += chunk;
+            }
+        } else if (!(roomSend > 0.0f)) {
+            roomWetPrev_ = 0.0f;
+        }
         return;
     }
 
@@ -413,6 +543,35 @@ void SpatialRenderer::processBlock(const AudioSegment& in, AudioSegment& out, in
     }
 
     gainPrev_ = gainCurr;
+
+    // R1 room tail for the stereo fallback path. roomSend=0 bypasses.
+    const float stereoRoomSend = roomSendGain(params, atten, cone, airGain);
+    if (stereoRoomSend > 0.0f && outChannels >= 2 && out.frameCount() >= frames) {
+        ensureRoomLengths();
+        constexpr int kRoomScratchMax = 4096;
+        float monoScratch[kRoomScratchMax];
+        float tailL[kRoomScratchMax];
+        float tailR[kRoomScratchMax];
+        int done = 0;
+        while (done < frames) {
+            const int chunk = std::min(kRoomScratchMax, frames - done);
+            for (int i = 0; i < chunk; ++i) {
+                const float l = std::isfinite(srcL[done + i]) ? srcL[done + i] : 0.0f;
+                const float r = std::isfinite(srcR[done + i]) ? srcR[done + i] : 0.0f;
+                monoScratch[i] = (l + r) * 0.5f;
+            }
+            processRoomTail(monoScratch, chunk, stereoRoomSend, stereoRoomSend, tailL, tailR);
+            float* mixL = out.channelData[0].data() + done;
+            float* mixR = out.channelData[1].data() + done;
+            for (int i = 0; i < chunk; ++i) {
+                mixL[i] = std::isfinite(mixL[i] + tailL[i]) ? mixL[i] + tailL[i] : 0.0f;
+                mixR[i] = std::isfinite(mixR[i] + tailR[i]) ? mixR[i] + tailR[i] : 0.0f;
+            }
+            done += chunk;
+        }
+    } else if (!(stereoRoomSend > 0.0f)) {
+        roomWetPrev_ = 0.0f;
+    }
 
     if (outChannels > 2) {
         for (int c = 2; c < outChannels; ++c) {

@@ -52,6 +52,22 @@ private:
     float airFilterLeft_ = 0.0f;
     float airFilterRight_ = 0.0f;
     float lfeFilter_ = 0.0f;
+    // R1 room tail: fixed 4-line FDN with bounded buffers. The longest line
+    // (43ms at 48kHz) is allocated for 96kHz + 2s tail; sample-rate changes
+    // only shorten the active length via roomActiveLength_. No hot-path alloc.
+    static constexpr int kRoomLines = 4;
+    static constexpr int kRoomMaxDelay = 8192;
+    std::array<std::array<float, kRoomMaxDelay>, kRoomLines> roomBuffers_{};
+    std::array<int, kRoomLines> roomWriteIndex_{};
+    std::array<int, kRoomLines> roomActiveLength_{};
+    std::array<float, kRoomLines> roomFeedback_{};
+    std::array<float, kRoomLines> roomDampState_{};
+    float roomWetPrev_ = 0.0f;
+
+    void ensureRoomLengths();
+    float roomSendGain(const SpatialParams& params, float atten, float cone, float airGain) const;
+    void processRoomTail(const float* mono, int frames, float send, float wet,
+                         float* tailL, float* tailR);
 
     static float calcAzimuthGain(float azimuth, float* gains, int channels);
     void processAnalyticBinaural(const AudioSegment& in, AudioSegment& out, int frames,

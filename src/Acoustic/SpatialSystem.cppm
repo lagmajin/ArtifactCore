@@ -22,24 +22,39 @@ export namespace Artifact::Acoustic {
         void Calculate(const SpatialState& source, AudioTask& task) {
             Vector3 relativePos = source.position - m_listener.position;
             float distance = relativePos.Length();
+
+            if (!std::isfinite(distance)) {
+                task.pan = 0.0f;
+                task.attenuation = 0.0f;
+                task.doppler = 1.0f;
+                return;
+            }
+
+            if (distance <= 0.001f) {
+                task.pan = 0.0f;
+                task.attenuation = 1.0f;
+                task.doppler = 1.0f;
+                return;
+            }
             
             // 1. 距離減衰 (Inverse Square Law 簡易版)
             task.attenuation = 1.0f / (1.0f + 0.1f * distance * distance);
             
             // 2. パン (左右)
             // カメラの向きを考慮する必要があるが、ここでは簡易的にX軸の差で計算
-            if (distance > 0.001f) {
-                task.pan = std::clamp(relativePos.x / distance, -1.0f, 1.0f);
-            }
+            task.pan = std::clamp(relativePos.x / distance, -1.0f, 1.0f);
 
             // 3. ドップラー効果
             // f' = f * (v_sound + v_listener) / (v_sound - v_source)
             Vector3 unitPos = { relativePos.x / distance, relativePos.y / distance, relativePos.z / distance };
             float v_l = m_listener.velocity.Dot(unitPos);
             float v_s = source.velocity.Dot(unitPos);
-            
-            task.doppler = (SPEED_OF_SOUND + v_l) / (SPEED_OF_SOUND - v_s);
-            task.doppler = std::clamp(task.doppler, 0.5f, 2.0f); // 極端な変化を抑制
+
+            const float denominator = SPEED_OF_SOUND - v_s;
+            const float doppler = std::abs(denominator) > 0.001f
+                ? (SPEED_OF_SOUND + v_l) / denominator : 1.0f;
+            task.doppler = std::isfinite(doppler)
+                ? std::clamp(doppler, 0.5f, 2.0f) : 1.0f; // 極端な変化を抑制
         }
 
     private:

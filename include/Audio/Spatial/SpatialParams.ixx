@@ -37,6 +37,12 @@ struct alignas(64) SpatialParams {
     bool doppler = false;
     float dopplerFactor = 1.0f;
     float airAbsorption = 0.0f;
+    // R1 room send: direct signal share fed into the per-object room tail.
+    // Zero fully bypasses the tail so the direct path stays bit-identical.
+    float roomSend = 0.0f;
+    // R1 room tail length. Fixed 0.4s keeps the delay buffers bounded and
+    // allocation-free; RT60 shaping is a later R1 extension, not this field.
+    float roomTailSeconds = 0.4f;
     // LFE is an explicit send, never a side-effect of object positioning.
     float lfeSend = 0.0f;
     float lfeCutoffHz = 120.0f;
@@ -65,6 +71,10 @@ inline SpatialParams sanitizedSpatialParams(SpatialParams p) {
     p.coneOuterGain = std::clamp(p.coneOuterGain, 0.0f, 1.0f);
     if (!std::isfinite(p.dopplerFactor) || p.dopplerFactor < 0.0f) p.dopplerFactor = 0.0f;
     if (!std::isfinite(p.airAbsorption) || p.airAbsorption < 0.0f) p.airAbsorption = 0.0f;
+    if (!std::isfinite(p.roomSend)) p.roomSend = 0.0f;
+    p.roomSend = std::clamp(p.roomSend, 0.0f, 1.0f);
+    if (!std::isfinite(p.roomTailSeconds) || p.roomTailSeconds < 0.05f) p.roomTailSeconds = 0.4f;
+    p.roomTailSeconds = std::clamp(p.roomTailSeconds, 0.05f, 2.0f);
     if (!std::isfinite(p.lfeSend)) p.lfeSend = 0.0f;
     p.lfeSend = std::clamp(p.lfeSend, 0.0f, 1.0f);
     if (!std::isfinite(p.lfeCutoffHz)) p.lfeCutoffHz = 120.0f;

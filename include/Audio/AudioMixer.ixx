@@ -39,6 +39,8 @@ enum class AudioBusKind {
     Vca,
 };
 
+using AudioMasterInputCallback = void (*)(void* context, AudioSegment& input);
+
 class LIBRARY_DLL_API AudioMixer {
 public:
     AudioMixer();
@@ -72,6 +74,9 @@ public:
     // 全体の実行。呼び出し側がsource busへ入力を積んだ後に呼ぶ。
     // グラフをトポロジカルソートして順次処理し、派生busを内部で更新する。
     void process(ArtifactCore::AudioSegment& finalOutput);
+    void process(ArtifactCore::AudioSegment& finalOutput,
+                 AudioMasterInputCallback masterInputCallback,
+                 void* callbackContext);
 
     SharedPtr<AudioBus> getMasterBus() const { return masterBus_; }
     int busCount() const;

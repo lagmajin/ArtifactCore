@@ -2,7 +2,6 @@ module;
 
 #include <algorithm>
 #include <cmath>
-#include <vector>
 
 export module Artifact.Acoustic.ModalResonator;
 
@@ -30,7 +29,7 @@ export namespace Artifact::Acoustic {
 
         void Trigger(float impulse, float position) {
             for (auto& mode : m_modes) {
-                float excitation = std::abs(std::sin(mode.freq * 0.001f * position));
+                float excitation = std::abs(std::cos(mode.freq * 0.001f * position));
                 mode.currentAmp = std::min(1.0f, mode.currentAmp + (impulse * excitation * m_profile.stiffness));
             }
         }
@@ -41,9 +40,8 @@ export namespace Artifact::Acoustic {
             }
         }
 
-        std::vector<AudioTask> GenerateTasks() override {
-            ArtifactCore::NamedVector<AudioTask> tasks{
-                ArtifactCore::makeNamedVector<AudioTask>(ArtifactCore::ContainerName{"ModalResonatorAudioTasks"})};
+        AudioTaskBatch GenerateTasks() override {
+            AudioTaskBatch tasks;
             for (const auto& mode : m_modes) {
                 if (mode.currentAmp > 0.0001f) {
                     tasks.append({
@@ -54,12 +52,12 @@ export namespace Artifact::Acoustic {
                         1.0f / (mode.decay * m_profile.damping),
                         0.0f,
                         1.0f,
-                        mode.currentAmp,
+                        1.0f,
                         0
                     });
                 }
             }
-            return tasks.toStdVector();
+            return tasks;
         }
 
     private:

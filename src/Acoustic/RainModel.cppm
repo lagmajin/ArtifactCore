@@ -1,7 +1,6 @@
 module;
 #include <algorithm>
 #include <cstdint>
-#include <vector>
 
 export module Artifact.Acoustic.RainModel;
 
@@ -23,27 +22,28 @@ export namespace Artifact::Acoustic {
             // 強度やサイズの時間的変化があればここで計算
         }
 
-        std::vector<AudioTask> GenerateTasks() override {
-            ArtifactCore::NamedVector<AudioTask> tasks{
-                ArtifactCore::makeNamedVector<AudioTask>(ArtifactCore::ContainerName{"RainModelAudioTasks"})};
+        AudioTaskBatch GenerateTasks() override {
+            AudioTaskBatch tasks;
             
             // 雨の強さに応じて、統計的なタスクを発行
             // 実際にはGPU側で1粒単位の合成を行うが、
             // ここではその「統計的な包絡線」を渡す
             if (m_intensity > 0.0f) {
                 tasks.append({
-                    SynthesisType::Stochastic,
-                    m_intensity / 1000.0f,   // Amplitude
-                    500.0f + (m_dropSize * 200.0f), // Frequency (音の太さ)
-                    1.0f,                    // Q Factor
-                    0.1f,                    // Duration (短期的な更新)
+                    SynthesisType::Droplet,
+                    std::clamp(m_intensity / 1000.0f, 0.0f, 1.0f), // Output gain
+                    500.0f + (m_dropSize * 200.0f), // Resonant drop frequency
+                    1.0f,                    // Unused Q factor
+                    0.008f + m_dropSize * 0.008f, // Drop decay time
                     0.0f,                    // Pan
                     1.0f,                    // Doppler
-                    std::min(1.0f, m_intensity / 10000.0f),
-                    static_cast<std::uint32_t>(m_intensity * 1234.5f) // Seed
+                    1.0f,
+                    static_cast<std::uint32_t>(m_intensity * 1234.5f), // Seed
+                    std::min(m_intensity, 4000.0f), // Independent drop rate
+                    0.85f // Spread individual drops across the stereo field
                 });
             }
-            return tasks.toStdVector();
+            return tasks;
         }
 
     private:

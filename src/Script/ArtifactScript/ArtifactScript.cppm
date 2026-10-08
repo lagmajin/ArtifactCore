@@ -3370,7 +3370,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalExpr(
                 if (operand->variableName == "this") return nullptr;
                 if (const auto* local = locals.find(operand->variableName))
                     return &local->value;
-                return fields.findWithoutCaching(operand->variableName);
+                return fields.find(operand->variableName);
             }
             if (operand->kind == ArtifactScriptExpr::Kind::Index) {
                 const auto* arrayValue = self(
@@ -3480,7 +3480,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalExpr(
                     return std::get_if<std::string>(&local->value);
                 }
                 if (const auto* field =
-                        fields.findWithoutCaching(operand->variableName)) {
+                        fields.find(operand->variableName)) {
                     return std::get_if<std::string>(field);
                 }
                 return nullptr;
@@ -3855,7 +3855,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
             if (const auto* local = locals.find(argument->variableName)) {
                 return &local->value;
             }
-            return fields.findWithoutCaching(argument->variableName);
+            return fields.find(argument->variableName);
         }
         if (argument->kind == ArtifactScriptExpr::Kind::FieldAccess &&
             activeThis_ && argument->fieldObject &&
@@ -4040,7 +4040,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
                 if (const auto* local = locals.find(argument->variableName)) {
                     return std::get_if<std::string>(&local->value);
                 }
-                if (const auto* field = fields.findWithoutCaching(argument->variableName)) {
+                if (const auto* field = fields.find(argument->variableName)) {
                     return std::get_if<std::string>(field);
                 }
             }

@@ -2,7 +2,6 @@ module;
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
-#include <vector>
 
 export module Artifact.Acoustic.FrictionModel;
 
@@ -21,9 +20,8 @@ export namespace Artifact::Acoustic {
             m_intensity = std::lerp(m_intensity, m_velocity * m_pressure, 0.1f);
         }
 
-        std::vector<AudioTask> GenerateTasks() override {
-            ArtifactCore::NamedVector<AudioTask> tasks{
-                ArtifactCore::makeNamedVector<AudioTask>(ArtifactCore::ContainerName{"FrictionModelAudioTasks"})};
+        AudioTaskBatch GenerateTasks() override {
+            AudioTaskBatch tasks;
             
             if (m_intensity > 0.01f) {
                 // 摩擦音は「高域ノイズの帯域制限」としてモデル化
@@ -38,11 +36,11 @@ export namespace Artifact::Acoustic {
                     0.1f,
                     0.0f,
                     1.0f,
-                    m_intensity,
+                    1.0f,
                     static_cast<std::uint32_t>(m_velocity * 1000.0f)
                 });
             }
-            return tasks.toStdVector();
+            return tasks;
         }
 
     private:
