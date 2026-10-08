@@ -549,6 +549,7 @@ public:
             if (!p.active) continue;
             ParticleVertex v;
             v.px = p.pos.x; v.py = p.pos.y; v.pz = 0.0f;
+            v.ppx = v.px; v.ppy = v.py; v.ppz = v.pz;
             v.vx = p.vel.x; v.vy = p.vel.y; v.vz = 0.0f;
             v.r = p.r; v.g = p.g; v.b = p.b; v.a = alpha;
             v.size = particleSize;

@@ -46,8 +46,13 @@ struct ParticleCullConstants {
 
 const char* ParticleCullCSSource = R"(
 struct ParticleData {
-    float3 position;
-    float3 velocity;
+    // float4 keeps the stride backend-independent: float3+float3 packs
+    // tightly under DXIL but pads to 16-byte alignment under Vulkan std430,
+    // which shifted color/size reads (orange rendered as cyan, flickering
+    // quads). The C++ ParticleVertex carries explicit padding to the same
+    // 96 bytes.
+    float4 position; // xyz + padding
+    float4 velocity; // xyz + padding
     float4 color;
     float size;
     float stretch;
@@ -57,6 +62,10 @@ struct ParticleData {
     int spriteFrame;
     int spriteRows;
     int spriteCols;
+    // Trail head (previous position). Read only on the CPU line path;
+    // present here so the stride matches the C++ ParticleVertex (96 bytes)
+    // on every backend.
+    float4 prevPosition;
 };
 StructuredBuffer<ParticleData> g_Input : register(t0);
 RWStructuredBuffer<ParticleData> g_Output : register(u0);
@@ -74,14 +83,16 @@ void CSMain(uint3 id : SV_DispatchThreadID) {
     if (id.x >= InputCount) return;
     ParticleData p = g_Input[id.x];
     if (p.age >= p.lifetime || p.color.a <= 0.0 || p.size <= 0.0) return;
-    float4 localPos = float4(p.position, 1.0);
+    float4 localPos = float4(p.position.xyz, 1.0);
     float4 worldPos = float4(dot(localPos, ModelRow0), dot(localPos, ModelRow1),
                              dot(localPos, ModelRow2), dot(localPos, ModelRow3));
     float4 viewPos = float4(dot(worldPos, ViewRow0), dot(worldPos, ViewRow1),
                            dot(worldPos, ViewRow2), dot(worldPos, ViewRow3));
     float4 clip = float4(dot(viewPos, ProjRow0), dot(viewPos, ProjRow1),
                          dot(viewPos, ProjRow2), dot(viewPos, ProjRow3));
-    float margin = max(2.0, p.size * max(1.0, p.stretch) * 6.0);
+    // Cull margin must cover the drawn quad half-extent (VS halfWidth is
+    // size*10, halfHeight scales by stretch) or edge particles pop in/out.
+    float margin = max(2.0, p.size * max(1.0, p.stretch) * 10.0);
     bool visible = clip.w > 0.00001 &&
         clip.x >= -clip.w - margin && clip.x <= clip.w + margin &&
         clip.y >= -clip.w - margin && clip.y <= clip.w + margin &&
@@ -95,8 +106,9 @@ void CSMain(uint3 id : SV_DispatchThreadID) {
 
 const char* ParticleVSSource = R"(
 struct ParticleData {
-    float3 position;
-    float3 velocity;
+    // xyz + padding (see cull CS comment): 96-byte stride on every backend.
+    float4 position;
+    float4 velocity;
     float4 color;
     float  size;
     float  stretch;
@@ -104,11 +116,13 @@ struct ParticleData {
     float  age;
     float  lifetime;
     // Sprite fields are unused by the vertex stage, but the StructuredBuffer
-    // stride must match the C++ ParticleVertex (72 bytes) and the cull CS
+    // stride must match the C++ ParticleVertex (96 bytes) and the cull CS
     // layout, otherwise every particle after the first reads shifted data.
     int    spriteFrame;
     int    spriteRows;
     int    spriteCols;
+    // Trail head (previous position). Unused by the shaders; stride only.
+    float4 prevPosition;
 };
 
 StructuredBuffer<ParticleData> g_Particles : register(t0);
@@ -140,6 +154,8 @@ struct PS_Input {
     float4 Pos   : SV_Position;
     float2 UV    : TEXCOORD0;
     float4 Color : COLOR;
+    // x = quad half width, y = quad half height, z = stretch factor.
+    float3 Shape : TEXCOORD1;
 };
 
 static const float2 c_Offsets[4] = {
@@ -151,7 +167,7 @@ PS_Input VSMain(VS_Input In) {
     PS_Input Out;
     ParticleData p = g_Particles[In.InstanceID];
     
-    float4 localPos = float4(p.position, 1.0);
+    float4 localPos = float4(p.position.xyz, 1.0);
     float4 worldPos = float4(
         dot(localPos, ModelRow0),
         dot(localPos, ModelRow1),
@@ -170,9 +186,9 @@ PS_Input VSMain(VS_Input In) {
     // straight down -Z; after an orbit it points elsewhere. The direction
     // rows match the position transform convention above (w = 0).
     float3 viewVelocity = float3(
-        dot(p.velocity, ViewRow0.xyz),
-        dot(p.velocity, ViewRow1.xyz),
-        dot(p.velocity, ViewRow2.xyz));
+        dot(p.velocity.xyz, ViewRow0.xyz),
+        dot(p.velocity.xyz, ViewRow1.xyz),
+        dot(p.velocity.xyz, ViewRow2.xyz));
     float rotationDegrees = p.rotation;
     if (BillboardMode == 3 && dot(viewVelocity.xy, viewVelocity.xy) > 0.000001) {
         rotationDegrees += atan2(viewVelocity.y, viewVelocity.x) * 180.0 / 3.14159265;
@@ -215,6 +231,7 @@ PS_Input VSMain(VS_Input In) {
         dot(viewPos, ProjRow3));
     Out.UV = c_Offsets[In.VertexID] + 0.5;
     Out.Color = p.color;
+    Out.Shape = float3(halfWidth, halfHeight, max(1.0, p.stretch));
     
     return Out;
 }
@@ -225,14 +242,35 @@ struct PS_Input {
     float4 Pos   : SV_Position;
     float2 UV    : TEXCOORD0;
     float4 Color : COLOR;
+    // x = quad half width, y = quad half height, z = stretch factor.
+    float3 Shape : TEXCOORD1;
 };
 
 float4 PSMain(PS_Input In) : SV_Target {
+    if (In.Shape.z > 1.05) {
+        // Stretched capsule matching the software path: rounded rect with a
+        // vertical linear gradient (transparent -> solid -> transparent).
+        // UV.y = 0/1 are the transparent ends, like the CPU gradient stops.
+        float2 halfExtent = max(In.Shape.xy, float2(0.0001, 0.0001));
+        float radius = halfExtent.x;
+        float2 local = (In.UV - 0.5) * (halfExtent * 2.0);
+        float2 q = abs(local) - (halfExtent - radius);
+        float dist = length(max(q, 0.0)) - radius;
+        if (dist > 0.0) discard;
+        float t = saturate(In.UV.y);
+        float4 transparent = float4(In.Color.rgb, 0.0);
+        float4 grad = t < 0.15 ? lerp(transparent, In.Color, t / 0.15)
+                    : (t < 0.85 ? In.Color
+                                : lerp(In.Color, transparent,
+                                       (t - 0.85) / 0.15));
+        return grad;
+    }
     float dist = length(In.UV - 0.5);
     if (dist > 0.5) discard;
     
-    // Soft circle
-    float alpha = smoothstep(0.5, 0.4, dist);
+    // Soft circle (edge0 < edge1 is required: reversed smoothstep args are
+    // undefined behavior in HLSL and flicker/disappear on some drivers)
+    float alpha = 1.0 - smoothstep(0.4, 0.5, dist);
     return float4(In.Color.rgb, In.Color.a * alpha);
 }
 )";

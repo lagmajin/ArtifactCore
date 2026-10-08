@@ -9,18 +9,20 @@ import Container.NameMap;
 namespace ArtifactCore {
 
 namespace {
-/// Single process-wide store. A function-local static keeps the registry
-/// allocation-free to set up and avoids a static init order dependency.
+/// Compositions retained by other singletons can unregister during CRT teardown.
+/// Keep the store alive until process termination so their destructors never
+/// access a map that has already been destroyed. Allocate only on first use.
 NameMap<QString, void*>& registryEntries() {
-  static NameMap<QString, void*> entries{
+  static auto* const entries = new NameMap<QString, void*>{
       ContainerName{"Composition.RegistryEntries"}};
-  return entries;
+  return *entries;
 }
 }  // namespace
 
 CompositionRegistry& CompositionRegistry::global() {
-  static CompositionRegistry instance;
-  return instance;
+  // Match the store's process lifetime, including late composition destruction.
+  static auto* const instance = new CompositionRegistry();
+  return *instance;
 }
 
 void CompositionRegistry::registerComposition(const QString& name,
