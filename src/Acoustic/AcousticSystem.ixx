@@ -27,6 +27,11 @@ import Container.NamedVector;
 
 export namespace Artifact::Acoustic {
 
+    export enum class RainImpactSurface : std::uint8_t {
+        Solid,
+        Water
+    };
+
     using ArtifactCore::SharedPtr;
     using ArtifactCore::makeShared;
 
@@ -73,10 +78,16 @@ export namespace Artifact::Acoustic {
         }
 
         void SetRainIntensity(float dropsPerSec) { m_rain->SetIntensity(dropsPerSec); }
+        void SetRainImpactSurface(RainImpactSurface surface) {
+            m_rain->SetWaterImpact(surface == RainImpactSurface::Water);
+        }
         void SetWindVelocity(float velocity_ms) { m_wind->SetVelocity(velocity_ms); }
         void SetWaveHeight(float normalizedHeight) { m_waves->SetWaveHeight(normalizedHeight); }
         void SetWavePeriod(float seconds) { m_waves->SetPeriod(seconds); }
         void SetWaveBreaking(float normalizedIntensity) { m_waves->SetBreaking(normalizedIntensity); }
+        void SetWaveBubbleSamples(std::span<const AcousticBubbleSample> samples) {
+            m_waves->SetBubbleSamples(samples);
+        }
 
         // --- フレーム更新 ---
 

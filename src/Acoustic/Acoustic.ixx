@@ -24,7 +24,8 @@ export namespace Artifact::Acoustic {
         Flow,       // 風・気流 (ノイズフィルタリング)
         BandPassNoise, // 環境音の帯域制限ノイズ
         Friction,   // 摩擦 (テクスチャードノイズ)
-        Droplet     // 雨粒ごとの確率的な衝撃音
+        Droplet,    // 雨粒ごとの確率的な衝撃音
+        BubbleCloud // 砕波で発生する泡群の共鳴
     };
 
     // 簡易的なベクトル構造体
@@ -35,6 +36,13 @@ export namespace Artifact::Acoustic {
         float Length() const { return std::sqrt(x*x + y*y + z*z); }
         Vector3 operator-(const Vector3& other) const { return {x-other.x, y-other.y, z-other.z}; }
         float Dot(const Vector3& other) const { return x*other.x + y*other.y + z*other.z; }
+    };
+
+    // A physical bubble sample from a fluid/acoustic bridge. Position and radius
+    // are expressed in meters; visual foam sprite sizes must not be passed as radii.
+    export struct AcousticBubbleSample {
+        Vector3 position{};
+        float radiusMeters = 0.001f;
     };
 
     // レンダラーへの詳細指示書
@@ -50,6 +58,9 @@ export namespace Artifact::Acoustic {
         std::uint32_t seed;
         float eventRate = 0.0f; // Dropletイベント数/秒
         float panSpread = 0.0f; // Dropletイベントごとの左右幅
+        bool waterImpact = false;
+        float couplingStrength = 0.0f; // Bubble-cloud normalized coupling proxy
+        float bubbleRadiusMeters = 0.0f; // Geometric-mean physical bubble radius; 0 selects the statistical model
     };
 
     // Small, fixed-capacity result for one physical model update.

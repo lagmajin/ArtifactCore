@@ -18,6 +18,10 @@ export namespace Artifact::Acoustic {
             m_dropSize = std::clamp(size, 0.1f, 5.0f);
         }
 
+        void SetWaterImpact(bool enabled) {
+            m_waterImpact = enabled;
+        }
+
         void Update(float dt) override {
             // 強度やサイズの時間的変化があればここで計算
         }
@@ -40,7 +44,8 @@ export namespace Artifact::Acoustic {
                     1.0f,
                     static_cast<std::uint32_t>(m_intensity * 1234.5f), // Seed
                     std::min(m_intensity, 4000.0f), // Independent drop rate
-                    0.85f // Spread individual drops across the stereo field
+                    0.85f, // Spread individual drops across the stereo field
+                    m_waterImpact
                 });
             }
             return tasks;
@@ -49,5 +54,6 @@ export namespace Artifact::Acoustic {
     private:
         float m_intensity = 0.0f;
         float m_dropSize = 1.0f;
+        bool m_waterImpact = false;
     };
 }

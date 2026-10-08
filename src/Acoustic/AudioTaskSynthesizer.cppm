@@ -107,11 +107,25 @@ export namespace Artifact::Acoustic {
                             0.001f, 0.45f);
                     }
                     state.type = task.type;
+                    state.waterImpact = task.waterImpact;
                     state.dropEventRate = state.type == SynthesisType::Droplet
                         ? std::clamp(finiteOr(task.eventRate, 0.0f), 0.0f, 4000.0f)
                         : 0.0f;
                     state.dropPanSpread = state.type == SynthesisType::Droplet
                         ? std::clamp(finiteOr(task.panSpread, 0.0f), 0.0f, 1.0f)
+                        : 0.0f;
+                    state.bubbleEventRate = state.type == SynthesisType::BubbleCloud
+                        ? std::clamp(finiteOr(task.eventRate, 0.0f), 0.0f, 2000.0f)
+                        : 0.0f;
+                    state.bubblePanSpread = state.type == SynthesisType::BubbleCloud
+                        ? std::clamp(finiteOr(task.panSpread, 0.0f), 0.0f, 1.0f)
+                        : 0.0f;
+                    state.bubbleCoupling = state.type == SynthesisType::BubbleCloud
+                        ? std::clamp(finiteOr(task.couplingStrength, 0.0f), 0.0f, 0.45f)
+                        : 0.0f;
+                    state.bubbleRadiusMeters = state.type == SynthesisType::BubbleCloud &&
+                            std::isfinite(task.bubbleRadiusMeters) && task.bubbleRadiusMeters > 0.0f
+                        ? std::clamp(task.bubbleRadiusMeters, 0.00025f, 0.008f)
                         : 0.0f;
                     state.dropDecay = std::exp(-1.0f / (std::clamp(
                         finiteOr(task.duration, 0.02f), 0.003f, 0.1f) * rate));
@@ -148,6 +162,11 @@ export namespace Artifact::Acoustic {
                                        state.gain, left, right);
                         continue;
                     }
+                    if (state.type == SynthesisType::BubbleCloud) {
+                        renderBubbleCloud(state, taskIndex < tasks.size(), rate,
+                                          state.gain, left, right);
+                        continue;
+                    }
 
                     float sample = 0.0f;
                     if (active) {
@@ -175,6 +194,7 @@ export namespace Artifact::Acoustic {
                                 break;
                             }
                             case SynthesisType::Droplet: break;
+                            case SynthesisType::BubbleCloud: break;
                         }
                     }
 
@@ -204,11 +224,27 @@ export namespace Artifact::Acoustic {
                 float impactEnvelope = 0.0f;
                 float impactDecay = 0.9f;
                 float impactLevel = 0.0f;
+                float bubblePhase = 0.0f;
+                float bubblePhaseStep = 0.0f;
+                float bubbleEnvelope = 0.0f;
+                float bubbleDecay = 0.999f;
+                float bubbleLevel = 0.0f;
+                std::uint32_t bubbleDelaySamples = 0;
                 float leftPan = 0.70710678f;
                 float rightPan = 0.70710678f;
                 float envelope = 0.0f;
                 float decay = 0.99f;
                 float level = 0.0f;
+            };
+
+            struct BubbleGrain {
+                float phase = 0.0f;
+                float phaseStep = 0.0f;
+                float envelope = 0.0f;
+                float decay = 0.999f;
+                float level = 0.0f;
+                float leftPan = 0.70710678f;
+                float rightPan = 0.70710678f;
             };
 
             float phase = 0.0f;
@@ -228,12 +264,21 @@ export namespace Artifact::Acoustic {
             float dropFrequency = 700.0f;
             std::array<DropGrain, 16> dropGrains{};
             std::size_t nextDropGrain = 0;
+            float bubbleEventRate = 0.0f;
+            float bubblePanSpread = 0.0f;
+            float bubbleCoupling = 0.0f;
+            float bubbleRadiusMeters = 0.0f;
+            float bubbleCountdown = 0.0f;
+            std::array<BubbleGrain, 24> bubbleGrains{};
+            std::size_t nextBubbleGrain = 0;
             SynthesisType type = SynthesisType::Modal;
+            bool waterImpact = false;
             std::uint32_t randomState = 1;
             bool seedInitialized = false;
         };
 
         static constexpr float kTau = 6.28318530718f;
+        static constexpr float kPi = 3.14159265359f;
 
         static float finiteOr(float value, float fallback) {
             return std::isfinite(value) ? value : fallback;
@@ -247,6 +292,32 @@ export namespace Artifact::Acoustic {
 
         static float wrapPhase(float phase) {
             return phase - std::floor(phase);
+        }
+
+        static float sampleBubbleRadius(std::uint32_t& randomState) {
+            // Deane & Stokes measured r^-3/2 and r^-10/3 populations on either
+            // side of the approximately 1 mm Hinze scale.
+            constexpr float hinzeRadius = 0.001f;
+            constexpr float smallRadius = 0.00025f;
+            constexpr float largeRadius = 0.008f;
+            constexpr float smallPopulationShare = 0.824f;
+            const float sizeRandom = (nextNoise(randomState) + 1.0f) * 0.5f;
+            if (sizeRandom < smallPopulationShare) {
+                const float u = sizeRandom / smallPopulationShare;
+                const float inverseSqrtRadius =
+                    1.0f / std::sqrt(smallRadius) - u *
+                    (1.0f / std::sqrt(smallRadius) -
+                     1.0f / std::sqrt(hinzeRadius));
+                return 1.0f / (inverseSqrtRadius * inverseSqrtRadius);
+            }
+
+            const float u = (sizeRandom - smallPopulationShare) /
+                (1.0f - smallPopulationShare);
+            constexpr float exponent = 7.0f / 3.0f;
+            const float upperScale = hinzeRadius / largeRadius;
+            return hinzeRadius * std::pow(
+                1.0f - u * (1.0f - std::pow(upperScale, exponent)),
+                -1.0f / exponent);
         }
 
         void renderDroplets(State& state,
@@ -278,12 +349,22 @@ export namespace Artifact::Acoustic {
                     grain.envelope = 1.0f;
                     grain.decay = std::pow(state.dropDecay, 0.75f + randomLevel * 0.5f);
                     grain.level = 0.08f * (0.25f + randomLevel * 0.75f);
-                    const float impactFrequency = 1000.0f + randomImpact * 15000.0f;
+                    const float impactFrequency = state.waterImpact
+                        ? 9500.0f + randomImpact * 1500.0f
+                        : 1000.0f + randomImpact * 15000.0f;
                     grain.impactPhase = randomPhase;
                     grain.impactPhaseStep = impactFrequency / sampleRate;
                     grain.impactEnvelope = 1.0f;
                     grain.impactDecay = std::exp(-2.0f * impactFrequency / sampleRate);
                     grain.impactLevel = 0.035f * (0.5f + randomLevel * 0.5f);
+                    grain.bubblePhase = randomPhase;
+                    grain.bubblePhaseStep = (3200.0f + randomImpact * 1600.0f) / sampleRate;
+                    grain.bubbleEnvelope = 0.0f;
+                    grain.bubbleDecay = std::exp(-1.0f / (0.025f * sampleRate));
+                    grain.bubbleLevel = state.waterImpact
+                        ? 0.035f * (0.5f + randomLevel * 0.5f) : 0.0f;
+                    grain.bubbleDelaySamples = state.waterImpact
+                        ? static_cast<std::uint32_t>(0.05f * sampleRate) : 0u;
                     const float pan = (randomPan * 2.0f - 1.0f) * state.dropPanSpread;
                     grain.leftPan = std::sqrt((1.0f - pan) * 0.5f);
                     grain.rightPan = std::sqrt((1.0f + pan) * 0.5f);
@@ -303,12 +384,144 @@ export namespace Artifact::Acoustic {
                     grain.impactEnvelope * grain.impactLevel;
                 const float output = ((grain.lowPass * 0.35f + brightTransient * 0.65f) *
                     grain.envelope * grain.level + impact) * gain;
-                leftOutput += output * grain.leftPan;
-                rightOutput += output * grain.rightPan;
+                float bubble = 0.0f;
+                if (grain.bubbleDelaySamples > 0) {
+                    --grain.bubbleDelaySamples;
+                    if (grain.bubbleDelaySamples == 0) grain.bubbleEnvelope = 1.0f;
+                } else if (grain.bubbleEnvelope > 0.001f) {
+                    bubble = std::sin(grain.bubblePhase * kTau) *
+                        grain.bubbleEnvelope * grain.bubbleLevel;
+                    grain.bubblePhase = wrapPhase(grain.bubblePhase + grain.bubblePhaseStep);
+                    grain.bubbleEnvelope *= grain.bubbleDecay;
+                }
+                leftOutput += (output + bubble * gain) * grain.leftPan;
+                rightOutput += (output + bubble * gain) * grain.rightPan;
                 grain.impactPhase = wrapPhase(
                     grain.impactPhase + grain.impactPhaseStep);
                 grain.impactEnvelope *= grain.impactDecay;
                 grain.envelope *= grain.decay;
+            }
+        }
+
+        void renderBubbleCloud(State& state,
+                               bool emitNewBubbles,
+                               float sampleRate,
+                               float gain,
+                               float& leftOutput,
+                               float& rightOutput) {
+            if (emitNewBubbles && state.bubbleEventRate > 0.0f) {
+                state.bubbleCountdown -= 1.0f;
+                int spawned = 0;
+                while (state.bubbleCountdown <= 0.0f && spawned < 8) {
+                    State::BubbleGrain& lowMode = state.bubbleGrains[state.nextBubbleGrain];
+                    state.nextBubbleGrain =
+                        (state.nextBubbleGrain + 1) % state.bubbleGrains.size();
+                    State::BubbleGrain& highMode = state.bubbleGrains[state.nextBubbleGrain];
+                    state.nextBubbleGrain =
+                        (state.nextBubbleGrain + 1) % state.bubbleGrains.size();
+
+                    const float radiusA = state.bubbleRadiusMeters > 0.0f
+                        ? state.bubbleRadiusMeters *
+                            (0.85f + 0.3f * (nextNoise(state.randomState) + 1.0f) * 0.5f)
+                        : sampleBubbleRadius(state.randomState);
+                    const float radiusB = state.bubbleRadiusMeters > 0.0f
+                        ? state.bubbleRadiusMeters *
+                            (0.85f + 0.3f * (nextNoise(state.randomState) + 1.0f) * 0.5f)
+                        : sampleBubbleRadius(state.randomState);
+                    const float levelRandom = (nextNoise(state.randomState) + 1.0f) * 0.5f;
+                    const float qualityRandom = (nextNoise(state.randomState) + 1.0f) * 0.5f;
+                    const float panRandom = (nextNoise(state.randomState) + 1.0f) * 0.5f;
+                    const float gapRandom = (nextNoise(state.randomState) + 1.0f) * 0.5f;
+                    const float coupling = std::clamp(
+                        state.bubbleCoupling * (0.8f + 0.4f * gapRandom), 0.0f, 0.45f);
+                    const float resonanceA = std::clamp(
+                        3.28f / radiusA, 120.0f, sampleRate * 0.4f);
+                    const float resonanceB = std::clamp(
+                        3.28f / radiusB, 120.0f, sampleRate * 0.4f);
+                    const float omegaASquared = kTau * kTau * resonanceA * resonanceA;
+                    const float omegaBSquared = kTau * kTau * resonanceB * resonanceB;
+                    const float omegaSum = omegaASquared + omegaBSquared;
+                    const float determinantScale = 1.0f - coupling * coupling;
+                    const float discriminant = std::max(0.0f,
+                        omegaSum * omegaSum -
+                        4.0f * determinantScale * omegaASquared * omegaBSquared);
+                    const float root = std::sqrt(discriminant);
+                    const float lambdaLow = (omegaSum - root) /
+                        (2.0f * determinantScale);
+                    const float lambdaHigh = (omegaSum + root) /
+                        (2.0f * determinantScale);
+                    const float omegaLow = std::sqrt(std::max(1.0f, lambdaLow));
+                    const float omegaHigh = std::sqrt(std::max(1.0f, lambdaHigh));
+                    float lowEigenA = 1.0f;
+                    float lowEigenB = 0.0f;
+                    float highEigenA = 0.0f;
+                    float highEigenB = 1.0f;
+                    if (coupling > 1.0e-5f) {
+                        lowEigenB =
+                            (omegaASquared - lambdaLow) / (lambdaLow * coupling);
+                        highEigenB =
+                            (omegaASquared - lambdaHigh) / (lambdaHigh * coupling);
+                    } else if (omegaASquared > omegaBSquared) {
+                        lowEigenA = 0.0f;
+                        lowEigenB = 1.0f;
+                        highEigenA = 1.0f;
+                        highEigenB = 0.0f;
+                    }
+                    const float lowMassNorm = std::sqrt(std::max(1.0e-6f,
+                        lowEigenA * lowEigenA + 2.0f * coupling * lowEigenA * lowEigenB +
+                        lowEigenB * lowEigenB));
+                    const float highMassNorm = std::sqrt(std::max(1.0e-6f,
+                        highEigenA * highEigenA + 2.0f * coupling * highEigenA * highEigenB +
+                        highEigenB * highEigenB));
+                    const float volumeScale = radiusA * radiusA + radiusB * radiusB;
+                    const float lowRadiation = std::sqrt(2.0f) * std::abs(
+                        radiusA * radiusA * lowEigenA +
+                        radiusB * radiusB * lowEigenB) /
+                        (lowMassNorm * volumeScale);
+                    const float highRadiation = std::sqrt(2.0f) * std::abs(
+                        radiusA * radiusA * highEigenA +
+                        radiusB * radiusB * highEigenB) /
+                        (highMassNorm * volumeScale);
+                    const float lowPressureProjection =
+                        std::abs(lowEigenA + lowEigenB) / lowMassNorm;
+                    const float highPressureProjection =
+                        std::abs(highEigenA + highEigenB) / highMassNorm;
+                    const float quality = 12.0f + qualityRandom * 28.0f;
+                    const float level = 0.24f * (0.4f + levelRandom * 0.6f) * gain;
+                    lowMode.phase = (nextNoise(state.randomState) + 1.0f) * 0.5f;
+                    lowMode.phaseStep = omegaLow / (kTau * sampleRate);
+                    lowMode.envelope = 1.0f;
+                    lowMode.decay = std::exp(-kPi * lowMode.phaseStep / quality);
+                    lowMode.level = level * std::clamp(
+                        lowRadiation * lowPressureProjection, 0.0f, 1.5f);
+                    highMode.phase = (nextNoise(state.randomState) + 1.0f) * 0.5f;
+                    highMode.phaseStep = omegaHigh / (kTau * sampleRate);
+                    highMode.envelope = 1.0f;
+                    highMode.decay = std::exp(-kPi * highMode.phaseStep / quality);
+                    highMode.level = level * std::clamp(
+                        highRadiation * highPressureProjection, 0.0f, 1.5f);
+                    const float pan = (panRandom * 2.0f - 1.0f) * state.bubblePanSpread;
+                    lowMode.leftPan = highMode.leftPan =
+                        std::sqrt((1.0f - pan) * 0.5f);
+                    lowMode.rightPan = highMode.rightPan =
+                        std::sqrt((1.0f + pan) * 0.5f);
+
+                    const float randomInterval = std::max(
+                        0.000001f, (nextNoise(state.randomState) + 1.0f) * 0.5f);
+                    state.bubbleCountdown += -std::log(randomInterval) *
+                        sampleRate / state.bubbleEventRate;
+                    ++spawned;
+                }
+            }
+
+            for (State::BubbleGrain& bubble : state.bubbleGrains) {
+                if (bubble.envelope < 0.001f) continue;
+                const float sample = std::sin(bubble.phase * kTau) *
+                    bubble.envelope * bubble.level;
+                leftOutput += sample * bubble.leftPan;
+                rightOutput += sample * bubble.rightPan;
+                bubble.phase = wrapPhase(bubble.phase + bubble.phaseStep);
+                bubble.envelope *= bubble.decay;
             }
         }
 
