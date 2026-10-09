@@ -132,6 +132,11 @@ public:
     /// is actually going to be reported.
     QString debugStateText() const;
 
+    // Enqueues background builds for the common pipelines (default additive
+    // + alpha, plus the cull pipeline) so the first particle draw finds them
+    // ready. Safe to call repeatedly; cached/failed builds are skipped.
+    void prewarmCommonPipelines();
+
 private:
     GpuContext& context_;
     class Impl;
@@ -173,6 +178,7 @@ private:
     void pumpAsyncResults();
     bool useCachedGraphicsPso();
     void requestAsyncGraphics();
+    void requestAsyncBuild(const ParticleRenderOptions& options);
     void requestAsyncCull();
     void buildGraphicsSync();
     void markPsoReady();

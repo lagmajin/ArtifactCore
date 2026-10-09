@@ -81,6 +81,7 @@ namespace ArtifactCore
   psoCI.PSODesc.Name = desc.name;
   psoCI.PSODesc.PipelineType = PIPELINE_TYPE_COMPUTE;
   psoCI.pCS = pImpl_->pComputeShader_;
+  psoCI.pPSOCache = desc.psoCache;
   psoCI.PSODesc.ResourceLayout.DefaultVariableType = desc.defaultVariableType;
   psoCI.PSODesc.ResourceLayout.Variables = desc.variables;
   psoCI.PSODesc.ResourceLayout.NumVariables = desc.variableCount;

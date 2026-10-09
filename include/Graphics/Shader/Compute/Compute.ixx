@@ -29,6 +29,10 @@ export namespace ArtifactCore
   const ShaderResourceVariableDesc* variables = nullptr;
   Uint32 variableCount = 0;
   SHADER_RESOURCE_VARIABLE_TYPE defaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
+  // Optional Diligent pipeline-state cache (accelerates driver-side PSO
+  // creation; null keeps the previous behavior). Backends without cache
+  // support ignore it.
+  IPipelineStateCache* psoCache = nullptr;
  };
 
  class LIBRARY_DLL_API ComputeExecutor

@@ -1,8 +1,11 @@
 module;
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <condition_variable>
 #include <cstring>
+#include <limits>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <system_error>
@@ -12,8 +15,14 @@ module;
 #include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h>
+#include <DiligentCore/Graphics/GraphicsEngine/interface/PipelineStateCache.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/ShaderResourceBinding.h>
 #include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
+#include <QByteArray>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QStandardPaths>
 #include <QString>
 #include <QDebug>
 
@@ -109,6 +118,166 @@ struct ParticleCullConstants {
     Uint32 outputCapacity = 0;
     Uint32 padding[2] = {};
 };
+
+namespace {
+
+// Bump when the embedded particle HLSL changes: backends key stored blobs
+// by bytecode too, but this retires poisoned files unconditionally.
+constexpr int kParticlePsoCacheFileVersion = 1;
+
+struct DevicePsoCacheEntry {
+    Diligent::RefCntAutoPtr<Diligent::IPipelineStateCache> cache;
+    QString filePath;
+    bool dirty = false;
+    std::chrono::steady_clock::time_point lastSave{};
+};
+
+std::mutex& DevicePsoCacheMutex()
+{
+    static std::mutex mutex;
+    return mutex;
+}
+
+std::map<const void*, DevicePsoCacheEntry>& DevicePsoCacheMap()
+{
+    static std::map<const void*, DevicePsoCacheEntry> map;
+    return map;
+}
+
+QString ParticlePsoCacheFilePath(IRenderDevice* device)
+{
+    QString base =
+        QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    if (base.isEmpty()) {
+        base = QDir::tempPath();
+    }
+    int backend = static_cast<int>(RENDER_DEVICE_TYPE_UNDEFINED);
+    // FNV-1a over the adapter description (bounded, no Qt hash dependency).
+    unsigned int adapterHash = 2166136261u;
+    if (device) {
+        backend = static_cast<int>(device->GetDeviceInfo().Type);
+        const auto& adapterInfo = device->GetAdapterInfo();
+        for (int i = 0; i < 128 && adapterInfo.Description[i] != '\0'; ++i) {
+            adapterHash ^= static_cast<unsigned int>(adapterInfo.Description[i]);
+            adapterHash *= 16777619u;
+        }
+        adapterHash ^= static_cast<unsigned int>(adapterInfo.VendorId) * 2654435761u;
+    }
+    return QStringLiteral("%1/pso_cache/particle_%2_%3_v%4.bin")
+        .arg(base).arg(backend)
+        .arg(adapterHash, 8, 16, QLatin1Char('0'))
+        .arg(kParticlePsoCacheFileVersion);
+}
+
+// Returns the process-wide pipeline-state cache for a device (possibly
+// null on backends without support, or when the disk blob is unusable).
+// The registry owns the object; callers use it transiently during PSO
+// creation only.
+Diligent::RefCntAutoPtr<Diligent::IPipelineStateCache> FindDevicePsoCache(
+    IRenderDevice* device)
+{
+    if (!device) {
+        return {};
+    }
+    std::lock_guard<std::mutex> lock(DevicePsoCacheMutex());
+    auto& map = DevicePsoCacheMap();
+    const void* key = static_cast<const void*>(device);
+    auto it = map.find(key);
+    if (it != map.end()) {
+        return it->second.cache;
+    }
+    DevicePsoCacheEntry entry;
+    entry.filePath = ParticlePsoCacheFilePath(device);
+    QByteArray diskBlob;
+    QFile file(entry.filePath);
+    if (file.open(QIODevice::ReadOnly)) {
+        diskBlob = file.readAll();
+        file.close();
+    }
+    PipelineStateCacheCreateInfo cacheInfo;
+    cacheInfo.Desc.Mode = PSO_CACHE_MODE_LOAD_STORE;
+    if (!diskBlob.isEmpty()) {
+        cacheInfo.pCacheData = diskBlob.constData();
+        // IDataBlob size is size_t; Diligent takes Uint32 (4GB+ caches
+        // cannot exist here — a handful of particle PSOs).
+        cacheInfo.CacheDataSize =
+            static_cast<Uint32>(std::min<size_t>(
+                static_cast<size_t>(diskBlob.size()),
+                static_cast<size_t>(std::numeric_limits<Uint32>::max())));
+    }
+    RefCntAutoPtr<IPipelineStateCache> cache;
+    device->CreatePipelineStateCache(cacheInfo, &cache);
+    // Unsupported backends (GL/WebGPU stubs) return null: builds proceed
+    // without a cache exactly as before.
+    entry.cache = cache;
+    map.emplace(key, std::move(entry));
+    return cache;
+}
+
+void MarkDevicePsoCacheDirty(IRenderDevice* device)
+{
+    if (!device) {
+        return;
+    }
+    std::lock_guard<std::mutex> lock(DevicePsoCacheMutex());
+    auto& map = DevicePsoCacheMap();
+    const auto it = map.find(static_cast<const void*>(device));
+    if (it != map.end() && it->second.cache) {
+        it->second.dirty = true;
+    }
+}
+
+// Serializes newly stored pipelines, throttled: GetData + file write runs
+// on the calling (GUI) thread, so this must stay infrequent.
+void MaybeSaveDevicePsoCache(IRenderDevice* device)
+{
+    if (!device) {
+        return;
+    }
+    RefCntAutoPtr<IPipelineStateCache> cache;
+    QString filePath;
+    {
+        std::lock_guard<std::mutex> lock(DevicePsoCacheMutex());
+        auto& map = DevicePsoCacheMap();
+        const auto it = map.find(static_cast<const void*>(device));
+        if (it == map.end() || !it->second.cache || !it->second.dirty) {
+            return;
+        }
+        const auto now = std::chrono::steady_clock::now();
+        if (it->second.lastSave != std::chrono::steady_clock::time_point{} &&
+            now - it->second.lastSave < std::chrono::seconds(120)) {
+            return;
+        }
+        it->second.lastSave = now;
+        it->second.dirty = false;
+        cache = it->second.cache;
+        filePath = it->second.filePath;
+    }
+    RefCntAutoPtr<IDataBlob> blob;
+    cache->GetData(&blob);
+    if (!blob || blob->GetSize() == 0) {
+        return;
+    }
+    QDir().mkpath(QFileInfo(filePath).absolutePath());
+    QFile file(filePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        qWarning() << "[ParticleRenderer] PSO cache save failed:" << filePath;
+        return;
+    }
+    const auto* bytes = static_cast<const char*>(blob->GetConstDataPtr());
+    qint64 remaining = static_cast<qint64>(blob->GetSize());
+    while (remaining > 0) {
+        const qint64 written = file.write(bytes, remaining);
+        if (written <= 0) {
+            qWarning() << "[ParticleRenderer] PSO cache save failed:" << filePath;
+            return;
+        }
+        bytes += written;
+        remaining -= written;
+    }
+}
+
+} // namespace
 
 const char* ParticleCullCSSource = R"(
 struct ParticleData {
@@ -531,6 +700,13 @@ bool BuildParticleGraphicsPipeline(
     PSOCreateInfo.pVS = vs;
     PSOCreateInfo.pPS = ps;
 
+    // Process-wide Diligent pipeline-state cache (disk-backed): hits skip
+    // the driver-side PSO compile on repeat runs. Null on unsupported
+    // backends, which simply keeps the previous behavior. The registry owns
+    // the object for the process lifetime, so the raw pointer stays valid.
+    auto devicePsoCache = FindDevicePsoCache(pDevice);
+    PSOCreateInfo.pPSOCache = devicePsoCache.RawPtr();
+
     // Layout
     PSOCreateInfo.PSODesc.ResourceLayout.DefaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
 
@@ -563,12 +739,14 @@ bool BuildParticleGraphicsPipeline(
         outPso.Release();
         return false;
     }
+    MarkDevicePsoCacheDirty(pDevice);
     return true;
 }
 
 // Shared cull compute pipeline creation. The executor is fully worker-local
 // until published: safe to run on the async thread.
-bool BuildParticleCullPipeline(ComputeExecutor& executor, IBuffer* constantsBuffer)
+bool BuildParticleCullPipeline(
+    GpuContext& context, ComputeExecutor& executor, IBuffer* constantsBuffer)
 {
     if (!constantsBuffer) {
         return false;
@@ -585,9 +763,16 @@ bool BuildParticleCullPipeline(ComputeExecutor& executor, IBuffer* constantsBuff
     cullDesc.variables = CullVars.data();
     cullDesc.variableCount = static_cast<Uint32>(CullVars.size());
     cullDesc.defaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
-    return executor.build(cullDesc) &&
+    auto pDevice = context.RenderDevice();
+    auto devicePsoCache = FindDevicePsoCache(pDevice);
+    cullDesc.psoCache = devicePsoCache.RawPtr();
+    const bool built = executor.build(cullDesc) &&
         executor.setBuffer("CullConstants", constantsBuffer) &&
         executor.createShaderResourceBinding(true);
+    if (built) {
+        MarkDevicePsoCacheDirty(pDevice);
+    }
+    return built;
 }
 
 template <typename RendererImpl>
@@ -654,11 +839,14 @@ bool ParticleRenderer::ensureCullPipeline()
         return false;
     }
     pImpl_->gpuCullReady_ = BuildParticleCullPipeline(
-        *pImpl_->pCullExecutor_, pImpl_->pCullConstantsBuffer_.RawPtr());
+        context_, *pImpl_->pCullExecutor_,
+        pImpl_->pCullConstantsBuffer_.RawPtr());
     if (!pImpl_->gpuCullReady_) {
         pImpl_->gpuCullBuildFailed_ = true;
         qWarning() << "[ParticleRenderer] GPU cull pipeline build failed"
                    << "— continuing with direct/indirect draws";
+    } else {
+        MaybeSaveDevicePsoCache(context_.RenderDevice());
     }
     return pImpl_->gpuCullReady_;
 }
@@ -684,6 +872,7 @@ void ParticleRenderer::buildGraphicsSync()
     pImpl_->hasGraphicsFailure_ = false;
     markPsoReady();
     qDebug() << "[ParticleRenderer] PSO created successfully";
+    MaybeSaveDevicePsoCache(context_.RenderDevice());
 }
 
 bool ParticleRenderer::useCachedGraphicsPso()
@@ -761,28 +950,65 @@ bool ParticleRenderer::ensureGraphicsPipeline(
 
 void ParticleRenderer::requestAsyncGraphics()
 {
+    requestAsyncBuild(renderOptions_);
+}
+
+void ParticleRenderer::requestAsyncBuild(const ParticleRenderOptions& options)
+{
     auto pDevice = context_.RenderDevice();
     if (!pDevice || maxParticles_ == 0 || !pImpl_->pConstantBuffer_) {
         return;
     }
     if (pImpl_->hasGraphicsFailure_ &&
-        pImpl_->graphicsFailedOptions_ == renderOptions_ &&
+        pImpl_->graphicsFailedOptions_ == options &&
         pImpl_->graphicsFailedBufferGen_ == pImpl_->bufferGeneration_) {
         return;
     }
     {
         std::lock_guard<std::mutex> lock(pImpl_->asyncMutex_);
         if (pImpl_->graphicsJobPending_ &&
-            pImpl_->graphicsJobOptions_ == renderOptions_ &&
+            pImpl_->graphicsJobOptions_ == options &&
             pImpl_->graphicsJobBufferGen_ == pImpl_->bufferGeneration_) {
             return;
         }
-        pImpl_->graphicsJobOptions_ = renderOptions_;
+        pImpl_->graphicsJobOptions_ = options;
         pImpl_->graphicsJobBufferGen_ = pImpl_->bufferGeneration_;
         pImpl_->graphicsJobConstants_ = pImpl_->pConstantBuffer_;
         pImpl_->graphicsJobPending_ = true;
     }
     pImpl_->asyncCv_.notify_one();
+}
+
+void ParticleRenderer::prewarmCommonPipelines()
+{
+    if (pImpl_->asyncDisabled_ || maxParticles_ == 0 ||
+        !context_.RenderDevice() || !pImpl_->pConstantBuffer_) {
+        return;
+    }
+    // The default additive pipeline covers fire/explosion/spark/rain-type
+    // presets; Alpha covers normal-blend layers and form particles. Cached
+    // or failed builds are skipped, so repeated calls are cheap.
+    ParticleRenderOptions additive;
+    ParticleRenderOptions alpha = additive;
+    alpha.blend = ParticleBlendPolicy::Alpha;
+    const ParticleRenderOptions wanted[2] = {additive, alpha};
+    for (const auto& options : wanted) {
+        bool cached = false;
+        for (const auto& entry : pImpl_->graphicsPsoCache_) {
+            if (entry.options == options &&
+                entry.bufferGeneration == pImpl_->bufferGeneration_ &&
+                entry.pso && entry.srb) {
+                cached = true;
+                break;
+            }
+        }
+        if (!cached) {
+            requestAsyncBuild(options);
+        }
+    }
+    if (!pImpl_->gpuCullReady_ && !pImpl_->gpuCullBuildFailed_) {
+        requestAsyncCull();
+    }
 }
 
 void ParticleRenderer::requestAsyncCull()
@@ -868,6 +1094,11 @@ void ParticleRenderer::pumpAsyncResults()
                        << "— continuing with direct/indirect draws";
         }
     }
+    if ((hasGraphics && graphicsOk) || (hasCull && cullOk)) {
+        // Newly stored driver pipelines are persisted for the next process
+        // start (throttled inside).
+        MaybeSaveDevicePsoCache(context_.RenderDevice());
+    }
 }
 
 void ParticleRenderer::asyncWorkerMain()
@@ -924,7 +1155,7 @@ void ParticleRenderer::asyncWorkerMain()
         if (doCull && cullConstants) {
             auto executor = std::make_unique<ComputeExecutor>(context_);
             const bool ok = BuildParticleCullPipeline(
-                *executor, cullConstants.RawPtr());
+                context_, *executor, cullConstants.RawPtr());
             {
                 std::lock_guard<std::mutex> lock(pImpl_->asyncMutex_);
                 pImpl_->cullResultOk_ = ok;
@@ -1284,4 +1515,3 @@ QString ParticleRenderer::debugStateText() const {
 }
 
 } // namespace ArtifactCore
-
