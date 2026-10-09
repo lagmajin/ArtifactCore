@@ -5124,6 +5124,127 @@ void ArtifactScriptHost::installCompositionApi(const ArtifactScriptCompositionAp
             return ArtifactScriptValue(accepted);
         });
     }
+    // Slice 1: reference/query helpers. Each entry takes (layer, path) except
+    // where noted; layer resolves like getProperty's target.
+    if (api.hasProperty) {
+        registerFunction("hasProperty", [fn = api.hasProperty](std::span<const ArtifactScriptValue> args) {
+            if (args.size() != 2 || !std::holds_alternative<std::string>(args[1])) return ArtifactScriptValue(false);
+            return ArtifactScriptValue(fn(args[0], std::get<std::string>(args[1])));
+        });
+    }
+    if (api.propertyNames) {
+        registerFunction("getPropertyNames", [fn = api.propertyNames](std::span<const ArtifactScriptValue> args) {
+            auto array = makeShared<ArtifactScriptArray>();
+            if (args.size() != 1) return ArtifactScriptValue(array);
+            for (const auto& name : fn(args[0])) array->values.emplace_back(name);
+            return ArtifactScriptValue(array);
+        });
+    }
+    if (api.isAnimatable) {
+        registerFunction("isAnimatable", [fn = api.isAnimatable](std::span<const ArtifactScriptValue> args) {
+            if (args.size() != 2 || !std::holds_alternative<std::string>(args[1])) return ArtifactScriptValue(false);
+            return ArtifactScriptValue(fn(args[0], std::get<std::string>(args[1])));
+        });
+    }
+    if (api.hasKeyframes) {
+        registerFunction("hasKeyframes", [fn = api.hasKeyframes](std::span<const ArtifactScriptValue> args) {
+            if (args.size() != 2 || !std::holds_alternative<std::string>(args[1])) return ArtifactScriptValue(false);
+            return ArtifactScriptValue(fn(args[0], std::get<std::string>(args[1])));
+        });
+    }
+    if (api.keyframeCount) {
+        registerFunction("getKeyframeCount", [fn = api.keyframeCount](std::span<const ArtifactScriptValue> args) {
+            if (args.size() != 2 || !std::holds_alternative<std::string>(args[1])) return ArtifactScriptValue(std::int64_t(0));
+            return ArtifactScriptValue(fn(args[0], std::get<std::string>(args[1])));
+        });
+    }
+    if (api.hasKeyframeAt) {
+        registerFunction("hasKeyframeAt", [fn = api.hasKeyframeAt](std::span<const ArtifactScriptValue> args) {
+            if (args.size() != 3 || !std::holds_alternative<std::string>(args[1])) return ArtifactScriptValue(false);
+            std::int64_t frame = 0;
+            if (std::holds_alternative<std::int64_t>(args[2])) frame = std::get<std::int64_t>(args[2]);
+            else if (std::holds_alternative<double>(args[2])) frame = static_cast<std::int64_t>(std::get<double>(args[2]));
+            else return ArtifactScriptValue(false);
+            return ArtifactScriptValue(fn(args[0], std::get<std::string>(args[1]), frame));
+        });
+    }
+    if (api.valueAtFrame) {
+        registerFunction("getValueAtFrame", [fn = api.valueAtFrame](std::span<const ArtifactScriptValue> args) {
+            if (args.size() != 3 || !std::holds_alternative<std::string>(args[1])) return ArtifactScriptValue{};
+            std::int64_t frame = 0;
+            if (std::holds_alternative<std::int64_t>(args[2])) frame = static_cast<std::int64_t>(std::get<std::int64_t>(args[2]));
+            else if (std::holds_alternative<double>(args[2])) frame = static_cast<std::int64_t>(std::get<double>(args[2]));
+            else return ArtifactScriptValue{};
+            return fn(args[0], std::get<std::string>(args[1]), frame);
+        });
+    }
+    // Slice 2: keyframe writes (layer, path, frame[, value[, interp]]).
+    if (api.addKeyframe) {
+        registerFunction("addKeyframe", [this, fn = api.addKeyframe](std::span<const ArtifactScriptValue> args) {
+            if (args.size() < 3 || !std::holds_alternative<std::string>(args[1])) {
+                setLastError("addKeyframe expects layer, path, frame[, value[, interp]]");
+                return ArtifactScriptValue(false);
+            }
+            std::int64_t frame = 0;
+            if (std::holds_alternative<std::int64_t>(args[2])) frame = std::get<std::int64_t>(args[2]);
+            else if (std::holds_alternative<double>(args[2])) frame = static_cast<std::int64_t>(std::get<double>(args[2]));
+            else {
+                setLastError("addKeyframe expects an integer frame");
+                return ArtifactScriptValue(false);
+            }
+            const ArtifactScriptValue value = args.size() > 3 ? args[3] : ArtifactScriptValue{};
+            std::string interp;
+            if (args.size() > 4 && std::holds_alternative<std::string>(args[4])) interp = std::get<std::string>(args[4]);
+            const bool accepted = fn(args[0], std::get<std::string>(args[1]), frame, value, interp);
+            if (!accepted) setLastError("addKeyframe rejected layer, path, frame, or value");
+            return ArtifactScriptValue(accepted);
+        });
+    }
+    if (api.removeKeyframe) {
+        registerFunction("removeKeyframe", [this, fn = api.removeKeyframe](std::span<const ArtifactScriptValue> args) {
+            if (args.size() != 3 || !std::holds_alternative<std::string>(args[1])) {
+                setLastError("removeKeyframe expects layer, path, frame");
+                return ArtifactScriptValue(false);
+            }
+            std::int64_t frame = 0;
+            if (std::holds_alternative<std::int64_t>(args[2])) frame = std::get<std::int64_t>(args[2]);
+            else if (std::holds_alternative<double>(args[2])) frame = static_cast<std::int64_t>(std::get<double>(args[2]));
+            else {
+                setLastError("removeKeyframe expects an integer frame");
+                return ArtifactScriptValue(false);
+            }
+            const bool accepted = fn(args[0], std::get<std::string>(args[1]), frame);
+            if (!accepted) setLastError("removeKeyframe rejected layer, path, or frame");
+            return ArtifactScriptValue(accepted);
+        });
+    }
+    if (api.clearKeyframes) {
+        registerFunction("clearKeyframes", [this, fn = api.clearKeyframes](std::span<const ArtifactScriptValue> args) {
+            if (args.size() != 2 || !std::holds_alternative<std::string>(args[1])) {
+                setLastError("clearKeyframes expects layer, path");
+                return ArtifactScriptValue(false);
+            }
+            const bool accepted = fn(args[0], std::get<std::string>(args[1]));
+            if (!accepted) setLastError("clearKeyframes rejected layer or path");
+            return ArtifactScriptValue(accepted);
+        });
+    }
+    // Slice 3: keyframe enumeration -> array of Keyframe row objects.
+    if (api.keyframes) {
+        registerFunction("getKeyframes", [fn = api.keyframes](std::span<const ArtifactScriptValue> args) {
+            auto array = makeShared<ArtifactScriptArray>();
+            if (args.size() != 2 || !std::holds_alternative<std::string>(args[1])) return ArtifactScriptValue(array);
+            for (const auto& row : fn(args[0], std::get<std::string>(args[1]))) {
+                auto object = makeShared<ArtifactScriptObjectInstance>();
+                object->className = "Keyframe";
+                object->fields["frame"] = row.frame;
+                object->fields["value"] = row.value;
+                object->fields["interp"] = row.interp;
+                array->values.emplace_back(object);
+            }
+            return ArtifactScriptValue(array);
+        });
+    }
 }
 
 ArtifactScriptReloadResult ArtifactScriptHotReload::reloadWithSaved(
