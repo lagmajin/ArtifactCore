@@ -469,6 +469,29 @@ struct ArtifactScriptCompositionApi {
     std::function<double()> getTime;
     std::function<ArtifactScriptValue(const ArtifactScriptValue&, std::string_view)> getProperty;
     std::function<bool(const ArtifactScriptValue&, std::string_view, const ArtifactScriptValue&)> setProperty;
+    // Slice 1 (reference/query): optional extension callbacks. When unset,
+    // installCompositionApi leaves the corresponding script function
+    // unregistered so older hosts keep working. Layer takes the same target
+    // forms as getProperty (name string, "self", or ObjectRef value).
+    std::function<bool(const ArtifactScriptValue&, std::string_view)> hasProperty;
+    std::function<std::vector<std::string>(const ArtifactScriptValue&)> propertyNames;
+    std::function<bool(const ArtifactScriptValue&, std::string_view)> isAnimatable;
+    std::function<bool(const ArtifactScriptValue&, std::string_view)> hasKeyframes;
+    std::function<std::int64_t(const ArtifactScriptValue&, std::string_view)> keyframeCount;
+    std::function<bool(const ArtifactScriptValue&, std::string_view, std::int64_t)> hasKeyframeAt;
+    std::function<ArtifactScriptValue(const ArtifactScriptValue&, std::string_view, std::int64_t)> valueAtFrame;
+    // Slice 2 (keyframe writes): frame-based, layer keyframe-time-domain.
+    // interp is an optional interpolation name (linear/constant/...).
+    std::function<bool(const ArtifactScriptValue&, std::string_view, std::int64_t, const ArtifactScriptValue&, std::string_view)> addKeyframe;
+    std::function<bool(const ArtifactScriptValue&, std::string_view, std::int64_t)> removeKeyframe;
+    std::function<bool(const ArtifactScriptValue&, std::string_view)> clearKeyframes;
+    // Slice 3 (keyframe enumeration): returns {frame, value, interp} rows.
+    struct KeyframeRow {
+        std::int64_t frame = 0;
+        ArtifactScriptValue value{};
+        std::string interp;
+    };
+    std::function<std::vector<KeyframeRow>(const ArtifactScriptValue&, std::string_view)> keyframes;
 };
 
 class ArtifactScriptHost {
