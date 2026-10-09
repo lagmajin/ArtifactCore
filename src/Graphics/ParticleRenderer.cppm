@@ -1,8 +1,12 @@
 module;
 #include <algorithm>
 #include <array>
+#include <condition_variable>
 #include <cstring>
 #include <memory>
+#include <mutex>
+#include <system_error>
+#include <thread>
 #include <utility>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
@@ -20,6 +24,16 @@ import Graphics.Compute;
 
 namespace ArtifactCore {
 
+// One compiled graphics pipeline per render-options variant. Entries bind
+// the constants buffer generation they were built against; buffer recreation
+// retires old entries without an explicit purge pass.
+struct ParticleGraphicsPsoCacheEntry {
+    ParticleRenderOptions options;
+    uint64_t bufferGeneration = 0;
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pso;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> srb;
+};
+
 struct ParticleRenderer::Impl
 {
     Diligent::RefCntAutoPtr<Diligent::IPipelineState>         pPSO_;
@@ -33,6 +47,58 @@ struct ParticleRenderer::Impl
     bool indirectDrawSupported_ = false;
     bool gpuCullReady_ = false;
     bool gpuCullActive_ = false;
+    // Latched cull-build failure: without this a persistently failing
+    // compile would be retried (a full dxc invocation) on every eligible
+    // frame. Reset together with gpuCullReady_ when buffers are recreated.
+    bool gpuCullBuildFailed_ = false;
+    // Bumped on every createBuffers(); compiled pipelines bind one specific
+    // constants buffer, so results from older generations are discarded.
+    uint64_t bufferGeneration_ = 0;
+    // Installed graphics pipelines by options (GUI thread only).
+    std::vector<ParticleGraphicsPsoCacheEntry> graphicsPsoCache_;
+    // Async worker state. The worker only touches job/result slots under
+    // asyncMutex_; installation into live members happens in pumpAsyncResults
+    // on the GUI thread.
+    std::thread asyncThread_;
+    std::mutex asyncMutex_;
+    std::condition_variable asyncCv_;
+    bool asyncStop_ = false;
+    bool asyncDisabled_ = false;
+    bool graphicsJobPending_ = false;
+    ParticleRenderOptions graphicsJobOptions_;
+    uint64_t graphicsJobBufferGen_ = 0;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> graphicsJobConstants_;
+    bool graphicsResultReady_ = false;
+    bool graphicsResultOk_ = false;
+    ParticleRenderOptions graphicsResultOptions_;
+    uint64_t graphicsResultBufferGen_ = 0;
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> graphicsResultPso_;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> graphicsResultSrb_;
+    bool cullJobPending_ = false;
+    uint64_t cullJobBufferGen_ = 0;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> cullJobConstants_;
+    bool cullResultReady_ = false;
+    bool cullResultOk_ = false;
+    uint64_t cullResultBufferGen_ = 0;
+    std::unique_ptr<ComputeExecutor> cullResultExecutor_;
+    // Graphics failure latch (GUI thread only): stops re-requesting a build
+    // that already failed for these exact options. Expires automatically
+    // when options or the buffer generation change.
+    bool hasGraphicsFailure_ = false;
+    ParticleRenderOptions graphicsFailedOptions_;
+    uint64_t graphicsFailedBufferGen_ = 0;
+
+    ~Impl()
+    {
+        {
+            std::lock_guard<std::mutex> lock(asyncMutex_);
+            asyncStop_ = true;
+        }
+        asyncCv_.notify_all();
+        if (asyncThread_.joinable()) {
+            asyncThread_.join();
+        }
+    }
 };
 
 struct ParticleCullConstants {
@@ -279,6 +345,13 @@ ParticleRenderer::ParticleRenderer(GpuContext& context)
     : context_(context), pImpl_(new Impl())
 {
     pImpl_->pCullExecutor_ = std::make_unique<ComputeExecutor>(context_);
+    try {
+        pImpl_->asyncThread_ = std::thread([this] { asyncWorkerMain(); });
+    } catch (const std::system_error&) {
+        // No background compilation: prepare() falls back to synchronous
+        // builds instead of stalling layer addition with nothing to wait on.
+        pImpl_->asyncDisabled_ = true;
+    }
     debugState_ = DebugState::Constructed;
 }
 ParticleRenderer::~ParticleRenderer()
@@ -292,7 +365,8 @@ void ParticleRenderer::initialize(size_t maxParticles) {
     debugState_ = DebugState::Initialized;
     debugMax_ = static_cast<qulonglong>(maxParticles_);
     createBuffers();
-    createPSO();
+    // No synchronous PSO compilation here: the first prepare() requests an
+    // async build and the CPU fallback covers the interim frames.
 }
 
 void ParticleRenderer::setFrameCostStats(ArtifactCore::RenderCostStats* stats)
@@ -304,6 +378,20 @@ void ParticleRenderer::createBuffers() {
     auto pDevice = context_.RenderDevice();
     pImpl_->gpuCullReady_ = false;
     pImpl_->gpuCullActive_ = false;
+    pImpl_->gpuCullBuildFailed_ = false;
+    ++pImpl_->bufferGeneration_;
+    pImpl_->graphicsPsoCache_.clear();
+    {
+        // Drop queued-but-unstarted builds: their results would be stale
+        // (tagged with the previous buffer generation) by design, so don't
+        // burn a dxc invocation on them. An in-flight build finishes
+        // harmlessly and is discarded by generation on publish.
+        std::lock_guard<std::mutex> lock(pImpl_->asyncMutex_);
+        pImpl_->graphicsJobPending_ = false;
+        pImpl_->graphicsJobConstants_.Release();
+        pImpl_->cullJobPending_ = false;
+        pImpl_->cullJobConstants_.Release();
+    }
     if (!pDevice || maxParticles_ == 0) {
         debugState_ = DebugState::BuffersSkipped;
         debugMax_ = static_cast<qulonglong>(maxParticles_);
@@ -369,23 +457,27 @@ void ParticleRenderer::createBuffers() {
     debugFlagB_ = pImpl_->pConstantBuffer_ != nullptr;
 }
 
-void ParticleRenderer::createPSO() {
-    auto pDevice = context_.RenderDevice();
-    pImpl_->pSRB_.Release();
-    pImpl_->pPSO_.Release();
-    if (!pDevice || maxParticles_ == 0 || !pImpl_->pConstantBuffer_) {
-        debugState_ = DebugState::PsoSkipped;
-        debugMax_ = static_cast<qulonglong>(maxParticles_);
-        debugFlagA_ = pDevice != nullptr;
-        debugFlagB_ = pImpl_->pConstantBuffer_ != nullptr;
-        qWarning() << "[ParticleRenderer] createPSO() skipped"
+namespace {
+
+// Shared dxc compile + graphics PSO creation, callable from any thread:
+// touches only the device and the out-params, never live renderer members.
+bool BuildParticleGraphicsPipeline(
+    GpuContext& context, const ParticleRenderOptions& options,
+    IBuffer* constantsBuffer,
+    RefCntAutoPtr<IPipelineState>& outPso,
+    RefCntAutoPtr<IShaderResourceBinding>& outSrb)
+{
+    outPso.Release();
+    outSrb.Release();
+    auto pDevice = context.RenderDevice();
+    if (!pDevice || !constantsBuffer) {
+        qWarning() << "[ParticleRenderer] graphics build skipped"
                    << "device=" << (pDevice != nullptr)
-                   << "maxParticles=" << maxParticles_
-                   << "constantBuffer=" << (pImpl_->pConstantBuffer_ != nullptr);
-        return;
+                   << "constantBuffer=" << (constantsBuffer != nullptr);
+        return false;
     }
     GraphicsPipelineStateCreateInfo PSOCreateInfo;
-    
+
     PSOCreateInfo.PSODesc.Name = "Particle Rendering PSO";
     PSOCreateInfo.PSODesc.PipelineType = PIPELINE_TYPE_GRAPHICS;
 
@@ -394,16 +486,16 @@ void ParticleRenderer::createPSO() {
     PSOCreateInfo.GraphicsPipeline.NumRenderTargets = 1;
     PSOCreateInfo.GraphicsPipeline.RTVFormats[0] = DefaultParticleRTVFormat;
     PSOCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode = CULL_MODE_NONE;
-    PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = renderOptions_.depthTest;
-    PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = renderOptions_.depthWrite;
-    
+    PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = options.depthTest;
+    PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = options.depthWrite;
+
     // Alpha blending (Additive by default for many particle effects, or Normal)
     auto& RT0 = PSOCreateInfo.GraphicsPipeline.BlendDesc.RenderTargets[0];
     RT0.BlendEnable = true;
     RT0.SrcBlend = BLEND_FACTOR_SRC_ALPHA;
     RT0.DestBlend = BLEND_FACTOR_ONE;
     RT0.BlendOp = BLEND_OPERATION_ADD;
-    switch (renderOptions_.blend) {
+    switch (options.blend) {
     case ParticleBlendPolicy::Subtractive:
         RT0.BlendOp = BLEND_OPERATION_REV_SUBTRACT;
         break;
@@ -429,44 +521,58 @@ void ParticleRenderer::createPSO() {
 
     // Compile Shaders (output-param style per new GPUComputeContext API)
     RefCntAutoPtr<IShader> vs, ps;
-    context_.CompileShader(ParticleVSSource, SHADER_TYPE_VERTEX, "VSMain", &vs);
-    context_.CompileShader(ParticlePSSource, SHADER_TYPE_PIXEL,  "PSMain", &ps);
+    context.CompileShader(ParticleVSSource, SHADER_TYPE_VERTEX, "VSMain", &vs);
+    context.CompileShader(ParticlePSSource, SHADER_TYPE_PIXEL,  "PSMain", &ps);
+    if (!vs || !ps) {
+        qWarning("[ParticleRenderer] particle shader compilation FAILED");
+        return false;
+    }
 
     PSOCreateInfo.pVS = vs;
     PSOCreateInfo.pPS = ps;
 
     // Layout
     PSOCreateInfo.PSODesc.ResourceLayout.DefaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
-    
+
     static std::array<ShaderResourceVariableDesc, 1> Vars = {{
         {SHADER_TYPE_VERTEX, "g_Particles", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
     }};
     PSOCreateInfo.PSODesc.ResourceLayout.Variables = Vars.data();
     PSOCreateInfo.PSODesc.ResourceLayout.NumVariables = (Uint32)Vars.size();
 
-    pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &pImpl_->pPSO_);
+    pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &outPso);
 
-    if (!pImpl_->pPSO_) {
-        debugState_ = DebugState::PsoFailed;
-        debugMax_ = static_cast<qulonglong>(maxParticles_);
-        debugFlagA_ = true;
+    if (!outPso) {
         qWarning("[ParticleRenderer] PSO creation FAILED — "
                  "check shader compilation and RTV format");
-        return;
+        return false;
     }
-    qDebug() << "[ParticleRenderer] PSO created successfully";
 
     // Bind Constants cbuffer (static variable — bound once at PSO level)
-    auto* pConstVar = pImpl_->pPSO_->GetStaticVariableByName(SHADER_TYPE_VERTEX, "Constants");
+    auto* pConstVar = outPso->GetStaticVariableByName(SHADER_TYPE_VERTEX, "Constants");
     if (!pConstVar) {
-        debugState_ = DebugState::PsoMissingConstants;
-        debugMax_ = static_cast<qulonglong>(maxParticles_);
         qWarning("[ParticleRenderer] 'Constants' cbuffer not found in PSO "
                  "— static variable name mismatch");
-        return;
+        outPso.Release();
+        return false;
     }
-    pConstVar->Set(pImpl_->pConstantBuffer_);
-    pImpl_->pPSO_->CreateShaderResourceBinding(&pImpl_->pSRB_, true);
+    pConstVar->Set(constantsBuffer);
+    outPso->CreateShaderResourceBinding(&outSrb, true);
+    if (!outSrb) {
+        qWarning("[ParticleRenderer] PSO shader-resource binding FAILED");
+        outPso.Release();
+        return false;
+    }
+    return true;
+}
+
+// Shared cull compute pipeline creation. The executor is fully worker-local
+// until published: safe to run on the async thread.
+bool BuildParticleCullPipeline(ComputeExecutor& executor, IBuffer* constantsBuffer)
+{
+    if (!constantsBuffer) {
+        return false;
+    }
     static std::array<ShaderResourceVariableDesc, 3> CullVars = {{
         {SHADER_TYPE_COMPUTE, "g_Input", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_COMPUTE, "g_Output", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
@@ -479,12 +585,53 @@ void ParticleRenderer::createPSO() {
     cullDesc.variables = CullVars.data();
     cullDesc.variableCount = static_cast<Uint32>(CullVars.size());
     cullDesc.defaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
-    pImpl_->gpuCullReady_ =
-        pImpl_->pCullExecutor_ &&
-        pImpl_->pCullExecutor_->build(cullDesc) &&
-        pImpl_->pCullExecutor_->setBuffer(
-            "CullConstants", pImpl_->pCullConstantsBuffer_) &&
-        pImpl_->pCullExecutor_->createShaderResourceBinding(true);
+    return executor.build(cullDesc) &&
+        executor.setBuffer("CullConstants", constantsBuffer) &&
+        executor.createShaderResourceBinding(true);
+}
+
+template <typename RendererImpl>
+void InsertGraphicsCache(
+    RendererImpl* impl, const ParticleRenderOptions& options,
+    uint64_t bufferGeneration,
+    RefCntAutoPtr<IPipelineState>& pso,
+    RefCntAutoPtr<IShaderResourceBinding>& srb)
+{
+    for (auto& entry : impl->graphicsPsoCache_) {
+        if (entry.options == options &&
+            entry.bufferGeneration == bufferGeneration) {
+            entry.pso = pso;
+            entry.srb = srb;
+            return;
+        }
+    }
+    if (impl->graphicsPsoCache_.size() >= 8) {
+        // Retire stale generations first; entries are tiny apart from the
+        // device-owned pipeline objects they reference.
+        const uint64_t liveGeneration = impl->bufferGeneration_;
+        impl->graphicsPsoCache_.erase(
+            std::remove_if(impl->graphicsPsoCache_.begin(),
+                           impl->graphicsPsoCache_.end(),
+                           [liveGeneration](const ParticleGraphicsPsoCacheEntry& entry) {
+                               return entry.bufferGeneration != liveGeneration;
+                           }),
+            impl->graphicsPsoCache_.end());
+    }
+    if (impl->graphicsPsoCache_.size() >= 8) {
+        impl->graphicsPsoCache_.clear();
+    }
+    ParticleGraphicsPsoCacheEntry entry;
+    entry.options = options;
+    entry.bufferGeneration = bufferGeneration;
+    entry.pso = pso;
+    entry.srb = srb;
+    impl->graphicsPsoCache_.push_back(std::move(entry));
+}
+
+} // namespace
+
+void ParticleRenderer::markPsoReady()
+{
     debugState_ = DebugState::PsoReady;
     debugMax_ = static_cast<qulonglong>(maxParticles_);
     debugFlagA_ = pImpl_->pPSO_ != nullptr;
@@ -493,6 +640,255 @@ void ParticleRenderer::createPSO() {
     debugCount_ = pImpl_->gpuCullReady_ ? 1 : 0;
     debugA_ = static_cast<qulonglong>(renderOptions_.blend);
     debugB_ = renderOptions_.depthTest ? 1 : 0;
+}
+
+bool ParticleRenderer::ensureCullPipeline()
+{
+    if (pImpl_->gpuCullReady_) {
+        return true;
+    }
+    if (pImpl_->gpuCullBuildFailed_) {
+        return false;
+    }
+    if (!pImpl_->pCullExecutor_ || !pImpl_->pCullConstantsBuffer_) {
+        return false;
+    }
+    pImpl_->gpuCullReady_ = BuildParticleCullPipeline(
+        *pImpl_->pCullExecutor_, pImpl_->pCullConstantsBuffer_.RawPtr());
+    if (!pImpl_->gpuCullReady_) {
+        pImpl_->gpuCullBuildFailed_ = true;
+        qWarning() << "[ParticleRenderer] GPU cull pipeline build failed"
+                   << "— continuing with direct/indirect draws";
+    }
+    return pImpl_->gpuCullReady_;
+}
+
+void ParticleRenderer::buildGraphicsSync()
+{
+    RefCntAutoPtr<IPipelineState> pso;
+    RefCntAutoPtr<IShaderResourceBinding> srb;
+    if (!BuildParticleGraphicsPipeline(context_, renderOptions_,
+                                        pImpl_->pConstantBuffer_.RawPtr(),
+                                        pso, srb)) {
+        pImpl_->hasGraphicsFailure_ = true;
+        pImpl_->graphicsFailedOptions_ = renderOptions_;
+        pImpl_->graphicsFailedBufferGen_ = pImpl_->bufferGeneration_;
+        debugState_ = DebugState::PsoFailed;
+        debugMax_ = static_cast<qulonglong>(maxParticles_);
+        return;
+    }
+    InsertGraphicsCache(pImpl_, renderOptions_, pImpl_->bufferGeneration_,
+                        pso, srb);
+    pImpl_->pPSO_ = pso;
+    pImpl_->pSRB_ = srb;
+    pImpl_->hasGraphicsFailure_ = false;
+    markPsoReady();
+    qDebug() << "[ParticleRenderer] PSO created successfully";
+}
+
+bool ParticleRenderer::useCachedGraphicsPso()
+{
+    for (auto& entry : pImpl_->graphicsPsoCache_) {
+        if (entry.options == renderOptions_ &&
+            entry.bufferGeneration == pImpl_->bufferGeneration_ &&
+            entry.pso && entry.srb) {
+            pImpl_->pPSO_ = entry.pso;
+            pImpl_->pSRB_ = entry.srb;
+            return true;
+        }
+    }
+    if (pImpl_->asyncDisabled_) {
+        buildGraphicsSync();
+        for (auto& entry : pImpl_->graphicsPsoCache_) {
+            if (entry.options == renderOptions_ &&
+                entry.bufferGeneration == pImpl_->bufferGeneration_ &&
+                entry.pso && entry.srb) {
+                pImpl_->pPSO_ = entry.pso;
+                pImpl_->pSRB_ = entry.srb;
+                return true;
+            }
+        }
+        return false;
+    }
+    requestAsyncGraphics();
+    return false;
+}
+
+void ParticleRenderer::requestAsyncGraphics()
+{
+    auto pDevice = context_.RenderDevice();
+    if (!pDevice || maxParticles_ == 0 || !pImpl_->pConstantBuffer_) {
+        return;
+    }
+    if (pImpl_->hasGraphicsFailure_ &&
+        pImpl_->graphicsFailedOptions_ == renderOptions_ &&
+        pImpl_->graphicsFailedBufferGen_ == pImpl_->bufferGeneration_) {
+        return;
+    }
+    {
+        std::lock_guard<std::mutex> lock(pImpl_->asyncMutex_);
+        if (pImpl_->graphicsJobPending_ &&
+            pImpl_->graphicsJobOptions_ == renderOptions_ &&
+            pImpl_->graphicsJobBufferGen_ == pImpl_->bufferGeneration_) {
+            return;
+        }
+        pImpl_->graphicsJobOptions_ = renderOptions_;
+        pImpl_->graphicsJobBufferGen_ = pImpl_->bufferGeneration_;
+        pImpl_->graphicsJobConstants_ = pImpl_->pConstantBuffer_;
+        pImpl_->graphicsJobPending_ = true;
+    }
+    pImpl_->asyncCv_.notify_one();
+}
+
+void ParticleRenderer::requestAsyncCull()
+{
+    if (!pImpl_->pCullExecutor_ || !pImpl_->pCullConstantsBuffer_) {
+        return;
+    }
+    {
+        std::lock_guard<std::mutex> lock(pImpl_->asyncMutex_);
+        if (pImpl_->cullJobPending_ &&
+            pImpl_->cullJobBufferGen_ == pImpl_->bufferGeneration_) {
+            return;
+        }
+        pImpl_->cullJobBufferGen_ = pImpl_->bufferGeneration_;
+        pImpl_->cullJobConstants_ = pImpl_->pCullConstantsBuffer_;
+        pImpl_->cullJobPending_ = true;
+    }
+    pImpl_->asyncCv_.notify_one();
+}
+
+void ParticleRenderer::pumpAsyncResults()
+{
+    bool hasGraphics = false;
+    ParticleRenderOptions graphicsOptions;
+    uint64_t graphicsBufferGen = 0;
+    bool graphicsOk = false;
+    RefCntAutoPtr<IPipelineState> graphicsPso;
+    RefCntAutoPtr<IShaderResourceBinding> graphicsSrb;
+    bool hasCull = false;
+    bool cullOk = false;
+    uint64_t cullBufferGen = 0;
+    std::unique_ptr<ComputeExecutor> cullExecutor;
+    {
+        std::lock_guard<std::mutex> lock(pImpl_->asyncMutex_);
+        if (pImpl_->graphicsResultReady_) {
+            graphicsOptions = pImpl_->graphicsResultOptions_;
+            graphicsBufferGen = pImpl_->graphicsResultBufferGen_;
+            graphicsOk = pImpl_->graphicsResultOk_;
+            graphicsPso = std::move(pImpl_->graphicsResultPso_);
+            graphicsSrb = std::move(pImpl_->graphicsResultSrb_);
+            pImpl_->graphicsResultReady_ = false;
+            hasGraphics = true;
+        }
+        if (pImpl_->cullResultReady_) {
+            cullOk = pImpl_->cullResultOk_;
+            cullBufferGen = pImpl_->cullResultBufferGen_;
+            cullExecutor = std::move(pImpl_->cullResultExecutor_);
+            pImpl_->cullResultReady_ = false;
+            hasCull = true;
+        }
+    }
+    if (hasGraphics) {
+        if (graphicsOk && graphicsPso && graphicsSrb &&
+            graphicsBufferGen == pImpl_->bufferGeneration_) {
+            InsertGraphicsCache(pImpl_, graphicsOptions, graphicsBufferGen,
+                                graphicsPso, graphicsSrb);
+            pImpl_->hasGraphicsFailure_ = false;
+            if (graphicsOptions == renderOptions_) {
+                pImpl_->pPSO_ = graphicsPso;
+                pImpl_->pSRB_ = graphicsSrb;
+                markPsoReady();
+                qDebug() << "[ParticleRenderer] PSO created successfully";
+            }
+        } else if (!graphicsOk &&
+                   graphicsBufferGen == pImpl_->bufferGeneration_) {
+            pImpl_->hasGraphicsFailure_ = true;
+            pImpl_->graphicsFailedOptions_ = graphicsOptions;
+            pImpl_->graphicsFailedBufferGen_ = graphicsBufferGen;
+            qWarning() << "[ParticleRenderer] async PSO build failed"
+                       << "— staying on the CPU path for these options";
+        }
+        // Stale generations are dropped silently; prepare() re-requests
+        // while they are still needed.
+    }
+    if (hasCull) {
+        if (cullOk && cullExecutor &&
+            cullBufferGen == pImpl_->bufferGeneration_) {
+            pImpl_->pCullExecutor_.swap(cullExecutor);
+            pImpl_->gpuCullReady_ = true;
+        } else if (!cullOk && cullBufferGen == pImpl_->bufferGeneration_) {
+            pImpl_->gpuCullBuildFailed_ = true;
+            qWarning() << "[ParticleRenderer] async GPU cull build failed"
+                       << "— continuing with direct/indirect draws";
+        }
+    }
+}
+
+void ParticleRenderer::asyncWorkerMain()
+{
+    for (;;) {
+        ParticleRenderOptions graphicsOptions;
+        uint64_t graphicsBufferGen = 0;
+        RefCntAutoPtr<IBuffer> graphicsConstants;
+        bool doGraphics = false;
+        uint64_t cullBufferGen = 0;
+        RefCntAutoPtr<IBuffer> cullConstants;
+        bool doCull = false;
+        {
+            std::unique_lock<std::mutex> lock(pImpl_->asyncMutex_);
+            pImpl_->asyncCv_.wait(lock, [this] {
+                return pImpl_->asyncStop_ || pImpl_->graphicsJobPending_ ||
+                    pImpl_->cullJobPending_;
+            });
+            if (pImpl_->asyncStop_) {
+                return;
+            }
+            if (pImpl_->graphicsJobPending_) {
+                graphicsOptions = pImpl_->graphicsJobOptions_;
+                graphicsBufferGen = pImpl_->graphicsJobBufferGen_;
+                graphicsConstants = pImpl_->graphicsJobConstants_;
+                pImpl_->graphicsJobConstants_.Release();
+                pImpl_->graphicsJobPending_ = false;
+                doGraphics = true;
+            }
+            if (pImpl_->cullJobPending_) {
+                cullBufferGen = pImpl_->cullJobBufferGen_;
+                cullConstants = pImpl_->cullJobConstants_;
+                pImpl_->cullJobConstants_.Release();
+                pImpl_->cullJobPending_ = false;
+                doCull = true;
+            }
+        }
+        if (doGraphics && graphicsConstants) {
+            RefCntAutoPtr<IPipelineState> pso;
+            RefCntAutoPtr<IShaderResourceBinding> srb;
+            const bool ok = BuildParticleGraphicsPipeline(
+                context_, graphicsOptions, graphicsConstants.RawPtr(),
+                pso, srb);
+            {
+                std::lock_guard<std::mutex> lock(pImpl_->asyncMutex_);
+                pImpl_->graphicsResultOptions_ = graphicsOptions;
+                pImpl_->graphicsResultBufferGen_ = graphicsBufferGen;
+                pImpl_->graphicsResultOk_ = ok;
+                pImpl_->graphicsResultPso_ = std::move(pso);
+                pImpl_->graphicsResultSrb_ = std::move(srb);
+                pImpl_->graphicsResultReady_ = true;
+            }
+        }
+        if (doCull && cullConstants) {
+            auto executor = std::make_unique<ComputeExecutor>(context_);
+            const bool ok = BuildParticleCullPipeline(
+                *executor, cullConstants.RawPtr());
+            {
+                std::lock_guard<std::mutex> lock(pImpl_->asyncMutex_);
+                pImpl_->cullResultOk_ = ok;
+                pImpl_->cullResultBufferGen_ = cullBufferGen;
+                pImpl_->cullResultExecutor_ = std::move(executor);
+                pImpl_->cullResultReady_ = true;
+            }
+        }
+    }
 }
 
 void ParticleRenderer::updateBuffer(const ParticleRenderData& data) {
@@ -538,9 +934,8 @@ void ParticleRenderer::setRenderOptions(const ParticleRenderOptions& options)
     }
     renderOptions_ = options;
     constants_.billboardMode = static_cast<int>(renderOptions_.billboard);
-    if (maxParticles_ > 0) {
-        createPSO();
-    }
+    // No synchronous rebuild: prepare() serves the matching cached pipeline
+    // or requests an async build, so option flips never stall the GUI thread.
 }
 
 size_t ParticleRenderer::lastUploadedParticleCount() const
@@ -550,16 +945,22 @@ size_t ParticleRenderer::lastUploadedParticleCount() const
 
 void ParticleRenderer::prepare(IDeviceContext* pContext) {
     prepared_ = false;
-    if (!pContext || !pImpl_->pPSO_ || !pImpl_->pSRB_ || !pImpl_->pConstantBuffer_) {
+    pumpAsyncResults();
+    if (!pContext || !pImpl_->pConstantBuffer_) {
         debugState_ = DebugState::PrepareSkippedContext;
         debugFlagA_ = pContext != nullptr;
-        debugFlagB_ = pImpl_->pPSO_ != nullptr;
-        debugFlagC_ = pImpl_->pSRB_ != nullptr;
-        qWarning() << "[ParticleRenderer] prepare() skipped"
-                   << "ctx=" << (pContext != nullptr)
-                   << "pso=" << (pImpl_->pPSO_ != nullptr)
-                   << "srb=" << (pImpl_->pSRB_ != nullptr)
-                   << "constantBuffer=" << (pImpl_->pConstantBuffer_ != nullptr);
+        debugFlagB_ = pImpl_->pConstantBuffer_ != nullptr;
+        debugFlagC_ = false;
+        return;
+    }
+    if (!useCachedGraphicsPso()) {
+        // Async pipeline build in flight (or failed and latched): the layer
+        // CPU fallback covers these frames. No per-frame warning — waiting
+        // for a background compile is a normal transient, not an error.
+        debugState_ = DebugState::PrepareWaitingPipeline;
+        debugFlagA_ = pImpl_->asyncDisabled_;
+        debugFlagB_ = false;
+        debugFlagC_ = false;
         return;
     }
 
@@ -580,11 +981,21 @@ void ParticleRenderer::prepare(IDeviceContext* pContext) {
         ++frameCostStats_->bufferUpdates;
     }
 
-    pImpl_->gpuCullActive_ =
-        pImpl_->gpuCullReady_ && pImpl_->indirectDrawSupported_ &&
+    const bool cullRequested = pImpl_->indirectDrawSupported_ &&
         pImpl_->pCompactedParticleBuffer_ && pImpl_->pIndirectArgsBuffer_ &&
         lastUploadedParticleCount_ >= 64 &&
         renderOptions_.blend == ParticleBlendPolicy::Additive;
+    // The cull compute pipeline compiles on first actual use. The async
+    // worker handles it when available; otherwise build it inline (legacy
+    // synchronous path, only when the worker thread could not start).
+    if (cullRequested && !pImpl_->gpuCullReady_ && !pImpl_->gpuCullBuildFailed_) {
+        if (pImpl_->asyncDisabled_) {
+            ensureCullPipeline();
+        } else {
+            requestAsyncCull();
+        }
+    }
+    pImpl_->gpuCullActive_ = pImpl_->gpuCullReady_ && cullRequested;
     if (pImpl_->gpuCullActive_) {
         const Uint32 args[4] = {4u, 0u, 0u, 0u};
         pContext->UpdateBuffer(
@@ -790,6 +1201,9 @@ QString ParticleRenderer::debugStateText() const {
     case DebugState::PrepareSkippedBinding:
         return QStringLiteral("state=prepare-skipped particleVar=%1 particleSRV=%2")
             .arg(debugFlagA_ ? 1 : 0).arg(debugFlagB_ ? 1 : 0);
+    case DebugState::PrepareWaitingPipeline:
+        return QStringLiteral("state=prepare-waiting-pipeline workerDisabled=%1")
+            .arg(debugFlagA_ ? 1 : 0);
     case DebugState::Prepared:
         return QStringLiteral("state=prepared pso=1 srb=1 const=%1 view=%2 proj=%3")
             .arg(debugFlagA_ ? 1 : 0).arg(debugFlagB_ ? 1 : 0).arg(debugFlagC_ ? 1 : 0);

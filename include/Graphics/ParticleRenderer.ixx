@@ -105,6 +105,7 @@ public:
         PrepareSkippedContext,
         PrepareSkippedConstantMap,
         PrepareSkippedBinding,
+        PrepareWaitingPipeline,
         Prepared,
         DrawSkipped,
         Drawn,
@@ -160,8 +161,21 @@ private:
     /// from debugState_ so callers can ask without inspecting the enum.
     bool prepared_ = false;
 
-    void createPSO();
     void createBuffers();
+    // Graphics pipelines compile on a background thread (see the async worker
+    // in the implementation): layer addition and first draw never block on
+    // dxc. The CPU fallback covers frames until the build lands.
+    void pumpAsyncResults();
+    bool useCachedGraphicsPso();
+    void requestAsyncGraphics();
+    void requestAsyncCull();
+    void buildGraphicsSync();
+    void markPsoReady();
+    void asyncWorkerMain();
+    // Builds the GPU visibility-cull compute pipeline on first use (legacy
+    // synchronous path, used only when the async worker is unavailable).
+    // Returns true once it is ready; safe to call every frame.
+    bool ensureCullPipeline();
 };
 
 } // namespace ArtifactCore
