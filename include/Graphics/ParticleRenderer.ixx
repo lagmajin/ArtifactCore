@@ -76,6 +76,11 @@ public:
      */
     void prepare(IDeviceContext* pContext);
 
+    // Ensure a requested graphics pipeline exists before a queued draw is
+    // accepted. Offline export uses this so an async PSO miss can fall back to
+    // the layer's software rasterizer instead of silently dropping a frame.
+    bool ensureGraphicsPipeline(const ParticleRenderOptions& options);
+
     /**
      * @brief 最終的な描画命令の発行
      */

@@ -714,6 +714,51 @@ bool ParticleRenderer::useCachedGraphicsPso()
     return false;
 }
 
+bool ParticleRenderer::ensureGraphicsPipeline(
+    const ParticleRenderOptions& options)
+{
+    setRenderOptions(options);
+    for (auto& entry : pImpl_->graphicsPsoCache_) {
+        if (entry.options == renderOptions_ &&
+            entry.bufferGeneration == pImpl_->bufferGeneration_ &&
+            entry.pso && entry.srb) {
+            pImpl_->pPSO_ = entry.pso;
+            pImpl_->pSRB_ = entry.srb;
+            return true;
+        }
+    }
+    pumpAsyncResults();
+    for (auto& entry : pImpl_->graphicsPsoCache_) {
+        if (entry.options == renderOptions_ &&
+            entry.bufferGeneration == pImpl_->bufferGeneration_ &&
+            entry.pso && entry.srb) {
+            pImpl_->pPSO_ = entry.pso;
+            pImpl_->pSRB_ = entry.srb;
+            return true;
+        }
+    }
+    if (pImpl_->hasGraphicsFailure_ &&
+        pImpl_->graphicsFailedOptions_ == renderOptions_ &&
+        pImpl_->graphicsFailedBufferGen_ == pImpl_->bufferGeneration_) {
+        return false;
+    }
+
+    // Export is a cold, serial frame path. Build the one missing PSO here so
+    // ParticleLayer can choose its existing CPU fallback before queueing GPU
+    // work. Interactive rendering keeps the asynchronous path unchanged.
+    buildGraphicsSync();
+    for (auto& entry : pImpl_->graphicsPsoCache_) {
+        if (entry.options == renderOptions_ &&
+            entry.bufferGeneration == pImpl_->bufferGeneration_ &&
+            entry.pso && entry.srb) {
+            pImpl_->pPSO_ = entry.pso;
+            pImpl_->pSRB_ = entry.srb;
+            return true;
+        }
+    }
+    return false;
+}
+
 void ParticleRenderer::requestAsyncGraphics()
 {
     auto pDevice = context_.RenderDevice();
