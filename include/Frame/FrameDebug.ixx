@@ -692,6 +692,9 @@ inline QJsonObject renderGraphDiagnosticToJson(
                         QString::fromStdString(pass.stateReason));
         passJson.insert(QStringLiteral("executionOrder"),
                         static_cast<qint64>(pass.executionOrder));
+        passJson.insert(QStringLiteral("executionLevel"),
+                        static_cast<qint64>(pass.executionLevel));
+        passJson.insert(QStringLiteral("parallelSafe"), pass.descriptor.parallelSafe);
         passJson.insert(QStringLiteral("gpuDurationUs"), QString::number(pass.gpuDurationUs));
         passJson.insert(QStringLiteral("gpuSampleExecutionId"),
                         QString::number(pass.gpuSampleExecutionId));
@@ -793,6 +796,10 @@ inline RenderGraphDiagnosticSnapshot renderGraphDiagnosticFromJson(
                                .toString().toStdString();
         pass.executionOrder = static_cast<std::size_t>(passJson.value(
             QStringLiteral("executionOrder")).toDouble());
+        pass.executionLevel = static_cast<std::size_t>(passJson.value(
+            QStringLiteral("executionLevel")).toDouble());
+        pass.descriptor.parallelSafe = passJson.value(
+            QStringLiteral("parallelSafe")).toBool();
         pass.gpuDurationUs = passJson.value(QStringLiteral("gpuDurationUs")).toString().toULongLong();
         pass.gpuSampleExecutionId = passJson.value(
             QStringLiteral("gpuSampleExecutionId")).toString().toULongLong();

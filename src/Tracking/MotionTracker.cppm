@@ -653,9 +653,8 @@ CameraPoseStream solveCameraPoseStream(
     stream.normalize();
     const CameraSolveSettings safeSettings = stream.solveSettings;
     std::vector<CameraPoseFrame> solvedFrames(samples.size());
-    Parallel::For(0, static_cast<int>(samples.size()),
-                  static_cast<int>(samples.size()), [&](int index) {
-        const auto& sample = samples[static_cast<std::size_t>(index)];
+    Parallel::ForSize(0, samples.size(), samples.size(), [&](std::size_t index) {
+        const auto& sample = samples[index];
         const CameraSolveResult solved = solveCameraPose(sample.second, safeSettings);
         CameraPoseFrame frame;
         frame.time = sample.first;
@@ -664,7 +663,7 @@ CameraPoseStream solveCameraPoseStream(
         frame.maxReprojectionError = solved.maxReprojectionError;
         frame.valid = solved.valid;
         frame.diagnostic = solved.diagnostic;
-        solvedFrames[static_cast<std::size_t>(index)] = std::move(frame);
+        solvedFrames[index] = std::move(frame);
     });
     stream.frames = std::move(solvedFrames);
     stream.normalize();

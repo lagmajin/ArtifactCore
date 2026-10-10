@@ -84,7 +84,7 @@ namespace ArtifactCore {
   };
 
   // Fill Y plane and subsampled U/V (4:2:0) by averaging 2x2 blocks
-  Parallel::For(0, h, w * h, [&](int yy) {
+  Parallel::ForPixels(0, h, w, h, [&](int yy) {
     const auto* row = reinterpret_cast<const QRgb*>(source.constScanLine(yy));
     for (int xx = 0; xx < w; ++xx) {
       QRgb px = row[xx];
@@ -99,7 +99,7 @@ namespace ArtifactCore {
   });
 
   // U/V: average 2x2 blocks
-  Parallel::For(0, uh, uw * uh, [&](int by) {
+  Parallel::ForPixels(0, uh, uw, uh, [&](int by) {
     for (int bx = 0; bx < uw; ++bx) {
       int sumU = 0;
       int sumV = 0;
@@ -154,7 +154,7 @@ ImageYUV420 ImageYUV420::fromImage32xRGBA(const ImageF32x4_RGBA& rgba) {
     out.impl_->v_plane_.assign(uw * uh, 128);
     const float* sourcePixels = rgba.rgba32fData();
 
-    Parallel::For(0, h, w * h, [&](int y) {
+    Parallel::ForPixels(0, h, w, h, [&](int y) {
         for (int x=0;x<w;++x) {
             const float* p = sourcePixels +
                 (static_cast<size_t>(y) * w + x) * 4u;
@@ -166,7 +166,7 @@ ImageYUV420 ImageYUV420::fromImage32xRGBA(const ImageF32x4_RGBA& rgba) {
         }
     });
 
-    Parallel::For(0, uh, uw * uh, [&](int by) {
+    Parallel::ForPixels(0, uh, uw, uh, [&](int by) {
         for (int bx=0; bx<uw; ++bx) {
             int sumU = 0, sumV = 0, cnt = 0;
             for (int dy=0; dy<2; ++dy) for (int dx=0; dx<2; ++dx) {
@@ -198,7 +198,7 @@ ImageF32x4_RGBA ImageYUV420::toImage32xRGBA() const {
     if (!outPixels) return out;
     int uw = (w + 1) / 2;
     int uh = (h + 1) / 2;
-    Parallel::For(0, h, w * h, [&](int y) {
+    Parallel::ForPixels(0, h, w, h, [&](int y) {
       float* outRow = outPixels + static_cast<std::size_t>(y) * static_cast<std::size_t>(w) * 4u;
       for (int x=0;x<w;++x) {
         int Y = impl_->y_plane_[y*w + x];
@@ -224,14 +224,14 @@ ImageYUV420 ImageYUV420::fromPlanes(const cv::Mat& yPlane, const cv::Mat& uPlane
     int h = yPlane.rows; int w = yPlane.cols;
     out.impl_->width_ = w; out.impl_->height_ = h;
     out.impl_->y_plane_.assign(w*h,0);
-    Parallel::For(0, h, w * h, [&](int y) {
+    Parallel::ForPixels(0, h, w, h, [&](int y) {
         const float* row = yPlane.ptr<float>(y);
         for (int x=0;x<w;++x) out.impl_->y_plane_[y*w + x] = static_cast<uint8_t>(row[x] * 255.0f);
     });
     int uw = uPlane.cols; int uh = uPlane.rows;
     out.impl_->u_plane_.assign(uw*uh,128);
     out.impl_->v_plane_.assign(uw*uh,128);
-    Parallel::For(0, uh, uw * uh, [&](int y) {
+    Parallel::ForPixels(0, uh, uw, uh, [&](int y) {
         const float* uRow = uPlane.ptr<float>(y);
         const float* vRow = vPlane.ptr<float>(y);
         for (int x=0;x<uw;++x) {

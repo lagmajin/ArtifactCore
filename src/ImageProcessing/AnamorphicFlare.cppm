@@ -1,6 +1,8 @@
 module;
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <limits>
 #include <vector>
 module ImageProcessing;
 import :AnamorphicFlare;
@@ -13,7 +15,10 @@ namespace ArtifactCore {
 void AnamorphicFlare::process(float4* buffer, int width, int height, const AnamorphicFlareSettings& settings) {
     if (!buffer || width <= 0 || height <= 0) return;
 
-    size_t total_pixels = static_cast<size_t>(width * height);
+    const size_t rowWidth = static_cast<size_t>(width);
+    const size_t rowCount = static_cast<size_t>(height);
+    if (rowWidth > std::numeric_limits<size_t>::max() / rowCount) return;
+    const size_t total_pixels = rowWidth * rowCount;
     std::vector<float4> original(buffer, buffer + total_pixels);
     std::vector<float4> highlights(total_pixels, float4{0.0f, 0.0f, 0.0f, 0.0f});
 
@@ -42,13 +47,13 @@ void AnamorphicFlare::process(float4* buffer, int width, int height, const Anamo
 
     // 2. Horizontal streak propagation pass (O(N) left-to-right & right-to-left decay sweep)
     // Rows are independent - each row processes its own scanline
-    Parallel::For(0, height, width * height, [&](int y) {
-                int row_offset = y * width;
+    Parallel::ForPixels(0, height, width, height, [&](int y) {
+                const size_t row_offset = static_cast<size_t>(y) * rowWidth;
 
                 // Left-to-right sweep
                 float4 streak{0.0f, 0.0f, 0.0f, 0.0f};
                 for (int x = 0; x < width; ++x) {
-                    int idx = row_offset + x;
+                    const size_t idx = row_offset + static_cast<size_t>(x);
                     float4 highlight_val = highlights[idx];
                     
                     // Additive combination with exponential decay
@@ -62,7 +67,7 @@ void AnamorphicFlare::process(float4* buffer, int width, int height, const Anamo
                 // Right-to-left sweep (taking the max/additive contribution to spread both directions)
                 streak = float4{0.0f, 0.0f, 0.0f, 0.0f};
                 for (int x = width - 1; x >= 0; --x) {
-                    int idx = row_offset + x;
+                    const size_t idx = row_offset + static_cast<size_t>(x);
                     float4 highlight_val = highlights[idx];
 
                     streak.x = highlight_val.x + streak.x * decay;

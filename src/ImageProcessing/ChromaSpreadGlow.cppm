@@ -36,7 +36,7 @@ void ChromaSpreadGlow::process(ImageF32x4_RGBA& image, const ChromaSpreadGlowSet
 
     // 1. Extract Bright Areas (Thresholding)
     cv::Mat brightMat = cv::Mat::zeros(h, w, CV_32FC4);
-    Parallel::For(0, h, w * h, [&](int y) {
+    Parallel::ForPixels(0, h, w, h, [&](int y) {
         const cv::Vec4f* srcRow = srcMat.ptr<cv::Vec4f>(y);
         cv::Vec4f* brightRow = brightMat.ptr<cv::Vec4f>(y);
         for (int x = 0; x < w; ++x) {
@@ -72,7 +72,7 @@ void ChromaSpreadGlow::process(ImageF32x4_RGBA& image, const ChromaSpreadGlowSet
     dispersion.processMat(&brightMat, dispersionSettings);
 
     // 4. Tint & Additive Composite back onto srcMat
-    Parallel::For(0, h, w * h, [&](int y) {
+    Parallel::ForPixels(0, h, w, h, [&](int y) {
         cv::Vec4f* srcRow = srcMat.ptr<cv::Vec4f>(y);
         const cv::Vec4f* glowRow = brightMat.ptr<cv::Vec4f>(y);
 

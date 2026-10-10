@@ -16,7 +16,7 @@ void Threshold::process(float4* buffer, int width, int height, const ThresholdSe
 
     const float thresh = std::clamp(settings.threshold, 0.0f, 1.0f);
     const float soft = std::max(0.001f, settings.softness);
-    Parallel::For(0, height, width * height, [&](int y) {
+    Parallel::ForPixels(0, height, width, height, [&](int y) {
         const size_t rowStart = static_cast<size_t>(y) * static_cast<size_t>(width);
         for (int x = 0; x < width; ++x) {
             const size_t i = rowStart + static_cast<size_t>(x);

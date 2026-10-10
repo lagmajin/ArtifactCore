@@ -3,6 +3,8 @@ module;
 #include <vector>
 #include <cmath>
 #include <algorithm>
+#include <cstddef>
+#include <limits>
 
 module ImageProcessing.FluidVisualizer;
 
@@ -35,14 +37,20 @@ float4 FluidVisualizer::sampleGradient(float t, const Style& style) {
 }
 
 void FluidVisualizer::render(float4* buffer, int width, int height, const FluidSolver2D& fluid, const Style& style) {
-    if (!buffer || width <= 0 || height <= 0) return;
+    if (!buffer || width <= 0 || height <= 0 ||
+        fluid.width() <= 0 || fluid.height() <= 0) return;
 
-    std::vector<float4> source(buffer, buffer + width * height);
+    const size_t rowWidth = static_cast<size_t>(width);
+    const size_t rowCount = static_cast<size_t>(height);
+    if (rowWidth > std::numeric_limits<size_t>::max() / rowCount) return;
+    const size_t pixelCount = rowWidth * rowCount;
+    std::vector<float4> source(buffer, buffer + pixelCount);
     
     float gx = static_cast<float>(fluid.width()) / width;
     float gy = static_cast<float>(fluid.height()) / height;
 
-    Parallel::For(0, height, width * height, [&](int y) {
+    Parallel::ForPixels(0, height, width, height, [&](int y) {
+        const size_t rowStart = static_cast<size_t>(y) * rowWidth;
         for (int x = 0; x < width; ++x) {
             int ix = static_cast<int>(x * gx);
             int iy = static_cast<int>(y * gy);
@@ -63,10 +71,18 @@ void FluidVisualizer::render(float4* buffer, int width, int height, const FluidS
             float fx = sx - std::floor(sx);
             float fy = sy - std::floor(sy);
             
-            float4 s00 = source[y0 * width + x0];
-            float4 s10 = source[y0 * width + x1];
-            float4 s01 = source[y1 * width + x0];
-            float4 s11 = source[y1 * width + x1];
+            const size_t index00 = static_cast<size_t>(y0) * rowWidth +
+                                   static_cast<size_t>(x0);
+            const size_t index10 = static_cast<size_t>(y0) * rowWidth +
+                                   static_cast<size_t>(x1);
+            const size_t index01 = static_cast<size_t>(y1) * rowWidth +
+                                   static_cast<size_t>(x0);
+            const size_t index11 = static_cast<size_t>(y1) * rowWidth +
+                                   static_cast<size_t>(x1);
+            const float4 s00 = source[index00];
+            const float4 s10 = source[index10];
+            const float4 s01 = source[index01];
+            const float4 s11 = source[index11];
             
             float4 warped = {
                 (1-fx)*(1-fy)*s00.x + fx*(1-fy)*s10.x + (1-fx)*fy*s01.x + fx*fy*s11.x,
@@ -93,10 +109,11 @@ void FluidVisualizer::render(float4* buffer, int width, int height, const FluidS
             float4 col = sampleGradient(density, style);
             
             // Blend: Screen/Additive mix logic
-            buffer[y * width + x].x = warped.x + col.x * col.w * style.glowIntensity + specular;
-            buffer[y * width + x].y = warped.y + col.y * col.w * style.glowIntensity + specular;
-            buffer[y * width + x].z = warped.z + col.z * col.w * style.glowIntensity + specular;
-            buffer[y * width + x].w = std::max(warped.w, col.w);
+            const size_t outputIndex = rowStart + static_cast<size_t>(x);
+            buffer[outputIndex].x = warped.x + col.x * col.w * style.glowIntensity + specular;
+            buffer[outputIndex].y = warped.y + col.y * col.w * style.glowIntensity + specular;
+            buffer[outputIndex].z = warped.z + col.z * col.w * style.glowIntensity + specular;
+            buffer[outputIndex].w = std::max(warped.w, col.w);
         }
     });
 }

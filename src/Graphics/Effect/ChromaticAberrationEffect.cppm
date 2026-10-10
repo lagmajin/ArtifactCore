@@ -36,7 +36,7 @@ void ChromaticAberrationEffect::process(VideoFrame& frame, const CreativeEffectC
     const int shiftB_y = -shiftR_y;
 
     auto shift_channel = [&](float* dst, const float* src, int sx, int sy) {
-        Parallel::For(0, h, w * h, [&](int y) {
+        Parallel::ForPixels(0, h, w, h, [&](int y) {
             float* dstRow = dst + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
             for (int x = 0; x < w; ++x) {
                 const int src_x = std::clamp(x + sx, 0, w - 1);

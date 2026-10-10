@@ -476,26 +476,30 @@ static void fillOutputs(const ProceduralTextureSettings& settings,
         output.rgba8.resize(pixelCount * 4);
     }
 
-    Parallel::For(0, static_cast<int>(pixelCount), static_cast<int>(pixelCount), [&](int index)
+    Parallel::ForPixels(0, output.height, output.width, output.height, [&](int y)
     {
-        const size_t i = static_cast<size_t>(index);
-        const float v = clamp01(values[i]);
-        if (!output.rgba32f.empty())
+        const size_t row = static_cast<size_t>(y) * static_cast<size_t>(output.width);
+        for (int x = 0; x < output.width; ++x)
         {
-            const size_t o = i * 4;
-            output.rgba32f[o + 0] = v;
-            output.rgba32f[o + 1] = v;
-            output.rgba32f[o + 2] = v;
-            output.rgba32f[o + 3] = 1.0f;
-        }
-        if (!output.rgba8.empty())
-        {
-            const std::uint8_t c = static_cast<std::uint8_t>(std::lround(v * 255.0f));
-            const size_t o = i * 4;
-            output.rgba8[o + 0] = c;
-            output.rgba8[o + 1] = c;
-            output.rgba8[o + 2] = c;
-            output.rgba8[o + 3] = 255u;
+            const size_t i = row + static_cast<size_t>(x);
+            const float v = clamp01(values[i]);
+            if (!output.rgba32f.empty())
+            {
+                const size_t o = i * 4;
+                output.rgba32f[o + 0] = v;
+                output.rgba32f[o + 1] = v;
+                output.rgba32f[o + 2] = v;
+                output.rgba32f[o + 3] = 1.0f;
+            }
+            if (!output.rgba8.empty())
+            {
+                const std::uint8_t c = static_cast<std::uint8_t>(std::lround(v * 255.0f));
+                const size_t o = i * 4;
+                output.rgba8[o + 0] = c;
+                output.rgba8[o + 1] = c;
+                output.rgba8[o + 2] = c;
+                output.rgba8[o + 3] = 255u;
+            }
         }
     });
 }
@@ -559,7 +563,8 @@ ProceduralTextureOutput ProceduralTextureGenerator::generate(const ProceduralTex
 
     if (settings.parallel && pixelCount >= 4096u)
     {
-        Parallel::For(0, output.height, static_cast<int>(pixelCount), [&](int y) { worker(y, y + 1); });
+        Parallel::ForPixels(0, output.height, output.width, output.height,
+                            [&](int y) { worker(y, y + 1); });
     }
     else
     {
@@ -572,9 +577,14 @@ ProceduralTextureOutput ProceduralTextureGenerator::generate(const ProceduralTex
         const float minValue = *minIt;
         const float maxValue = *maxIt;
         const float denom = std::max(maxValue - minValue, 1e-6f);
-        Parallel::For(0, static_cast<int>(values.size()), static_cast<int>(values.size()), [&](int index) {
-            float& v = values[static_cast<size_t>(index)];
-            v = clamp01((v - minValue) / denom);
+        Parallel::ForPixels(0, output.height, output.width, output.height,
+                            [&](int y) {
+            const size_t row = static_cast<size_t>(y) *
+                               static_cast<size_t>(output.width);
+            for (int x = 0; x < output.width; ++x) {
+                float& v = values[row + static_cast<size_t>(x)];
+                v = clamp01((v - minValue) / denom);
+            }
         });
     }
 

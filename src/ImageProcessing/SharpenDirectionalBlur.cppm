@@ -82,7 +82,7 @@ void BlurSharpenUtils::convolveHorizontal(
     const int width = source.width();
     const int height = source.height();
     
-    Parallel::For(0, height, width * height, [&](int y) {
+    Parallel::ForPixels(0, height, width, height, [&](int y) {
         const QRgb* srcLine = reinterpret_cast<const QRgb*>(source.scanLine(y));
         QRgb* dstLine = reinterpret_cast<QRgb*>(dest.scanLine(y));
         
@@ -118,7 +118,7 @@ void BlurSharpenUtils::convolveVertical(
     const int width = source.width();
     const int height = source.height();
     
-    Parallel::For(0, height, width * height, [&](int y) {
+    Parallel::ForPixels(0, height, width, height, [&](int y) {
         QRgb* dstLine = reinterpret_cast<QRgb*>(dest.scanLine(y));
         
         for (int x = 0; x < width; ++x) {
@@ -158,7 +158,7 @@ QImage BlurSharpenUtils::convolve2D(
     const int width = source.width();
     const int height = source.height();
     
-    Parallel::For(0, height, width * height, [&](int y) {
+    Parallel::ForPixels(0, height, width, height, [&](int y) {
         QRgb* dstLine = reinterpret_cast<QRgb*>(result.scanLine(y));
         
         for (int x = 0; x < width; ++x) {
@@ -255,7 +255,7 @@ QImage UnsharpMaskEffect::blendImages(
     const int width = original.width();
     const int height = original.height();
     
-    Parallel::For(0, height, width * height, [&](int y) {
+    Parallel::ForPixels(0, height, width, height, [&](int y) {
         const QRgb* origLine = reinterpret_cast<const QRgb*>(original.scanLine(y));
         const QRgb* blurLine = reinterpret_cast<const QRgb*>(blurred.scanLine(y));
         QRgb* resultLine = reinterpret_cast<QRgb*>(result.scanLine(y));
@@ -452,7 +452,7 @@ QImage DirectionalBlurEffect::blurInDirection(
     const double radius = impl_->settings.radius;
     const double stepSize = radius / steps;
     
-    Parallel::For(0, height, width * height, [&](int y) {
+    Parallel::ForPixels(0, height, width, height, [&](int y) {
         QRgb* resultLine = reinterpret_cast<QRgb*>(result.scanLine(y));
         
         for (int x = 0; x < width; ++x) {
@@ -567,7 +567,7 @@ QImage RadialBlurEffect::apply(const QImage& source) const {
         sampleSin[static_cast<std::size_t>(q + quality)] = std::sin(angle);
     }
     
-    Parallel::For(0, height, width * height, [&](int y) {
+    Parallel::ForPixels(0, height, width, height, [&](int y) {
         const QRgb* srcLine = reinterpret_cast<const QRgb*>(source.scanLine(y));
         QRgb* dstLine = reinterpret_cast<QRgb*>(result.scanLine(y));
         
@@ -699,7 +699,7 @@ QImage BlurEffect::apply(const QImage& source) const {
                 return std::clamp(value, 0, limit - 1);
             };
 
-            Parallel::For(0, height, width * height, [&](int y) {
+            Parallel::ForPixels(0, height, width, height, [&](int y) {
                 const QRgb* src = reinterpret_cast<const QRgb*>(source.constScanLine(y));
                 QRgb* dst = reinterpret_cast<QRgb*>(temp.scanLine(y));
                 std::int64_t sumA = 0, sumR = 0, sumG = 0, sumB = 0;
@@ -723,7 +723,7 @@ QImage BlurEffect::apply(const QImage& source) const {
                 }
             });
 
-            Parallel::For(0, width, width * height, [&](int x) {
+            Parallel::ForPixels(0, width, width, height, [&](int x) {
                 std::int64_t sumA = 0, sumR = 0, sumG = 0, sumB = 0;
                 for (int k = -radius; k <= radius; ++k) {
                     const QRgb p = reinterpret_cast<const QRgb*>(temp.constScanLine(clampIndex(k, height)))[x];
@@ -758,7 +758,7 @@ QImage BlurEffect::apply(const QImage& source) const {
             QImage result(input.size(), QImage::Format_ARGB32);
             const int width = input.width();
             const int height = input.height();
-            Parallel::For(0, height, width * height, [&](int y) {
+            Parallel::ForPixels(0, height, width, height, [&](int y) {
                 QRgb* output = reinterpret_cast<QRgb*>(result.scanLine(y));
                 for (int x = 0; x < width; ++x) {
                     const QRgb center = reinterpret_cast<const QRgb*>(

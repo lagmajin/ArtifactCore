@@ -104,8 +104,8 @@ void MpmSolver2D::resizeGrid() {
 }
 
 void MpmSolver2D::resetGrid() {
-    Parallel::For(0, static_cast<int>(grid_.size()), static_cast<int>(grid_.size()), [&](int index) {
-        auto& node = grid_[static_cast<std::size_t>(index)];
+    Parallel::ForSize(0, grid_.size(), grid_.size(), [&](std::size_t index) {
+        auto& node = grid_[index];
         node.mass  = 0.0f;
         node.vel   = MpmVec2{};
         node.force = MpmVec2{};
@@ -423,7 +423,7 @@ void MpmSolver2D::gridToParticle(float dt) {
     float inv = 1.0f / dx;
     float dScale = 4.0f / (dx * dx); // scaling for APIC C update
 
-    Parallel::For(0, static_cast<int>(particles_.size()), [&](int particleIndex) {
+    Parallel::ForSize(0, particles_.size(), [&](std::size_t particleIndex) {
         auto& p = particles_[particleIndex];
         if (!p.active) return;
 
@@ -478,7 +478,7 @@ void MpmSolver2D::updateDeformationGradient(float dt) {
     float dx  = cellSize_;
     float inv = 1.0f / dx;
 
-    Parallel::For(0, static_cast<int>(particles_.size()), [&](int particleIndex) {
+    Parallel::ForSize(0, particles_.size(), [&](std::size_t particleIndex) {
         auto& p = particles_[particleIndex];
         if (!p.active) return;
 
@@ -526,7 +526,7 @@ void MpmSolver2D::updateDeformationGradient(float dt) {
 // Project the singular values of Fe = F * Fp^{-1}
 
 void MpmSolver2D::applyPlasticity() {
-    Parallel::For(0, static_cast<int>(particles_.size()), [&](int particleIndex) {
+    Parallel::ForSize(0, particles_.size(), [&](std::size_t particleIndex) {
         auto& p = particles_[particleIndex];
         if (!p.active) return;
 

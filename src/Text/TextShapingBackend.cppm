@@ -1451,17 +1451,32 @@ TextShapingResult makeIdentityResult(std::vector<GlyphItem> glyphs,
 //
 // FreeType's FT_Library is not thread safe, so each thread keeps its own
 // instance.  The handle is created once per thread and reused.
+struct ThreadFreeTypeLibrary
+{
+  FT_Library handle = nullptr;
+
+  ~ThreadFreeTypeLibrary()
+  {
+    if (handle != nullptr) {
+      FT_Done_FreeType(handle);
+      handle = nullptr;
+    }
+  }
+};
+
 FT_Library ftLibrary()
 {
-  thread_local FT_Library library = nullptr;
-  if (library == nullptr && FT_Init_FreeType(&library) != 0) {
+  thread_local ThreadFreeTypeLibrary state;
+  if (state.handle == nullptr && FT_Init_FreeType(&state.handle) != 0) {
     return nullptr;
   }
-  return library;
+  return state.handle;
 }
 
 // Keyed by family + style + pixel size so repeated shaping of unchanged text
-// reuses the same face.  Populated on the cold path (first use per font).
+// reuses the same face.  Keep this cache thread-local: each FT_Face belongs to
+// the FT_Library returned by ftLibrary() on the current thread, and neither
+// that library nor this cache may be shared with another shaping worker.
 struct HarfBuzzFaceCacheKey
 {
   QString family;
@@ -1493,12 +1508,25 @@ struct HarfBuzzFaceEntry
   FT_Face face = nullptr;
 };
 
-std::unordered_map<HarfBuzzFaceCacheKey, HarfBuzzFaceEntry,
-                   HarfBuzzFaceCacheHash>& harfBuzzFaceCache()
+struct HarfBuzzFaceCache
+    : std::unordered_map<HarfBuzzFaceCacheKey, HarfBuzzFaceEntry,
+                         HarfBuzzFaceCacheHash>
 {
-  static std::unordered_map<HarfBuzzFaceCacheKey, HarfBuzzFaceEntry,
-                            HarfBuzzFaceCacheHash>
-      cache;
+  ~HarfBuzzFaceCache()
+  {
+    for (auto& pair : *this) {
+      auto& entry = pair.second;
+      if (entry.face != nullptr) {
+        FT_Done_Face(entry.face);
+        entry.face = nullptr;
+      }
+    }
+  }
+};
+
+HarfBuzzFaceCache& harfBuzzFaceCache()
+{
+  thread_local HarfBuzzFaceCache cache;
   return cache;
 }
 

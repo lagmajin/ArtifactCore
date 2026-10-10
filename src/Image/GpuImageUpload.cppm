@@ -50,13 +50,13 @@ GpuImageUploadBuffer makeGpuImageUploadBuffer(const ImageSurfaceView& view) {
 
     const auto* source = static_cast<const std::uint8_t*>(view.data);
     if (view.descriptor.channelOrder == SurfaceChannelOrder::BGRA) {
-        Parallel::For(0, view.height, view.width * view.height, [&](int y) {
+        Parallel::ForPixels(0, view.height, view.width, view.height, [&](int y) {
             swapRgbaBgra(result.bytes.data() + static_cast<std::size_t>(y) * rowBytes,
                          source + static_cast<std::size_t>(y) * view.rowStride,
                          static_cast<std::size_t>(view.width), channelBytes);
         });
     } else {
-        Parallel::For(0, view.height, view.width * view.height, [&](int y) {
+        Parallel::ForPixels(0, view.height, view.width, view.height, [&](int y) {
             std::memcpy(result.bytes.data() + static_cast<std::size_t>(y) * rowBytes,
                         source + static_cast<std::size_t>(y) * view.rowStride,
                         rowBytes);

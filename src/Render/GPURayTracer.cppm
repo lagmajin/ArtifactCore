@@ -239,7 +239,7 @@ public:
         if (!initialized || !device || !context || !sbt)
         {
             // Fail safe fallback render (CPU side)
-            Parallel::For(0, height, width * height, [&](int y)
+            Parallel::ForPixels(0, height, width, height, [&](int y)
             {
                 for (int x = 0; x < width; ++x)
                 {
@@ -287,7 +287,7 @@ public:
             const auto requiredStride = static_cast<std::size_t>(width) * 4u;
             if (srcPixels && mappedData.Stride >= requiredStride)
             {
-                Parallel::For(0, height, width * height, [&](int y)
+                Parallel::ForPixels(0, height, width, height, [&](int y)
                 {
                     for (int x = 0; x < width; ++x)
                     {

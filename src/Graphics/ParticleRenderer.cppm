@@ -654,6 +654,7 @@ bool BuildParticleGraphicsPipeline(
     PSOCreateInfo.GraphicsPipeline.PrimitiveTopology = PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
     PSOCreateInfo.GraphicsPipeline.NumRenderTargets = 1;
     PSOCreateInfo.GraphicsPipeline.RTVFormats[0] = DefaultParticleRTVFormat;
+    PSOCreateInfo.GraphicsPipeline.DSVFormat = TEX_FORMAT_D32_FLOAT;
     PSOCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode = CULL_MODE_NONE;
     PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = options.depthTest;
     PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = options.depthWrite;

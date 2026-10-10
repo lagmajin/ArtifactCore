@@ -98,8 +98,7 @@ bool OpenExr::readRGBA32F(const QString& path, std::vector<float>& rgba,
         if (channelIndices[channel] < 0 && channel < spec.nchannels)
             channelIndices[channel] = channel;
     }
-    Parallel::For(0, static_cast<int>(pixels), static_cast<int>(pixels), [&](int pixelIndex) {
-        const std::size_t pixel = static_cast<std::size_t>(pixelIndex);
+    Parallel::ForSize(0, pixels, pixels, [&](std::size_t pixel) {
         for (int channel = 0; channel < 3; ++channel) {
             const int sourceChannel = channelIndices[channel];
             if (sourceChannel >= 0)
@@ -385,9 +384,7 @@ bool OpenExr::flattenDeepRGBA32F(
         return false;
     rgba.assign(pixelCount * 4u, 0.0f);
     std::atomic<bool> valid{true};
-    Parallel::For(0, static_cast<int>(pixelCount), static_cast<int>(pixelCount),
-                  [&](int pixelIndex) {
-        const std::size_t pixel = static_cast<std::size_t>(pixelIndex);
+    Parallel::ForSize(0, pixelCount, pixelCount, [&](std::size_t pixel) {
         float* output = rgba.data() + pixel * 4u;
         float previousDepth = -std::numeric_limits<float>::infinity();
         for (const auto& sample : samples[pixel]) {

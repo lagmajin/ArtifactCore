@@ -484,7 +484,7 @@ void SandGPUCompute::readbackToCPU(IDeviceContext* pContext, std::vector<uint8_t
     pContext->MapTextureSubresource(staging, 0, 0, MAP_READ, MAP_FLAG_NONE, nullptr, mapped);
 
     const auto* src = static_cast<const uint8_t*>(mapped.pData);
-    Parallel::For(0, height_, width_ * height_, [&](int y) {
+    Parallel::ForPixels(0, height_, width_, height_, [&](int y) {
         std::memcpy(&grid[static_cast<size_t>(y) * width_],
                      src + static_cast<size_t>(y) * mapped.Stride,
                      static_cast<size_t>(width_));

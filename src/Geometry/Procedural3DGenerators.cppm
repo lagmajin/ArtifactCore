@@ -146,7 +146,7 @@ void Procedural3DGenerators::computeTerrainNormal(Procedural3DMeshData& mesh, in
         return static_cast<std::size_t>(y * (columns + 1) + x);
     };
 
-    Parallel::For(0, rows + 1, (rows + 1) * (columns + 1), [&](int y) {
+    Parallel::ForPixels(0, rows + 1, columns + 1, rows + 1, [&](int y) {
         for (int x = 0; x <= columns; ++x) {
             const std::size_t i = idxAt(x, y);
             const int xl = std::max(0, x - 1);
@@ -210,7 +210,8 @@ Procedural3DMeshData Procedural3DGenerators::generateTerrain(const TerrainSettin
                : 1.0f)
         : 1.0f;
 
-    ArtifactCore::Parallel::For(0, vertexRows, vertexRows * vertexColumns, [&](int y) {
+    ArtifactCore::Parallel::ForPixels(
+        0, vertexRows, vertexColumns, vertexRows, [&](int y) {
         const float v = static_cast<float>(y) * invRows;
         const float py = (v - 0.5f) * sizeY;
         for (int x = 0; x <= columns; ++x) {
@@ -249,7 +250,7 @@ Procedural3DMeshData Procedural3DGenerators::generateTerrain(const TerrainSettin
         }
     });
 
-    ArtifactCore::Parallel::For(0, rows, rows * columns, [&](int y) {
+    ArtifactCore::Parallel::ForPixels(0, rows, columns, rows, [&](int y) {
         for (int x = 0; x < columns; ++x) {
             const std::uint32_t i0 = static_cast<std::uint32_t>(y * (columns + 1) + x);
             const std::uint32_t i1 = i0 + 1u;
@@ -427,7 +428,8 @@ Procedural3DMeshData Procedural3DGenerators::generatePathTube(const PathTubeSett
 
     const int edgeCount = ribbon ? 1 : sides;
     mesh.indices.resize(static_cast<std::size_t>((pathSamples - 1) * edgeCount * 6));
-    ArtifactCore::Parallel::For(0, pathSamples - 1, (pathSamples - 1) * edgeCount, [&](int i) {
+    ArtifactCore::Parallel::ForPixels(
+        0, pathSamples - 1, edgeCount, pathSamples - 1, [&](int i) {
         for (int s = 0; s < edgeCount; ++s) {
             const std::uint32_t i0 = static_cast<std::uint32_t>(i * sides + s);
             const std::uint32_t i1 = static_cast<std::uint32_t>(i * sides + (ribbon ? s + 1 : (s + 1) % sides));

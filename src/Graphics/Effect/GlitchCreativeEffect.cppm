@@ -47,7 +47,7 @@ void GlitchCreativeEffect::process(VideoFrame& frame, const CreativeEffectContex
     float* bData = b->data();
 
     (void)NoiseGenerator::perlin(0.0f, 0.0f, 0.0f);
-    Parallel::For(0, h, w * h, [&](int y) {
+    Parallel::ForPixels(0, h, w, h, [&](int y) {
         float* rRow = rData + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
         float* gRow = gData + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
         float* bRow = bData + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);

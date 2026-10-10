@@ -98,7 +98,7 @@ void TemporalFossilEffect::process(VideoFrame& frame, const CreativeEffectContex
     float* gData = gCh->data();
     float* bData = bCh->data();
 
-    Parallel::For(0, height, width * height, [&](int y) {
+    Parallel::ForPixels(0, height, width, height, [&](int y) {
         const std::size_t rowBase = static_cast<std::size_t>(y) * static_cast<std::size_t>(width);
         for (int x = 0; x < width; ++x) {
             const std::size_t idx = rowBase + static_cast<std::size_t>(x);

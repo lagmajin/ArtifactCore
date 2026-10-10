@@ -503,7 +503,7 @@ ImageExportResult ImageExporter::writeMultiChannel(const MultiChannelImage& mult
                 const int syntheticIndex =
                     static_cast<int>(syntheticStorage.size()) - 1;
                 auto& dst = syntheticStorage.back();
-                Parallel::For(0, height, static_cast<std::size_t>(width) * height,
+                Parallel::ForPixels(0, height, width, height,
                               [&](int y) {
                                   const std::size_t rowStart =
                                       static_cast<std::size_t>(y) * width;
@@ -563,7 +563,7 @@ ImageExportResult ImageExporter::writeMultiChannel(const MultiChannelImage& mult
 
     // Build interleaved pixel buffer
     std::vector<float> interleaved(pixelCount * nch, 0.0f);
-    Parallel::For(0, height, static_cast<std::size_t>(width) * height,
+    Parallel::ForPixels(0, height, width, height,
                   [&](int y) {
                       const std::size_t rowStart =
                           static_cast<std::size_t>(y) * width;

@@ -32,7 +32,7 @@ void PixelateEffect::process(VideoFrame& frame, const CreativeEffectContext& con
     float* bData = b_ch->data();
 
     const int blockRows = (h + size - 1) / size;
-    Parallel::For(0, blockRows, w * h, [&](int blockY) {
+    Parallel::ForPixels(0, blockRows, w, h, [&](int blockY) {
         const int by = blockY * size;
         for (int bx = 0; bx < w; bx += size) {
             

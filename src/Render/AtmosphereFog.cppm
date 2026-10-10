@@ -140,7 +140,7 @@ ImageBuffer AtmosphereFogRenderer::applyToImage(const ImageBuffer& depthBuffer, 
     const int w = std::min(depthBuffer.width, colorBuffer.width);
     const int h = std::min(depthBuffer.height, colorBuffer.height);
 
-Parallel::For(0, h, w * h, [&](int y) {
+Parallel::ForPixels(0, h, w, h, [&](int y) {
         const std::uint8_t* depthRow = depthBuffer.pixels.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(w) * 3u;
         const std::uint8_t* colorRow = colorBuffer.pixels.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(w) * 3u;
         std::uint8_t* resultRow = result.pixels.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(w) * 3u;

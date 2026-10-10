@@ -157,7 +157,7 @@ void GradientRampProcessor::apply(float* pixels, int width, int height) const {
         return;
     }
 
-    Parallel::For(0, height, width * height, [&](int y) {
+    Parallel::ForPixels(0, height, width, height, [&](int y) {
         applyRow(pixels, width, height, y);
     });
 }

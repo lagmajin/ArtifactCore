@@ -26,12 +26,17 @@ void SolarizeEffect::process(VideoFrame& frame, const CreativeEffectContext&) {
     const float th = std::clamp(threshold(), 0.0f, 1.0f);
 
     auto apply = [&](float* data) {
-        Parallel::For(0, w * h, w * h, [&](int i) {
-            float v = data[i];
-            if (v > th) {
-                v = 1.0f - (v - th) / std::max(1e-5f, 1.0f - th);
+        Parallel::ForPixels(0, h, w, h, [&](int y) {
+            const std::size_t rowStart = static_cast<std::size_t>(y) *
+                                         static_cast<std::size_t>(w);
+            for (int x = 0; x < w; ++x) {
+                const std::size_t index = rowStart + static_cast<std::size_t>(x);
+                float v = data[index];
+                if (v > th) {
+                    v = 1.0f - (v - th) / std::max(1e-5f, 1.0f - th);
+                }
+                data[index] = std::clamp(v, 0.0f, 1.0f);
             }
-            data[i] = std::clamp(v, 0.0f, 1.0f);
         });
     };
 

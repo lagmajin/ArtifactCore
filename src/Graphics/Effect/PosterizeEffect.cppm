@@ -32,12 +32,17 @@ void PosterizeEffect::process(VideoFrame& frame, const CreativeEffectContext& co
     float* gData = g_ch->data();
     float* bData = b_ch->data();
 
-    Parallel::For(0, w * h, w * h, [&](int i) {
-        // 階調を減らす (Quantization)
-        // [0.0, 1.0] -> [0.0, n-1] -> floor -> [0.0, 1.0]
-        rData[i] = std::floor(rData[i] * (n - 1.0f) + 0.5f) / (n - 1.0f);
-        gData[i] = std::floor(gData[i] * (n - 1.0f) + 0.5f) / (n - 1.0f);
-        bData[i] = std::floor(bData[i] * (n - 1.0f) + 0.5f) / (n - 1.0f);
+    Parallel::ForPixels(0, h, w, h, [&](int y) {
+        const std::size_t rowStart = static_cast<std::size_t>(y) *
+                                     static_cast<std::size_t>(w);
+        for (int x = 0; x < w; ++x) {
+            const std::size_t index = rowStart + static_cast<std::size_t>(x);
+            // 階調を減らす (Quantization)
+            // [0.0, 1.0] -> [0.0, n-1] -> floor -> [0.0, 1.0]
+            rData[index] = std::floor(rData[index] * (n - 1.0f) + 0.5f) / (n - 1.0f);
+            gData[index] = std::floor(gData[index] * (n - 1.0f) + 0.5f) / (n - 1.0f);
+            bData[index] = std::floor(bData[index] * (n - 1.0f) + 0.5f) / (n - 1.0f);
+        }
     });
 }
 

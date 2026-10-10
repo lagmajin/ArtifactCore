@@ -33,7 +33,7 @@ void EmbossEffect::process(VideoFrame& frame, const CreativeEffectContext&) {
 
     auto apply_emboss = [&](float* data) {
         std::vector<float> out(static_cast<size_t>(w) * static_cast<size_t>(h));
-        Parallel::For(0, h, w * h, [&](int y) {
+        Parallel::ForPixels(0, h, w, h, [&](int y) {
             for (int x = 0; x < w; ++x) {
                 const int ix = x + dx;
                 const int iy = y + dy;

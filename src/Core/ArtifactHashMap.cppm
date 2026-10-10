@@ -211,7 +211,13 @@ public:
     size_type bucket_count() const noexcept { return bucketCount_; }
     
     V& operator[](const K& key) {
-        return tryEmplace(key).first->second;
+        // NOTE: do not route through tryEmplace(key) here. The variadic
+        // overload would resolve with an empty pack and overwrite an
+        // existing entry with a default-constructed value on every read.
+        if (Node* node = findNode(key)) {
+            return node->data.second;
+        }
+        return tryEmplace(key, V()).first->second;
     }
     
     // Non-throwing lookup: returns Nullopt when the key is absent.

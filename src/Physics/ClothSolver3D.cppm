@@ -281,9 +281,8 @@ public:
 
         turbulenceTime_ += dt * wind_.turbulenceFrequency;
 
-        Parallel::For(0, static_cast<int>(points_.size()),
-                      static_cast<int>(points_.size()), [&](int pointIndex) {
-            auto& p = points_[static_cast<std::size_t>(pointIndex)];
+        Parallel::ForSize(0, points_.size(), points_.size(), [&](std::size_t pointIndex) {
+            auto& p = points_[pointIndex];
             if (p.isPinned) return;
 
             float vx = p.x - p.prevX;

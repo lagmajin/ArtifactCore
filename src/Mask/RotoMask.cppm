@@ -2,6 +2,9 @@ module;
 #include <QString>
 #include <QPointF>
 #include <QRectF>
+#include <cstddef>
+#include <cstdint>
+#include <limits>
 
 #include <vector>
 #include <map>
@@ -538,8 +541,12 @@ RotoMask::Interpolation RotoMask::positionInterpolation(VertexID id) const {
 
 void RotoMask::rasterize(double time, int width, int height, float* outData) const {
     if (!outData || width <= 0 || height <= 0) return;
+    const auto rowWidth = static_cast<std::size_t>(width);
+    if (rowWidth > std::numeric_limits<std::size_t>::max() /
+                       static_cast<std::size_t>(height)) return;
+    const std::size_t pixelCount = rowWidth * static_cast<std::size_t>(height);
     // 初期化
-    std::fill(outData, outData + width * height, 0.0f);
+    std::fill(outData, outData + pixelCount, 0.0f);
     
     auto verts = sampleVertices(time);
     if (verts.empty()) return;
@@ -550,7 +557,8 @@ void RotoMask::rasterize(double time, int width, int height, float* outData) con
     
     // 簡易的なラスタライズ（スキャンライン）
     // 実際の実装ではOpenCVなどを使用
-    Parallel::For(0, height, width * height, [&](int y) {
+    Parallel::ForPixels(0, height, width, height, [&](int y) {
+        const std::size_t rowStart = static_cast<std::size_t>(y) * rowWidth;
         for (int x = 0; x < width; ++x) {
             // ポイントインポリゴンテスト
             bool inside = false;
@@ -562,7 +570,7 @@ void RotoMask::rasterize(double time, int width, int height, float* outData) con
                     inside = !inside;
                 }
             }
-            outData[y * width + x] = inside ? 1.0f : 0.0f;
+            outData[rowStart + static_cast<std::size_t>(x)] = inside ? 1.0f : 0.0f;
         }
     });
     
@@ -572,22 +580,34 @@ void RotoMask::rasterize(double time, int width, int height, float* outData) con
         const int radius = std::clamp(static_cast<int>(std::ceil(f)), 1, 64);
         const int diameter = radius * 2 + 1;
         std::vector<float> horizontal(static_cast<size_t>(width) * height, 0.0f);
-        Parallel::For(0, height, width * height, [&](int y) {
+        Parallel::ForPixels(0, height, width, height, [&](int y) {
+            const std::size_t rowStart = static_cast<std::size_t>(y) * rowWidth;
             for (int x = 0; x < width; ++x) {
                 float sum = 0.0f;
                 for (int dx = -radius; dx <= radius; ++dx) {
-                    sum += outData[y * width + std::clamp(x + dx, 0, width - 1)];
+                    const auto sampleX = std::clamp<std::int64_t>(
+                        static_cast<std::int64_t>(x) + dx, 0,
+                        static_cast<std::int64_t>(width) - 1);
+                    sum += outData[rowStart + static_cast<std::size_t>(sampleX)];
                 }
-                horizontal[y * width + x] = sum / static_cast<float>(diameter);
+                horizontal[rowStart + static_cast<std::size_t>(x)] =
+                    sum / static_cast<float>(diameter);
             }
         });
-        Parallel::For(0, height, width * height, [&](int y) {
+        Parallel::ForPixels(0, height, width, height, [&](int y) {
+            const std::size_t rowStart = static_cast<std::size_t>(y) * rowWidth;
             for (int x = 0; x < width; ++x) {
                 float sum = 0.0f;
                 for (int dy = -radius; dy <= radius; ++dy) {
-                    sum += horizontal[std::clamp(y + dy, 0, height - 1) * width + x];
+                    const auto sampleY = std::clamp<std::int64_t>(
+                        static_cast<std::int64_t>(y) + dy, 0,
+                        static_cast<std::int64_t>(height) - 1);
+                    const std::size_t sampleRow =
+                        static_cast<std::size_t>(sampleY) * rowWidth;
+                    sum += horizontal[sampleRow + static_cast<std::size_t>(x)];
                 }
-                outData[y * width + x] = sum / static_cast<float>(diameter);
+                outData[rowStart + static_cast<std::size_t>(x)] =
+                    sum / static_cast<float>(diameter);
             }
         });
     }
@@ -599,18 +619,26 @@ void RotoMask::rasterize(double time, int width, int height, float* outData) con
         const int diameter = radius * 2 + 1;
         std::vector<float> morphed(static_cast<size_t>(width) * height, 0.0f);
         const bool dilate = exp > 0.0f;
-        Parallel::For(0, height, width * height, [&](int y) {
+        Parallel::ForPixels(0, height, width, height, [&](int y) {
+            const std::size_t rowStart = static_cast<std::size_t>(y) * rowWidth;
             for (int x = 0; x < width; ++x) {
                 float value = dilate ? 0.0f : 1.0f;
                 for (int dy = -radius; dy <= radius; ++dy) {
                     for (int dx = -radius; dx <= radius; ++dx) {
+                        const auto sampleY = std::clamp<std::int64_t>(
+                            static_cast<std::int64_t>(y) + dy, 0,
+                            static_cast<std::int64_t>(height) - 1);
+                        const auto sampleX = std::clamp<std::int64_t>(
+                            static_cast<std::int64_t>(x) + dx, 0,
+                            static_cast<std::int64_t>(width) - 1);
+                        const std::size_t sampleRow =
+                            static_cast<std::size_t>(sampleY) * rowWidth;
                         const float sample = outData[
-                            std::clamp(y + dy, 0, height - 1) * width +
-                            std::clamp(x + dx, 0, width - 1)];
+                            sampleRow + static_cast<std::size_t>(sampleX)];
                         value = dilate ? std::max(value, sample) : std::min(value, sample);
                     }
                 }
-                morphed[y * width + x] = value;
+                morphed[rowStart + static_cast<std::size_t>(x)] = value;
             }
         });
         std::copy(morphed.begin(), morphed.end(), outData);
@@ -619,15 +647,22 @@ void RotoMask::rasterize(double time, int width, int height, float* outData) con
     // 不透明度適用
     float op = opacity(time);
     if (op < 1.0f) {
-        Parallel::For(0, width * height, width * height, [&](int i) {
-            outData[i] *= op;
+        Parallel::ForPixels(0, height, width, height, [&](int y) {
+            const std::size_t rowStart = static_cast<std::size_t>(y) * rowWidth;
+            for (int x = 0; x < width; ++x) {
+                outData[rowStart + static_cast<std::size_t>(x)] *= op;
+            }
         });
     }
     
     // 反転
     if (impl_->inverted) {
-        Parallel::For(0, width * height, width * height, [&](int i) {
-            outData[i] = 1.0f - outData[i];
+        Parallel::ForPixels(0, height, width, height, [&](int y) {
+            const std::size_t rowStart = static_cast<std::size_t>(y) * rowWidth;
+            for (int x = 0; x < width; ++x) {
+                const std::size_t pixel = rowStart + static_cast<std::size_t>(x);
+                outData[pixel] = 1.0f - outData[pixel];
+            }
         });
     }
 }
