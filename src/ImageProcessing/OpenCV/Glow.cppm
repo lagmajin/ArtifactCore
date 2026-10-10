@@ -294,7 +294,7 @@ namespace ArtifactCore {
   cv::Mat prob_map = cv::Mat::zeros(height, width, CV_32FC1); // float型グレースケール
 
   // ラインの中心から離れるほど確率が低くなるようにグラデーションを作成
-  Parallel::For(0, width, width * height, [&](int x) {
+  Parallel::ForPixels(0, width, width, height, [&](int x) {
    float dist_from_center = std::abs(x - x_center);
    if (dist_from_center < line_width / 2.0) {
 	// ラインの中心に近いほど確率を高くする

@@ -154,8 +154,8 @@ public:
 
         // 深度(Z-Depth)の計算: IDW (Inverse Distance Weighting)
         if (!overlapPins.empty()) {
-            Parallel::For(0, static_cast<int>(initialMesh.vertices.size()), static_cast<int>(initialMesh.vertices.size()), [&](int index) {
-                const size_t i = static_cast<size_t>(index);
+            Parallel::ForSize(0, initialMesh.vertices.size(),
+                              initialMesh.vertices.size(), [&](std::size_t i) {
                 cv::Point2f v = initialMesh.vertices[i];
                 float depth_sum = 0.0f;
                 float w_sum = 0.0f;
@@ -168,16 +168,16 @@ public:
                 deformedMesh.zDepth[i] = w_sum > 0 ? (depth_sum / w_sum) : 0.0f;
             });
         } else {
-            Parallel::For(0, static_cast<int>(deformedMesh.zDepth.size()), static_cast<int>(deformedMesh.zDepth.size()), [&](int index) {
-                const size_t i = static_cast<size_t>(index);
+            Parallel::ForSize(0, deformedMesh.zDepth.size(),
+                              deformedMesh.zDepth.size(), [&](std::size_t i) {
                 deformedMesh.zDepth[i] = 0.0f;
             });
         }
 
         // Moving Least Squares (剛体を保つSimilitude変形)
         // 写像式は evaluatePuppetMLS に集約し、シェイプ経路と同じ式を使う。
-        Parallel::For(0, static_cast<int>(initialMesh.vertices.size()), static_cast<int>(initialMesh.vertices.size()), [&](int index) {
-            const size_t i = static_cast<size_t>(index);
+        Parallel::ForSize(0, initialMesh.vertices.size(),
+                          initialMesh.vertices.size(), [&](std::size_t i) {
             deformedMesh.vertices[i] =
                 evaluatePuppetMLS(constraints, initialMesh.vertices[i]);
         });

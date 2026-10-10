@@ -3,6 +3,7 @@ module;
 #include <vector>
 #include <cmath>
 #include <algorithm>
+#include <cstddef>
 
 export module ArtifactCore.ImageProcessing.Halation;
 
@@ -33,18 +34,23 @@ public:
     void process(float4* buffer, int width, int height, const Settings& settings) {
         if (!buffer || width <= 0 || height <= 0) return;
 
-        std::vector<float4> source(buffer, buffer + width * height);
+        const auto pixelCount = static_cast<std::size_t>(width) * static_cast<std::size_t>(height);
+        std::vector<float4> source(buffer, buffer + pixelCount);
         
         // 1. Threshold & Extract Highlights with Red bias
-        std::vector<float4> highlights(width * height);
-        Parallel::For(0, width * height, width * height, [&](int i) {
-            float lum = source[i].x * 0.299f + source[i].y * 0.587f + source[i].z * 0.114f;
-            if (lum > settings.threshold) {
-                float weight = std::clamp((lum - settings.threshold) / (1.0f - settings.threshold + 0.001f), 0.0f, 1.0f);
-                // Halation is physically red-shifted due to scattering
-                highlights[i] = {source[i].x * weight, source[i].y * weight * 0.2f, source[i].z * weight * 0.1f, 0.0f};
-            } else {
-                highlights[i] = {0, 0, 0, 0};
+        std::vector<float4> highlights(pixelCount);
+        Parallel::ForPixels(0, height, width, height, [&](int y) {
+            const auto rowOffset = static_cast<std::size_t>(y) * static_cast<std::size_t>(width);
+            for (int x = 0; x < width; ++x) {
+                const auto i = rowOffset + static_cast<std::size_t>(x);
+                float lum = source[i].x * 0.299f + source[i].y * 0.587f + source[i].z * 0.114f;
+                if (lum > settings.threshold) {
+                    float weight = std::clamp((lum - settings.threshold) / (1.0f - settings.threshold + 0.001f), 0.0f, 1.0f);
+                    // Halation is physically red-shifted due to scattering
+                    highlights[i] = {source[i].x * weight, source[i].y * weight * 0.2f, source[i].z * weight * 0.1f, 0.0f};
+                } else {
+                    highlights[i] = {0, 0, 0, 0};
+                }
             }
         });
 
@@ -54,10 +60,14 @@ public:
         diffuse(highlights.data(), width, height, settings.spread, 0.0f, 0.1f, 0.05f); // Minor Green/Blue scattering
 
         // 3. Composite back with Bloom-like additive blending
-        Parallel::For(0, width * height, width * height, [&](int i) {
-            buffer[i].x += highlights[i].x * settings.intensity;
-            buffer[i].y += highlights[i].y * settings.intensity;
-            buffer[i].z += highlights[i].z * settings.intensity;
+        Parallel::ForPixels(0, height, width, height, [&](int y) {
+            const auto rowOffset = static_cast<std::size_t>(y) * static_cast<std::size_t>(width);
+            for (int x = 0; x < width; ++x) {
+                const auto i = rowOffset + static_cast<std::size_t>(x);
+                buffer[i].x += highlights[i].x * settings.intensity;
+                buffer[i].y += highlights[i].y * settings.intensity;
+                buffer[i].z += highlights[i].z * settings.intensity;
+            }
         });
     }
 
@@ -67,37 +77,42 @@ private:
         int r = static_cast<int>(radius);
         if (r <= 0) return;
         
-        std::vector<float4> temp(w * h);
+        const auto pixelCount = static_cast<std::size_t>(w) * static_cast<std::size_t>(h);
+        std::vector<float4> temp(pixelCount);
         // Horizontal Pass
-        Parallel::For(0, h, w * h, [&](int y) {
+        Parallel::ForPixels(0, h, w, h, [&](int y) {
+            const auto rowOffset = static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
             for (int x = 0; x < w; ++x) {
                 float4 sum{0,0,0,0};
                 int count = 0;
                 for (int dx = -r; dx <= r; ++dx) {
                     int nx = std::clamp(x + dx, 0, w - 1);
-                    sum.x += data[y * w + nx].x;
-                    sum.y += data[y * w + nx].y;
-                    sum.z += data[y * w + nx].z;
+                    const auto index = rowOffset + static_cast<std::size_t>(nx);
+                    sum.x += data[index].x;
+                    sum.y += data[index].y;
+                    sum.z += data[index].z;
                     count++;
                 }
-                temp[y * w + x] = {sum.x / count, sum.y / count, sum.z / count, 0};
+                temp[rowOffset + static_cast<std::size_t>(x)] = {sum.x / count, sum.y / count, sum.z / count, 0};
             }
         });
         // Vertical Pass + Channel Multiply
-        Parallel::For(0, w, w * h, [&](int x) {
+        Parallel::ForPixels(0, w, w, h, [&](int x) {
             for (int y = 0; y < h; ++y) {
                 float4 sum{0,0,0,0};
                 int count = 0;
                 for (int dy = -r; dy <= r; ++dy) {
                     int ny = std::clamp(y + dy, 0, h - 1);
-                    sum.x += temp[ny * w + x].x;
-                    sum.y += temp[ny * w + x].y;
-                    sum.z += temp[ny * w + x].z;
+                    const auto index = static_cast<std::size_t>(ny) * static_cast<std::size_t>(w) + static_cast<std::size_t>(x);
+                    sum.x += temp[index].x;
+                    sum.y += temp[index].y;
+                    sum.z += temp[index].z;
                     count++;
                 }
-                data[y * w + x].x = (sum.x / count) * rM;
-                data[y * w + x].y = (sum.y / count) * gM;
-                data[y * w + x].z = (sum.z / count) * bM;
+                const auto index = static_cast<std::size_t>(y) * static_cast<std::size_t>(w) + static_cast<std::size_t>(x);
+                data[index].x = (sum.x / count) * rM;
+                data[index].y = (sum.y / count) * gM;
+                data[index].z = (sum.z / count) * bM;
             }
         });
     }

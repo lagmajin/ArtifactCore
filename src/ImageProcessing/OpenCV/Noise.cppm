@@ -43,7 +43,7 @@ cv::Mat addNoise(const cv::Mat& input, NoiseType type, float amount, bool monoch
                         noiseRow[x] = rng.gaussian(0.0f, amount);
                     }
                 }
-                Parallel::For(0, src.rows, src.rows * src.cols, [&](int y) {
+                Parallel::ForPixels(0, src.rows, src.cols, src.rows, [&](int y) {
                     const float* noiseRow = noiseMono.ptr<float>(y);
                     float* resultRow = result.ptr<float>(y);
                     for (int x = 0; x < src.cols; ++x) {
@@ -72,7 +72,7 @@ cv::Mat addNoise(const cv::Mat& input, NoiseType type, float amount, bool monoch
             for (float& value : randomValues) {
                 value = rng.range(-amount, amount) + amount;
             }
-            Parallel::For(0, src.rows, src.rows * src.cols, [&](int y) {
+            Parallel::ForPixels(0, src.rows, src.cols, src.rows, [&](int y) {
                 float* resultRow = result.ptr<float>(y);
                 for (int x = 0; x < src.cols; ++x) {
                     const float r = randomValues[static_cast<size_t>(y) * static_cast<size_t>(src.cols) + static_cast<size_t>(x)];
@@ -108,7 +108,7 @@ cv::Mat addNoise(const cv::Mat& input, NoiseType type, float amount, bool monoch
                     value = rng.range(-amount, amount);
                 }
             }
-            Parallel::For(0, src.rows, src.rows * src.cols, [&](int y) {
+            Parallel::ForPixels(0, src.rows, src.cols, src.rows, [&](int y) {
                 float* resultRow = result.ptr<float>(y);
                 const float* noiseRow = noise.ptr<float>(y);
                 for (int x = 0; x < src.cols; ++x) {
@@ -148,7 +148,7 @@ cv::Mat addNoise(const cv::Mat& input, NoiseType type, float amount, bool monoch
                     }
                 }
             }
-            Parallel::For(0, src.rows, src.rows * src.cols, [&](int y) {
+            Parallel::ForPixels(0, src.rows, src.cols, src.rows, [&](int y) {
                 float* resultRow = result.ptr<float>(y);
                 const float* grayRow = gray.ptr<float>(y);
                 for (int x = 0; x < src.cols; ++x) {

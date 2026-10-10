@@ -32,7 +32,7 @@ cv::Mat liftGammaGain(const cv::Mat& input,
         invGamma[c] = (gamma[c] > 0.001f) ? (1.0f / gamma[c]) : 1000.0f;
     }
 
-    Parallel::For(0, src.rows, src.rows * src.cols, [&](int y) {
+    Parallel::ForPixels(0, src.rows, src.cols, src.rows, [&](int y) {
         const float* sourceRow = src.ptr<float>(y);
         float* resultRow = result.ptr<float>(y);
         for (int x = 0; x < src.cols; ++x) {

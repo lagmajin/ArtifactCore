@@ -68,7 +68,7 @@ namespace ArtifactCore {
   cv::fillPoly(mask, pts_all, 255, cv::LINE_AA);
 
   // 塗りつぶし（マスクされた部分を色で埋める）
-  Parallel::For(0, img.rows, img.rows * img.cols, [&](int y) {
+  Parallel::ForPixels(0, img.rows, img.cols, img.rows, [&](int y) {
    const uchar* mrow = mask.ptr<uchar>(y);
    cv::Vec4f* drow = img.ptr<cv::Vec4f>(y);
    for (int x = 0; x < img.cols; ++x) {

@@ -3,6 +3,7 @@ module;
 #include <vector>
 #include <cmath>
 #include <algorithm>
+#include <cstddef>
 
 export module ArtifactCore.ImageProcessing.VolumetricShine;
 
@@ -34,10 +35,11 @@ public:
         if (!buffer || width <= 0 || height <= 0) return;
         ScopedPerformanceTimer timer("Volumetric Shine");
 
-        std::vector<float4> original(buffer, buffer + width * height);
+        const auto pixelCount = static_cast<std::size_t>(width) * static_cast<std::size_t>(height);
+        std::vector<float4> original(buffer, buffer + pixelCount);
         float2 center{settings.sourcePos.x * width, settings.sourcePos.y * height};
 
-        Parallel::For(0, height, width * height, [&](int y) {
+        Parallel::ForPixels(0, height, width, height, [&](int y) {
             for (int x = 0; x < width; ++x) {
                 float2 current{static_cast<float>(x), static_cast<float>(y)};
                 float2 dir{current.x - center.x, current.y - center.y};
@@ -58,7 +60,9 @@ public:
                     int sx = std::clamp(static_cast<int>(samplePos.x), 0, width - 1);
                     int sy = std::clamp(static_cast<int>(samplePos.y), 0, height - 1);
 
-                    float4 sample = original[sy * width + sx];
+                    const auto sampleIndex = static_cast<std::size_t>(sy) * static_cast<std::size_t>(width)
+                        + static_cast<std::size_t>(sx);
+                    float4 sample = original[sampleIndex];
                     
                     // Add luminance to shine (High luminosity produces more rays)
                     float lum = sample.x * 0.299f + sample.y * 0.587f + sample.z * 0.114f;
@@ -70,9 +74,11 @@ public:
                 }
 
                 // Apply tint and blend additive
-                buffer[y * width + x].x += (shineColor.x / settings.samples) * settings.tint.x;
-                buffer[y * width + x].y += (shineColor.y / settings.samples) * settings.tint.y;
-                buffer[y * width + x].z += (shineColor.z / settings.samples) * settings.tint.z;
+                const auto outputIndex = static_cast<std::size_t>(y) * static_cast<std::size_t>(width)
+                    + static_cast<std::size_t>(x);
+                buffer[outputIndex].x += (shineColor.x / settings.samples) * settings.tint.x;
+                buffer[outputIndex].y += (shineColor.y / settings.samples) * settings.tint.y;
+                buffer[outputIndex].z += (shineColor.z / settings.samples) * settings.tint.z;
             }
         });
     }

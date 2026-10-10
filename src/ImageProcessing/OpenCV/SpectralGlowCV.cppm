@@ -90,7 +90,7 @@ namespace ArtifactCore {
 
   // === 4. グロー元画像を構築（色 × マスク）===
   cv::Mat glowSrc(mat.size(), CV_32FC3, cv::Scalar(0, 0, 0));
-  Parallel::For(0, mat.rows, mat.rows * mat.cols, [&](int y)
+  Parallel::ForPixels(0, mat.rows, mat.cols, mat.rows, [&](int y)
   {
    const float* mrow = mask.ptr<float>(y);
    const uchar* nrow = noise.ptr<uchar>(y);
@@ -112,7 +112,7 @@ namespace ArtifactCore {
   glowBlurred *= glowStrength;
 
   // === 7. 元のBGRA画像に加算合成 ===
-  Parallel::For(0, mat.rows, mat.rows * mat.cols, [&](int y)
+  Parallel::ForPixels(0, mat.rows, mat.cols, mat.rows, [&](int y)
   {
    cv::Vec4f* mrow = mat.ptr<cv::Vec4f>(y);
    const cv::Vec3f* grow = glowBlurred.ptr<cv::Vec3f>(y);
@@ -142,7 +142,7 @@ namespace ArtifactCore {
   cv::Mat green = red.clone();
   cv::Mat blue = red.clone();
 
-  Parallel::For(0, mat.rows, mat.rows * mat.cols, [&](int y)
+  Parallel::ForPixels(0, mat.rows, mat.cols, mat.rows, [&](int y)
   {
    const float* m = mask.ptr<float>(y);
    float* r = red.ptr<float>(y);
@@ -187,7 +187,7 @@ namespace ArtifactCore {
   glow *= 0.15f;
 
   // === 6. 元画像に加算合成 ===
-  Parallel::For(0, mat.rows, mat.rows * mat.cols, [&](int y)
+  Parallel::ForPixels(0, mat.rows, mat.cols, mat.rows, [&](int y)
   {
    cv::Vec4f* mrow = mat.ptr<cv::Vec4f>(y);
    const cv::Vec3f* grow = glow.ptr<cv::Vec3f>(y);
@@ -217,7 +217,7 @@ namespace ArtifactCore {
   cv::Mat green = red.clone();
   cv::Mat blue = red.clone();
 
-  Parallel::For(0, mat.rows, mat.rows * mat.cols, [&](int y)
+  Parallel::ForPixels(0, mat.rows, mat.cols, mat.rows, [&](int y)
   {
    const float* m = mask.ptr<float>(y);
    float* r = red.ptr<float>(y);
@@ -265,7 +265,7 @@ namespace ArtifactCore {
   glow *= 0.15f;
 
   // 8. 元画像に加算（clamp）
-  Parallel::For(0, mat.rows, mat.rows * mat.cols, [&](int y)
+  Parallel::ForPixels(0, mat.rows, mat.cols, mat.rows, [&](int y)
   {
    cv::Vec4f* row = mat.ptr<cv::Vec4f>(y);
    const cv::Vec3f* glow_row = glow.ptr<cv::Vec3f>(y);
@@ -299,7 +299,7 @@ namespace ArtifactCore {
   // 4. 画像全体の平均勾配方向を計算
   std::vector<double> rowSin(static_cast<size_t>(angle.rows), 0.0);
   std::vector<double> rowCos(static_cast<size_t>(angle.rows), 0.0);
-  Parallel::For(0, angle.rows, angle.rows * angle.cols, [&](int y)
+  Parallel::ForPixels(0, angle.rows, angle.cols, angle.rows, [&](int y)
   {
    const float* a = angle.ptr<float>(y);
    for (int x = 0; x < angle.cols; ++x)
@@ -334,7 +334,7 @@ namespace ArtifactCore {
   cv::Mat green = red.clone();
   cv::Mat blue = red.clone();
 
-  Parallel::For(0, mat.rows, mat.rows * mat.cols, [&](int y)
+  Parallel::ForPixels(0, mat.rows, mat.cols, mat.rows, [&](int y)
   {
    const float* m = mask.ptr<float>(y);
    float* r = red.ptr<float>(y);
@@ -382,7 +382,7 @@ namespace ArtifactCore {
   glow *= 0.12f;
 
   // 14. 加算合成（clamp）
-  Parallel::For(0, mat.rows, mat.rows * mat.cols, [&](int y)
+  Parallel::ForPixels(0, mat.rows, mat.cols, mat.rows, [&](int y)
   {
    cv::Vec4f* row = mat.ptr<cv::Vec4f>(y);
    const cv::Vec3f* glow_row = glow.ptr<cv::Vec3f>(y);
@@ -419,7 +419,7 @@ namespace ArtifactCore {
   // 4. 画像全体の平均勾配方向
   std::vector<double> rowSin(static_cast<size_t>(angle.rows), 0.0);
   std::vector<double> rowCos(static_cast<size_t>(angle.rows), 0.0);
-  Parallel::For(0, angle.rows, angle.rows * angle.cols, [&](int y)
+  Parallel::ForPixels(0, angle.rows, angle.cols, angle.rows, [&](int y)
   {
    const float* a = angle.ptr<float>(y);
    for (int x = 0; x < angle.cols; ++x)
@@ -451,7 +451,7 @@ namespace ArtifactCore {
   cv::Mat green = red.clone();
   cv::Mat blue = red.clone();
 
-  Parallel::For(0, mat.rows, mat.rows * mat.cols, [&](int y)
+  Parallel::ForPixels(0, mat.rows, mat.cols, mat.rows, [&](int y)
   {
    const float* m = mask.ptr<float>(y);
    float* r = red.ptr<float>(y);
@@ -504,7 +504,7 @@ namespace ArtifactCore {
   glowTotal *= 1.2f;
 
   // 7. 元画像に加算（clamp）
-  Parallel::For(0, mat.rows, mat.rows * mat.cols, [&](int y)
+  Parallel::ForPixels(0, mat.rows, mat.cols, mat.rows, [&](int y)
   {
    cv::Vec4f* row = mat.ptr<cv::Vec4f>(y);
    const cv::Vec3f* glow_row = glowTotal.ptr<cv::Vec3f>(y);
@@ -563,7 +563,7 @@ namespace ArtifactCore {
   // 4. 全体の平均勾配方向を計算し、色ずらし基本方向を決める
   std::vector<double> rowSin(static_cast<size_t>(angle.rows), 0.0);
   std::vector<double> rowCos(static_cast<size_t>(angle.rows), 0.0);
-  Parallel::For(0, angle.rows, angle.rows * angle.cols, [&](int y)
+  Parallel::ForPixels(0, angle.rows, angle.cols, angle.rows, [&](int y)
   {
    const float* a = angle.ptr<float>(y);
    for (int x = 0; x < angle.cols; ++x)
@@ -590,7 +590,7 @@ namespace ArtifactCore {
   cv::Mat blueMask = redMask.clone();
 
   // 7. maskを元に各チャネルのマスク作成（全体は同じだが後で変えてもOK）
-  Parallel::For(0, mask.rows, mask.rows * mask.cols, [&](int y)
+  Parallel::ForPixels(0, mask.rows, mask.cols, mask.rows, [&](int y)
   {
    const float* m = mask.ptr<float>(y);
    float* r = redMask.ptr<float>(y);
@@ -664,7 +664,7 @@ namespace ArtifactCore {
   glowTotal *= 1.7f;
 
   // 14. 元画像に加算（clamp）
-  Parallel::For(0, mat.rows, mat.rows * mat.cols, [&](int y)
+  Parallel::ForPixels(0, mat.rows, mat.cols, mat.rows, [&](int y)
   {
    cv::Vec4f* row = mat.ptr<cv::Vec4f>(y);
    const cv::Vec3f* glowRow = glowTotal.ptr<cv::Vec3f>(y);

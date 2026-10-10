@@ -19,7 +19,7 @@ namespace ArtifactCore {
   float cx = input.cols / 2.0f;
   float cy = input.rows / 2.0f;
   float maxDist = std::sqrt(cx * cx + cy * cy);
-  Parallel::For(0, input.rows, input.rows * input.cols, [&](int y) {
+  Parallel::ForPixels(0, input.rows, input.cols, input.rows, [&](int y) {
    float* maskRow = mask.ptr<float>(y);
    for (int x = 0; x < input.cols; ++x) {
 	float dx = x - cx;

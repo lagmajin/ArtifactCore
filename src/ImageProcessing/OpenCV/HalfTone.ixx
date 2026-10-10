@@ -150,7 +150,7 @@ cv::Mat orderedDither(const cv::Mat& input, int matrixSize) {
     }
 
     cv::Mat result = cv::Mat::zeros(gray.size(), CV_32F);
-    Parallel::For(0, gray.rows, gray.rows * gray.cols, [&](int y) {
+    Parallel::ForPixels(0, gray.rows, gray.cols, gray.rows, [&](int y) {
         const float* grayRow = gray.ptr<float>(y);
         float* resultRow = result.ptr<float>(y);
         for (int x = 0; x < gray.cols; ++x) {

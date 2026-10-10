@@ -82,7 +82,7 @@ void VolumePostProcessor::applyBloom(ImageBuffer& image) const noexcept {
                                 : 0.0f;
 
     std::vector<float> lum(static_cast<std::size_t>(w) * static_cast<std::size_t>(h));
-    Parallel::For(0, h, w * h, [&](int y) {
+    Parallel::ForPixels(0, h, w, h, [&](int y) {
         const auto* row = image.pixels.data() + static_cast<std::size_t>(y) * w * 3u;
         float* lumRow = lum.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
         for (int x = 0; x < w; ++x) {
@@ -101,7 +101,7 @@ void VolumePostProcessor::applyBloom(ImageBuffer& image) const noexcept {
 
     const int iterations = std::clamp(bloom.iterations, 0, 64);
     for (int iter = 0; iter < iterations; ++iter) {
-        Parallel::For(0, h, w * h, [&](int y) {
+        Parallel::ForPixels(0, h, w, h, [&](int y) {
             float* blurredRow = blurred.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
             for (int x = 0; x < w; ++x) {
                 float sum = 0.0f;
@@ -120,14 +120,14 @@ void VolumePostProcessor::applyBloom(ImageBuffer& image) const noexcept {
                 blurredRow[x] = sum / static_cast<float>(count);
             }
         });
-        Parallel::For(0, h, w * h, [&](int y) {
+        Parallel::ForPixels(0, h, w, h, [&](int y) {
             const auto offset = static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
             std::copy_n(blurred.data() + offset, static_cast<std::size_t>(w),
                         lum.data() + offset);
         });
     }
 
-    Parallel::For(0, h, w * h, [&](int y) {
+    Parallel::ForPixels(0, h, w, h, [&](int y) {
         auto* row = image.pixels.data() + static_cast<std::size_t>(y) * w * 3u;
         const float* blurredRow = blurred.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
         for (int x = 0; x < w; ++x) {
@@ -148,7 +148,7 @@ void VolumePostProcessor::applyGlare(ImageBuffer& image) const noexcept {
 
     const float brightnessThreshold = 0.8f;
     std::vector<float> lum(static_cast<std::size_t>(w) * static_cast<std::size_t>(h));
-    Parallel::For(0, h, w * h, [&](int y) {
+    Parallel::ForPixels(0, h, w, h, [&](int y) {
         const auto* row = image.pixels.data() + static_cast<std::size_t>(y) * w * 3u;
         for (int x = 0; x < w; ++x) {
             const float l = (static_cast<float>(row[x * 3 + 0]) * 0.2126f +
@@ -185,7 +185,7 @@ void VolumePostProcessor::applyGlare(ImageBuffer& image) const noexcept {
             1.0f - static_cast<float>(s) / static_cast<float>(streakLen + 1);
     }
 
-    Parallel::For(0, h, w * h, [&](int y) {
+    Parallel::ForPixels(0, h, w, h, [&](int y) {
         auto* row = image.pixels.data() + static_cast<std::size_t>(y) * w * 3u;
         for (int x = 0; x < w; ++x) {
             float streakAccum = 0.0f;
@@ -215,7 +215,7 @@ void VolumePostProcessor::applyBilateralFilter(ImageBuffer& image) const noexcep
     std::vector<float> origG(static_cast<std::size_t>(w) * static_cast<std::size_t>(h));
     std::vector<float> origB(static_cast<std::size_t>(w) * static_cast<std::size_t>(h));
 
-    Parallel::For(0, h, w * h, [&](int y) {
+    Parallel::ForPixels(0, h, w, h, [&](int y) {
         const auto* row = image.pixels.data() + static_cast<std::size_t>(y) * w * 3u;
         float* origRRow = origR.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
         float* origGRow = origG.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
@@ -249,7 +249,7 @@ void VolumePostProcessor::applyBilateralFilter(ImageBuffer& image) const noexcep
         }
     }
 
-    Parallel::For(0, h, w * h, [&](int y) {
+    Parallel::ForPixels(0, h, w, h, [&](int y) {
         auto* row = image.pixels.data() + static_cast<std::size_t>(y) * w * 3u;
         const float* origRRow = origR.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
         const float* origGRow = origG.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
@@ -309,7 +309,7 @@ void VolumePostProcessor::applyExposureGamma(ImageBuffer& image) const noexcept 
                             : 2.2f;
     const float inverseGamma = 1.0f / gamma;
 
-    Parallel::For(0, h, w * h, [&](int y) {
+    Parallel::ForPixels(0, h, w, h, [&](int y) {
         auto* row = image.pixels.data() + static_cast<std::size_t>(y) * w * 3u;
         for (int x = 0; x < w; ++x) {
             row[x * 3 + 0] = static_cast<std::uint8_t>(std::pow(clamp01(row[x * 3 + 0] / 255.0f * exposure), inverseGamma) * 255.999f);

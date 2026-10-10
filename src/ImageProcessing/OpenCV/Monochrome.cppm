@@ -66,7 +66,7 @@ namespace ArtifactCore {
 
   cv::Mat gray(src_bgr.size(), CV_8UC1);
 
-  Parallel::For(0, src_bgr.rows, src_bgr.rows * src_bgr.cols, [&](int y) {
+  Parallel::ForPixels(0, src_bgr.rows, src_bgr.cols, src_bgr.rows, [&](int y) {
    const cv::Vec3b* srcRow = src_bgr.ptr<cv::Vec3b>(y);
    uchar* dstRow = gray.ptr<uchar>(y);
    for (int x = 0; x < src_bgr.cols; ++x) {

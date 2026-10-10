@@ -446,7 +446,7 @@ ImageBuffer CPUVolumeRenderer::render(int width, int height) const {
             renderRow(y);
         }
     } else {
-        Parallel::For(0, height, width * height, renderRow);
+        Parallel::ForPixels(0, height, width, height, renderRow);
     }
 
     return buffer;

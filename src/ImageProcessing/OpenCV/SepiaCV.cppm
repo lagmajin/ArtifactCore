@@ -21,7 +21,7 @@ namespace ArtifactCore {
 	  {0.393f, 0.769f, 0.189f}
   };
 
-  Parallel::For(0, src.rows, src.rows * src.cols, [&](int y) {
+  Parallel::ForPixels(0, src.rows, src.cols, src.rows, [&](int y) {
    const cv::Vec4f* src_row = src.ptr<cv::Vec4f>(y);
    cv::Vec4f* dst_row = dst.ptr<cv::Vec4f>(y);
 
