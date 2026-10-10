@@ -573,7 +573,7 @@ void PyroSimulation::applyCombustion(float deltaSeconds) {
     const float heatRelease = 1.4f;
     const float smokeYield = 0.9f;
 
-    Parallel::For(0, resolution.depth, resolution.width * resolution.height, [&](int z) {
+    Parallel::ForVolumeSlices(resolution.width, resolution.height, resolution.depth, [&](int z) {
         for (int y = 0; y < resolution.height; ++y) {
             for (int x = 0; x < resolution.width; ++x) {
                 const auto idx = cellIndex(x, y, z);
@@ -601,7 +601,7 @@ void PyroSimulation::applyVorticityConfinement(float deltaSeconds) {
     const std::vector<PyroVec3> sourceVelocity(velocity.values.begin(), velocity.values.end());
     const float dt = static_cast<float>(deltaSeconds);
 
-    Parallel::For(0, resolution.depth, resolution.width * resolution.height, [&](int z) {
+    Parallel::ForVolumeSlices(resolution.width, resolution.height, resolution.depth, [&](int z) {
         for (int y = 0; y < resolution.height; ++y) {
             for (int x = 0; x < resolution.width; ++x) {
                 const auto idx = cellIndex(x, y, z);
@@ -653,7 +653,7 @@ void PyroSimulation::integrateStep(float deltaSeconds) {
     const auto fuelPrev = fields_.fuelStorage();
     const auto velocityPrev = fields_.velocityStorage();
 
-    Parallel::For(0, resolution.depth, resolution.width * resolution.height, [&](int z) {
+    Parallel::ForVolumeSlices(resolution.width, resolution.height, resolution.depth, [&](int z) {
         for (int y = 0; y < resolution.height; ++y) {
             for (int x = 0; x < resolution.width; ++x) {
                 const auto idx = cellIndex(x, y, z);
@@ -703,7 +703,7 @@ void PyroSimulation::integrateStep(float deltaSeconds) {
 
     applyCombustion(dt);
 
-    Parallel::For(0, resolution.depth, resolution.width * resolution.height, [&](int z) {
+    Parallel::ForVolumeSlices(resolution.width, resolution.height, resolution.depth, [&](int z) {
         for (int y = 0; y < resolution.height; ++y) {
             for (int x = 0; x < resolution.width; ++x) {
                 const auto idx = cellIndex(x, y, z);
@@ -714,7 +714,7 @@ void PyroSimulation::integrateStep(float deltaSeconds) {
 
     applyVorticityConfinement(dt);
 
-    Parallel::For(0, resolution.depth, resolution.width * resolution.height, [&](int z) {
+    Parallel::ForVolumeSlices(resolution.width, resolution.height, resolution.depth, [&](int z) {
         for (int y = 0; y < resolution.height; ++y) {
             for (int x = 0; x < resolution.width; ++x) {
                 const auto idx = cellIndex(x, y, z);
@@ -769,7 +769,7 @@ void PyroSimulation::computeDivergence() {
     auto divergence = fields_.divergenceView();
     const auto velocity = fields_.velocityView();
 
-    Parallel::For(0, resolution.depth, resolution.width * resolution.height, [&](int z) {
+    Parallel::ForVolumeSlices(resolution.width, resolution.height, resolution.depth, [&](int z) {
         for (int y = 0; y < resolution.height; ++y) {
             for (int x = 0; x < resolution.width; ++x) {
                 const auto idx = cellIndex(x, y, z);
@@ -798,8 +798,7 @@ void PyroSimulation::solvePressure(int iterations) {
     std::vector<float> nextPressure(pressure.values.size(), 0.0f);
 
     for (int i = 0; i < iterations; ++i) {
-        Parallel::For(0, resolution.depth,
-                      resolution.width * resolution.height, [&](int z) {
+        Parallel::ForVolumeSlices(resolution.width, resolution.height, resolution.depth, [&](int z) {
             for (int y = 0; y < resolution.height; ++y) {
                 for (int x = 0; x < resolution.width; ++x) {
                     const auto idx = cellIndex(x, y, z);
@@ -820,10 +819,13 @@ void PyroSimulation::solvePressure(int iterations) {
                 }
             }
         });
-        Parallel::For(0, static_cast<int>(pressure.values.size()),
-                      static_cast<int>(pressure.values.size()), [&](int index) {
-            pressure.values[static_cast<std::size_t>(index)] =
-                nextPressure[static_cast<std::size_t>(index)];
+        Parallel::ForVolumeSlices(resolution.width, resolution.height, resolution.depth, [&](int z) {
+            for (int y = 0; y < resolution.height; ++y) {
+                for (int x = 0; x < resolution.width; ++x) {
+                    const auto index = cellIndex(x, y, z);
+                    pressure.values[index] = nextPressure[index];
+                }
+            }
         });
     }
 }
@@ -833,7 +835,7 @@ void PyroSimulation::projectVelocity() {
     auto pressure = fields_.pressureView();
     auto velocity = fields_.velocityView();
 
-    Parallel::For(0, resolution.depth, resolution.width * resolution.height, [&](int z) {
+    Parallel::ForVolumeSlices(resolution.width, resolution.height, resolution.depth, [&](int z) {
         for (int y = 0; y < resolution.height; ++y) {
             for (int x = 0; x < resolution.width; ++x) {
                 const auto idx = cellIndex(x, y, z);

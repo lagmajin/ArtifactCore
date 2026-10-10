@@ -3,6 +3,9 @@ module;
 #include <cmath>
 #include <algorithm>
 #include <array>
+#include <cstddef>
+#include <cstdint>
+#include <limits>
 #include <vector>
 module Color.AutoMatch;
 
@@ -81,40 +84,53 @@ struct ChannelStats {
     double stddev = 0.0;
 };
 
-static ChannelStats computeChannelStats(const float* data, int count) {
+static std::size_t checkedRgbaPixelCount(int width, int height) noexcept {
+    if (width <= 0 || height <= 0) return 0;
+    const auto widthSize = static_cast<std::size_t>(width);
+    const auto heightSize = static_cast<std::size_t>(height);
+    if (widthSize > std::numeric_limits<std::size_t>::max() / heightSize) {
+        return 0;
+    }
+    const auto count = widthSize * heightSize;
+    return count > std::numeric_limits<std::size_t>::max() / 4u ? 0 : count;
+}
+
+static ChannelStats computeChannelStats(const float* data, std::size_t count) {
     ChannelStats s;
-    constexpr int kChunkSize = 4096;
-    const int chunkCount = (count + kChunkSize - 1) / kChunkSize;
+    constexpr std::size_t kChunkSize = 4096;
+    const std::size_t chunkCount = count / kChunkSize +
+                                   (count % kChunkSize != 0 ? 1u : 0u);
     std::vector<double> partialSums;
-    partialSums.resize(static_cast<size_t>(chunkCount));
-    Parallel::For(0, chunkCount, count, [&](int chunk) {
-        const int begin = chunk * kChunkSize;
-        const int end = std::min(count, begin + kChunkSize);
+    partialSums.resize(chunkCount);
+    Parallel::ForSize(0, chunkCount, count, [&](std::size_t chunk) {
+        const std::size_t begin = chunk * kChunkSize;
+        const std::size_t end = begin + std::min(kChunkSize, count - begin);
         double sum = 0.0;
-        for (int i = begin; i < end; ++i) sum += data[i];
-        partialSums[static_cast<size_t>(chunk)] = sum;
+        for (std::size_t i = begin; i < end; ++i) sum += data[i];
+        partialSums[chunk] = sum;
     });
 
     double sum = 0.0;
     for (double partial : partialSums) sum += partial;
-    s.mean = sum / std::max(1, count);
+    s.mean = sum / static_cast<double>(std::max<std::size_t>(1, count));
 
     std::vector<double> partialSquaredSums;
-    partialSquaredSums.resize(static_cast<size_t>(chunkCount));
-    Parallel::For(0, chunkCount, count, [&](int chunk) {
-        const int begin = chunk * kChunkSize;
-        const int end = std::min(count, begin + kChunkSize);
+    partialSquaredSums.resize(chunkCount);
+    Parallel::ForSize(0, chunkCount, count, [&](std::size_t chunk) {
+        const std::size_t begin = chunk * kChunkSize;
+        const std::size_t end = begin + std::min(kChunkSize, count - begin);
         double sqSum = 0.0;
-        for (int i = begin; i < end; ++i) {
+        for (std::size_t i = begin; i < end; ++i) {
             const double d = data[i] - s.mean;
             sqSum += d * d;
         }
-        partialSquaredSums[static_cast<size_t>(chunk)] = sqSum;
+        partialSquaredSums[chunk] = sqSum;
     });
 
     double sqSum = 0.0;
     for (double partial : partialSquaredSums) sqSum += partial;
-    s.stddev = std::sqrt(sqSum / std::max(1, count));
+    s.stddev = std::sqrt(
+        sqSum / static_cast<double>(std::max<std::size_t>(1, count)));
     if (s.stddev < 0.0001) s.stddev = 0.0001;
     return s;
 }
@@ -126,15 +142,16 @@ static ChannelStats computeChannelStats(const float* data, int count) {
 void AutoColorMatcher::reinhardTransfer(float* srcPixels, int srcWidth, int srcHeight,
                                           const float* refPixels, int refWidth, int refHeight,
                                           float intensity) {
-    const int srcTotal = srcWidth * srcHeight;
-    const int refTotal = refWidth * refHeight;
+    const std::size_t srcTotal = checkedRgbaPixelCount(srcWidth, srcHeight);
+    const std::size_t refTotal = checkedRgbaPixelCount(refWidth, refHeight);
+    if (srcTotal == 0 || refTotal == 0 || !srcPixels || !refPixels) return;
 
     std::vector<float> srcL, srcA, srcB;
     srcL.resize(srcTotal);
     srcA.resize(srcTotal);
     srcB.resize(srcTotal);
-    Parallel::For(0, srcTotal, srcTotal, [&](int i) {
-        int idx = i * 4;
+    Parallel::ForSize(0, srcTotal, srcTotal, [&](std::size_t i) {
+        const std::size_t idx = i * 4u;
         rgbToLab(srcPixels[idx], srcPixels[idx + 1], srcPixels[idx + 2],
                  srcL[i], srcA[i], srcB[i]);
     });
@@ -143,8 +160,8 @@ void AutoColorMatcher::reinhardTransfer(float* srcPixels, int srcWidth, int srcH
     refL.resize(refTotal);
     refA.resize(refTotal);
     refB.resize(refTotal);
-    Parallel::For(0, refTotal, refTotal, [&](int i) {
-        int idx = i * 4;
+    Parallel::ForSize(0, refTotal, refTotal, [&](std::size_t i) {
+        const std::size_t idx = i * 4u;
         rgbToLab(refPixels[idx], refPixels[idx + 1], refPixels[idx + 2],
                  refL[i], refA[i], refB[i]);
     });
@@ -157,7 +174,7 @@ void AutoColorMatcher::reinhardTransfer(float* srcPixels, int srcWidth, int srcH
     auto refStatsA = computeChannelStats(refA.data(), refTotal);
     auto refStatsB = computeChannelStats(refB.data(), refTotal);
 
-    Parallel::For(0, srcTotal, srcTotal, [&](int i) {
+    Parallel::ForSize(0, srcTotal, srcTotal, [&](std::size_t i) {
         float newL = static_cast<float>(
             (srcL[i] - srcStatsL.mean) * (refStatsL.stddev / srcStatsL.stddev) + refStatsL.mean);
         float newA = static_cast<float>(
@@ -169,7 +186,7 @@ void AutoColorMatcher::reinhardTransfer(float* srcPixels, int srcWidth, int srcH
         float finalA = srcA[i] + (newA - srcA[i]) * intensity;
         float finalB_lab = srcB[i] + (newB_lab - srcB[i]) * intensity;
 
-        int idx = i * 4;
+        const std::size_t idx = i * 4u;
         labToRgb(finalL, finalA, finalB_lab,
                  srcPixels[idx], srcPixels[idx + 1], srcPixels[idx + 2]);
     });
@@ -182,15 +199,16 @@ void AutoColorMatcher::reinhardTransfer(float* srcPixels, int srcWidth, int srcH
 void AutoColorMatcher::meanStddevMatch(float* srcPixels, int srcWidth, int srcHeight,
                                          const float* refPixels, int refWidth, int refHeight,
                                          float intensity) {
-    const int srcTotal = srcWidth * srcHeight;
-    const int refTotal = refWidth * refHeight;
+    const std::size_t srcTotal = checkedRgbaPixelCount(srcWidth, srcHeight);
+    const std::size_t refTotal = checkedRgbaPixelCount(refWidth, refHeight);
+    if (srcTotal == 0 || refTotal == 0 || !srcPixels || !refPixels) return;
 
     std::vector<float> srcR, srcG, srcBch;
     srcR.resize(srcTotal);
     srcG.resize(srcTotal);
     srcBch.resize(srcTotal);
-    Parallel::For(0, srcTotal, srcTotal, [&](int i) {
-        int idx = i * 4;
+    Parallel::ForSize(0, srcTotal, srcTotal, [&](std::size_t i) {
+        const std::size_t idx = i * 4u;
         srcR[i] = srcPixels[idx]; srcG[i] = srcPixels[idx + 1]; srcBch[i] = srcPixels[idx + 2];
     });
 
@@ -198,8 +216,8 @@ void AutoColorMatcher::meanStddevMatch(float* srcPixels, int srcWidth, int srcHe
     refR.resize(refTotal);
     refG.resize(refTotal);
     refBch.resize(refTotal);
-    Parallel::For(0, refTotal, refTotal, [&](int i) {
-        int idx = i * 4;
+    Parallel::ForSize(0, refTotal, refTotal, [&](std::size_t i) {
+        const std::size_t idx = i * 4u;
         refR[i] = refPixels[idx]; refG[i] = refPixels[idx + 1]; refBch[i] = refPixels[idx + 2];
     });
 
@@ -211,8 +229,8 @@ void AutoColorMatcher::meanStddevMatch(float* srcPixels, int srcWidth, int srcHe
     auto rG = computeChannelStats(refG.data(), refTotal);
     auto rB = computeChannelStats(refBch.data(), refTotal);
 
-    Parallel::For(0, srcTotal, srcTotal, [&](int i) {
-        int idx = i * 4;
+    Parallel::ForSize(0, srcTotal, srcTotal, [&](std::size_t i) {
+        const std::size_t idx = i * 4u;
         float newR = static_cast<float>((srcPixels[idx]     - sR.mean) * (rR.stddev / sR.stddev) + rR.mean);
         float newG = static_cast<float>((srcPixels[idx + 1] - sG.mean) * (rG.stddev / sG.stddev) + rG.mean);
         float newB = static_cast<float>((srcPixels[idx + 2] - sB.mean) * (rB.stddev / sB.stddev) + rB.mean);
@@ -227,32 +245,36 @@ void AutoColorMatcher::meanStddevMatch(float* srcPixels, int srcWidth, int srcHe
 // Histogram Matching
 // ============================================================
 
-static void buildCDF(const float* channel, int count, float cdf[256]) {
-    constexpr int kChunkSize = 4096;
-    const int chunkCount = (count + kChunkSize - 1) / kChunkSize;
+static void buildCDF(const float* channel, std::size_t count, float cdf[256]) {
+    constexpr std::size_t kChunkSize = 4096;
+    const std::size_t chunkCount = count / kChunkSize +
+                                   (count % kChunkSize != 0 ? 1u : 0u);
     std::vector<std::array<int, 256>> partialHist;
-    partialHist.resize(static_cast<size_t>(chunkCount));
-    Parallel::For(0, chunkCount, count, [&](int chunk) {
-        auto& hist = partialHist[static_cast<size_t>(chunk)];
+    partialHist.resize(chunkCount);
+    Parallel::ForSize(0, chunkCount, count, [&](std::size_t chunk) {
+        auto& hist = partialHist[chunk];
         hist.fill(0);
-        const int begin = chunk * kChunkSize;
-        const int end = std::min(count, begin + kChunkSize);
-        for (int i = begin; i < end; ++i) {
+        const std::size_t begin = chunk * kChunkSize;
+        const std::size_t end = begin + std::min(kChunkSize, count - begin);
+        for (std::size_t i = begin; i < end; ++i) {
             const int bin = std::clamp(static_cast<int>(channel[i] * 255.0f), 0, 255);
             ++hist[static_cast<size_t>(bin)];
         }
     });
 
-    std::array<int, 256> hist{};
+    std::array<std::uint64_t, 256> hist{};
     for (const auto& partial : partialHist) {
         for (int bin = 0; bin < 256; ++bin) {
-            hist[static_cast<size_t>(bin)] += partial[static_cast<size_t>(bin)];
+            hist[static_cast<std::size_t>(bin)] +=
+                static_cast<std::uint64_t>(partial[static_cast<std::size_t>(bin)]);
         }
     }
-    float invCount = 1.0f / std::max(1, count);
-    cdf[0] = hist[0] * invCount;
+    const double invCount = 1.0 / static_cast<double>(
+        std::max<std::size_t>(1, count));
+    cdf[0] = static_cast<float>(static_cast<double>(hist[0]) * invCount);
     for (int i = 1; i < 256; ++i) {
-        cdf[i] = cdf[i - 1] + hist[i] * invCount;
+        cdf[i] = cdf[i - 1] + static_cast<float>(
+            static_cast<double>(hist[static_cast<std::size_t>(i)]) * invCount);
     }
 }
 
@@ -272,23 +294,29 @@ static float matchCDF(float value, const float srcCDF[256], const float refCDF[2
 void AutoColorMatcher::histogramMatch(float* srcPixels, int srcWidth, int srcHeight,
                                         const float* refPixels, int refWidth, int refHeight,
                                         float intensity) {
-    const int srcTotal = srcWidth * srcHeight;
-    const int refTotal = refWidth * refHeight;
+    const std::size_t srcTotal = checkedRgbaPixelCount(srcWidth, srcHeight);
+    const std::size_t refTotal = checkedRgbaPixelCount(refWidth, refHeight);
+    if (srcTotal == 0 || refTotal == 0 || !srcPixels || !refPixels) return;
 
     for (int ch = 0; ch < 3; ++ch) {
         std::vector<float> srcCh, refCh;
         srcCh.resize(srcTotal);
         refCh.resize(refTotal);
-        Parallel::For(0, srcTotal, srcTotal, [&](int i) { srcCh[i] = srcPixels[i * 4 + ch]; });
-        Parallel::For(0, refTotal, refTotal, [&](int i) { refCh[i] = refPixels[i * 4 + ch]; });
+        Parallel::ForSize(0, srcTotal, srcTotal, [&](std::size_t i) {
+            srcCh[i] = srcPixels[i * 4u + static_cast<std::size_t>(ch)];
+        });
+        Parallel::ForSize(0, refTotal, refTotal, [&](std::size_t i) {
+            refCh[i] = refPixels[i * 4u + static_cast<std::size_t>(ch)];
+        });
 
         float srcCDF[256], refCDF[256];
         buildCDF(srcCh.data(), srcTotal, srcCDF);
         buildCDF(refCh.data(), refTotal, refCDF);
 
-        Parallel::For(0, srcTotal, srcTotal, [&](int i) {
-            float matched = matchCDF(srcPixels[i * 4 + ch], srcCDF, refCDF);
-            srcPixels[i * 4 + ch] = srcPixels[i * 4 + ch] + (matched - srcPixels[i * 4 + ch]) * intensity;
+        Parallel::ForSize(0, srcTotal, srcTotal, [&](std::size_t i) {
+            const std::size_t index = i * 4u + static_cast<std::size_t>(ch);
+            float matched = matchCDF(srcPixels[index], srcCDF, refCDF);
+            srcPixels[index] = srcPixels[index] + (matched - srcPixels[index]) * intensity;
         });
     }
 }
@@ -319,16 +347,23 @@ AutoColorMatcher::MatchResult AutoColorMatcher::computeMatch(
     int refWidth, int refHeight,
     Method /*method*/)
 {
-    const int srcTotal = srcWidth * srcHeight;
-    const int refTotal = refWidth * refHeight;
     MatchResult result;
+    const std::size_t srcTotal = checkedRgbaPixelCount(srcWidth, srcHeight);
+    const std::size_t refTotal = checkedRgbaPixelCount(refWidth, refHeight);
+    if (srcTotal == 0 || refTotal == 0 || !srcPixels || !refPixels) {
+        return result;
+    }
 
     for (int ch = 0; ch < 3; ++ch) {
         std::vector<float> srcCh, refCh;
         srcCh.resize(srcTotal);
         refCh.resize(refTotal);
-        Parallel::For(0, srcTotal, srcTotal, [&](int i) { srcCh[i] = srcPixels[i * 4 + ch]; });
-        Parallel::For(0, refTotal, refTotal, [&](int i) { refCh[i] = refPixels[i * 4 + ch]; });
+        Parallel::ForSize(0, srcTotal, srcTotal, [&](std::size_t i) {
+            srcCh[i] = srcPixels[i * 4u + static_cast<std::size_t>(ch)];
+        });
+        Parallel::ForSize(0, refTotal, refTotal, [&](std::size_t i) {
+            refCh[i] = refPixels[i * 4u + static_cast<std::size_t>(ch)];
+        });
 
         auto srcStats = computeChannelStats(srcCh.data(), srcTotal);
         auto refStats = computeChannelStats(refCh.data(), refTotal);
@@ -354,9 +389,10 @@ AutoColorMatcher::MatchResult AutoColorMatcher::computeMatch(
 
 void AutoColorMatcher::applyMatch(float* pixels, int width, int height,
                                     const MatchResult& result, float intensity) {
-    const int total = width * height;
-    Parallel::For(0, total, total, [&](int i) {
-        int idx = i * 4;
+    const std::size_t total = checkedRgbaPixelCount(width, height);
+    if (total == 0 || !pixels) return;
+    Parallel::ForSize(0, total, total, [&](std::size_t i) {
+        const std::size_t idx = i * 4u;
         float r = pixels[idx] * result.scaleR + result.offsetR;
         float g = pixels[idx + 1] * result.scaleG + result.offsetG;
         float b = pixels[idx + 2] * result.scaleB + result.offsetB;

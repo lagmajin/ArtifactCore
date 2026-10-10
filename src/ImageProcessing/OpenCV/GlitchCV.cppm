@@ -64,7 +64,7 @@ cv::Mat glitchEffect(const cv::Mat& input, const GlitchParams& params) {
 
     // 3. Scanline overlay
     if (params.scanlines > 0.0f) {
-        Parallel::For(0, (result.rows + 1) / 2, result.rows * result.cols, [&](int scanline) {
+        Parallel::ForPixels(0, (result.rows + 1) / 2, result.cols, result.rows, [&](int scanline) {
             const int y = scanline * 2;
             cv::Mat row = result.row(y);
             row *= (1.0f - params.scanlines * 0.5f);

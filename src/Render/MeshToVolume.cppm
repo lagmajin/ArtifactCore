@@ -184,7 +184,7 @@ bool MeshToVolumeConverter::convertToScalarField(const VolumeAABB& bounds, Volum
     const float voxelDiag = std::sqrt(extent.x * extent.x + extent.y * extent.y + extent.z * extent.z)
         * std::sqrt(invW * invW + invH * invH + invD * invD) * 0.5f;
 
-    Parallel::For(0, res.depth, res.width * res.height, [&](int z) {
+    Parallel::ForVolumeSlices(res.width, res.height, res.depth, [&](int z) {
         float* slice = field.data + static_cast<std::size_t>(z) * static_cast<std::size_t>(res.width) * static_cast<std::size_t>(res.height);
         for (int y = 0; y < res.height; ++y) {
             float* row = slice + static_cast<std::size_t>(y) * static_cast<std::size_t>(res.width);

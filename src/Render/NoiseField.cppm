@@ -457,7 +457,7 @@ void fillScalarField(VolumeScalarField& field, const NoiseScalarFunc& noiseFn) n
     const float invH = res.height > 1 ? 1.0f / static_cast<float>(res.height) : 1.0f;
     const float invD = res.depth > 1 ? 1.0f / static_cast<float>(res.depth) : 1.0f;
 
-    Parallel::For(0, res.depth, res.width * res.height, [&](int z) {
+    Parallel::ForVolumeSlices(res.width, res.height, res.depth, [&](int z) {
         for (int y = 0; y < res.height; ++y) {
             for (int x = 0; x < res.width; ++x) {
                 const float fx = static_cast<float>(x) * invW;
@@ -476,7 +476,7 @@ void fillScalarFieldFBM(VolumeScalarField& field, const NoiseSettings& settings)
     const float invH = res.height > 1 ? 1.0f / static_cast<float>(res.height) : 1.0f;
     const float invD = res.depth > 1 ? 1.0f / static_cast<float>(res.depth) : 1.0f;
 
-    Parallel::For(0, res.depth, res.width * res.height, [&](int z) {
+    Parallel::ForVolumeSlices(res.width, res.height, res.depth, [&](int z) {
         float* slice = field.data + static_cast<std::size_t>(z) * static_cast<std::size_t>(res.width) * static_cast<std::size_t>(res.height);
         for (int y = 0; y < res.height; ++y) {
             float* row = slice + static_cast<std::size_t>(y) * static_cast<std::size_t>(res.width);
@@ -497,7 +497,7 @@ void fillScalarFieldTurbulence(VolumeScalarField& field, const NoiseSettings& se
     const float invH = res.height > 1 ? 1.0f / static_cast<float>(res.height) : 1.0f;
     const float invD = res.depth > 1 ? 1.0f / static_cast<float>(res.depth) : 1.0f;
 
-    Parallel::For(0, res.depth, res.width * res.height, [&](int z) {
+    Parallel::ForVolumeSlices(res.width, res.height, res.depth, [&](int z) {
         float* slice = field.data + static_cast<std::size_t>(z) * static_cast<std::size_t>(res.width) * static_cast<std::size_t>(res.height);
         for (int y = 0; y < res.height; ++y) {
             float* row = slice + static_cast<std::size_t>(y) * static_cast<std::size_t>(res.width);
@@ -518,7 +518,7 @@ void fillScalarFieldWorley(VolumeScalarField& field, bool inverse, std::uint32_t
     const float invH = res.height > 1 ? 1.0f / static_cast<float>(res.height) : 1.0f;
     const float invD = res.depth > 1 ? 1.0f / static_cast<float>(res.depth) : 1.0f;
 
-    Parallel::For(0, res.depth, res.width * res.height, [&](int z) {
+    Parallel::ForVolumeSlices(res.width, res.height, res.depth, [&](int z) {
         float* slice = field.data + static_cast<std::size_t>(z) * static_cast<std::size_t>(res.width) * static_cast<std::size_t>(res.height);
         for (int y = 0; y < res.height; ++y) {
             float* row = slice + static_cast<std::size_t>(y) * static_cast<std::size_t>(res.width);
@@ -539,7 +539,7 @@ void fillVectorFieldCurl(VolumeVectorField& field, const NoiseSettings& settings
     const float invH = res.height > 1 ? 1.0f / static_cast<float>(res.height) : 1.0f;
     const float invD = res.depth > 1 ? 1.0f / static_cast<float>(res.depth) : 1.0f;
 
-    Parallel::For(0, res.depth, res.width * res.height, [&](int z) {
+    Parallel::ForVolumeSlices(res.width, res.height, res.depth, [&](int z) {
         Vec3* slice = field.data + static_cast<std::size_t>(z) * static_cast<std::size_t>(res.width) * static_cast<std::size_t>(res.height);
         for (int y = 0; y < res.height; ++y) {
             Vec3* row = slice + static_cast<std::size_t>(y) * static_cast<std::size_t>(res.width);

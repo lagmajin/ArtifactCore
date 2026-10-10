@@ -104,7 +104,7 @@ cv::Mat vhsEffect(const cv::Mat& input, const VHSParams& params) {
             shifts[y] = static_cast<int>(wobbleOffset + trackingOffset);
         }
 
-        Parallel::For(0, result.rows, result.rows * result.cols, [&](int y) {
+        Parallel::ForPixels(0, result.rows, result.cols, result.rows, [&](int y) {
             const int shift = shifts[y];
             if (shift == 0) return;
 
@@ -157,7 +157,7 @@ cv::Mat scanlineOverlay(const cv::Mat& input, float gap, float intensity) {
     int step = std::max(1, static_cast<int>(gap));
 
     if (result.depth() == CV_32F) {
-        Parallel::For(0, result.rows, result.rows * result.cols, [&](int y) {
+        Parallel::ForPixels(0, result.rows, result.cols, result.rows, [&](int y) {
             if (y % step != 0) return;
             float* row = result.ptr<float>(y);
             const int count = result.cols * result.channels();
@@ -167,7 +167,8 @@ cv::Mat scanlineOverlay(const cv::Mat& input, float gap, float intensity) {
         });
     } else {
         const int scanlineCount = (result.rows + step - 1) / step;
-        Parallel::For(0, scanlineCount, scanlineCount * result.cols, [&](int index) {
+        Parallel::ForPixels(0, scanlineCount, result.cols, scanlineCount,
+                            [&](int index) {
             cv::Mat row = result.row(index * step);
             row *= (1.0 - static_cast<double>(intensity));
         });
