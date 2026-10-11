@@ -19,17 +19,18 @@ cbuffer MatteTrackParams : register(b0)
     uint  g_MatteBlendMode0;     // 0=Add, 1=Intersect, 2=Subtract, 3=Difference
     uint  g_MatteBlendMode1;
     uint  g_MatteBlendMode2;
-    uint  g_LumaMode;             // 0=Rec.601, 1=Rec.709 (for luminance extraction)
+    uint  g_LumaMode;             // bit 0: 0=Rec.601, 1=Rec.709; bit 1: prior mask is bound
     float g_MatteOpacity0;
     float g_MatteOpacity1;
     float g_MatteOpacity2;
-    uint  g_Padding;
+    uint  g_OutputMaskOnly;
 };
 
 Texture2D<float4>  g_LayerTex    : register(t0);
 Texture2D<float4>  g_MatteSrc0   : register(t1);
 Texture2D<float4>  g_MatteSrc1   : register(t2);
 Texture2D<float4>  g_MatteSrc2   : register(t3);
+Texture2D<float4>  g_PriorMask   : register(t4);
 RWTexture2D<float4> g_OutTex     : register(u0);
 
 // Luminance coefficients
@@ -67,14 +68,21 @@ void MatteTrackCS(uint3 id : SV_DispatchThreadID)
     g_OutTex.GetDimensions(dims.x, dims.y);
     if (id.x >= dims.x || id.y >= dims.y) return;
 
-    float3 lumaCoeffs = (g_LumaMode == 1) ? kLumaRec709 : kLumaRec601;
+    const bool hasPriorMask = (g_LumaMode & 2u) != 0;
+    float3 lumaCoeffs = ((g_LumaMode & 1u) == 1u)
+        ? kLumaRec709 : kLumaRec601;
 
-    // Start with full-opacity mask; combine each source
-    float combinedMask = 1.0f;
+    // Start from an optional prior batch mask; otherwise the first source seeds it.
+    float combinedMask = hasPriorMask
+        ? saturate(g_PriorMask.Load(int3(id.xy, 0)).r)
+        : 1.0f;
 
     [branch] if (g_MatteCount > 0) {
         float4 matteColor = g_MatteSrc0.Load(int3(id.xy, 0));
-        combinedMask = extractMask(matteColor, g_MatteMode0, lumaCoeffs) * g_MatteOpacity0;
+        float mask = extractMask(matteColor, g_MatteMode0, lumaCoeffs) * g_MatteOpacity0;
+        combinedMask = hasPriorMask
+            ? combineMasks(combinedMask, mask, g_MatteBlendMode0)
+            : mask;
     }
 
     [branch] if (g_MatteCount > 1) {
@@ -87,6 +95,11 @@ void MatteTrackCS(uint3 id : SV_DispatchThreadID)
         float4 matteColor = g_MatteSrc2.Load(int3(id.xy, 0));
         float mask = extractMask(matteColor, g_MatteMode2, lumaCoeffs) * g_MatteOpacity2;
         combinedMask = combineMasks(combinedMask, mask, g_MatteBlendMode2);
+    }
+
+    if (g_OutputMaskOnly != 0) {
+        g_OutTex[id.xy] = combinedMask.xxxx;
+        return;
     }
 
     // Apply mask to layer (uniform premultiplied-alpha multiply)

@@ -175,7 +175,9 @@ export namespace ArtifactCore
    ITextureView* outUAV,
    const MatteTrackParams& params,
    Uint32 width,
-   Uint32 height
+   Uint32 height,
+   ITextureView* priorMaskSRV = nullptr,
+   bool outputMaskOnly = false
   );
 
   bool applyPointwise(

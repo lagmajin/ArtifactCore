@@ -19,13 +19,16 @@ struct ChromaKeyParams {
     float clipBlack = 0.0f;
     float clipWhite = 1.0f;
     float despillStrength = 0.7f;
-    int despillMode = 1; // 0=Off, 1=ChannelSuppress, 2=LuminancePreserve
+    int despillMode = 1; // 0=Off, 1=ChannelSuppress, 2=LuminancePreserve, 3=TargetNeutral
     float choke = 0.0f; // -1..1 (negative=dilate, positive=erode), ~3px max
     float matteBlur = 0.0f; // 0..2, 3x3 box blend factor source
     int viewMode = 0; // 0=Final, 1=ScreenMatte, 2=DespillMap, 3=Status
+    float detailRecovery = 0.0f; // 0..1, restores fine edge details
+    float lightWrapIntensity = 0.0f; // 0..1, ambient edge wrap strength
+    float lightWrapWidth = 4.0f; // 1..16 pixels wrap radius
 };
 
-// Must match the ChromaKey HLSL constant buffer layout (16-byte aligned).
+// Must match the ChromaKey HLSL constant buffer layout (16-byte aligned, 64 bytes total).
 struct ChromaKeyGpuParams {
     float keyR = 0.0f;
     float keyG = 1.0f;
@@ -40,9 +43,9 @@ struct ChromaKeyGpuParams {
     std::int32_t viewMode = 0;
     float choke = 0.0f;
     float matteBlur = 0.0f;
-    float pad1 = 0.0f;
-    float pad2 = 0.0f;
-    float pad3 = 0.0f;
+    float detailRecovery = 0.0f;
+    float lightWrapIntensity = 0.0f;
+    float lightWrapWidth = 4.0f;
 
     static ChromaKeyGpuParams fromParams(const ChromaKeyParams& source);
 };

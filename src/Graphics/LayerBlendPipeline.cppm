@@ -224,6 +224,7 @@ bool LayerBlendPipeline::createMatteTrackExecutor()
         {SHADER_TYPE_COMPUTE, "g_MatteSrc0", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_COMPUTE, "g_MatteSrc1", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_COMPUTE, "g_MatteSrc2", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_COMPUTE, "g_PriorMask", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_COMPUTE, "g_OutTex",    SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     };
     matteTrackExecutor_ = std::make_unique<ComputeExecutor>(*context_);
@@ -233,7 +234,7 @@ bool LayerBlendPipeline::createMatteTrackExecutor()
     desc.entryPoint = Shaders::MatteTrack::MatteTrackEntryPoint;
     desc.sourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
     desc.variables = vars;
-    desc.variableCount = 6;
+    desc.variableCount = 7;
     desc.defaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
     if (!matteTrackExecutor_->build(desc)) {
         qWarning() << "[LayerBlendPipeline] MatteTrack PSO build failed";
@@ -262,10 +263,14 @@ bool LayerBlendPipeline::applyTrackMatte(
     ITextureView* outUAV,
     const MatteTrackParams& params,
     Uint32 width,
-    Uint32 height)
+    Uint32 height,
+    ITextureView* priorMaskSRV,
+    bool outputMaskOnly)
 {
-    if (!ctx || !layerSRV || !matteSrc0SRV || !outUAV ||
-        width == 0 || height == 0 || params.matteCount == 0 ||
+    if (!ctx || !layerSRV || !outUAV ||
+        width == 0 || height == 0 ||
+        (params.matteCount == 0 && !priorMaskSRV) ||
+        (params.matteCount > 0 && !matteSrc0SRV) ||
         params.matteCount > 3 ||
         (params.matteCount > 1 && !matteSrc1SRV) ||
         (params.matteCount > 2 && !matteSrc2SRV)) {
@@ -276,11 +281,15 @@ bool LayerBlendPipeline::applyTrackMatte(
     const auto* matteTexture0 = matteSrc0SRV->GetTexture();
     const auto* matteTexture1 = matteSrc1SRV ? matteSrc1SRV->GetTexture() : nullptr;
     const auto* matteTexture2 = matteSrc2SRV ? matteSrc2SRV->GetTexture() : nullptr;
+    const auto* priorMaskTexture = priorMaskSRV ? priorMaskSRV->GetTexture() : nullptr;
     const auto* outTexture = outUAV->GetTexture();
-    if (!layerTexture || !matteTexture0 || !outTexture ||
-        layerTexture == outTexture || matteTexture0 == outTexture ||
+    if (!layerTexture || !outTexture ||
+        (params.matteCount > 0 && !matteTexture0) ||
+        layerTexture == outTexture ||
+        (matteTexture0 && matteTexture0 == outTexture) ||
         (matteTexture1 && matteTexture1 == outTexture) ||
-        (matteTexture2 && matteTexture2 == outTexture)) {
+        (matteTexture2 && matteTexture2 == outTexture) ||
+        (priorMaskTexture && priorMaskTexture == outTexture)) {
         qWarning() << "[LayerBlendPipeline::applyTrackMatte] invalid resource alias";
         return false;
     }
@@ -293,6 +302,7 @@ bool LayerBlendPipeline::applyTrackMatte(
     };
     if (!dimensionsMatch(layerTexture) || !dimensionsMatch(matteTexture0) ||
         !dimensionsMatch(matteTexture1) || !dimensionsMatch(matteTexture2) ||
+        !dimensionsMatch(priorMaskTexture) ||
         !dimensionsMatch(outTexture)) {
         qWarning() << "[LayerBlendPipeline::applyTrackMatte] texture contract mismatch"
                    << "requested=" << width << "x" << height;
@@ -316,18 +326,24 @@ bool LayerBlendPipeline::applyTrackMatte(
     }
     MatteTrackParams sanitizedParams = params;
     sanitizeMatteOpacities(sanitizedParams);
+    sanitizedParams.lumaMode = (sanitizedParams.lumaMode & 1u) |
+        (priorMaskSRV ? 2u : 0u);
+    sanitizedParams._pad0 = outputMaskOnly ? 1u : 0u;
     memcpy(pData, &sanitizedParams, sizeof(sanitizedParams));
     ctx->UnmapBuffer(pImpl_->pMatteTrackCB_, MAP_WRITE);
 
     // Keep all declared SRV slots bound. Unused slots reuse source 0, while
     // the count checks above still require every actually sampled source.
-    auto* safeMatteSrc1 = matteSrc1SRV ? matteSrc1SRV : matteSrc0SRV;
-    auto* safeMatteSrc2 = matteSrc2SRV ? matteSrc2SRV : matteSrc0SRV;
+    auto* safeMatteSrc0 = matteSrc0SRV ? matteSrc0SRV : layerSRV;
+    auto* safeMatteSrc1 = matteSrc1SRV ? matteSrc1SRV : safeMatteSrc0;
+    auto* safeMatteSrc2 = matteSrc2SRV ? matteSrc2SRV : safeMatteSrc0;
+    auto* safePriorMask = priorMaskSRV ? priorMaskSRV : safeMatteSrc0;
     if (!matteTrackExecutor_->setTextureView("g_LayerTex", layerSRV) ||
         !matteTrackExecutor_->setBuffer("MatteTrackParams", pImpl_->pMatteTrackCB_) ||
-        !matteTrackExecutor_->setTextureView("g_MatteSrc0", matteSrc0SRV) ||
+        !matteTrackExecutor_->setTextureView("g_MatteSrc0", safeMatteSrc0) ||
         !matteTrackExecutor_->setTextureView("g_MatteSrc1", safeMatteSrc1) ||
         !matteTrackExecutor_->setTextureView("g_MatteSrc2", safeMatteSrc2) ||
+        !matteTrackExecutor_->setTextureView("g_PriorMask", safePriorMask) ||
         !matteTrackExecutor_->setTextureView("g_OutTex", outUAV)) {
         qWarning() << "[LayerBlendPipeline::applyTrackMatte] failed to bind texture views";
         return false;

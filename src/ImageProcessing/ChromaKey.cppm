@@ -66,12 +66,24 @@ void despillPixel(float& r, float& g, float& b, float kr, float kg, float kb,
             const float excess = std::max(0.0f, b - std::max(r, g));
             b -= excess * spill;
         }
-    } else {
+    } else if (mode == 2) {
         // Luminance-preserving desaturation toward luma.
         const float y = r * 0.299f + g * 0.587f + b * 0.114f;
         r += (y - r) * spill;
         g += (y - g) * spill;
         b += (y - b) * spill;
+    } else if (mode == 3) {
+        // TargetNeutral: Replace excess key channel with average of the other two, preserving natural tone.
+        if (kg >= kr && kg >= kb) {
+            const float target = (r + b) * 0.5f;
+            if (g > target) g = std::max(target, g - (g - target) * spill);
+        } else if (kr >= kg && kr >= kb) {
+            const float target = (g + b) * 0.5f;
+            if (r > target) r = std::max(target, r - (r - target) * spill);
+        } else {
+            const float target = (r + g) * 0.5f;
+            if (b > target) b = std::max(target, b - (b - target) * spill);
+        }
     }
     r = std::max(0.0f, r);
     g = std::max(0.0f, g);
@@ -93,11 +105,13 @@ ChromaKeyGpuParams ChromaKeyGpuParams::fromParams(const ChromaKeyParams& source)
     if (result.clipWhite < result.clipBlack + 1.0e-4f)
         result.clipWhite = std::min(1.0f, result.clipBlack + 1.0e-4f);
     result.despillStrength = std::clamp(finiteOr(source.despillStrength, 0.7f), 0.0f, 1.0f);
-    result.despillMode = std::clamp(source.despillMode, 0, 2);
+    result.despillMode = std::clamp(source.despillMode, 0, 3);
     result.viewMode = std::clamp(source.viewMode, 0, 3);
     result.choke = std::clamp(finiteOr(source.choke, 0.0f), -1.0f, 1.0f);
     result.matteBlur = std::clamp(finiteOr(source.matteBlur, 0.0f), 0.0f, 2.0f);
-    result.pad1 = result.pad2 = result.pad3 = 0.0f;
+    result.detailRecovery = std::clamp(finiteOr(source.detailRecovery, 0.0f), 0.0f, 1.0f);
+    result.lightWrapIntensity = std::clamp(finiteOr(source.lightWrapIntensity, 0.0f), 0.0f, 1.0f);
+    result.lightWrapWidth = std::clamp(finiteOr(source.lightWrapWidth, 4.0f), 1.0f, 16.0f);
     return result;
 }
 
@@ -125,10 +139,13 @@ bool processChromaKey(const ChromaKeyBuffers& buffers, const ChromaKeyParams& in
     if (p.clipWhite < p.clipBlack + 1.0e-4f)
         p.clipWhite = std::min(1.0f, p.clipBlack + 1.0e-4f);
     p.despillStrength = std::clamp(finiteOr(p.despillStrength, 0.7f), 0.0f, 1.0f);
-    p.despillMode = std::clamp(p.despillMode, 0, 2);
+    p.despillMode = std::clamp(p.despillMode, 0, 3);
     p.choke = std::clamp(finiteOr(p.choke, 0.0f), -1.0f, 1.0f);
     p.matteBlur = std::clamp(finiteOr(p.matteBlur, 0.0f), 0.0f, 2.0f);
     p.viewMode = std::clamp(p.viewMode, 0, 3);
+    p.detailRecovery = std::clamp(finiteOr(p.detailRecovery, 0.0f), 0.0f, 1.0f);
+    p.lightWrapIntensity = std::clamp(finiteOr(p.lightWrapIntensity, 0.0f), 0.0f, 1.0f);
+    p.lightWrapWidth = std::clamp(finiteOr(p.lightWrapWidth, 4.0f), 1.0f, 16.0f);
 
     const YCbCr key = rgbToYCbCr(p.keyColor.x, p.keyColor.y, p.keyColor.z);
     const int w = buffers.width;
@@ -149,6 +166,11 @@ bool processChromaKey(const ChromaKeyBuffers& buffers, const ChromaKeyParams& in
                 }
                 float alpha = baseAlphaFor(r, g, b, key, p.hueTolerance,
                                            p.edgeSoftness, p.clipBlack, p.clipWhite);
+                if (p.detailRecovery > 1.0e-4f && alpha > 0.0f && alpha < 1.0f) {
+                    const float unclipped = baseAlphaFor(r, g, b, key, p.hueTolerance,
+                                                        p.edgeSoftness, 0.0f, 1.0f);
+                    alpha = std::clamp(alpha + (unclipped - alpha) * p.detailRecovery, 0.0f, 1.0f);
+                }
                 despillPixel(r, g, b, p.keyColor.x, p.keyColor.y, p.keyColor.z,
                              alpha, p.despillStrength, p.despillMode);
                 const float outA = std::clamp(srcA * alpha, 0.0f, 1.0f);
@@ -179,12 +201,11 @@ bool processChromaKey(const ChromaKeyBuffers& buffers, const ChromaKeyParams& in
     if (p.viewMode != 0)
         return true;
 
-    // Pass 2: edge finishing on the alpha plane only. Bounded temp plane
-    // (W*H floats); skipped entirely when choke/blur are zero. Same
-    // exception rationale as IBK's per-frame matte buffer.
+    // Pass 2: edge finishing on the alpha plane only.
     const bool needChoke = std::abs(p.choke) > 1.0e-4f;
     const bool needBlur = p.matteBlur > 1.0e-4f;
-    if (!needChoke && !needBlur)
+    const bool needLightWrap = p.lightWrapIntensity > 1.0e-4f;
+    if (!needChoke && !needBlur && !needLightWrap)
         return true;
 
     std::vector<float> matte(pixelCount);
@@ -239,6 +260,45 @@ bool processChromaKey(const ChromaKeyBuffers& buffers, const ChromaKeyParams& in
 
     for (std::size_t i = 0; i < pixelCount; ++i)
         buffers.dst[i * 4 + 3] = std::clamp(matte[i], 0.0f, 1.0f);
+
+    // Pass 3: Light Wrap edge luminance blend if requested
+    if (needLightWrap) {
+        const int wrapRadius = std::clamp(static_cast<int>(p.lightWrapWidth + 0.5f), 1, 16);
+        const float intensity = p.lightWrapIntensity;
+        Parallel::ForTiles(w, h, 16, 16, [&](int x0, int y0, int x1, int y1) {
+            for (int y = y0; y < y1; ++y) {
+                for (int x = x0; x < x1; ++x) {
+                    const std::size_t idx = static_cast<std::size_t>(y) * width + static_cast<std::size_t>(x);
+                    const float a = buffers.dst[idx * 4 + 3];
+                    // Apply light wrap predominantly around the transition edge (0 < a < 0.95)
+                    if (a <= 0.001f || a >= 0.98f) continue;
+                    const float edgeWeight = (1.0f - a) * intensity;
+                    float* d = buffers.dst + idx * 4;
+                    // Gather ambient neighbor color across wrapRadius
+                    float ambR = 0.0f, ambG = 0.0f, ambB = 0.0f;
+                    int count = 0;
+                    for (int dy = -wrapRadius; dy <= wrapRadius; dy += 2) {
+                        for (int dx = -wrapRadius; dx <= wrapRadius; dx += 2) {
+                            const int sx = std::clamp(x + dx, 0, w - 1);
+                            const int sy = std::clamp(y + dy, 0, h - 1);
+                            const std::size_t sidx = static_cast<std::size_t>(sy) * width + static_cast<std::size_t>(sx);
+                            ambR += buffers.dst[sidx * 4 + 0];
+                            ambG += buffers.dst[sidx * 4 + 1];
+                            ambB += buffers.dst[sidx * 4 + 2];
+                            ++count;
+                        }
+                    }
+                    if (count > 0) {
+                        ambR /= count; ambG /= count; ambB /= count;
+                        d[0] = std::max(0.0f, d[0] + (ambR - d[0]) * edgeWeight);
+                        d[1] = std::max(0.0f, d[1] + (ambG - d[1]) * edgeWeight);
+                        d[2] = std::max(0.0f, d[2] + (ambB - d[2]) * edgeWeight);
+                    }
+                }
+            }
+        });
+    }
+
     return true;
 }
 
