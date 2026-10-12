@@ -184,9 +184,9 @@ void MpmP2GMain(uint3 DTid : SV_DispatchThreadID) {
             uint idx = ni + nj * GridNx;
             InterlockedAdd(g_GridMass[idx], FloatToOrderedInt(w * p.mass));
             InterlockedAdd(g_GridMomentum[idx].x,
-                FloatToOrderedInt(w * (p.mass * p.vel.x + apicX)));
+                FloatToOrderedInt(w * p.mass * (p.vel.x + apicX)));
             InterlockedAdd(g_GridMomentum[idx].y,
-                FloatToOrderedInt(w * (p.mass * p.vel.y + apicY)));
+                FloatToOrderedInt(w * p.mass * (p.vel.y + apicY)));
         }
     }
 }

@@ -4,6 +4,7 @@ module;
 #include <cstddef>
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <memory>
 #include <QString>
 #include <QVector2D>
@@ -160,6 +161,7 @@ export struct ClothDeformationMesh3D {
  */
 export class PhysicsSystem {
 public:
+    static constexpr int64_t kGranularMaterialSnapshotInterval = 12;
     static PhysicsSystem& instance() {
         // Compositions may outlive other function-local service singletons
         // during CRT teardown and unregister their worlds from here.  Keep this
@@ -221,12 +223,29 @@ public:
     const PhysicsLODSettings& physicsLODSettings() const { return lodSettings_; }
 
     void setPhysicsTimelineSettings(const PhysicsTimelineSettings& settings) {
+        const float requestedFixedTimeStep =
+            std::isfinite(settings.fixedTimeStep)
+                ? settings.fixedTimeStep
+                : 1.0f / 60.0f;
         timelineSettings_.fixedTimeStep = std::clamp(
-            settings.fixedTimeStep, 1.0f / 1000.0f, 1.0f / 15.0f);
+            requestedFixedTimeStep, 1.0f / 1000.0f, 1.0f / 15.0f);
         timelineSettings_.maxSubsteps = std::clamp(settings.maxSubsteps, 1, 64);
         timelineSettings_.maxCachedFrames = std::max<std::size_t>(
             1, settings.maxCachedFrames);
         timelineAccumulator_ = 0.0f;
+        // The granular solvers own their CFL timestep, so a global physics
+        // timeline setting change only invalidates frame checkpoints. Keep
+        // the live granular clocks and rebuild seek history from current
+        // solver state on the next replay.
+        for (auto& [simulationWorldId, worldSnapshots] :
+             granularMaterialSnapshots_) {
+            worldSnapshots.clear();
+            for (const auto& entry : granularMaterialSolvers_) {
+                if (entry.simulationWorldId == simulationWorldId) {
+                    worldSnapshots[entry.layerId];
+                }
+            }
+        }
         invalidatePhysicsSnapshots();
         trimPhysicsSnapshots();
     }
@@ -242,6 +261,7 @@ public:
         materialSnapshots_.clear();
         rigidSnapshots_.clear();
         compositionRigidSnapshots_.clear();
+        granularMaterialSnapshots_.clear();
     }
 
     // Advance every registered solver through the same fixed simulation clock.
@@ -250,8 +270,9 @@ public:
     void advancePhysicsFrame(float frameDeltaSeconds,
                              float gravityX = 0.0f,
                              float gravityY = 9.8f,
-                             bool includeCompositionRigidWorlds = true) {
-        if (frameDeltaSeconds <= 0.0f ||
+                             bool includeCompositionRigidWorlds = true,
+                             std::uint64_t simulationWorldId = 0) {
+        if (!std::isfinite(frameDeltaSeconds) || frameDeltaSeconds <= 0.0f ||
             lodSettings_.level == PhysicsLODLevel::Frozen) {
             return;
         }
@@ -271,6 +292,64 @@ public:
             ++steps;
         }
         fixedTimelineMode_ = false;
+        advanceGranularMaterialSolvers(frameDeltaSeconds, simulationWorldId);
+    }
+
+    bool granularMaterialReplayRequired(
+        std::uint64_t simulationWorldId) const {
+        for (const auto& clock : granularMaterialWorldClocks_) {
+            if (clock.simulationWorldId == simulationWorldId) {
+                return clock.requiresReplay;
+            }
+        }
+        return false;
+    }
+
+    bool hasGranularMaterialSolvers(
+        std::uint64_t simulationWorldId) const {
+        if (simulationWorldId == 0) return false;
+        return std::any_of(
+            granularMaterialSolvers_.begin(), granularMaterialSolvers_.end(),
+            [simulationWorldId](const GranularMaterialSolverEntry& entry) {
+                return entry.simulationWorldId == simulationWorldId &&
+                       static_cast<bool>(entry.solver);
+            });
+    }
+
+    float granularMaterialBacklogSeconds(
+        std::uint64_t simulationWorldId, LayerID layerId) const {
+        if (simulationWorldId == 0) return 0.0f;
+        float solverBacklog = 0.0f;
+        bool foundSolver = false;
+        for (const auto& entry : granularMaterialSolvers_) {
+            if (entry.simulationWorldId != simulationWorldId ||
+                entry.layerId != layerId || !entry.solver) {
+                continue;
+            }
+            solverBacklog = entry.solver->accumulatedTime();
+            foundSolver = true;
+            break;
+        }
+        if (!foundSolver) return 0.0f;
+        float worldBacklog = 0.0f;
+        for (const auto& clock : granularMaterialWorldClocks_) {
+            if (clock.simulationWorldId == simulationWorldId) {
+                worldBacklog = clock.accumulator;
+                break;
+            }
+        }
+        const float total = solverBacklog + worldBacklog;
+        return std::isfinite(total) ? std::max(0.0f, total) : 0.0f;
+    }
+
+    void completeGranularMaterialReplay(
+        std::uint64_t simulationWorldId) {
+        for (auto& clock : granularMaterialWorldClocks_) {
+            if (clock.simulationWorldId == simulationWorldId) {
+                clock.requiresReplay = false;
+                return;
+            }
+        }
     }
 
     // --- Phase 2: Fluid Dynamics ---
@@ -364,21 +443,452 @@ public:
         int columns = 20, int rows = 20,
         MpmMaterialPreset preset = MpmMaterialPreset::Flesh,
         float density = 1000.0f) {
+        if (!std::isfinite(left) || !std::isfinite(top) ||
+            !std::isfinite(width) || !std::isfinite(height) ||
+            !std::isfinite(density) || width <= 0.0f || height <= 0.0f ||
+            density <= 0.0f) {
+            return nullptr;
+        }
         const int safeColumns = std::max(2, columns);
         const int safeRows = std::max(2, rows);
         const float cellSize = std::max(
             1.0f,
             std::max(width / static_cast<float>(safeColumns - 1),
                      height / static_cast<float>(safeRows - 1)));
-        const int gridWidth = std::max(4, static_cast<int>(std::ceil(width / cellSize)) + 4);
-        const int gridHeight = std::max(4, static_cast<int>(std::ceil(height / cellSize)) + 4);
+        const double gridWidthValue =
+            std::ceil(static_cast<double>(width) / cellSize) + 4.0;
+        const double gridHeightValue =
+            std::ceil(static_cast<double>(height) / cellSize) + 4.0;
+        if (!std::isfinite(gridWidthValue) ||
+            !std::isfinite(gridHeightValue) ||
+            gridWidthValue > std::numeric_limits<int>::max() ||
+            gridHeightValue > std::numeric_limits<int>::max()) {
+            return nullptr;
+        }
+        const int gridWidth = std::max(4, static_cast<int>(gridWidthValue));
+        const int gridHeight = std::max(4, static_cast<int>(gridHeightValue));
 
-        auto solver = createMaterialSolver(layerId, preset);
-        solver->setGrid(cellSize, gridWidth, gridHeight);
-        solver->setGridOrigin(left - cellSize * 2.0f, top - cellSize * 2.0f);
+        auto solver = makeShared<MpmSolver2D>();
+        solver->applyMaterialPreset(preset);
+        if (!solver->setGrid(cellSize, gridWidth, gridHeight) ||
+            !solver->setGridOrigin(left - cellSize * 2.0f,
+                                   top - cellSize * 2.0f)) {
+            return nullptr;
+        }
         solver->addParticlesGrid(left + width * 0.5f, top + height * 0.5f,
                                  width, height, safeColumns, safeRows, density);
+        const std::size_t expectedParticleCount =
+            static_cast<std::size_t>(safeColumns) *
+            static_cast<std::size_t>(safeRows);
+        if (solver->particles().size() != expectedParticleCount) {
+            return nullptr;
+        }
+        setMaterialSolver(layerId, solver);
+        invalidatePhysicsSnapshots();
         return solver;
+    }
+
+    SharedPtr<MpmSolver2D> createGranularMaterialGrid(
+        std::uint64_t simulationWorldId, LayerID layerId, float left, float top,
+        float width, float height, float domainLeft, float domainTop,
+        float domainWidth, float domainHeight,
+        int columns, int rows, float youngModulus, float poissonRatio,
+        float frictionAngleRadians, float density, float gravityY,
+        float damping, float supportRadiusLimit) {
+        constexpr float kMaximumFrictionAngleRadians =
+            80.0f * (3.14159265358979323846f / 180.0f);
+        if (simulationWorldId == 0 || layerId.isNil() ||
+            !std::isfinite(left) || !std::isfinite(top) ||
+            !std::isfinite(width) || !std::isfinite(height) ||
+            width <= 0.0f || height <= 0.0f ||
+            !std::isfinite(domainLeft) || !std::isfinite(domainTop) ||
+            !std::isfinite(domainWidth) || !std::isfinite(domainHeight) ||
+            domainWidth <= 0.0f || domainHeight <= 0.0f ||
+            !std::isfinite(youngModulus) || youngModulus < 1.0f ||
+            youngModulus > 1000000.0f || !std::isfinite(poissonRatio) ||
+            poissonRatio < -0.9f || poissonRatio > 0.45f ||
+            !std::isfinite(frictionAngleRadians) ||
+            frictionAngleRadians < 0.0f ||
+            frictionAngleRadians > kMaximumFrictionAngleRadians ||
+            !std::isfinite(supportRadiusLimit) ||
+            supportRadiusLimit <= 0.0f ||
+            !std::isfinite(density) || density < 0.01f || density > 100.0f ||
+            !std::isfinite(gravityY) || std::abs(gravityY) > 5000.0f ||
+            !std::isfinite(damping) || damping < 0.0f || damping > 1.0f) {
+            return nullptr;
+        }
+
+        // Preserve authored resolution and reject unsupported sizes instead
+        // of silently turning an invalid request into a denser simulation.
+        // The MPM Sand layer's persistent UI/JSON contract is 2..500 columns
+        // and 2..200 rows; keep a defensive aggregate cap at this API edge.
+        constexpr int kMaximumColumns = 500;
+        constexpr int kMaximumRows = 200;
+        constexpr std::int64_t kMaxInitialParticles = 100000;
+        if (columns < 2 || columns > kMaximumColumns || rows < 2 ||
+            rows > kMaximumRows ||
+            static_cast<std::int64_t>(columns) * rows >
+                kMaxInitialParticles) {
+            return nullptr;
+        }
+        const int safeColumns = columns;
+        const int safeRows = rows;
+        const std::size_t requestedParticleBytes =
+            static_cast<std::size_t>(safeColumns) *
+            static_cast<std::size_t>(safeRows) * sizeof(MpmParticle2D);
+        std::size_t existingPersistentParticleBytes = 0;
+        const auto addParticlePayloadBytes =
+            [&existingPersistentParticleBytes](std::size_t particleCount) {
+                if (particleCount >
+                    (kGranularWorldStateBudgetBytes -
+                     existingPersistentParticleBytes) /
+                        sizeof(MpmParticle2D)) {
+                    return false;
+                }
+                existingPersistentParticleBytes +=
+                    particleCount * sizeof(MpmParticle2D);
+                return true;
+            };
+        for (const auto& entry : granularMaterialSolvers_) {
+            if (entry.simulationWorldId != simulationWorldId) {
+                continue;
+            }
+            if (entry.solver && !addParticlePayloadBytes(
+                    entry.solver->particles().capacity())) {
+                return nullptr;
+            }
+            if (entry.baselineSnapshot && !addParticlePayloadBytes(
+                    entry.baselineSnapshot->particles.capacity())) {
+                return nullptr;
+            }
+        }
+        if (requestedParticleBytes >
+            (kGranularWorldStateBudgetBytes -
+             existingPersistentParticleBytes) / 2u) {
+            return nullptr;
+        }
+        const double particleSpacingX =
+            static_cast<double>(width) / safeColumns;
+        const double particleSpacingY =
+            static_cast<double>(height) / safeRows;
+        const float cellSize = static_cast<float>(std::max(
+            1.0, std::min(particleSpacingX, particleSpacingY)));
+        const double maxFloat =
+            static_cast<double>(std::numeric_limits<float>::max());
+        const double right = static_cast<double>(left) + width;
+        const double bottom = static_cast<double>(top) + height;
+        const double domainRight = static_cast<double>(domainLeft) + domainWidth;
+        const double domainBottom = static_cast<double>(domainTop) + domainHeight;
+        if (!std::isfinite(domainRight) || !std::isfinite(domainBottom) ||
+            std::abs(domainRight) > maxFloat ||
+            std::abs(domainBottom) > maxFloat) {
+            return nullptr;
+        }
+        const float boundaryLeft = static_cast<float>(domainLeft);
+        const float boundaryTop = static_cast<float>(domainTop);
+        const float boundaryRight = static_cast<float>(domainRight);
+        const float boundaryBottom = static_cast<float>(domainBottom);
+        const double boundaryWidth =
+            static_cast<double>(boundaryRight) - boundaryLeft;
+        const double boundaryHeight =
+            static_cast<double>(boundaryBottom) - boundaryTop;
+        const double originX = static_cast<double>(domainLeft) - cellSize * 2.0;
+        const double originY = static_cast<double>(domainTop) - cellSize * 2.0;
+        const double totalVolume = static_cast<double>(width) * height;
+        const double totalMass = totalVolume * density;
+        const double particleVolume = totalVolume /
+            (static_cast<double>(safeColumns) * safeRows);
+        const double particleMass = particleVolume * density;
+        const float seedCenterX = left + width * 0.5f;
+        const float seedCenterY = top + height * 0.5f;
+        const auto seedGeometry =
+            calculateMpmParticleGridSeedGeometry2D(
+                seedCenterX, seedCenterY, width, height, safeColumns,
+                safeRows, density, true);
+        const double shearModulus = youngModulus /
+            (2.0 * (1.0 + poissonRatio));
+        const double lameLambda = youngModulus * poissonRatio /
+            ((1.0 + poissonRatio) * (1.0 - 2.0 * poissonRatio));
+        const double longitudinalWaveSpeedSquared =
+            (lameLambda + 2.0 * shearModulus) / density;
+        const double cflTimeStep = 0.05 * cellSize /
+            std::sqrt(longitudinalWaveSpeedSquared);
+        const double solverTimeStep = std::min(1.0 / 120.0, cflTimeStep);
+        constexpr int kGranularMaxSubsteps = 1024;
+        const double requiredSubsteps = std::ceil((1.0 / 15.0) / solverTimeStep);
+        const double minFloat =
+            static_cast<double>(std::numeric_limits<float>::min());
+        if (!std::isfinite(right) || !std::isfinite(bottom) ||
+            !std::isfinite(domainRight) || !std::isfinite(domainBottom) ||
+            !std::isfinite(boundaryLeft) || !std::isfinite(boundaryTop) ||
+            !std::isfinite(boundaryRight) || !std::isfinite(boundaryBottom) ||
+            !std::isfinite(boundaryWidth) || !std::isfinite(boundaryHeight) ||
+            boundaryWidth < 1.0e-6 || boundaryHeight < 1.0e-6 ||
+            boundaryWidth > maxFloat || boundaryHeight > maxFloat ||
+            !std::isfinite(originX) || !std::isfinite(originY) ||
+            !std::isfinite(totalMass) || std::abs(right) > maxFloat ||
+            std::abs(bottom) > maxFloat || std::abs(domainRight) > maxFloat ||
+            std::abs(domainBottom) > maxFloat || std::abs(originX) > maxFloat ||
+            std::abs(originY) > maxFloat || totalVolume > maxFloat ||
+            !std::isfinite(seedCenterX) || !std::isfinite(seedCenterY) ||
+            !seedGeometry.valid || seedGeometry.particleCount !=
+                static_cast<std::size_t>(safeColumns) * safeRows ||
+            left < boundaryLeft || top < boundaryTop ||
+            right > static_cast<double>(boundaryRight) ||
+            bottom > static_cast<double>(boundaryBottom) ||
+            totalMass > maxFloat || particleVolume < minFloat ||
+            particleMass < minFloat || !std::isfinite(shearModulus) ||
+            !std::isfinite(lameLambda) ||
+            !std::isfinite(longitudinalWaveSpeedSquared) ||
+            longitudinalWaveSpeedSquared <= 0.0 ||
+            !std::isfinite(solverTimeStep) || solverTimeStep < 1.0e-6 ||
+            !std::isfinite(requiredSubsteps) ||
+            requiredSubsteps > kGranularMaxSubsteps ||
+            shearModulus > maxFloat || std::abs(lameLambda) > maxFloat) {
+            return nullptr;
+        }
+        const double gridWidthValue =
+            std::ceil(boundaryWidth / cellSize) + 4.0;
+        const double gridHeightValue =
+            std::ceil(boundaryHeight / cellSize) + 4.0;
+        if (!std::isfinite(gridWidthValue) || !std::isfinite(gridHeightValue) ||
+            gridWidthValue > 16384.0 || gridHeightValue > 16384.0 ||
+            gridWidthValue * gridHeightValue > 4194304.0) {
+            return nullptr;
+        }
+        constexpr std::size_t kGranularWorldGridNodeBudget = 4194304u;
+        std::size_t existingGridNodes = 0;
+        for (const auto& entry : granularMaterialSolvers_) {
+            if (entry.simulationWorldId != simulationWorldId ||
+                !entry.solver) {
+                continue;
+            }
+            const std::size_t nodes = entry.solver->gridNodeCapacity();
+            if (nodes > kGranularWorldGridNodeBudget - existingGridNodes) {
+                return nullptr;
+            }
+            existingGridNodes += nodes;
+        }
+        const auto requestedGridColumns = static_cast<std::size_t>(
+            std::max(4, static_cast<int>(gridWidthValue)));
+        const auto requestedGridRows = static_cast<std::size_t>(
+            std::max(4, static_cast<int>(gridHeightValue)));
+        const float solverGridOriginX = domainLeft - cellSize * 2.0f;
+        const float solverGridOriginY = domainTop - cellSize * 2.0f;
+        const float safeGridMinX = solverGridOriginX + 2.0f * cellSize;
+        const float safeGridMinY = solverGridOriginY + 2.0f * cellSize;
+        const float safeGridMaxX = solverGridOriginX +
+            (static_cast<float>(requestedGridColumns) - 2.0f) * cellSize;
+        const float safeGridMaxY = solverGridOriginY +
+            (static_cast<float>(requestedGridRows) - 2.0f) * cellSize;
+        if (!std::isfinite(solverGridOriginX) ||
+            !std::isfinite(solverGridOriginY) ||
+            !std::isfinite(safeGridMinX) || !std::isfinite(safeGridMinY) ||
+            !std::isfinite(safeGridMaxX) || !std::isfinite(safeGridMaxY) ||
+            !seedGeometry.valid ||
+            seedGeometry.particleCount !=
+                static_cast<std::size_t>(safeColumns) * safeRows ||
+            safeGridMinX > boundaryLeft || safeGridMinY > boundaryTop ||
+            safeGridMaxX < boundaryRight || safeGridMaxY < boundaryBottom ||
+            seedGeometry.startX < safeGridMinX ||
+            seedGeometry.startY < safeGridMinY ||
+            seedGeometry.lastX > safeGridMaxX ||
+            seedGeometry.lastY > safeGridMaxY ||
+            seedGeometry.startX < boundaryLeft ||
+            seedGeometry.startY < boundaryTop ||
+            seedGeometry.lastX > boundaryRight ||
+            seedGeometry.lastY > boundaryBottom) {
+            return nullptr;
+        }
+        const std::size_t requestedGridNodes =
+            requestedGridColumns * requestedGridRows;
+        const std::size_t remainingGridNodeBudget =
+            kGranularWorldGridNodeBudget - existingGridNodes;
+        if (requestedGridNodes > remainingGridNodeBudget) {
+            return nullptr;
+        }
+        // Reserve a bounded fourfold node budget while the solver is created.
+        // Grid expansion during simulation then changes only active geometry;
+        // it never grows the backing node vector in the frame path.
+        constexpr std::size_t kGranularGridReserveFactor = 4u;
+        const std::size_t requestedGridCapacity =
+            requestedGridNodes * kGranularGridReserveFactor;
+        const std::size_t reservedGridNodeCapacity = std::min(
+            requestedGridCapacity, remainingGridNodeBudget);
+
+        // Reconfiguration keeps the current solver alive until the new solver
+        // and baseline are ready to commit. Reserve room for that transient
+        // particle payload too, evicting the oldest world checkpoints first.
+        const std::size_t incomingPersistentParticleBytes =
+            requestedParticleBytes * 2u;
+        if (granularMaterialSnapshots_.find(simulationWorldId) !=
+                granularMaterialSnapshots_.end() &&
+            !trimGranularWorldSnapshots(
+                simulationWorldId, incomingPersistentParticleBytes)) {
+            return nullptr;
+        }
+
+        auto solver = makeShared<MpmSolver2D>();
+        if (!solver->setGrid(cellSize,
+                             static_cast<int>(requestedGridColumns),
+                             static_cast<int>(requestedGridRows)) ||
+            !solver->reserveGridNodeCapacity(reservedGridNodeCapacity) ||
+            !solver->setGridOrigin(solverGridOriginX, solverGridOriginY)) {
+            return nullptr;
+        }
+        solver->setBoundaryFriction(0.25f);
+        solver->setMaterial(youngModulus, poissonRatio);
+        if (!solver->setConstitutiveModel(
+                MpmConstitutiveModel::GranularDruckerPrager) ||
+            !solver->setGranularFrictionAngle(frictionAngleRadians) ||
+            !solver->setGranularFloor(boundaryBottom)) {
+            return nullptr;
+        }
+        solver->setFractureEnabled(false);
+        solver->setGravity(0.0f, gravityY);
+        solver->setTimeStep(static_cast<float>(solverTimeStep));
+        solver->setMaxSubsteps(kGranularMaxSubsteps);
+        solver->setDamping(damping);
+        if (!solver->setGranularSupportRadiusLimit(supportRadiusLimit)) {
+            return nullptr;
+        }
+        solver->addParticlesGrid(seedCenterX, seedCenterY,
+                                 width, height, safeColumns, safeRows, density);
+        if (solver->particles().size() !=
+            static_cast<std::size_t>(safeColumns) * safeRows) {
+            return nullptr;
+        }
+        const bool validSeedParticles = std::all_of(
+            solver->particles().begin(), solver->particles().end(),
+            [](const MpmParticle2D& particle) {
+                return particle.active && std::isfinite(particle.pos.x) &&
+                       std::isfinite(particle.pos.y) &&
+                       std::isfinite(particle.mass) && particle.mass > 0.0f &&
+                       std::isfinite(particle.volume0) &&
+                       particle.volume0 > 0.0f;
+            });
+        if (!validSeedParticles) return nullptr;
+        const std::size_t actualParticleCapacity =
+            solver->particles().capacity();
+        const std::size_t actualIncomingPersistentParticleBytes =
+            actualParticleCapacity * sizeof(MpmParticle2D) +
+            requestedParticleBytes;
+        if (granularMaterialSnapshots_.find(simulationWorldId) !=
+                granularMaterialSnapshots_.end() &&
+            !trimGranularWorldSnapshots(
+                simulationWorldId,
+                actualIncomingPersistentParticleBytes)) {
+            return nullptr;
+        }
+        MpmSnapshot2D baselineSnapshot = solver->snapshot();
+        const std::size_t baselineParticleCapacity =
+            baselineSnapshot.particles.capacity();
+        const std::size_t actualIncomingParticleBytes =
+            (actualParticleCapacity + baselineParticleCapacity) *
+            sizeof(MpmParticle2D);
+        if (granularMaterialSnapshots_.find(simulationWorldId) !=
+                granularMaterialSnapshots_.end() &&
+            !trimGranularWorldSnapshots(
+                simulationWorldId, actualIncomingParticleBytes)) {
+            return nullptr;
+        }
+        if (actualParticleCapacity >
+            (kGranularWorldStateBudgetBytes -
+             existingPersistentParticleBytes) / sizeof(MpmParticle2D) ||
+            baselineParticleCapacity >
+                (kGranularWorldStateBudgetBytes -
+                 existingPersistentParticleBytes -
+                 actualParticleCapacity * sizeof(MpmParticle2D)) /
+                    sizeof(MpmParticle2D)) {
+            return nullptr;
+        }
+        setGranularMaterialSolver(simulationWorldId, layerId, solver,
+                                  std::move(baselineSnapshot));
+        return solver;
+    }
+
+    SharedPtr<MpmSolver2D> getGranularMaterialSolver(
+        std::uint64_t simulationWorldId, LayerID layerId) {
+        for (const auto& entry : granularMaterialSolvers_) {
+            if (entry.simulationWorldId == simulationWorldId &&
+                entry.layerId == layerId) {
+                return entry.solver;
+            }
+        }
+        return nullptr;
+    }
+
+    void registerGranularMaterialCollider(std::uint64_t simulationWorldId,
+                                         LayerID layerId,
+                                         const MpmCollider2D& collider) {
+        if (auto solver = getGranularMaterialSolver(simulationWorldId, layerId)) {
+            solver->addCollider(collider);
+        }
+    }
+
+    void clearGranularMaterialColliders(std::uint64_t simulationWorldId,
+                                       LayerID layerId) {
+        if (auto solver = getGranularMaterialSolver(simulationWorldId, layerId)) {
+            solver->clearColliders();
+        }
+    }
+
+    void unregisterGranularMaterialSolver(std::uint64_t simulationWorldId,
+                                         LayerID layerId) {
+        granularMaterialSolvers_.removeIf(
+            [simulationWorldId, layerId](const GranularMaterialSolverEntry& entry) {
+                return entry.simulationWorldId == simulationWorldId &&
+                       entry.layerId == layerId;
+            });
+        granularMaterialSnapshots_.erase(simulationWorldId);
+        const bool hasWorldSolver = std::any_of(
+            granularMaterialSolvers_.begin(), granularMaterialSolvers_.end(),
+            [simulationWorldId](const GranularMaterialSolverEntry& entry) {
+                return entry.simulationWorldId == simulationWorldId;
+            });
+        if (!hasWorldSolver) {
+            granularMaterialWorldClocks_.removeIf(
+                [simulationWorldId](const GranularMaterialWorldClock& clock) {
+                    return clock.simulationWorldId == simulationWorldId;
+                });
+        } else {
+            for (auto& clock : granularMaterialWorldClocks_) {
+                if (clock.simulationWorldId == simulationWorldId) {
+                    clock.requiresReplay = true;
+                    clock.replayAnchorFrame = 0;
+                    break;
+                }
+            }
+            // Unregistering one layer invalidates the shared checkpoint set.
+            // Replay the remaining solvers from their baselines before the
+            // next incremental frame, then recreate their cache nodes.
+            auto& worldSnapshots = granularMaterialSnapshots_[simulationWorldId];
+            for (const auto& entry : granularMaterialSolvers_) {
+                if (entry.simulationWorldId == simulationWorldId) {
+                    worldSnapshots[entry.layerId];
+                }
+            }
+        }
+    }
+
+    void setGranularMaterialSolverActive(std::uint64_t simulationWorldId,
+                                         LayerID layerId, bool active) {
+        if (auto* entry = findGranularMaterialSolver(simulationWorldId, layerId)) {
+            entry->simulationActive = active;
+        }
+    }
+
+    void unregisterGranularMaterialWorld(std::uint64_t simulationWorldId) {
+        if (simulationWorldId == 0) return;
+        granularMaterialSolvers_.removeIf(
+            [simulationWorldId](const GranularMaterialSolverEntry& entry) {
+                return entry.simulationWorldId == simulationWorldId;
+            });
+        granularMaterialSnapshots_.erase(simulationWorldId);
+        granularMaterialWorldClocks_.removeIf(
+            [simulationWorldId](const GranularMaterialWorldClock& clock) {
+                return clock.simulationWorldId == simulationWorldId;
+            });
     }
 
     SharedPtr<MpmSolver2D> getMaterialSolver(LayerID layerId) {
@@ -693,7 +1203,8 @@ public:
     // Capture all registered solver states at one logical frame. Keeping the
     // frame key common is what lets seek/loop restore a mixed rigid + soft +
     // fluid composition without partially rewinding it.
-    void capturePhysicsSnapshots(int64_t frame) {
+    void capturePhysicsSnapshots(int64_t frame,
+                                 std::uint64_t simulationWorldId = 0) {
         for (const auto& [layerId, solver] : fluidSolvers_) {
             if (!solver) continue;
             auto& snapshots = fluidSnapshots_[layerId];
@@ -728,6 +1239,9 @@ public:
             }
             snapshots[frame] = makeShared<MpmSnapshot2D>(solver->snapshot());
         }
+        if (simulationWorldId != 0) {
+            captureGranularMaterialSnapshots(frame, simulationWorldId);
+        }
         for (const auto& [layerId, world] : rigidWorlds_) {
             if (!world) continue;
             auto& snapshots = rigidSnapshots_[layerId];
@@ -747,13 +1261,314 @@ public:
         trimPhysicsSnapshots();
     }
 
-    // Backward-compatible entry point. Existing callers that only know the
-    // old name now participate in the same mixed-solver cache.
-    void captureSoftBodySnapshots(int64_t frame) {
-        capturePhysicsSnapshots(frame);
+    bool captureGranularMaterialSnapshots(int64_t frame,
+                                          std::uint64_t simulationWorldId,
+                                          bool forceCheckpoint = false) {
+        if (simulationWorldId == 0 ||
+            (!forceCheckpoint &&
+             frame % kGranularMaterialSnapshotInterval != 0)) return false;
+        const std::size_t frameCheckpointLimit = std::max<std::size_t>(
+            1, (timelineSettings_.maxCachedFrames +
+                static_cast<std::size_t>(kGranularMaterialSnapshotInterval) - 1) /
+                   static_cast<std::size_t>(kGranularMaterialSnapshotInterval));
+        auto worldSnapshots = granularMaterialSnapshots_.find(
+            simulationWorldId);
+        if (worldSnapshots == granularMaterialSnapshots_.end()) return false;
+        std::size_t incomingSnapshotBytes = 0;
+        for (const auto& entry : granularMaterialSolvers_) {
+            if (entry.simulationWorldId != simulationWorldId || !entry.solver) {
+                continue;
+            }
+            const std::size_t particleCapacity =
+                entry.solver->particles().capacity();
+            if (particleCapacity >
+                (std::numeric_limits<std::size_t>::max() -
+                 incomingSnapshotBytes) / sizeof(MpmParticle2D)) {
+                incomingSnapshotBytes =
+                    std::numeric_limits<std::size_t>::max();
+                break;
+            }
+            incomingSnapshotBytes +=
+                particleCapacity * sizeof(MpmParticle2D);
+        }
+        if (incomingSnapshotBytes > kGranularWorldStateBudgetBytes) return false;
+        const auto worldClock = std::find_if(
+            granularMaterialWorldClocks_.begin(),
+            granularMaterialWorldClocks_.end(),
+            [simulationWorldId](const GranularMaterialWorldClock& clock) {
+                return clock.simulationWorldId == simulationWorldId;
+            });
+        if (worldClock == granularMaterialWorldClocks_.end()) return false;
+
+        int64_t reusableCheckpointFrame =
+            std::numeric_limits<int64_t>::min();
+        const auto hasReusableCheckpointStorage =
+            [&](int64_t candidateFrame) {
+                for (const auto& solverEntry : granularMaterialSolvers_) {
+                    if (solverEntry.simulationWorldId != simulationWorldId ||
+                        !solverEntry.solver) {
+                        continue;
+                    }
+                    const auto layerSnapshots = worldSnapshots->second.find(
+                        solverEntry.layerId);
+                    if (layerSnapshots == worldSnapshots->second.end()) {
+                        return false;
+                    }
+                    const auto checkpoint = layerSnapshots->second.find(
+                        candidateFrame);
+                    if (checkpoint == layerSnapshots->second.end() ||
+                        !checkpoint->second ||
+                        checkpoint->second->particles.capacity() <
+                            solverEntry.solver->particles().size() ||
+                        checkpoint->second->fracturedIndices.capacity() <
+                            solverEntry.solver->fractureEventCount()) {
+                        return false;
+                    }
+                }
+                return true;
+            };
+        for (const auto& layerEntry : worldSnapshots->second) {
+            for (const auto& checkpoint : layerEntry.second) {
+                if (checkpoint.first == frame ||
+                    checkpoint.first == worldClock->replayAnchorFrame) {
+                    continue;
+                }
+                if (hasReusableCheckpointStorage(checkpoint.first)) {
+                    reusableCheckpointFrame = checkpoint.first;
+                    break;
+                }
+            }
+            if (reusableCheckpointFrame !=
+                std::numeric_limits<int64_t>::min()) {
+                break;
+            }
+        }
+        struct PartialCheckpointRollback {
+            decltype(worldSnapshots->second)& layerSnapshots;
+            int64_t frame;
+            bool committed = false;
+            ~PartialCheckpointRollback() {
+                if (committed) return;
+                for (auto& layerEntry : layerSnapshots) {
+                    layerEntry.second.erase(frame);
+                }
+            }
+        } rollback{worldSnapshots->second, frame};
+        const std::size_t reservedIncomingBytes =
+            reusableCheckpointFrame == std::numeric_limits<int64_t>::min()
+                ? incomingSnapshotBytes
+                : 0;
+        if (!trimGranularWorldSnapshots(simulationWorldId,
+                                        reservedIncomingBytes)) {
+            return false;
+        }
+        for (const auto& entry : granularMaterialSolvers_) {
+            if (entry.simulationWorldId != simulationWorldId || !entry.solver) {
+                continue;
+            }
+            auto layerSnapshots = worldSnapshots->second.find(entry.layerId);
+            if (layerSnapshots == worldSnapshots->second.end()) return false;
+            auto& snapshots = layerSnapshots->second;
+            if (snapshots.empty()) snapshots.reserve(frameCheckpointLimit);
+            SharedPtr<MpmSnapshot2D> snapshotStorage;
+            const auto existingFrame = snapshots.find(frame);
+            if (existingFrame != snapshots.end()) {
+                snapshotStorage = existingFrame->second;
+            } else if (reusableCheckpointFrame !=
+                       std::numeric_limits<int64_t>::min()) {
+                const auto reusableFrame = snapshots.find(
+                    reusableCheckpointFrame);
+                if (reusableFrame != snapshots.end()) {
+                    snapshotStorage = std::move(reusableFrame->second);
+                    snapshots.erase(reusableFrame);
+                }
+            }
+            if (!snapshotStorage) {
+                snapshotStorage = makeShared<MpmSnapshot2D>();
+            }
+            entry.solver->snapshot(*snapshotStorage);
+            snapshotStorage->physicsWorldAccumulator = worldClock->accumulator;
+            snapshots[frame] = snapshotStorage;
+            const auto addIncomingArrayBytes =
+                [](std::size_t count, std::size_t elementSize,
+                   std::size_t& total) {
+                    if (elementSize != 0 && count >
+                        (std::numeric_limits<std::size_t>::max() - total) /
+                            elementSize) {
+                        return false;
+                    }
+                    total += count * elementSize;
+                    return true;
+                };
+            std::size_t actualSnapshotBytes = 0;
+            if (!addIncomingArrayBytes(snapshotStorage->particles.capacity(),
+                                       sizeof(MpmParticle2D),
+                                       actualSnapshotBytes) ||
+                !addIncomingArrayBytes(snapshotStorage->fracturedIndices.capacity(),
+                                       sizeof(int), actualSnapshotBytes) ||
+                !trimGranularWorldSnapshots(simulationWorldId,
+                                            0)) return false;
+            const bool hasReplayAnchor = snapshots.find(
+                worldClock->replayAnchorFrame) != snapshots.end();
+            const std::size_t retainedFrameLimit =
+                frameCheckpointLimit + (hasReplayAnchor ? 1u : 0u);
+            while (snapshots.size() > retainedFrameLimit) {
+                auto oldest = snapshots.begin();
+                if (oldest->first == worldClock->replayAnchorFrame) {
+                    ++oldest;
+                    if (oldest == snapshots.end()) break;
+                }
+                snapshots.erase(oldest);
+            }
+        }
+        if (!trimGranularWorldSnapshots(simulationWorldId)) return false;
+        rollback.committed = true;
+        if (forceCheckpoint) {
+            worldClock->replayAnchorFrame = frame;
+        }
+        return true;
     }
 
-    bool restorePhysicsSnapshots(int64_t frame) {
+    void invalidateGranularMaterialSnapshots(
+        std::uint64_t simulationWorldId,
+        bool resetWorldClock = false) {
+        if (simulationWorldId == 0) return;
+        granularMaterialSnapshots_.erase(simulationWorldId);
+        if (resetWorldClock) {
+            setGranularWorldClockAccumulator(simulationWorldId, 0.0f);
+            for (auto& clock : granularMaterialWorldClocks_) {
+                if (clock.simulationWorldId == simulationWorldId) {
+                    clock.requiresReplay = true;
+                    clock.replayAnchorFrame =
+                        std::numeric_limits<int64_t>::min();
+                    break;
+                }
+            }
+        }
+        auto& worldSnapshots = granularMaterialSnapshots_[simulationWorldId];
+        for (const auto& entry : granularMaterialSolvers_) {
+            if (entry.simulationWorldId == simulationWorldId) {
+                worldSnapshots[entry.layerId];
+            }
+        }
+    }
+
+    bool trimGranularWorldSnapshots(
+        std::uint64_t simulationWorldId,
+        std::size_t reservedIncomingBytes = 0) {
+        if (reservedIncomingBytes > kGranularWorldStateBudgetBytes) {
+            return false;
+        }
+        const auto worldSnapshots =
+            granularMaterialSnapshots_.find(simulationWorldId);
+        if (worldSnapshots == granularMaterialSnapshots_.end()) return false;
+        const auto totalBytes = [&]() {
+            std::size_t total = 0;
+            const auto addArrayBytes = [&total](std::size_t count,
+                                                std::size_t elementSize) {
+                if (elementSize != 0 && count >
+                    (std::numeric_limits<std::size_t>::max() - total) /
+                        elementSize) {
+                    total = std::numeric_limits<std::size_t>::max();
+                    return;
+                }
+                total += count * elementSize;
+            };
+            for (const auto& solverEntry : granularMaterialSolvers_) {
+                if (solverEntry.simulationWorldId != simulationWorldId ||
+                    !solverEntry.solver) {
+                    continue;
+                }
+                addArrayBytes(solverEntry.solver->particles().capacity(),
+                              sizeof(MpmParticle2D));
+                if (!solverEntry.baselineSnapshot) continue;
+                addArrayBytes(solverEntry.baselineSnapshot->particles.capacity(),
+                              sizeof(MpmParticle2D));
+                addArrayBytes(
+                    solverEntry.baselineSnapshot->fracturedIndices.capacity(),
+                    sizeof(int));
+            }
+            for (const auto& layerEntry : worldSnapshots->second) {
+                for (const auto& snapshotEntry : layerEntry.second) {
+                    if (!snapshotEntry.second) continue;
+                    addArrayBytes(snapshotEntry.second->particles.capacity(),
+                                  sizeof(MpmParticle2D));
+                    addArrayBytes(
+                        snapshotEntry.second->fracturedIndices.capacity(),
+                        sizeof(int));
+                }
+            }
+            return total;
+        };
+        const std::size_t retainedBudgetBytes =
+            kGranularWorldStateBudgetBytes - reservedIncomingBytes;
+        while (totalBytes() > retainedBudgetBytes) {
+            int64_t oldestFrame = std::numeric_limits<int64_t>::max();
+            int64_t replayAnchorFrame =
+                std::numeric_limits<int64_t>::min();
+            for (const auto& clock : granularMaterialWorldClocks_) {
+                if (clock.simulationWorldId == simulationWorldId) {
+                    replayAnchorFrame = clock.replayAnchorFrame;
+                    break;
+                }
+            }
+            for (const auto& layerEntry : worldSnapshots->second) {
+                for (const auto& snapshotEntry : layerEntry.second) {
+                    if (snapshotEntry.first == replayAnchorFrame) continue;
+                    oldestFrame = std::min(oldestFrame, snapshotEntry.first);
+                    break;
+                }
+            }
+            if (oldestFrame == std::numeric_limits<int64_t>::max()) break;
+            for (auto& layerEntry : worldSnapshots->second) {
+                layerEntry.second.erase(oldestFrame);
+            }
+        }
+        return totalBytes() <= retainedBudgetBytes;
+    }
+
+    bool resetGranularMaterialToBaseline(std::uint64_t simulationWorldId) {
+        if (simulationWorldId == 0) return false;
+        bool hasSolver = false;
+        const bool hasWorldClock = std::any_of(
+            granularMaterialWorldClocks_.begin(),
+            granularMaterialWorldClocks_.end(),
+            [simulationWorldId](const GranularMaterialWorldClock& clock) {
+                return clock.simulationWorldId == simulationWorldId;
+            });
+        if (!hasWorldClock) return false;
+        for (const auto& entry : granularMaterialSolvers_) {
+            if (entry.simulationWorldId != simulationWorldId || !entry.solver) continue;
+            hasSolver = true;
+            if (!entry.baselineSnapshot ||
+                !entry.solver->canRestoreSnapshot(*entry.baselineSnapshot)) {
+                return false;
+            }
+        }
+        if (!hasSolver) return false;
+        for (auto& entry : granularMaterialSolvers_) {
+            if (entry.simulationWorldId == simulationWorldId && entry.solver) {
+                entry.solver->restoreSnapshot(*entry.baselineSnapshot);
+            }
+        }
+        for (auto& clock : granularMaterialWorldClocks_) {
+            if (clock.simulationWorldId == simulationWorldId) {
+                clock.accumulator = 0.0f;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Backward-compatible entry point. Existing callers that only know the
+    // old name now participate in the same mixed-solver cache.
+    void captureSoftBodySnapshots(int64_t frame,
+                                  std::uint64_t simulationWorldId = 0) {
+        capturePhysicsSnapshots(frame, simulationWorldId);
+    }
+
+    bool restorePhysicsSnapshots(int64_t frame,
+                                 std::uint64_t simulationWorldId = 0) {
         // Validate every target first so a cache miss never restores only a
         // subset of layers in a composition.
         for (const auto& [layerId, solver] : fluidSolvers_) {
@@ -797,6 +1612,44 @@ public:
                 !snapshotIt->second ||
                 !solver->canRestoreSnapshot(*snapshotIt->second)) {
                 return false;
+            }
+        }
+        bool hasGranularSnapshot = false;
+        float granularWorldAccumulator = 0.0f;
+        if (simulationWorldId != 0) {
+            for (const auto& entry : granularMaterialSolvers_) {
+                if (entry.simulationWorldId != simulationWorldId || !entry.solver) {
+                    continue;
+                }
+                const auto worldSnapshots =
+                    granularMaterialSnapshots_.find(simulationWorldId);
+                if (worldSnapshots == granularMaterialSnapshots_.end()) return false;
+                const auto layerSnapshots =
+                    worldSnapshots->second.find(entry.layerId);
+                if (layerSnapshots == worldSnapshots->second.end()) return false;
+                const auto snapshotIt = layerSnapshots->second.find(frame);
+                if (snapshotIt == layerSnapshots->second.end() || !snapshotIt->second ||
+                    !entry.solver->canRestoreSnapshot(*snapshotIt->second)) {
+                    return false;
+                }
+                if (hasGranularSnapshot &&
+                    snapshotIt->second->physicsWorldAccumulator !=
+                        granularWorldAccumulator) {
+                    return false;
+                }
+                granularWorldAccumulator =
+                    snapshotIt->second->physicsWorldAccumulator;
+                hasGranularSnapshot = true;
+            }
+            if (hasGranularSnapshot) {
+                const bool hasWorldClock = std::any_of(
+                    granularMaterialWorldClocks_.begin(),
+                    granularMaterialWorldClocks_.end(),
+                    [simulationWorldId](
+                        const GranularMaterialWorldClock& clock) {
+                        return clock.simulationWorldId == simulationWorldId;
+                    });
+                if (!hasWorldClock) return false;
             }
         }
         for (const auto& [layerId, world] : rigidWorlds_) {
@@ -845,6 +1698,20 @@ public:
             const auto& solver = entry.solver;
             if (!solver) continue;
             solver->restoreSnapshot(*materialSnapshots_.at(layerId).at(frame));
+        }
+        if (simulationWorldId != 0) {
+            for (auto& entry : granularMaterialSolvers_) {
+                if (entry.simulationWorldId != simulationWorldId || !entry.solver) {
+                    continue;
+                }
+                const auto snapshot = granularMaterialSnapshots_
+                    .at(simulationWorldId).at(entry.layerId).at(frame);
+                entry.solver->restoreSnapshot(*snapshot);
+            }
+            if (hasGranularSnapshot) {
+                setGranularWorldClockAccumulator(
+                    simulationWorldId, granularWorldAccumulator);
+            }
         }
         return true;
     }
@@ -903,6 +1770,105 @@ public:
             if (!solver) continue;
             solver->restoreSnapshot(*materialSnapshots_.at(layerId).at(frame));
         }
+        return true;
+    }
+
+    bool restoreGranularMaterialSnapshots(
+        int64_t frame, std::uint64_t simulationWorldId,
+        int64_t* restoredFrame = nullptr) {
+        if (simulationWorldId == 0) return false;
+        int64_t bestFrame = std::numeric_limits<int64_t>::min();
+        float bestWorldAccumulator = 0.0f;
+        const auto worldSnapshots =
+            granularMaterialSnapshots_.find(simulationWorldId);
+        if (worldSnapshots == granularMaterialSnapshots_.end()) return false;
+        const GranularMaterialSolverEntry* anchorSolver = nullptr;
+        for (const auto& entry : granularMaterialSolvers_) {
+            if (entry.simulationWorldId != simulationWorldId || !entry.solver) {
+                continue;
+            }
+            anchorSolver = &entry;
+            break;
+        }
+        if (!anchorSolver) return false;
+        const auto anchorSnapshots =
+            worldSnapshots->second.find(anchorSolver->layerId);
+        if (anchorSnapshots == worldSnapshots->second.end()) return false;
+        const auto& candidates = anchorSnapshots->second;
+        // PhysicsOrderedRegistry keeps frame keys sorted; newest-first avoids
+        // validating every particle in older snapshots during a normal seek.
+        for (auto candidateIt = candidates.end();
+             candidateIt != candidates.begin();) {
+            --candidateIt;
+            const auto& candidate = *candidateIt;
+            if (candidate.first > frame || !candidate.second ||
+                !anchorSolver->solver->canRestoreSnapshot(*candidate.second)) {
+                continue;
+            }
+            bool commonCheckpoint = true;
+            const float checkpointWorldAccumulator =
+                candidate.second->physicsWorldAccumulator;
+            for (const auto& other : granularMaterialSolvers_) {
+                if (other.simulationWorldId != simulationWorldId ||
+                    !other.solver || other.layerId == anchorSolver->layerId) {
+                    continue;
+                }
+                const auto otherSnapshots =
+                    worldSnapshots->second.find(other.layerId);
+                if (otherSnapshots == worldSnapshots->second.end()) {
+                    commonCheckpoint = false;
+                    break;
+                }
+                const auto otherSnapshot =
+                    otherSnapshots->second.find(candidate.first);
+                if (otherSnapshot == otherSnapshots->second.end() ||
+                    !otherSnapshot->second ||
+                    otherSnapshot->second->physicsWorldAccumulator !=
+                        checkpointWorldAccumulator ||
+                    !other.solver->canRestoreSnapshot(*otherSnapshot->second)) {
+                    commonCheckpoint = false;
+                    break;
+                }
+            }
+            if (commonCheckpoint) {
+                bestFrame = candidate.first;
+                bestWorldAccumulator = checkpointWorldAccumulator;
+                break;
+            }
+        }
+        if (bestFrame == std::numeric_limits<int64_t>::min()) {
+            return false;
+        }
+        const bool hasWorldClock = std::any_of(
+            granularMaterialWorldClocks_.begin(),
+            granularMaterialWorldClocks_.end(),
+            [simulationWorldId](const GranularMaterialWorldClock& clock) {
+                return clock.simulationWorldId == simulationWorldId;
+            });
+        if (!hasWorldClock) return false;
+        for (auto& entry : granularMaterialSolvers_) {
+            if (entry.simulationWorldId != simulationWorldId || !entry.solver) {
+                continue;
+            }
+            const auto snapshot = granularMaterialSnapshots_
+                .at(simulationWorldId).at(entry.layerId).at(bestFrame);
+            entry.solver->restoreSnapshot(*snapshot);
+        }
+        setGranularWorldClockAccumulator(
+            simulationWorldId, bestWorldAccumulator);
+        for (auto& clock : granularMaterialWorldClocks_) {
+            if (clock.simulationWorldId == simulationWorldId) {
+                // Seeking before a pinned rate-change anchor makes that
+                // anchor unusable as a continuation point. Drop the pin so
+                // later captures cannot preserve a stale branch.
+                if (bestFrame < clock.replayAnchorFrame) {
+                    clock.replayAnchorFrame =
+                        std::numeric_limits<int64_t>::min();
+                }
+                break;
+            }
+        }
+        if (restoredFrame) *restoredFrame = bestFrame;
         return true;
     }
 
@@ -1045,6 +2011,8 @@ public:
         softBodyColliders_.clear();
         cloth3DBodies_.clear();
         materialSolvers_.clear();
+        granularMaterialSolvers_.clear();
+        granularMaterialWorldClocks_.clear();
         pendingMaterialFractureEvents_.clear();
         rigidWorlds_.clear();
         compositionRigidWorlds_.clear();
@@ -1057,6 +2025,9 @@ public:
     }
 
 private:
+    static constexpr std::size_t kGranularWorldStateBudgetBytes =
+        64u * 1024u * 1024u;
+
     // Shared by update() and advanceSoftBodyFrame() so both paths apply the
     // same LOD overrides, collider injection and authored gravity contract.
     void updateSoftBodies(float simulationDt) {
@@ -1109,11 +2080,37 @@ private:
         trim(materialSnapshots_);
         trim(rigidSnapshots_);
         trim(compositionRigidSnapshots_);
+        for (auto& worldEntry : granularMaterialSnapshots_) {
+            for (auto& layerEntry : worldEntry.second) {
+                auto& snapshots = layerEntry.second;
+                while (snapshots.size() > timelineSettings_.maxCachedFrames) {
+                    snapshots.erase(snapshots.begin());
+                }
+            }
+        }
     }
 
     struct MaterialSolverEntry {
         LayerID layerId;
         SharedPtr<MpmSolver2D> solver;
+    };
+
+    struct GranularMaterialSolverEntry {
+        std::uint64_t simulationWorldId = 0;
+        LayerID layerId;
+        SharedPtr<MpmSolver2D> solver;
+        SharedPtr<MpmSnapshot2D> baselineSnapshot;
+        bool simulationActive = true;
+    };
+
+    struct GranularMaterialWorldClock {
+        std::uint64_t simulationWorldId = 0;
+        float accumulator = 0.0f;
+        // Solver registration/reconfiguration replaces its baseline and
+        // invalidates the shared cache. The Composition must replay from that
+        // baseline to its live frame before the next incremental advance.
+        bool requiresReplay = false;
+        int64_t replayAnchorFrame = std::numeric_limits<int64_t>::min();
     };
 
     struct BoidsConstantsEntry {
@@ -1148,6 +2145,127 @@ private:
             [layerId](const MaterialSolverEntry& entry) {
                 return entry.layerId == layerId;
             }) != 0;
+    }
+
+    GranularMaterialSolverEntry* findGranularMaterialSolver(
+        std::uint64_t simulationWorldId, LayerID layerId) {
+        for (auto& entry : granularMaterialSolvers_) {
+            if (entry.simulationWorldId == simulationWorldId &&
+                entry.layerId == layerId) {
+                return &entry;
+            }
+        }
+        return nullptr;
+    }
+
+    void setGranularWorldClockAccumulator(std::uint64_t simulationWorldId,
+                                          float accumulator) {
+        constexpr float kMaximumGranularClockBacklog = 102.4f;
+        const float restoredAccumulator = std::isfinite(accumulator)
+            ? std::clamp(accumulator, 0.0f, kMaximumGranularClockBacklog)
+            : 0.0f;
+        for (auto& clock : granularMaterialWorldClocks_) {
+            if (clock.simulationWorldId == simulationWorldId) {
+                clock.accumulator = restoredAccumulator;
+                return;
+            }
+        }
+    }
+
+    void setGranularMaterialSolver(std::uint64_t simulationWorldId,
+                                   LayerID layerId,
+                                   SharedPtr<MpmSolver2D> solver,
+                                   MpmSnapshot2D baselineSnapshot) {
+        granularMaterialSnapshots_.erase(simulationWorldId);
+        bool hasWorldClock = false;
+        for (auto& clock : granularMaterialWorldClocks_) {
+            if (clock.simulationWorldId == simulationWorldId) {
+                clock.accumulator = 0.0f;
+                clock.requiresReplay = true;
+                clock.replayAnchorFrame = 0;
+                hasWorldClock = true;
+                break;
+            }
+        }
+        if (!hasWorldClock) {
+            granularMaterialWorldClocks_.add(
+                GranularMaterialWorldClock{
+                    simulationWorldId, 0.0f, true, 0});
+        }
+        if (auto* existing =
+                findGranularMaterialSolver(simulationWorldId, layerId)) {
+            existing->solver = std::move(solver);
+            existing->baselineSnapshot = makeShared<MpmSnapshot2D>(
+                std::move(baselineSnapshot));
+        } else {
+            granularMaterialSolvers_.add(GranularMaterialSolverEntry{
+                simulationWorldId, layerId, solver,
+                makeShared<MpmSnapshot2D>(std::move(baselineSnapshot))});
+        }
+        // Registration runs during Composition setup, before Render Queue
+        // workers start. Precreate every per-layer cache node here so worker
+        // snapshot capture only performs lookups on shared registries.
+        auto& worldSnapshots = granularMaterialSnapshots_[simulationWorldId];
+        for (const auto& entry : granularMaterialSolvers_) {
+            if (entry.simulationWorldId == simulationWorldId) {
+                worldSnapshots[entry.layerId];
+            }
+        }
+    }
+
+    void advanceGranularMaterialSolvers(float frameDeltaSeconds,
+                                       std::uint64_t simulationWorldId) {
+        if (!std::isfinite(frameDeltaSeconds) || frameDeltaSeconds <= 0.0f ||
+            simulationWorldId == 0 ||
+            lodSettings_.level == PhysicsLODLevel::Frozen) {
+            return;
+        }
+        const bool hasWorldSolver = std::any_of(
+            granularMaterialSolvers_.begin(), granularMaterialSolvers_.end(),
+            [simulationWorldId](const GranularMaterialSolverEntry& entry) {
+                return entry.simulationWorldId == simulationWorldId &&
+                       static_cast<bool>(entry.solver);
+            });
+        if (!hasWorldSolver) return;
+        GranularMaterialWorldClock* clock = nullptr;
+        for (auto& candidate : granularMaterialWorldClocks_) {
+            if (candidate.simulationWorldId == simulationWorldId) {
+                clock = &candidate;
+                break;
+            }
+        }
+        if (!clock) return;
+
+        constexpr int kMaximumGranularClockStepsPerAdvance = 1024;
+        constexpr float kMaximumGranularClockBacklog = 102.4f;
+        const float fixedDt = timelineSettings_.fixedTimeStep;
+        // Unlike the general physics catch-up clock, the granular clock keeps
+        // pending Composition time up to a large fixed bound for deterministic
+        // replay. Time beyond that safety bound is discarded. Size this
+        // call's bounded work budget to its queued time, so low-FPS
+        // compositions do not accumulate lag under the unrelated 64-step cap.
+        clock->accumulator = std::min(
+            clock->accumulator + frameDeltaSeconds,
+            kMaximumGranularClockBacklog);
+        const double queuedStepCount = std::ceil(
+            static_cast<double>(clock->accumulator) / fixedDt);
+        const int stepBudget = static_cast<int>(std::clamp(
+            queuedStepCount, 0.0,
+            static_cast<double>(kMaximumGranularClockStepsPerAdvance)));
+        int steps = 0;
+        while (clock->accumulator + 1.0e-7f >= fixedDt &&
+               steps < stepBudget) {
+            for (auto& entry : granularMaterialSolvers_) {
+                if (entry.simulationWorldId != simulationWorldId ||
+                    !entry.solver || !entry.simulationActive) {
+                    continue;
+                }
+                entry.solver->update(fixedDt);
+            }
+            clock->accumulator = std::max(
+                0.0f, clock->accumulator - fixedDt);
+            ++steps;
+        }
     }
 
     SharedPtr<GpuBoidConstants>* findBoidsConstants(LayerID layerId) {
@@ -1186,9 +2304,17 @@ private:
                            PhysicsOrderedRegistry<int64_t, ClothSnapshot3D>>
         cloth3DSnapshots_;
     NamedVector<MaterialSolverEntry> materialSolvers_;
+    NamedVector<GranularMaterialSolverEntry> granularMaterialSolvers_{
+        ContainerName{"Physics.GranularMaterialSolvers"}};
+    NamedVector<GranularMaterialWorldClock> granularMaterialWorldClocks_{
+        ContainerName{"Physics.GranularMaterialWorldClocks"}};
     PhysicsOrderedRegistry<
         LayerID, PhysicsOrderedRegistry<int64_t, SharedPtr<MpmSnapshot2D>>>
         materialSnapshots_;
+    PhysicsOrderedRegistry<std::uint64_t,
+        PhysicsOrderedRegistry<LayerID,
+            PhysicsOrderedRegistry<int64_t, SharedPtr<MpmSnapshot2D>>>>
+        granularMaterialSnapshots_;
     NamedVector<MaterialFractureEvent> pendingMaterialFractureEvents_;
     PhysicsOrderedRegistry<LayerID, SharedPtr<Physics2D>> rigidWorlds_;
     PhysicsOrderedRegistry<LayerID,
