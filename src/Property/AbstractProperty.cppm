@@ -964,7 +964,6 @@ bool AbstractProperty::keyFrameInterpolationSegment(
     if (right == keys.end()) {
         return false;
     }
-
     auto left = right;
     if (sameKeyFrameTime(right->time, time)) {
         if (right + 1 == keys.end()) {
@@ -1012,6 +1011,26 @@ bool AbstractProperty::keyFrameInterpolationSegment(
         segment.nextValue = right->value;
     }
     return true;
+}
+
+bool AbstractProperty::keyFrameBoundaryValue(
+    const RationalTime& time, QVariant& value) const {
+    std::shared_lock lock(pImpl->m_mutex);
+    const auto& keys = pImpl->m_keyFrames;
+    if (keys.size() < 2 ||
+        std::any_of(keys.begin(), keys.end(),
+                    [](const KeyFrame& key) { return key.roving; })) {
+        return false;
+    }
+    if (keyFrameTimeLess(time, keys.front().time)) {
+        value = keys.front().value;
+        return true;
+    }
+    if (!keyFrameTimeLess(time, keys.back().time)) {
+        value = keys.back().value;
+        return true;
+    }
+    return false;
 }
 
 bool AbstractProperty::hasKeyFrameAt(const RationalTime& time) const {

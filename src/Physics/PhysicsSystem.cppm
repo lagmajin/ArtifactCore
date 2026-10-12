@@ -2213,6 +2213,7 @@ private:
         }
     }
 
+public:
     void advanceGranularMaterialSolvers(float frameDeltaSeconds,
                                        std::uint64_t simulationWorldId) {
         if (!std::isfinite(frameDeltaSeconds) || frameDeltaSeconds <= 0.0f ||
@@ -2268,6 +2269,7 @@ private:
         }
     }
 
+private:
     SharedPtr<GpuBoidConstants>* findBoidsConstants(LayerID layerId) {
         for (auto& entry : boidsConstants_) {
             if (entry.layerId == layerId) return &entry.constants;

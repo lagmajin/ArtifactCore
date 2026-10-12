@@ -383,6 +383,8 @@ public:
     QVariant interpolateValue(const RationalTime& time) const;
     bool keyFrameInterpolationSegment(
         const RationalTime& time, KeyFrameInterpolationSegment& segment) const;
+    // Allocation-free clamped endpoint lookup for non-roving tracks.
+    bool keyFrameBoundaryValue(const RationalTime& time, QVariant& value) const;
 
     // Validation
     void clampValue();
