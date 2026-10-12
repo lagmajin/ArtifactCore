@@ -10,6 +10,7 @@ module;
 export module Image.SurfacePixelConversion;
 
 import Graphics.SurfaceColorContract;
+import Core.Parallel;
 
 export namespace ArtifactCore {
 
@@ -87,17 +88,23 @@ inline bool supportedPrimaries(
 
 } // namespace SurfacePixelConversionDetail
 
-inline SurfacePixelBuffer convertSurfacePixels(
+inline void convertSurfacePixelsInto(
+    SurfacePixelBuffer &output,
     const float *sourceFloat, const std::uint8_t *sourceByte, int width,
     int height, const SurfaceColorDescriptor &sourceDescriptor,
     SurfacePixelTarget target) {
-  SurfacePixelBuffer output;
+  output.width = 0;
+  output.height = 0;
+  output.rowStride = 0;
+  output.descriptor = SurfaceColorDescriptor::unknown();
   if (width <= 0 || height <= 0 || (!sourceFloat && !sourceByte)) {
-    return output;
+    output.bytes.clear();
+    return;
   }
 
   if (!SurfacePixelConversionDetail::supportedPrimaries(sourceDescriptor)) {
-    return output;
+    output.bytes.clear();
+    return;
   }
 
   const bool sourceIsRgba =
@@ -106,7 +113,8 @@ inline SurfacePixelBuffer convertSurfacePixels(
       sourceDescriptor.channelOrder == SurfaceChannelOrder::BGRA ||
       sourceDescriptor.channelOrder == SurfaceChannelOrder::Unknown;
   if (!sourceIsRgba && !sourceIsBgra) {
-    return output;
+    output.bytes.clear();
+    return;
   }
 
   output.width = static_cast<std::uint32_t>(width);
@@ -129,6 +137,68 @@ inline SurfacePixelBuffer convertSurfacePixels(
   constexpr float alphaEpsilon = 1.0e-6f;
   const std::size_t pixelCount =
       static_cast<std::size_t>(width) * static_cast<std::size_t>(height);
+
+  const bool legacySrgbRoundTrip =
+      !sourceDescriptor.transferKnown ||
+      sourceDescriptor.transfer == TransferFunction::sRGB;
+  const bool directSrgb8Copy =
+      target == SurfacePixelTarget::Rgba8SrgbStraight &&
+      legacySrgbRoundTrip && !sourcePremultiplied &&
+      (sourceOpaque || sourceDescriptor.alphaMode == SurfaceAlphaMode::Straight ||
+       sourceDescriptor.alphaMode == SurfaceAlphaMode::Unknown);
+  if (directSrgb8Copy) {
+    // Legacy decoded video RGB values are already sRGB encoded. The general
+    // path decodes them to linear and immediately encodes them back to sRGB,
+    // which is an identity (apart from byte quantization) but costs several
+    // transfer-function pow() calls per pixel. Preserve its finite handling,
+    // channel order, alpha clamp, and transparent-pixel behavior directly.
+    Parallel::ForPixels(0, height, width, height, 16, [&](int y) {
+      const std::size_t rowOffset =
+          static_cast<std::size_t>(y) * static_cast<std::size_t>(width);
+      for (int x = 0; x < width; ++x) {
+        const std::size_t index = rowOffset + static_cast<std::size_t>(x);
+        float channels[4]{};
+        if (sourceFloat) {
+          for (int channel = 0; channel < 4; ++channel) {
+            channels[channel] = sourceFloat[index * 4u + channel];
+          }
+        } else {
+          for (int channel = 0; channel < 4; ++channel) {
+            channels[channel] =
+                static_cast<float>(sourceByte[index * 4u + channel]) / 255.0f;
+          }
+        }
+
+        const float alpha = sourceOpaque
+            ? 1.0f
+            : std::clamp(
+                  SurfacePixelConversionDetail::finiteOrZero(channels[3]),
+                  0.0f, 1.0f);
+        const bool transparent = alpha <= alphaEpsilon;
+        const float red = transparent
+            ? 0.0f
+            : SurfacePixelConversionDetail::finiteOrZero(
+                  sourceIsRgba ? channels[0] : channels[2]);
+        const float green = transparent
+            ? 0.0f
+            : SurfacePixelConversionDetail::finiteOrZero(channels[1]);
+        const float blue = transparent
+            ? 0.0f
+            : SurfacePixelConversionDetail::finiteOrZero(
+                  sourceIsRgba ? channels[2] : channels[0]);
+        const std::size_t outputOffset = index * 4u;
+        output.bytes[outputOffset] = static_cast<std::uint8_t>(
+            std::clamp(red, 0.0f, 1.0f) * 255.0f + 0.5f);
+        output.bytes[outputOffset + 1u] = static_cast<std::uint8_t>(
+            std::clamp(green, 0.0f, 1.0f) * 255.0f + 0.5f);
+        output.bytes[outputOffset + 2u] = static_cast<std::uint8_t>(
+            std::clamp(blue, 0.0f, 1.0f) * 255.0f + 0.5f);
+        output.bytes[outputOffset + 3u] = static_cast<std::uint8_t>(
+            alpha * 255.0f + 0.5f);
+      }
+    });
+    return;
+  }
 
   const auto convertPixel = [&](std::size_t index) {
     float channels[4]{};
@@ -204,6 +274,15 @@ inline SurfacePixelBuffer convertSurfacePixels(
     convertPixel(index);
   }
 
+}
+
+inline SurfacePixelBuffer convertSurfacePixels(
+    const float *sourceFloat, const std::uint8_t *sourceByte, int width,
+    int height, const SurfaceColorDescriptor &sourceDescriptor,
+    SurfacePixelTarget target) {
+  SurfacePixelBuffer output;
+  convertSurfacePixelsInto(output, sourceFloat, sourceByte, width, height,
+                           sourceDescriptor, target);
   return output;
 }
 

@@ -15,4 +15,12 @@ inline ImageUploadBuffer convertImageForUpload(
                               image.colorDescriptor(), target);
 }
 
+inline void convertImageForUploadInto(
+    const ImageF32x4_RGBA &image, ImageUploadTarget target,
+    ImageUploadBuffer &output) {
+  convertSurfacePixelsInto(output, image.rgba32fData(), image.rgba8Data(),
+                           image.width(), image.height(),
+                           image.colorDescriptor(), target);
+}
+
 } // namespace ArtifactCore

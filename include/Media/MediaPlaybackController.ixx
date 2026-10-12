@@ -176,6 +176,9 @@ export namespace ArtifactCore {
   void setDecoderBackend(DecoderBackend backend);
   DecoderBackend getDecoderBackend() const;
   void setVulkanDevice(VkInstance instance, VkPhysicalDevice physicalDevice, VkDevice device, uint32_t queueFamilyIndex);
+  // Optional shared native device used only by the direct D3D12VA decoder.
+  // The controller retains the COM device until it is replaced or destroyed.
+  void setD3D12Device(void* device);
 
   // ʂݒi0.0-1.0j
   void setVolume(float volume);
@@ -203,6 +206,8 @@ export namespace ArtifactCore {
   DecodedVideoFrame getVideoFrameAtFrameRaw(int64_t frameNumber);
   QImage getVideoFrameAtFrameDirect(int64_t frameNumber);
   DecodedVideoFrame getVideoFrameAtFrameDirectRaw(int64_t frameNumber);
+  DecodedVideoFrame getVideoFrameAtFrameDirectRaw(
+      int64_t frameNumber, bool retainD3D12Frame);
   
   // ̃I[fBIt[擾
   QByteArray getNextAudioFrame();

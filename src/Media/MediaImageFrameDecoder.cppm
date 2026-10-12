@@ -6,6 +6,9 @@ module;
 #include <QtGlobal>
 #include <cstring>
 #include <cstdint>
+#include <atomic>
+#include <chrono>
+#include <cstdio>
 #include <memory>
 #include <variant>
 #include "MediaImageFrameDecoderFFmpegHeaders.h"
@@ -187,15 +190,49 @@ CpuVideoFrame downloadHwFrameToCpuVideoFrame(AVFrame* hwFrame, int64_t pts, int 
         return out;
     }
 
+    static const bool profileTransfer = [] {
+        return qEnvironmentVariableIntValue(
+                   "ARTIFACT_VIDEO_PREVIEW_PROFILE_HWFRAMES") != 0;
+    }();
+    const auto transferStarted = profileTransfer
+        ? std::chrono::steady_clock::now()
+        : std::chrono::steady_clock::time_point{};
     const int transferResult = av_hwframe_transfer_data(cpuFrame, hwFrame, 0);
+    const auto transferFinished = profileTransfer
+        ? std::chrono::steady_clock::now()
+        : std::chrono::steady_clock::time_point{};
     if (transferResult < 0) {
-        qWarning() << "[MediaImageFrameDecoder] Vulkan frame download failed:"
+        qWarning() << "[MediaImageFrameDecoder] hardware frame download failed:"
                    << ffmpegErrorString(transferResult);
         av_frame_free(&cpuFrame);
         return out;
     }
 
     out = makeCpuVideoFrameFromDownloadedFrame(cpuFrame, pts, rotationDegrees);
+    if (profileTransfer) {
+        static std::atomic<uint32_t> sampleCount{0};
+        const uint32_t sample = sampleCount.fetch_add(1, std::memory_order_relaxed);
+        if (sample < 40) {
+            const double downloadMs = std::chrono::duration<double, std::milli>(
+                transferFinished - transferStarted).count();
+            const double conversionMs = std::chrono::duration<double, std::milli>(
+                std::chrono::steady_clock::now() - transferFinished).count();
+            const AVD3D12VAFrame* d3d12Frame = nullptr;
+            if (hwFrame->format == AV_PIX_FMT_D3D12 && hwFrame->data[0]) {
+                d3d12Frame = reinterpret_cast<const AVD3D12VAFrame*>(hwFrame->data[0]);
+            }
+            std::fprintf(stderr,
+                         "[MediaImageFrameTransferProfile] sample=%u backend=%s "
+                         "size=%dx%d pts=%lld downloadMs=%.3f cpuConvertMs=%.3f "
+                         "fenceValue=%llu texture=%p\n",
+                         sample, hwFrame->format == AV_PIX_FMT_D3D12 ? "d3d12" : "other",
+                         hwFrame->width, hwFrame->height, static_cast<long long>(pts),
+                         downloadMs, conversionMs,
+                         static_cast<unsigned long long>(d3d12Frame
+                             ? d3d12Frame->sync_ctx.fence_value : 0),
+                         d3d12Frame ? static_cast<void*>(d3d12Frame->texture) : nullptr);
+        }
+    }
     av_frame_free(&cpuFrame);
     return out;
 }
@@ -227,6 +264,24 @@ AVPixelFormat chooseBestDecoderPixelFormat(AVCodecContext* ctx, const AVPixelFor
     }
 
     if (ctx && ctx->hw_device_ctx) {
+        const auto* deviceContext = reinterpret_cast<const AVHWDeviceContext*>(
+            ctx->hw_device_ctx->data);
+        if (deviceContext &&
+            deviceContext->type == AV_HWDEVICE_TYPE_D3D11VA) {
+            for (const AVPixelFormat* fmt = formats; *fmt != AV_PIX_FMT_NONE; ++fmt) {
+                if (*fmt == AV_PIX_FMT_D3D11) {
+                    return *fmt;
+                }
+            }
+        }
+        if (deviceContext &&
+            deviceContext->type == AV_HWDEVICE_TYPE_D3D12VA) {
+            for (const AVPixelFormat* fmt = formats; *fmt != AV_PIX_FMT_NONE; ++fmt) {
+                if (*fmt == AV_PIX_FMT_D3D12) {
+                    return *fmt;
+                }
+            }
+        }
         for (const AVPixelFormat* fmt = formats; *fmt != AV_PIX_FMT_NONE; ++fmt) {
             if (*fmt == AV_PIX_FMT_VULKAN) {
                 return *fmt;
@@ -240,7 +295,58 @@ AVPixelFormat chooseBestDecoderPixelFormat(AVCodecContext* ctx, const AVPixelFor
 GpuVideoFrame makeGpuVideoFrameFromFrame(AVFrame* frame)
 {
     GpuVideoFrame out;
-    if (!frame || frame->format != AV_PIX_FMT_VULKAN || !frame->data[0]) {
+    if (!frame || !frame->data[0]) {
+        return out;
+    }
+
+    if (frame->format == AV_PIX_FMT_D3D12) {
+        const auto* d3d12Frame = reinterpret_cast<const AVD3D12VAFrame*>(frame->data[0]);
+        if (!d3d12Frame || !d3d12Frame->texture) {
+            return out;
+        }
+
+        std::shared_ptr<AVFrame> clonedFrame(
+            av_frame_clone(frame),
+            [](AVFrame* cloned) {
+                if (cloned) {
+                    av_frame_free(&cloned);
+                }
+            });
+        SharedPtr<void> frameRef(clonedFrame);
+        if (!frameRef) {
+            return out;
+        }
+
+        VideoFramePixelFormat pixelFormat = VideoFramePixelFormat::NV12;
+        if (frame->hw_frames_ctx && frame->hw_frames_ctx->data) {
+            const auto* hwFrames = reinterpret_cast<const AVHWFramesContext*>(frame->hw_frames_ctx->data);
+            if (hwFrames) {
+                pixelFormat = mapAvPixelFormatToVideoFramePixelFormat(hwFrames->sw_format);
+            }
+        }
+        out.meta.width = frame->width;
+        out.meta.height = frame->height;
+        out.meta.pts = frame->best_effort_timestamp != AV_NOPTS_VALUE
+            ? frame->best_effort_timestamp
+            : frame->pts;
+        out.meta.pixelFormat = pixelFormat;
+        out.meta.color.colorSpace = static_cast<int>(frame->colorspace);
+        out.meta.color.colorRange = static_cast<int>(frame->color_range);
+        out.meta.color.colorPrimaries = static_cast<int>(frame->color_primaries);
+        out.meta.color.colorTransfer = static_cast<int>(frame->color_trc);
+        out.storage = VideoFrameStorageKind::D3D12Texture;
+        out.lifetime = frameRef;
+
+        D3D12VideoFrameHandle handle;
+        handle.texture = d3d12Frame->texture;
+        handle.fence = d3d12Frame->sync_ctx.fence;
+        handle.fenceValue = d3d12Frame->sync_ctx.fence_value;
+        handle.subresourceIndex = d3d12Frame->subresource_index;
+        out.handle = handle;
+        return out;
+    }
+
+    if (frame->format != AV_PIX_FMT_VULKAN) {
         return out;
     }
 
@@ -399,7 +505,12 @@ void MediaImageFrameDecoder::setVulkanDevice(VkInstance instance, VkPhysicalDevi
     hwDeviceCtx_ = deviceRef;
 }
 
-bool MediaImageFrameDecoder::initialize(AVCodecParameters* codecParams, int displayRotationDegrees) {
+bool MediaImageFrameDecoder::initialize(AVCodecParameters* codecParams,
+                                        int displayRotationDegrees,
+                                        bool enableD3D11va,
+                                        bool enableVulkan,
+                                        bool enableD3D12va,
+                                        void* sharedD3D12Device) {
     if (!codecParams) {
         qWarning() << "[MediaImageFrameDecoder] initialize failed: null codecParams";
         return false;
@@ -412,6 +523,139 @@ bool MediaImageFrameDecoder::initialize(AVCodecParameters* codecParams, int disp
     }
     if (codecContext_) {
         avcodec_free_context(&codecContext_);
+    }
+    d3d11vaRequested_ = enableD3D11va;
+    d3d12vaRequested_ = enableD3D12va;
+    bool existingHardwareDevice = false;
+    if (hwDeviceCtx_ && hwDeviceCtx_->data) {
+        const auto* existingDevice = reinterpret_cast<const AVHWDeviceContext*>(
+            hwDeviceCtx_->data);
+        existingHardwareDevice =
+            existingDevice->type == AV_HWDEVICE_TYPE_D3D11VA ||
+            existingDevice->type == AV_HWDEVICE_TYPE_D3D12VA ||
+            existingDevice->type == AV_HWDEVICE_TYPE_VULKAN;
+    }
+    if (d3d11vaRequested_ || d3d12vaRequested_ || enableVulkan ||
+        existingHardwareDevice) {
+        freeHwDeviceContext(hwDeviceCtx_);
+        freeHwDeviceContext(frameCtx_);
+    }
+    if (enableVulkan) {
+        bool vulkanHardwareBackendAvailable = false;
+        for (AVHWDeviceType type = av_hwdevice_iterate_types(
+                 AV_HWDEVICE_TYPE_NONE);
+             type != AV_HWDEVICE_TYPE_NONE;
+             type = av_hwdevice_iterate_types(type)) {
+            if (type == AV_HWDEVICE_TYPE_VULKAN) {
+                vulkanHardwareBackendAvailable = true;
+                break;
+            }
+        }
+        if (!vulkanHardwareBackendAvailable) {
+            std::fprintf(stderr,
+                         "[MediaImageFrameDecoderProbe] Vulkan requested but "
+                         "this FFmpeg build has no Vulkan hwdevice backend\n");
+            std::fflush(stderr);
+            enableVulkan = false;
+        }
+    }
+    if (enableVulkan) {
+        std::fprintf(stderr,
+                     "[MediaImageFrameDecoderProbe] Vulkan requested codecId=%d\n",
+                     codecParams->codec_id);
+        std::fflush(stderr);
+        const int deviceResult = av_hwdevice_ctx_create(
+            &hwDeviceCtx_, AV_HWDEVICE_TYPE_VULKAN, nullptr, nullptr, 0);
+        std::fprintf(stderr,
+                     "[MediaImageFrameDecoderProbe] Vulkan device init result=%d "
+                     "error=%s context=%p\n",
+                     deviceResult,
+                     deviceResult < 0 ? ffmpegErrorString(deviceResult).toUtf8().constData()
+                                      : "none",
+                     static_cast<void*>(hwDeviceCtx_));
+        std::fflush(stderr);
+        if (deviceResult < 0 || !hwDeviceCtx_) {
+            qWarning() << "[MediaImageFrameDecoder] Vulkan device init failed; "
+                          "using software decode:"
+                       << ffmpegErrorString(deviceResult);
+            enableVulkan = false;
+        }
+    }
+    if (d3d11vaRequested_) {
+        std::fprintf(stderr,
+                     "[MediaImageFrameDecoderProbe] D3D11VA requested codecId=%d\n",
+                     codecParams->codec_id);
+        std::fflush(stderr);
+    }
+    if (d3d11vaRequested_) {
+        const int deviceResult = av_hwdevice_ctx_create(
+            &hwDeviceCtx_, AV_HWDEVICE_TYPE_D3D11VA, nullptr, nullptr, 0);
+        std::fprintf(stderr,
+                     "[MediaImageFrameDecoderProbe] D3D11VA device init result=%d "
+                     "context=%p\n",
+                     deviceResult, static_cast<void*>(hwDeviceCtx_));
+        std::fflush(stderr);
+        if (deviceResult < 0 || !hwDeviceCtx_) {
+            qWarning() << "[MediaImageFrameDecoder] D3D11VA device init failed; "
+                          "using software decode:"
+                       << ffmpegErrorString(deviceResult);
+            d3d11vaRequested_ = false;
+        }
+    }
+    if (d3d12vaRequested_) {
+        std::fprintf(stderr,
+                     "[MediaImageFrameDecoderProbe] D3D12VA requested codecId=%d\n",
+                     codecParams->codec_id);
+        std::fflush(stderr);
+        int deviceResult = AVERROR(ENOMEM);
+        if (sharedD3D12Device) {
+            hwDeviceCtx_ = av_hwdevice_ctx_alloc(AV_HWDEVICE_TYPE_D3D12VA);
+            auto* deviceContext = hwDeviceCtx_
+                ? reinterpret_cast<AVHWDeviceContext*>(hwDeviceCtx_->data)
+                : nullptr;
+            auto* d3d12Context = deviceContext
+                ? reinterpret_cast<AVD3D12VADeviceContext*>(deviceContext->hwctx)
+                : nullptr;
+            if (d3d12Context) {
+                d3d12Context->device = static_cast<ID3D12Device*>(sharedD3D12Device);
+                d3d12Context->device->AddRef();
+                deviceResult = av_hwdevice_ctx_init(hwDeviceCtx_);
+            }
+            if (deviceResult < 0) {
+                freeHwDeviceContext(hwDeviceCtx_);
+            }
+        } else {
+            deviceResult = av_hwdevice_ctx_create(
+                &hwDeviceCtx_, AV_HWDEVICE_TYPE_D3D12VA, nullptr, nullptr, 0);
+        }
+        if (deviceResult >= 0 && hwDeviceCtx_) {
+            auto* deviceContext = reinterpret_cast<AVHWDeviceContext*>(
+                hwDeviceCtx_->data);
+            auto* d3d12Context = reinterpret_cast<AVD3D12VADeviceContext*>(
+                deviceContext->hwctx);
+            // The decoded texture is read by FFmpeg's COPY queue and, on the
+            // shared-device path, Diligent's DIRECT queue. Simultaneous-access
+            // textures keep a COMMON layout on COPY queues; the existing
+            // decoder/conversion fences still order writes before either read.
+            d3d12Context->resource_flags = static_cast<D3D12_RESOURCE_FLAGS>(
+                d3d12Context->resource_flags |
+                D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS);
+        }
+        std::fprintf(stderr,
+                     "[MediaImageFrameDecoderProbe] D3D12VA device init result=%d "
+                     "error=%s context=%p sharedDevice=%d\n",
+                     deviceResult,
+                     deviceResult < 0 ? ffmpegErrorString(deviceResult).toUtf8().constData()
+                                      : "none",
+                     static_cast<void*>(hwDeviceCtx_),
+                     sharedD3D12Device ? 1 : 0);
+        std::fflush(stderr);
+        if (deviceResult < 0 || !hwDeviceCtx_) {
+            qWarning() << "[MediaImageFrameDecoder] D3D12VA device init failed; "
+                          "using software decode:"
+                       << ffmpegErrorString(deviceResult);
+            d3d12vaRequested_ = false;
+        }
     }
     const AVCodec* codec = avcodec_find_decoder(codecParams->codec_id);
     if (!codec) {
@@ -436,15 +680,50 @@ bool MediaImageFrameDecoder::initialize(AVCodecParameters* codecParams, int disp
 
     if (hwDeviceCtx_) {
         codecContext_->hw_device_ctx = av_buffer_ref(hwDeviceCtx_);
+        codecContext_->get_format = chooseBestDecoderPixelFormat;
     }
 
     int ret = avcodec_open2(codecContext_, codec, nullptr);
+    if (ret < 0 &&
+        (d3d11vaRequested_ || d3d12vaRequested_ || enableVulkan)) {
+        qWarning() << "[MediaImageFrameDecoder] hardware codec open failed; "
+                      "retrying software decode:"
+                   << ffmpegErrorString(ret);
+        avcodec_free_context(&codecContext_);
+        codecContext_ = avcodec_alloc_context3(codec);
+        if (!codecContext_ ||
+            avcodec_parameters_to_context(codecContext_, codecParams) < 0) {
+            avcodec_free_context(&codecContext_);
+            codecContext_ = nullptr;
+            freeHwDeviceContext(hwDeviceCtx_);
+            d3d11vaRequested_ = false;
+            d3d12vaRequested_ = false;
+            enableVulkan = false;
+            return false;
+        }
+        freeHwDeviceContext(hwDeviceCtx_);
+        d3d11vaRequested_ = false;
+        d3d12vaRequested_ = false;
+        enableVulkan = false;
+        ret = avcodec_open2(codecContext_, codec, nullptr);
+    }
     if (ret < 0) {
         qWarning() << "[MediaImageFrameDecoder] initialize failed: could not open codec"
                    << "codec=" << codec->name
                    << "reason=" << ffmpegErrorString(ret);
         avcodec_free_context(&codecContext_);
         return false;
+    }
+
+    if ((d3d11vaRequested_ || d3d12vaRequested_ || enableVulkan) &&
+        codecContext_->hw_device_ctx) {
+        std::fprintf(stderr,
+                     "[MediaImageFrameDecoderProbe] hardware device attached "
+                     "type=%s codec=%s\n",
+                     enableVulkan ? "vulkan"
+                                   : d3d12vaRequested_ ? "d3d12va" : "d3d11va",
+                     codec->name);
+        std::fflush(stderr);
     }
 
     swsCtx_ = sws_getContext(
@@ -501,6 +780,23 @@ QImage MediaImageFrameDecoder::decodeFrame(AVPacket* packet) {
             continue;
         }
 
+        if (frame->format == AV_PIX_FMT_D3D11 ||
+            frame->format == AV_PIX_FMT_D3D12) {
+            static std::atomic<int> d3dFrameLogCount{0};
+            if (d3dFrameLogCount.fetch_add(1, std::memory_order_relaxed) < 8) {
+                std::fprintf(stderr,
+                             "[MediaImageFrameDecoderProbe] D3D hardware frame "
+                             "received format=%d %dx%d\n",
+                             frame->format, frame->width, frame->height);
+                std::fflush(stderr);
+            }
+            CpuVideoFrame decoded = downloadHwFrameToCpuVideoFrame(
+                frame, lastPts_, displayRotationDegrees_);
+            result = makeQImageFromCpuVideoFrame(decoded);
+            av_frame_unref(frame);
+            continue;
+        }
+
         CpuVideoFrame decoded = makeCpuVideoFrameFromFrame(
             frame, swsCtx_, lastPts_, displayRotationDegrees_);
         result = makeQImageFromCpuVideoFrame(decoded);
@@ -543,6 +839,18 @@ DecodedVideoFrame MediaImageFrameDecoder::decodeFrameRaw(AVPacket* packet) {
         lastPts_ = pts;
         if (frame->format == AV_PIX_FMT_VULKAN) {
             GpuVideoFrame out = makeGpuVideoFrameFromFrame(frame);
+            static std::atomic<int> vulkanFrameLogCount{0};
+            if (vulkanFrameLogCount.fetch_add(1, std::memory_order_relaxed) < 8) {
+                std::fprintf(stderr,
+                             "[MediaImageFrameDecoderProbe] Vulkan frame received "
+                             "%dx%d planes=%u format=%d\n",
+                             frame->width, frame->height,
+                             std::get_if<VulkanVideoFrameHandle>(&out.handle)
+                                 ? std::get<VulkanVideoFrameHandle>(out.handle).planeCount
+                                 : 0u,
+                             frame->format);
+                std::fflush(stderr);
+            }
             if (!directVulkanVideoFramesEnabled() || !canPresentGpuFrameDirectly(out)) {
                 CpuVideoFrame cpu = downloadHwFrameToCpuVideoFrame(
                     frame, pts, displayRotationDegrees_);
@@ -554,6 +862,23 @@ DecodedVideoFrame MediaImageFrameDecoder::decodeFrameRaw(AVPacket* packet) {
             av_frame_unref(frame);
             av_frame_free(&frame);
             return out;
+        }
+        if (frame->format == AV_PIX_FMT_D3D11 ||
+            frame->format == AV_PIX_FMT_D3D12) {
+            static std::atomic<int> d3dFrameLogCount{0};
+            if (d3dFrameLogCount.fetch_add(1, std::memory_order_relaxed) < 8) {
+                std::fprintf(stderr,
+                             "[MediaImageFrameDecoderProbe] D3D hardware frame "
+                             "received format=%d %dx%d\n",
+                             frame->format, frame->width, frame->height);
+                std::fflush(stderr);
+            }
+            CpuVideoFrame cpu = downloadHwFrameToCpuVideoFrame(
+                frame, pts, displayRotationDegrees_);
+            av_frame_unref(frame);
+            av_frame_free(&frame);
+            return cpu.isValid() ? DecodedVideoFrame{std::move(cpu)}
+                                 : DecodedVideoFrame{std::monostate{}};
         }
         CpuVideoFrame out = makeCpuVideoFrameFromFrame(
         frame, swsCtx_, pts, displayRotationDegrees_);
@@ -597,6 +922,22 @@ QImage MediaImageFrameDecoder::receiveFrame() {
         return QImage();
     }
 
+    if (frame->format == AV_PIX_FMT_D3D11 ||
+        frame->format == AV_PIX_FMT_D3D12) {
+        static std::atomic<int> d3dFrameLogCount{0};
+        if (d3dFrameLogCount.fetch_add(1, std::memory_order_relaxed) < 8) {
+            std::fprintf(stderr,
+                         "[MediaImageFrameDecoderProbe] D3D hardware frame "
+                         "received format=%d %dx%d\n",
+                         frame->format, frame->width, frame->height);
+            std::fflush(stderr);
+        }
+        CpuVideoFrame cpu = downloadHwFrameToCpuVideoFrame(
+            frame, lastPts_, displayRotationDegrees_);
+        av_frame_free(&frame);
+        return cpu.isValid() ? makeQImageFromCpuVideoFrame(cpu) : QImage();
+    }
+
     CpuVideoFrame decoded = makeCpuVideoFrameFromFrame(
         frame, swsCtx_, lastPts_, displayRotationDegrees_);
     av_frame_free(&frame);
@@ -604,6 +945,10 @@ QImage MediaImageFrameDecoder::receiveFrame() {
 }
 
 DecodedVideoFrame MediaImageFrameDecoder::receiveFrameRaw() {
+    return receiveFrameRaw(false);
+}
+
+DecodedVideoFrame MediaImageFrameDecoder::receiveFrameRaw(bool retainD3D12Frame) {
     if (!codecContext_) {
         return std::monostate{};
     }
@@ -640,6 +985,30 @@ DecodedVideoFrame MediaImageFrameDecoder::receiveFrameRaw() {
         av_frame_unref(frame);
         av_frame_free(&frame);
         return out;
+    }
+    if (frame->format == AV_PIX_FMT_D3D11 ||
+        frame->format == AV_PIX_FMT_D3D12) {
+        static std::atomic<int> d3dFrameLogCount{0};
+        if (d3dFrameLogCount.fetch_add(1, std::memory_order_relaxed) < 8) {
+            std::fprintf(stderr,
+                         "[MediaImageFrameDecoderProbe] D3D hardware frame "
+                         "received format=%d %dx%d\n",
+                         frame->format, frame->width, frame->height);
+            std::fflush(stderr);
+        }
+        if (frame->format == AV_PIX_FMT_D3D12 && retainD3D12Frame) {
+            GpuVideoFrame gpu = makeGpuVideoFrameFromFrame(frame);
+            av_frame_unref(frame);
+            av_frame_free(&frame);
+            return gpu.isValid() ? DecodedVideoFrame{std::move(gpu)}
+                                 : DecodedVideoFrame{std::monostate{}};
+        }
+        CpuVideoFrame cpu = downloadHwFrameToCpuVideoFrame(
+            frame, pts, displayRotationDegrees_);
+        av_frame_unref(frame);
+        av_frame_free(&frame);
+        return cpu.isValid() ? DecodedVideoFrame{std::move(cpu)}
+                             : DecodedVideoFrame{std::monostate{}};
     }
     CpuVideoFrame out = makeCpuVideoFrameFromFrame(
         frame, swsCtx_, pts, displayRotationDegrees_);

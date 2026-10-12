@@ -11,6 +11,10 @@ module;
 #include <Qt>
 #include <limits>
 #include <cstring>
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <d3d12.h>
 
 #include <cerrno>
 #include <iostream>
@@ -248,6 +252,7 @@ class MediaPlaybackController::Impl {
   VkPhysicalDevice vulkanPhysicalDevice_{};
   VkDevice vulkanDevice_{};
   uint32_t vulkanQueueFamilyIndex_ = 0;
+  ID3D12Device* d3d12Device_ = nullptr;
 
   Impl()
       : mediaSource_(new MediaSource()),
@@ -264,6 +269,10 @@ class MediaPlaybackController::Impl {
     delete directMediaSource_;
     delete mediaSource_;
     delete mfExtractor_;
+    if (d3d12Device_) {
+      d3d12Device_->Release();
+      d3d12Device_ = nullptr;
+    }
   }
 
   struct DirectFrameTarget {
@@ -487,7 +496,21 @@ class MediaPlaybackController::Impl {
       AVCodecParameters* params = ctx->streams[i]->codecpar;
       if (params->codec_type == AVMEDIA_TYPE_VIDEO) {
         const int rotation = streamDisplayRotationDegrees(ctx->streams[i]);
-        if (decoder->initialize(params, rotation)) {
+        const bool enableD3D11va =
+            qEnvironmentVariable("ARTIFACT_VIDEO_PREVIEW_FFMPEG_HWACCEL")
+                    .compare(QStringLiteral("d3d11va"),
+                             Qt::CaseInsensitive) == 0;
+        const bool enableVulkan =
+            qEnvironmentVariable("ARTIFACT_VIDEO_PREVIEW_FFMPEG_HWACCEL")
+                    .compare(QStringLiteral("vulkan"),
+                             Qt::CaseInsensitive) == 0;
+        const bool enableD3D12va =
+            qEnvironmentVariable("ARTIFACT_VIDEO_PREVIEW_FFMPEG_HWACCEL")
+                    .compare(QStringLiteral("d3d12va"),
+                             Qt::CaseInsensitive) == 0 ||
+            (d3d12Device_ && params->codec_id == AV_CODEC_ID_H264);
+        if (decoder->initialize(params, rotation, enableD3D11va,
+                                enableVulkan, enableD3D12va, d3d12Device_)) {
           const int streamIndex = static_cast<int>(i);
           const auto timeBase = ctx->streams[i]->time_base;
           directMediaSource_ = source.release();
@@ -502,7 +525,8 @@ class MediaPlaybackController::Impl {
     return false;
   }
 
-  DecodedVideoFrame decodeVideoFrameDirectAtFrameRaw(int64_t frameNumber) {
+  DecodedVideoFrame decodeVideoFrameDirectAtFrameRaw(
+      int64_t frameNumber, bool retainD3D12Frame = false) {
     if (backend_ == DecoderBackend::MediaFoundation && mfExtractor_ && mfExtractor_->isOpen()) {
       auto frame = mfExtractor_->extractFrameAtIndex(frameNumber);
       if (frame && frame->isValid()) {
@@ -573,7 +597,8 @@ class MediaPlaybackController::Impl {
     // Helper: drain decoded frames from the video decoder
     auto drainFrames = [&]() {
       while (true) {
-        DecodedVideoFrame decoded = directVideoDecoder_->receiveFrameRaw();
+        DecodedVideoFrame decoded =
+            directVideoDecoder_->receiveFrameRaw(retainD3D12Frame);
         if (isDecodedVideoFrameUsable(decoded)) {
           lastDecodedFrame = decoded;
           const int64_t decodedPts = decodedVideoFramePts(decoded);
@@ -1211,6 +1236,23 @@ static PlaybackBackend& backendFor(DecoderBackend backend) {
   }
  }
 
+void MediaPlaybackController::setD3D12Device(void* device) {
+  if (!impl_) return;
+  auto* nextDevice = static_cast<ID3D12Device*>(device);
+  std::lock_guard<std::mutex> directLock(impl_->directDecodeMutex_);
+  if (impl_->d3d12Device_ == nextDevice) return;
+  if (nextDevice) nextDevice->AddRef();
+  if (impl_->d3d12Device_) impl_->d3d12Device_->Release();
+  impl_->d3d12Device_ = nextDevice;
+  delete impl_->directVideoDecoder_;
+  impl_->directVideoDecoder_ = nullptr;
+  delete impl_->directMediaSource_;
+  impl_->directMediaSource_ = nullptr;
+  impl_->directDecodeCursorFrame_ = -1;
+  impl_->directVideoStreamIndex_ = -1;
+  impl_->directFrameIndex_.reset();
+}
+
  void MediaPlaybackController::setVolume(float volume) {
   if (!impl_) return;
   impl_->volume_ = std::max(0.0f, std::min(volume, 1.0f));
@@ -1333,8 +1375,15 @@ DecodedVideoFrame MediaPlaybackController::getVideoFrameAtFrameRaw(int64_t frame
   return getVideoFrameAtFrameDirectRaw(frameNumber);
 }
 
-DecodedVideoFrame MediaPlaybackController::getVideoFrameAtFrameDirectRaw(int64_t frameNumber) {
-  return impl_ ? impl_->decodeVideoFrameDirectAtFrameRaw(frameNumber)
+DecodedVideoFrame MediaPlaybackController::getVideoFrameAtFrameDirectRaw(
+    int64_t frameNumber) {
+  return getVideoFrameAtFrameDirectRaw(frameNumber, false);
+}
+
+DecodedVideoFrame MediaPlaybackController::getVideoFrameAtFrameDirectRaw(
+    int64_t frameNumber, bool retainD3D12Frame) {
+  return impl_ ? impl_->decodeVideoFrameDirectAtFrameRaw(
+                     frameNumber, retainD3D12Frame)
                : DecodedVideoFrame{std::monostate{}};
 }
 

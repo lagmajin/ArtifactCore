@@ -481,6 +481,17 @@ namespace ArtifactCore {
     }
   }
 
+  void ImageF32x4_RGBA::setFromCVMatOwned(
+      cv::Mat&& mat, const SurfaceColorDescriptor& descriptor)
+  {
+    if (mat.empty() || mat.type() != CV_32FC4) {
+      setFromCVMat(mat, descriptor);
+      return;
+    }
+    impl_->mat_ = std::move(mat);
+    impl_->colorDescriptor_ = descriptor;
+  }
+
   void ImageF32x4_RGBA::setFromRGBA32F(const float* data, int width, int height)
   {
    if (!data || width <= 0 || height <= 0) {

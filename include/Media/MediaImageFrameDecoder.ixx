@@ -26,6 +26,8 @@ private:
     SwsContext* swsCtx_ = nullptr;
     AVBufferRef* hwDeviceCtx_ = nullptr;
     AVBufferRef* frameCtx_ = nullptr;
+    bool d3d11vaRequested_ = false;
+    bool d3d12vaRequested_ = false;
     int64_t lastPts_ = 0;
     int displayRotationDegrees_ = 0;
 
@@ -33,7 +35,10 @@ public:
     MediaImageFrameDecoder();
     ~MediaImageFrameDecoder();
 
-    bool initialize(AVCodecParameters* codecParams, int displayRotationDegrees = 0);
+    bool initialize(AVCodecParameters* codecParams, int displayRotationDegrees = 0,
+                    bool enableD3D11va = false, bool enableVulkan = false,
+                    bool enableD3D12va = false,
+                    void* sharedD3D12Device = nullptr);
     void setVulkanDevice(VkInstance instance, VkPhysicalDevice physicalDevice, VkDevice device, uint32_t queueFamilyIndex);
     QImage decodeFrame(AVPacket* packet);
     DecodedVideoFrame decodeFrameRaw(AVPacket* packet);
@@ -42,6 +47,7 @@ public:
     int sendPacket(AVPacket* packet);
     QImage receiveFrame();
     DecodedVideoFrame receiveFrameRaw();
+    DecodedVideoFrame receiveFrameRaw(bool retainD3D12Frame);
     
     void flush();
     int64_t getLastDecodedPts() const { return lastPts_; }

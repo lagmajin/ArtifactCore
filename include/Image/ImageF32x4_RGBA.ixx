@@ -101,6 +101,9 @@ export namespace ArtifactCore {
   void setFromCVMat(const cv::Mat& mat);
   void setFromCVMat(const cv::Mat& mat,
                     const SurfaceColorDescriptor& descriptor);
+  // Takes ownership of a caller-created CV_32FC4 buffer without cloning it.
+  void setFromCVMatOwned(cv::Mat&& mat,
+                         const SurfaceColorDescriptor& descriptor);
   // Despite the historical name, the no-descriptor overload assumes the
   // supplied memory is canonical RGBA. Use the descriptor overload for BGRA.
   void setFromRGBA32F(const float* data, int width, int height);

@@ -8,6 +8,7 @@ extern "C"
 #include <libavutil/avutil.h>
 #include <libavutil/imgutils.h>
 #include <libavutil/hwcontext.h>
+#include <libavutil/hwcontext_d3d12va.h>
 #include <libavutil/hwcontext_vulkan.h>
 #include <libavutil/pixdesc.h>
 }

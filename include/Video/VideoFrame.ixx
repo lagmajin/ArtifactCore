@@ -69,16 +69,35 @@ struct VulkanVideoFrameHandle {
     std::uint32_t arrayLayer = 0;
 };
 
+// Native D3D12 decoder output. The owning AVFrame is retained by GpuVideoFrame::lifetime;
+// these pointers are borrowed from that frame and must not outlive it.
+struct D3D12VideoFrameHandle {
+    void* texture = nullptr;
+    void* fence = nullptr;
+    std::uint64_t fenceValue = 0;
+    std::uint32_t subresourceIndex = 0;
+};
+
 struct GpuVideoFrame {
     VideoFrameMetadata meta;
     VideoFrameStorageKind storage = VideoFrameStorageKind::Unknown;
-    std::variant<std::monostate, VulkanVideoFrameHandle> handle;
+    std::variant<std::monostate, VulkanVideoFrameHandle, D3D12VideoFrameHandle> handle;
     SharedPtr<void> lifetime;
 
     bool isValid() const
     {
-        return meta.width > 0 && meta.height > 0 && storage != VideoFrameStorageKind::Unknown &&
-               !std::holds_alternative<std::monostate>(handle);
+        if (meta.width <= 0 || meta.height <= 0) {
+            return false;
+        }
+        if (storage == VideoFrameStorageKind::D3D12Texture) {
+            const auto* d3d12 = std::get_if<D3D12VideoFrameHandle>(&handle);
+            return d3d12 && d3d12->texture && d3d12->fence && lifetime;
+        }
+        if (storage == VideoFrameStorageKind::VulkanImage) {
+            const auto* vulkan = std::get_if<VulkanVideoFrameHandle>(&handle);
+            return vulkan && vulkan->image && lifetime;
+        }
+        return false;
     }
 };
 
