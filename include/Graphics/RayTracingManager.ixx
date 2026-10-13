@@ -61,6 +61,98 @@ struct RTGeometryData {
     Uint64 topologyRevision = 0;
 };
 
+struct RTPbrMaterial {
+    float baseColor[3] = {1.0f, 1.0f, 1.0f};
+    float baseColorAlpha = 1.0f;
+    float baseColorUvScale = 1.0f;
+    float baseColorUvRotationDegrees = 0.0f;
+    float baseColorUvOffsetU = 0.0f;
+    float baseColorUvOffsetV = 0.0f;
+    float metallicRoughnessUvScale = 1.0f;
+    float metallicRoughnessUvOffsetU = 0.0f;
+    float metallicRoughnessUvOffsetV = 0.0f;
+    float metallicRoughnessUvRotationDegrees = 0.0f;
+    float metallic = 0.0f;
+    float roughness = 0.5f;
+    float diffuseRoughness = 0.0f;
+    float specular = 0.5f;
+    float specularTint[3] = {1.0f, 1.0f, 1.0f};
+    float thinFilmThickness = 0.0f;
+    float thinFilmIOR = 1.33f;
+    float ior = 1.5f;
+    float transmission = 0.0f;
+    float clearcoat = 0.0f;
+    float clearcoatRoughness = 0.03f;
+    float clearcoatIOR = 1.5f;
+    float clearcoatTint[3] = {1.0f, 1.0f, 1.0f};
+    float clearcoatNormalStrength = 1.0f;
+    UniString clearcoatNormalTexture;
+    float clearcoatNormalUvRotationDegrees = 0.0f;
+    float clearcoatNormalUvScale = 1.0f;
+    float clearcoatNormalUvOffsetU = 0.0f;
+    float clearcoatNormalUvOffsetV = 0.0f;
+    float sheen = 0.0f;
+    float sheenRoughness = 0.5f;
+    float sheenTint[3] = {1.0f, 1.0f, 1.0f};
+    float subsurface = 0.0f;
+    float subsurfaceIOR = 1.4f;
+    float subsurfaceAnisotropy = 0.0f;
+    float subsurfaceRadius[3] = {1.0f, 0.2f, 0.1f};
+    float anisotropy = 0.0f;
+    float anisotropyRotationDegrees = 0.0f;
+    float emissionColor[3] = {0.0f, 0.0f, 0.0f};
+    float emissionStrength = 0.0f;
+    float opacity = 1.0f;
+    float alphaCutoff = 0.5f;
+    Uint32 alphaMode = 0; // MaterialAlphaMode: Opaque=0, Masked=1, Blended=2.
+    UniString baseColorTexture;
+    UniString metallicRoughnessTexture;
+    UniString normalTexture;
+    float normalStrength = 1.0f;
+    float normalUvRotationDegrees = 0.0f;
+    float normalUvScale = 1.0f;
+    float normalUvOffsetU = 0.0f;
+    float normalUvOffsetV = 0.0f;
+    UniString occlusionTexture;
+    float occlusionStrength = 1.0f;
+    float occlusionTextureUvScale = 1.0f;
+    float occlusionTextureUvOffsetU = 0.0f;
+    float occlusionTextureUvOffsetV = 0.0f;
+    float occlusionTextureUvRotationDegrees = 0.0f;
+    float uvOffsetU = 0.0f;
+    float uvOffsetV = 0.0f;
+    float uvScaleU = 1.0f;
+    float uvScaleV = 1.0f;
+    float uvRotationDegrees = 0.0f;
+    UniString emissionTexture;
+    float emissionTextureUvScale = 1.0f;
+    float emissionTextureUvOffsetU = 0.0f;
+    float emissionTextureUvOffsetV = 0.0f;
+    float emissionTextureUvRotationDegrees = 0.0f;
+    UniString opacityTexture;
+    float opacityTextureUvScale = 1.0f;
+    float opacityTextureUvOffsetU = 0.0f;
+    float opacityTextureUvOffsetV = 0.0f;
+    float opacityTextureUvRotationDegrees = 0.0f;
+};
+
+struct RTRayCamera {
+    float origin[3] = {0.0f, 0.0f, -2.0f};
+    float target[3] = {0.0f, 0.0f, 0.0f};
+    // The image-space vertical direction is derived from this vector.
+    float up[3] = {0.0f, 1.0f, 0.0f};
+    float verticalFovDegrees = 57.523f;
+};
+
+struct RTSceneLight {
+    // LightType ordinal: Directional=0, Point=1, Spot=2, Ambient=3, Area=4.
+    float positionType[4] = {};
+    float directionIntensity[4] = {};
+    float colorAttenuationConstant[4] = {};
+    float attenuationSpot[4] = {};
+    float shadowParams[4] = {};
+};
+
 class IRayTracingManager {
 public:
     virtual ~IRayTracingManager() = default;
@@ -70,6 +162,28 @@ public:
 
     // Acceleration Structure Management
     virtual bool createOrUpdateBLAS(const UniString& id, const RTGeometryData& data) = 0;
+    virtual bool updateShadingGeometry(const UniString& id, const float* vertices,
+                                       Uint32 vertexCount, const Uint32* indices,
+                                       Uint32 indexCount,
+                                       const float* vertexNormals = nullptr,
+                                       // One material index per triangle; null selects material 0.
+                                       const Uint32* primitiveMaterialIndices = nullptr,
+                                       const float* vertexUvs = nullptr,
+                                       const float* vertexColors = nullptr) = 0;
+    virtual bool setInstancePbrMaterial(const UniString& id,
+                                        const RTPbrMaterial& material,
+                                        // Material index referenced by RT triangle data.
+                                        Uint32 materialIndex = 0) = 0;
+    virtual void setEnvironmentLighting(IDeviceContext* pContext,
+                                        ITextureView* irradianceEnvironment,
+                                        ITextureView* prefilteredEnvironment,
+                                        ITextureView* brdfLut,
+                                        bool enabled, float intensity,
+                                        float rotationDegrees,
+                                        ITextureView* sheenPrefilteredEnvironment = nullptr) = 0;
+    virtual void setSceneLights(IDeviceContext* pContext,
+                                const RTSceneLight* lights,
+                                Uint32 lightCount) = 0;
     virtual bool updateInstanceTransform(const UniString& id,
                                          const Diligent::float4x4& transform) = 0;
     virtual bool hasBLAS(const UniString& id) const = 0;
@@ -78,6 +192,8 @@ public:
     virtual bool buildTLAS(IDeviceContext* pContext) = 0;
     virtual bool ensurePipelineAndSBT(IDeviceContext* pContext) = 0;
     virtual bool traceUnitQuad(IDeviceContext* pContext, Uint32 width, Uint32 height) = 0;
+    virtual bool traceCamera(IDeviceContext* pContext, Uint32 width, Uint32 height,
+                             const RTRayCamera& camera) = 0;
 
     virtual ITopLevelAS* getTLAS() const = 0;
     virtual ITextureView* traceOutputSRV() const = 0;

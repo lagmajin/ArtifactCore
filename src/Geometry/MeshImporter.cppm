@@ -525,6 +525,16 @@ public:
     auto posAttr = mesh->vertexAttributes().add<QVector3D>("position");
     auto normAttr = mesh->vertexAttributes().add<QVector3D>("normal");
     auto uvAttr = mesh->vertexAttributes().add<QVector2D>("uv");
+    bool hasAnyUv1 = false;
+    for (size_t meshIndex = 0; meshIndex < scene->meshes.count; ++meshIndex) {
+      const ufbx_mesh* sourceMesh = scene->meshes[meshIndex];
+      hasAnyUv1 = hasAnyUv1 || (sourceMesh &&
+          sourceMesh->uv_sets.count > 1 &&
+          sourceMesh->uv_sets[1].vertex_uv.exists);
+    }
+    auto uv1Attr = hasAnyUv1
+        ? mesh->vertexAttributes().add<QVector2D>("uv1")
+        : SharedPtr<MeshAttribute<QVector2D>>{};
     auto colorAttr = mesh->vertexAttributes().add<QVector4D>("color");
 
     // ufbx exposes skinning weights per logical source vertex. Keep the
@@ -988,6 +998,21 @@ public:
           if (srcMesh->vertex_uv.exists) {
             ufbx_vec2 uv = ufbx_get_vertex_vec2(&srcMesh->vertex_uv, idx);
             (*uvAttr)[outIdx] = QVector2D(uv.x, uv.y);
+          }
+          if (uv1Attr) {
+            if (srcMesh->uv_sets.count > 1 &&
+                srcMesh->uv_sets[1].vertex_uv.exists) {
+              const ufbx_vertex_vec2& sourceUv1 =
+                  srcMesh->uv_sets[1].vertex_uv;
+              const ufbx_vec2 uv1 = ufbx_get_vertex_vec2(&sourceUv1, idx);
+              (*uv1Attr)[outIdx] = QVector2D(uv1.x, uv1.y);
+            } else if (srcMesh->vertex_uv.exists) {
+              const ufbx_vec2 uv0 =
+                  ufbx_get_vertex_vec2(&srcMesh->vertex_uv, idx);
+              (*uv1Attr)[outIdx] = QVector2D(uv0.x, uv0.y);
+            } else {
+              (*uv1Attr)[outIdx] = QVector2D(0.0f, 0.0f);
+            }
           }
 
           // Vertex colors (glTF often has these)

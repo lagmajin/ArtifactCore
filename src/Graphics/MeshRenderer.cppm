@@ -1,6 +1,8 @@
 module;
 #include <utility>
 #include <algorithm>
+#include <array>
+#include <cmath>
 #include <cstring>
 #include <exception>
 #include <numbers>
@@ -18,6 +20,7 @@ module;
 #include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
 #include <QString>
 #include <QColor>
+#include <QVector3D>
 #include <QDebug>
 #include <QFileInfo>
 #include <QVector>
@@ -25,6 +28,7 @@ module;
 module Graphics.MeshRenderer;
 
 import Math.Vec;
+import Core.Parallel;
 
 import Frame.Debug;
 import Graphics.ParticleData;
@@ -172,6 +176,19 @@ QVector<QVector<quint8>> buildRgba8MipChain(const QVector<quint8>& base,
 {
     QVector<QVector<quint8>> mipData;
     mipData.push_back(base);
+    if (renormalizeNormal) {
+        auto& baseLevel = mipData.back();
+        for (int pixel = 0; pixel < width * height; ++pixel) {
+            const int offset = pixel * 4;
+            const float nx = baseLevel[offset + 0] / 127.5f - 1.0f;
+            const float ny = baseLevel[offset + 1] / 127.5f - 1.0f;
+            const float nz = baseLevel[offset + 2] / 127.5f - 1.0f;
+            const float normalLength = std::clamp(
+                std::sqrt(nx * nx + ny * ny + nz * nz), 0.0f, 1.0f);
+            baseLevel[offset + 3] = static_cast<quint8>(
+                std::lround(normalLength * 255.0f));
+        }
+    }
     int mipWidth = width;
     int mipHeight = height;
     const auto decodeSrgb = [](float value) {
@@ -182,6 +199,7 @@ QVector<QVector<quint8>> buildRgba8MipChain(const QVector<quint8>& base,
         return value <= 0.0031308f ? value * 12.92f
                                    : 1.055f * std::pow(value, 1.0f / 2.4f) - 0.055f;
     };
+    const bool alphaWeighted = srgb && !renormalizeNormal;
 
     while (mipWidth > 1 || mipHeight > 1) {
         const int nextWidth = std::max(1, mipWidth / 2);
@@ -191,37 +209,76 @@ QVector<QVector<quint8>> buildRgba8MipChain(const QVector<quint8>& base,
         for (int y = 0; y < nextHeight; ++y) {
             for (int x = 0; x < nextWidth; ++x) {
                 float sum[4] = {};
-                int samples = 0;
-                for (int sy = 0; sy < 2; ++sy) {
-                    for (int sx = 0; sx < 2; ++sx) {
-                        const int px = std::min(x * 2 + sx, mipWidth - 1);
-                        const int py = std::min(y * 2 + sy, mipHeight - 1);
+                float totalWeight = 0.0f;
+                const float sourceX0 =
+                    static_cast<float>(x) * mipWidth / nextWidth;
+                const float sourceX1 =
+                    static_cast<float>(x + 1) * mipWidth / nextWidth;
+                const float sourceY0 =
+                    static_cast<float>(y) * mipHeight / nextHeight;
+                const float sourceY1 =
+                    static_cast<float>(y + 1) * mipHeight / nextHeight;
+                for (int py = static_cast<int>(std::floor(sourceY0));
+                     py < static_cast<int>(std::ceil(sourceY1)); ++py) {
+                    const float weightY = std::max(0.0f,
+                        std::min(sourceY1, static_cast<float>(py + 1)) -
+                        std::max(sourceY0, static_cast<float>(py)));
+                    for (int px = static_cast<int>(std::floor(sourceX0));
+                         px < static_cast<int>(std::ceil(sourceX1)); ++px) {
+                        const float weightX = std::max(0.0f,
+                            std::min(sourceX1, static_cast<float>(px + 1)) -
+                            std::max(sourceX0, static_cast<float>(px)));
+                        const float weight = weightX * weightY;
                         const int source = (py * mipWidth + px) * 4;
-                        for (int channel = 0; channel < 3; ++channel) {
-                            const float value = previous[source + channel] / 255.0f;
-                            sum[channel] += srgb ? decodeSrgb(value) : value;
+                        const float alpha = previous[source + 3] / 255.0f;
+                        if (renormalizeNormal) {
+                            const float previousLength =
+                                previous[source + 3] / 255.0f;
+                            for (int channel = 0; channel < 3; ++channel) {
+                                const float component =
+                                    previous[source + channel] / 127.5f - 1.0f;
+                                sum[channel] +=
+                                    (component * previousLength + 1.0f) *
+                                    (0.5f * weight);
+                            }
+                        } else {
+                            for (int channel = 0; channel < 3; ++channel) {
+                                const float value =
+                                    previous[source + channel] / 255.0f;
+                                sum[channel] +=
+                                    (srgb ? decodeSrgb(value) : value) *
+                                    (alphaWeighted ? alpha : 1.0f) * weight;
+                            }
                         }
-                        sum[3] += previous[source + 3] / 255.0f;
-                        ++samples;
+                        sum[3] += alpha * weight;
+                        totalWeight += weight;
                     }
                 }
                 const int destination = (y * nextWidth + x) * 4;
                 if (renormalizeNormal) {
-                    float nx = sum[0] / samples * 2.0f - 1.0f;
-                    float ny = sum[1] / samples * 2.0f - 1.0f;
-                    float nz = sum[2] / samples * 2.0f - 1.0f;
-                    const float length = std::sqrt(std::max(nx * nx + ny * ny + nz * nz, 1e-8f));
+                    float nx = sum[0] / totalWeight * 2.0f - 1.0f;
+                    float ny = sum[1] / totalWeight * 2.0f - 1.0f;
+                    float nz = sum[2] / totalWeight * 2.0f - 1.0f;
+                    const float length = std::sqrt(std::max(
+                        nx * nx + ny * ny + nz * nz, 1e-8f));
+                    next[destination + 3] = static_cast<quint8>(
+                        std::lround(std::clamp(length, 0.0f, 1.0f) * 255.0f));
                     next[destination + 0] = static_cast<quint8>(std::clamp((nx / length + 1.0f) * 127.5f, 0.0f, 255.0f));
                     next[destination + 1] = static_cast<quint8>(std::clamp((ny / length + 1.0f) * 127.5f, 0.0f, 255.0f));
                     next[destination + 2] = static_cast<quint8>(std::clamp((nz / length + 1.0f) * 127.5f, 0.0f, 255.0f));
                 } else {
                     for (int channel = 0; channel < 3; ++channel) {
-                        const float value = sum[channel] / samples;
+                        const float value = alphaWeighted
+                            ? (sum[3] > 1.0e-8f ? sum[channel] / sum[3] : 0.0f)
+                            : sum[channel] / totalWeight;
                         const float encoded = srgb ? encodeSrgb(value) : value;
                         next[destination + channel] = static_cast<quint8>(std::clamp(encoded * 255.0f, 0.0f, 255.0f));
                     }
                 }
-                next[destination + 3] = static_cast<quint8>(std::clamp(sum[3] / samples * 255.0f, 0.0f, 255.0f));
+                if (!renormalizeNormal) {
+                    next[destination + 3] = static_cast<quint8>(
+                        std::clamp(sum[3] / totalWeight * 255.0f, 0.0f, 255.0f));
+                }
             }
         }
         mipData.push_back(std::move(next));
@@ -289,6 +346,272 @@ bool loadLinearTexture(ArtifactCore::GpuContext& context, const QString& path,
     return textureSRV.RawPtr() != nullptr;
 }
 
+bool loadSrgbTexture(ArtifactCore::GpuContext& context, const QString& path,
+                     const char* debugName,
+                     Diligent::RefCntAutoPtr<Diligent::ITexture>& texture,
+                     Diligent::RefCntAutoPtr<Diligent::ITextureView>& textureSRV)
+{
+    auto* device = context.RenderDevice();
+    if (!device) {
+        return false;
+    }
+    ArtifactCore::ImageImporter importer;
+    if (!importer.open(path)) {
+        qWarning() << "[MeshRenderer] Failed to open sRGB texture:" << path;
+        return false;
+    }
+    const ArtifactCore::RawImage rawImage = importer.readImage();
+    if (!rawImage.isValid() || rawImage.width <= 0 || rawImage.height <= 0) {
+        qWarning() << "[MeshRenderer] Failed to read sRGB texture:" << path;
+        return false;
+    }
+    const bool floatSource = rawImage.pixelType == QStringLiteral("float");
+    if (rawImage.isLogEncoded) {
+        qWarning() << "[MeshRenderer] Log-encoded base color textures are unsupported:" << path;
+        return false;
+    }
+    const QString sourceColorSpace = rawImage.colorSpace.trimmed().toLower();
+    const QString sourceTransfer = rawImage.transferFunction.trimmed().toLower();
+    const QString sourceColorDescription =
+        sourceColorSpace + QLatin1Char(' ') + sourceTransfer;
+    const bool explicitlyLinear =
+        ((sourceTransfer.contains(QStringLiteral("linear")) &&
+          !sourceTransfer.contains(QStringLiteral("nonlinear"))) ||
+         (sourceColorSpace.contains(QStringLiteral("linear")) &&
+          !sourceColorSpace.contains(QStringLiteral("nonlinear"))));
+    const bool explicitlySrgb = !explicitlyLinear &&
+        (sourceTransfer.contains(QStringLiteral("srgb")) ||
+         sourceColorSpace.contains(QStringLiteral("srgb")));
+    const bool unsupportedPrimaries =
+        sourceColorDescription.contains(QStringLiteral("aces")) ||
+        sourceColorDescription.contains(QStringLiteral("2020")) ||
+        sourceColorDescription.contains(QStringLiteral("p3")) ||
+        sourceColorDescription.contains(QStringLiteral("xyz")) ||
+        sourceColorDescription.contains(QStringLiteral("adobe")) ||
+        sourceColorDescription.contains(QStringLiteral("prophoto")) ||
+        sourceColorDescription.contains(QStringLiteral("wide gamut"));
+    const bool floatLinearSrgb = floatSource && !explicitlySrgb &&
+        !unsupportedPrimaries &&
+        (sourceColorDescription.trimmed().isEmpty() || explicitlyLinear);
+    QVector<quint8> rgba8 = expandTextureToRgba8(rawImage, false);
+    if (rgba8.isEmpty()) {
+        qWarning() << "[MeshRenderer] Unsupported sRGB texture:" << path
+                   << rawImage.pixelType;
+        return false;
+    }
+    if (floatLinearSrgb) {
+        const auto encodeSrgb = [](float value) {
+            value = std::clamp(value, 0.0f, 1.0f);
+            return value <= 0.0031308f ? value * 12.92f
+                : 1.055f * std::pow(value, 1.0f / 2.4f) - 0.055f;
+        };
+        for (qsizetype pixel = 0; pixel < rgba8.size() / 4; ++pixel) {
+            for (int channel = 0; channel < 3; ++channel) {
+                const qsizetype index = pixel * 4 + channel;
+                const float linear = rgba8[index] / 255.0f;
+                rgba8[index] = static_cast<quint8>(std::lround(
+                    encodeSrgb(linear) * 255.0f));
+            }
+        }
+    }
+    const auto mipData = buildRgba8MipChain(
+        rgba8, rawImage.width, rawImage.height, true);
+    Diligent::TextureDesc desc;
+    desc.Name = debugName;
+    desc.Type = Diligent::RESOURCE_DIM_TEX_2D;
+    desc.Width = static_cast<Diligent::Uint32>(rawImage.width);
+    desc.Height = static_cast<Diligent::Uint32>(rawImage.height);
+    desc.MipLevels = static_cast<Diligent::Uint32>(mipData.size());
+    desc.Format = Diligent::TEX_FORMAT_RGBA8_UNORM_SRGB;
+    desc.Usage = Diligent::USAGE_IMMUTABLE;
+    desc.BindFlags = Diligent::BIND_SHADER_RESOURCE;
+    QVector<Diligent::TextureSubResData> subResources;
+    subResources.resize(mipData.size());
+    int levelWidth = rawImage.width;
+    for (int level = 0; level < mipData.size(); ++level) {
+        subResources[level].pData = mipData[level].constData();
+        subResources[level].Stride =
+            static_cast<Diligent::Uint64>(levelWidth * 4);
+        levelWidth = std::max(1, levelWidth / 2);
+    }
+    Diligent::TextureData initialData;
+    initialData.pSubResources = subResources.data();
+    initialData.NumSubresources =
+        static_cast<Diligent::Uint32>(subResources.size());
+    device->CreateTexture(desc, &initialData, &texture);
+    if (!texture) {
+        return false;
+    }
+    textureSRV = texture->GetDefaultView(
+        Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+    return textureSRV.RawPtr() != nullptr;
+}
+
+bool loadEmissionTexture(ArtifactCore::GpuContext& context, const QString& path,
+                         const char* debugName,
+                         Diligent::RefCntAutoPtr<Diligent::ITexture>& texture,
+                         Diligent::RefCntAutoPtr<Diligent::ITextureView>& textureSRV)
+{
+    auto* device = context.RenderDevice();
+    if (!device || path.isEmpty()) return false;
+    ArtifactCore::ImageImporter importer;
+    if (!importer.open(path)) return false;
+    const ArtifactCore::RawImage image = importer.readImage();
+    const qsizetype pixelCount = static_cast<qsizetype>(image.width) * image.height;
+    const int pixelSize = image.getPixelTypeSizeInBytes();
+    if (!image.isValid() || pixelCount <= 0 || image.channels <= 0 || pixelSize <= 0)
+        return false;
+    const qsizetype requiredBytes = pixelCount * image.channels * pixelSize;
+    if (image.data.size() < requiredBytes) return false;
+
+    const bool floatSource = image.pixelType == QStringLiteral("float");
+    if (image.isLogEncoded) return false;
+    const bool floatSrgb = floatSource &&
+        (image.colorSpace.contains(QStringLiteral("srgb"), Qt::CaseInsensitive) ||
+         image.transferFunction.contains(QStringLiteral("srgb"), Qt::CaseInsensitive));
+    const auto srgbToLinear = [](float value) {
+        value = std::clamp(value, 0.0f, 1.0f);
+        return value <= 0.04045f ? value / 12.92f
+                                 : std::pow((value + 0.055f) / 1.055f, 2.4f);
+    };
+    QVector<QVector<float>> mips;
+    QVector<float> base(pixelCount * 4, 1.0f);
+    const quint8* bytes = image.data.constData();
+    const qsizetype stride = static_cast<qsizetype>(image.channels) * pixelSize;
+    for (qsizetype pixel = 0; pixel < pixelCount; ++pixel) {
+        for (int channel = 0; channel < 4; ++channel) {
+            float value = channel == 3 ? 1.0f : 0.0f;
+            if (channel < image.channels) {
+                const quint8* src = bytes + pixel * stride + channel * pixelSize;
+                if (image.pixelType == QStringLiteral("float")) {
+                    std::memcpy(&value, src, sizeof(value));
+                    value = std::isfinite(value) ? std::max(0.0f, value) : 0.0f;
+                } else if (image.pixelType == QStringLiteral("uint16")) {
+                    quint16 sample = 0;
+                    std::memcpy(&sample, src, sizeof(sample));
+                    value = sample / 65535.0f;
+                } else if (image.pixelType == QStringLiteral("uint8")) {
+                    value = *src / 255.0f;
+                } else {
+                    return false;
+                }
+                if ((!floatSource || floatSrgb) && channel < 3)
+                    value = srgbToLinear(value);
+            } else if (channel < 3 && image.channels == 1) {
+                value = base[pixel * 4];
+            }
+            base[pixel * 4 + channel] = value;
+        }
+    }
+    mips.push_back(std::move(base));
+    int width = image.width;
+    int height = image.height;
+    while (width > 1 || height > 1) {
+        const int nextWidth = std::max(1, width / 2);
+        const int nextHeight = std::max(1, height / 2);
+        const auto& previous = mips.back();
+        QVector<float> next(static_cast<qsizetype>(nextWidth) * nextHeight * 4, 0.0f);
+        for (int y = 0; y < nextHeight; ++y) for (int x = 0; x < nextWidth; ++x) {
+            float sum[4]{};
+            int samples = 0;
+            for (int dy = 0; dy < 2; ++dy) for (int dx = 0; dx < 2; ++dx) {
+                const int sx = std::min(x * 2 + dx, width - 1);
+                const int sy = std::min(y * 2 + dy, height - 1);
+                const qsizetype offset = (static_cast<qsizetype>(sy) * width + sx) * 4;
+                for (int c = 0; c < 4; ++c) sum[c] += previous[offset + c];
+                ++samples;
+            }
+            const qsizetype out = (static_cast<qsizetype>(y) * nextWidth + x) * 4;
+            for (int c = 0; c < 4; ++c) next[out + c] = sum[c] / samples;
+        }
+        mips.push_back(std::move(next));
+        width = nextWidth;
+        height = nextHeight;
+    }
+
+    Diligent::TextureDesc desc;
+    desc.Name = debugName;
+    desc.Type = Diligent::RESOURCE_DIM_TEX_2D;
+    desc.Width = static_cast<Diligent::Uint32>(image.width);
+    desc.Height = static_cast<Diligent::Uint32>(image.height);
+    desc.MipLevels = static_cast<Diligent::Uint32>(mips.size());
+    desc.Format = Diligent::TEX_FORMAT_RGBA32_FLOAT;
+    desc.Usage = Diligent::USAGE_IMMUTABLE;
+    desc.BindFlags = Diligent::BIND_SHADER_RESOURCE;
+    QVector<Diligent::TextureSubResData> subresources(mips.size());
+    width = image.width;
+    for (int mip = 0; mip < mips.size(); ++mip) {
+        subresources[mip].pData = mips[mip].constData();
+        subresources[mip].Stride = static_cast<Diligent::Uint64>(width) * 4u * sizeof(float);
+        width = std::max(1, width / 2);
+    }
+    Diligent::TextureData initialData;
+    initialData.pSubResources = subresources.data();
+    initialData.NumSubresources = static_cast<Diligent::Uint32>(subresources.size());
+    device->CreateTexture(desc, &initialData, &texture);
+    if (!texture) return false;
+    textureSRV = texture->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+    return textureSRV.RawPtr() != nullptr;
+}
+
+bool loadOpacityTexture(ArtifactCore::GpuContext& context, const QString& path,
+                       const char* debugName,
+                       Diligent::RefCntAutoPtr<Diligent::ITexture>& texture,
+                       Diligent::RefCntAutoPtr<Diligent::ITextureView>& textureSRV)
+{
+    auto* device = context.RenderDevice();
+    if (!device) {
+        return false;
+    }
+    ArtifactCore::ImageImporter importer;
+    if (!importer.open(path)) {
+        qWarning() << "[MeshRenderer] Failed to open opacity texture:" << path;
+        return false;
+    }
+    const ArtifactCore::RawImage rawImage = importer.readImage();
+    if (!rawImage.isValid() || rawImage.width <= 0 || rawImage.height <= 0) {
+        qWarning() << "[MeshRenderer] Failed to read opacity texture:" << path;
+        return false;
+    }
+    const QVector<quint8> rgba8 = expandTextureToRgba8(rawImage, true);
+    if (rgba8.isEmpty()) {
+        qWarning() << "[MeshRenderer] Unsupported opacity texture:" << path
+                   << rawImage.pixelType;
+        return false;
+    }
+    const auto mipData = buildRgba8MipChain(
+        rgba8, rawImage.width, rawImage.height, false);
+    Diligent::TextureDesc desc;
+    desc.Name = debugName;
+    desc.Type = Diligent::RESOURCE_DIM_TEX_2D;
+    desc.Width = static_cast<Diligent::Uint32>(rawImage.width);
+    desc.Height = static_cast<Diligent::Uint32>(rawImage.height);
+    desc.MipLevels = static_cast<Diligent::Uint32>(mipData.size());
+    desc.Format = Diligent::TEX_FORMAT_RGBA8_UNORM;
+    desc.Usage = Diligent::USAGE_IMMUTABLE;
+    desc.BindFlags = Diligent::BIND_SHADER_RESOURCE;
+    QVector<Diligent::TextureSubResData> subResources;
+    subResources.resize(mipData.size());
+    int levelWidth = rawImage.width;
+    for (int level = 0; level < mipData.size(); ++level) {
+        subResources[level].pData = mipData[level].constData();
+        subResources[level].Stride =
+            static_cast<Diligent::Uint64>(levelWidth * 4);
+        levelWidth = std::max(1, levelWidth / 2);
+    }
+    Diligent::TextureData initialData;
+    initialData.pSubResources = subResources.data();
+    initialData.NumSubresources =
+        static_cast<Diligent::Uint32>(subResources.size());
+    device->CreateTexture(desc, &initialData, &texture);
+    if (!texture) {
+        return false;
+    }
+    textureSRV = texture->GetDefaultView(
+        Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+    return textureSRV.RawPtr() != nullptr;
+}
+
 float rawEnvironmentChannel(const ArtifactCore::RawImage& image,
                             int pixelIndex, int channel)
 {
@@ -322,7 +645,9 @@ bool createEnvironmentCube(ArtifactCore::GpuContext& context,
                            Diligent::RefCntAutoPtr<Diligent::ITexture>& texture,
                            Diligent::RefCntAutoPtr<Diligent::ITextureView>& view,
                            Diligent::RefCntAutoPtr<Diligent::ITexture>& irradianceTexture,
-                           Diligent::RefCntAutoPtr<Diligent::ITextureView>& irradianceView)
+                           Diligent::RefCntAutoPtr<Diligent::ITextureView>& irradianceView,
+                           Diligent::RefCntAutoPtr<Diligent::ITexture>& sheenTexture,
+                           Diligent::RefCntAutoPtr<Diligent::ITextureView>& sheenView)
 {
     auto* device = context.RenderDevice();
     ArtifactCore::ImageImporter importer;
@@ -330,6 +655,21 @@ bool createEnvironmentCube(ArtifactCore::GpuContext& context,
     const auto image = importer.readImage();
     if (!image.isValid() || image.width < 2 || image.height < 2 || image.channels < 3)
         return false;
+
+    // Decode format checks, bounds checks, and channel conversion once. The
+    // filtered mip generation samples the source many times, so repeating
+    // rawEnvironmentChannel() for each bilinear tap dominated HDR load time.
+    const auto sourcePixelCount = static_cast<std::size_t>(image.width) *
+                                  static_cast<std::size_t>(image.height);
+    std::vector<std::array<float, 4>> sourcePixels(sourcePixelCount);
+    for (std::size_t pixel = 0; pixel < sourcePixelCount; ++pixel) {
+        const int pixelIndex = static_cast<int>(pixel);
+        sourcePixels[pixel][0] = rawEnvironmentChannel(image, pixelIndex, 0);
+        sourcePixels[pixel][1] = rawEnvironmentChannel(image, pixelIndex, 1);
+        sourcePixels[pixel][2] = rawEnvironmentChannel(image, pixelIndex, 2);
+        sourcePixels[pixel][3] = image.channels > 3
+            ? rawEnvironmentChannel(image, pixelIndex, 3) : 1.0f;
+    }
 
     constexpr int faceSize = 64;
     std::vector<float> cube(static_cast<std::size_t>(faceSize) * faceSize * 6 * 4,
@@ -344,57 +684,7 @@ bool createEnvironmentCube(ArtifactCore::GpuContext& context,
         default: return EnvironmentFloat3{-u, -v, -1.0f};
         }
     };
-    for (int face = 0; face < 6; ++face) {
-        for (int y = 0; y < faceSize; ++y) {
-            for (int x = 0; x < faceSize; ++x) {
-                const float u = 2.0f * (static_cast<float>(x) + 0.5f) / faceSize - 1.0f;
-                const float v = 2.0f * (static_cast<float>(y) + 0.5f) / faceSize - 1.0f;
-                auto direction = directionForFace(face, u, v);
-                const float length = std::sqrt(direction.x * direction.x +
-                                               direction.y * direction.y +
-                                               direction.z * direction.z);
-                direction.x /= length; direction.y /= length; direction.z /= length;
-                const float longitude = std::atan2(direction.z, direction.x);
-                const float latitude = std::asin(std::clamp(direction.y, -1.0f, 1.0f));
-                const float imageU = (longitude / (2.0f * std::numbers::pi_v<float>) + 0.5f) * image.width - 0.5f;
-                const float imageV = (0.5f - latitude / std::numbers::pi_v<float>) * image.height - 0.5f;
-                const int x0 = static_cast<int>(std::floor(imageU));
-                const int y0 = static_cast<int>(std::floor(imageV));
-                const float tx = imageU - x0;
-                const float ty = imageV - y0;
-                const auto wrapX = [width = image.width](int value) {
-                    value %= width;
-                    return value < 0 ? value + width : value;
-                };
-                const auto clampY = [height = image.height](int value) {
-                    return std::clamp(value, 0, height - 1);
-                };
-                const std::size_t destination =
-                    (static_cast<std::size_t>(face) * faceSize * faceSize +
-                     static_cast<std::size_t>(y) * faceSize + x) * 4;
-                for (int channel = 0; channel < 4; ++channel) {
-                    float value = 0.0f;
-                    for (int dy = 0; dy < 2; ++dy) {
-                        for (int dx = 0; dx < 2; ++dx) {
-                            const int pixel = clampY(y0 + dy) * image.width + wrapX(x0 + dx);
-                            const float weight = (dx == 0 ? 1.0f - tx : tx) *
-                                                 (dy == 0 ? 1.0f - ty : ty);
-                            value += (channel < 3 || image.channels > channel)
-                                ? rawEnvironmentChannel(image, pixel, channel) * weight
-                                : weight;
-                        }
-                    }
-                    cube[destination + channel] = channel < 3 || image.channels > 3
-                        ? value : 1.0f;
-                }
-            }
-        }
-    }
-
-    constexpr int mipCount = 7;
-    std::vector<std::vector<float>> mipData;
-    mipData.push_back(std::move(cube));
-    auto sampleEquirectangular = [&](const EnvironmentFloat3& direction) {
+    auto sampleEquirectangularRgba = [&](const EnvironmentFloat3& direction) {
         const float longitude = std::atan2(direction.z, direction.x);
         const float latitude = std::asin(std::clamp(direction.y, -1.0f, 1.0f));
         const float imageU = (longitude / (2.0f * std::numbers::pi_v<float>) + 0.5f) * image.width - 0.5f;
@@ -403,26 +693,59 @@ bool createEnvironmentCube(ArtifactCore::GpuContext& context,
         const int y0 = static_cast<int>(std::floor(imageV));
         const float tx = imageU - x0;
         const float ty = imageV - y0;
-        const auto wrapX = [width = image.width](int x) {
-            x %= width;
-            return x < 0 ? x + width : x;
+        const auto wrapX = [width = image.width](int value) {
+            value %= width;
+            return value < 0 ? value + width : value;
         };
-        const auto clampY = [height = image.height](int y) {
-            return std::clamp(y, 0, height - 1);
+        const auto clampY = [height = image.height](int value) {
+            return std::clamp(value, 0, height - 1);
         };
-        EnvironmentFloat3 result{0.0f, 0.0f, 0.0f};
+        std::array<float, 4> result{};
         for (int dy = 0; dy < 2; ++dy) {
             for (int dx = 0; dx < 2; ++dx) {
                 const int pixel = clampY(y0 + dy) * image.width + wrapX(x0 + dx);
                 const float weight = (dx == 0 ? 1.0f - tx : tx) *
                                      (dy == 0 ? 1.0f - ty : ty);
-                result.x += rawEnvironmentChannel(image, pixel, 0) * weight;
-                result.y += rawEnvironmentChannel(image, pixel, 1) * weight;
-                result.z += rawEnvironmentChannel(image, pixel, 2) * weight;
+                const auto& source = sourcePixels[static_cast<std::size_t>(pixel)];
+                for (int channel = 0; channel < 4; ++channel) {
+                    result[channel] += source[channel] * weight;
+                }
             }
         }
         return result;
     };
+    auto sampleEquirectangular = [&](const EnvironmentFloat3& direction) {
+        const auto rgba = sampleEquirectangularRgba(direction);
+        return EnvironmentFloat3{rgba[0], rgba[1], rgba[2]};
+    };
+    constexpr std::size_t baseFacePixelCount =
+        static_cast<std::size_t>(faceSize) * faceSize;
+    constexpr std::size_t basePixelCount = baseFacePixelCount * 6;
+    Parallel::ForSize(0, basePixelCount, basePixelCount, 512,
+        [&](std::size_t pixelIndex) {
+            const int face = static_cast<int>(pixelIndex / baseFacePixelCount);
+            const auto localPixel = pixelIndex % baseFacePixelCount;
+            const int y = static_cast<int>(localPixel / faceSize);
+            const int x = static_cast<int>(localPixel % faceSize);
+            const float u = 2.0f * (static_cast<float>(x) + 0.5f) / faceSize - 1.0f;
+            const float v = 2.0f * (static_cast<float>(y) + 0.5f) / faceSize - 1.0f;
+            auto direction = directionForFace(face, u, v);
+            const float length = std::sqrt(direction.x * direction.x +
+                                           direction.y * direction.y +
+                                           direction.z * direction.z);
+            direction.x /= length; direction.y /= length; direction.z /= length;
+            const std::size_t destination =
+                (static_cast<std::size_t>(face) * faceSize * faceSize +
+                 static_cast<std::size_t>(y) * faceSize + x) * 4;
+            const auto rgba = sampleEquirectangularRgba(direction);
+            std::copy(rgba.begin(), rgba.end(), cube.begin() + destination);
+        });
+
+    constexpr int mipCount = 7;
+    std::vector<std::vector<float>> mipData;
+    mipData.push_back(std::move(cube));
+    std::vector<std::vector<float>> sheenMipData;
+    sheenMipData.push_back(mipData.front());
     auto radicalInverse = [](std::uint32_t bits) {
         bits = (bits << 16u) | (bits >> 16u);
         bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
@@ -438,112 +761,174 @@ bool createEnvironmentCube(ArtifactCore::GpuContext& context,
         const float alpha = std::max(roughness * roughness, 0.001f);
         std::vector<float> next(static_cast<std::size_t>(nextSize) * nextSize * 6 * 4,
                                 0.0f);
-        for (int face = 0; face < 6; ++face) {
-            for (int y = 0; y < nextSize; ++y) {
-                for (int x = 0; x < nextSize; ++x) {
-                    const float u = 2.0f * (static_cast<float>(x) + 0.5f) / nextSize - 1.0f;
-                    const float v = 2.0f * (static_cast<float>(y) + 0.5f) / nextSize - 1.0f;
-                    auto normal = directionForFace(face, u, v);
-                    const float normalLength = std::sqrt(normal.x * normal.x +
-                                                         normal.y * normal.y +
-                                                         normal.z * normal.z);
-                    normal.x /= normalLength; normal.y /= normalLength; normal.z /= normalLength;
-                    const EnvironmentFloat3 up = std::abs(normal.y) < 0.99f
-                        ? EnvironmentFloat3{0.0f, 1.0f, 0.0f}
-                        : EnvironmentFloat3{1.0f, 0.0f, 0.0f};
-                    auto tangent = EnvironmentFloat3{
-                        up.y * normal.z - up.z * normal.y,
-                        up.z * normal.x - up.x * normal.z,
-                        up.x * normal.y - up.y * normal.x};
-                    const float tangentLength = std::sqrt(tangent.x * tangent.x +
-                                                           tangent.y * tangent.y +
-                                                           tangent.z * tangent.z);
-                    tangent.x /= tangentLength; tangent.y /= tangentLength; tangent.z /= tangentLength;
-                    const auto bitangent = EnvironmentFloat3{
-                        normal.y * tangent.z - normal.z * tangent.y,
-                        normal.z * tangent.x - normal.x * tangent.z,
-                        normal.x * tangent.y - normal.y * tangent.x};
-                    EnvironmentFloat3 sum{0.0f, 0.0f, 0.0f};
-                    float weightSum = 0.0f;
-                    for (int sample = 0; sample < prefilterSamples; ++sample) {
-                        const float xi1 = (static_cast<float>(sample) + 0.5f) /
-                                          prefilterSamples;
-                        const float xi2 = radicalInverse(static_cast<std::uint32_t>(sample));
-                        const float phi = 2.0f * std::numbers::pi_v<float> * xi1;
-                        const float cosTheta = std::sqrt(
-                            (1.0f - xi2) /
-                            (1.0f + (alpha * alpha - 1.0f) * xi2));
-                        const float sinTheta = std::sqrt(std::max(
-                            0.0f, 1.0f - cosTheta * cosTheta));
-                        const EnvironmentFloat3 halfVector{
-                            tangent.x * (std::cos(phi) * sinTheta) +
-                                bitangent.x * (std::sin(phi) * sinTheta) + normal.x * cosTheta,
-                            tangent.y * (std::cos(phi) * sinTheta) +
-                                bitangent.y * (std::sin(phi) * sinTheta) + normal.y * cosTheta,
-                            tangent.z * (std::cos(phi) * sinTheta) +
-                                bitangent.z * (std::sin(phi) * sinTheta) + normal.z * cosTheta};
-                        const float normalHalf = std::max(
-                            normal.x * halfVector.x + normal.y * halfVector.y +
-                            normal.z * halfVector.z, 0.0f);
-                        const EnvironmentFloat3 light{
-                            2.0f * normalHalf * halfVector.x - normal.x,
-                            2.0f * normalHalf * halfVector.y - normal.y,
-                            2.0f * normalHalf * halfVector.z - normal.z};
-                        const float normalLight = std::max(
-                            normal.x * light.x + normal.y * light.y + normal.z * light.z,
-                            0.0f);
-                        if (normalLight <= 0.0f) continue;
-                        const auto radiance = sampleEquirectangular(light);
-                        sum.x += radiance.x * normalLight;
-                        sum.y += radiance.y * normalLight;
-                        sum.z += radiance.z * normalLight;
-                        weightSum += normalLight;
+        std::vector<float> nextSheen(next.size(), 0.0f);
+        const auto mipFacePixelCount = static_cast<std::size_t>(nextSize) * nextSize;
+        const auto mipPixelCount = mipFacePixelCount * 6;
+        Parallel::ForSize(0, mipPixelCount,
+            mipPixelCount * prefilterSamples, 128,
+            [&](std::size_t pixelIndex) {
+                const int face = static_cast<int>(pixelIndex / mipFacePixelCount);
+                const auto localPixel = pixelIndex % mipFacePixelCount;
+                const int y = static_cast<int>(localPixel / nextSize);
+                const int x = static_cast<int>(localPixel % nextSize);
+                const float u = 2.0f * (static_cast<float>(x) + 0.5f) / nextSize - 1.0f;
+                const float v = 2.0f * (static_cast<float>(y) + 0.5f) / nextSize - 1.0f;
+                auto normal = directionForFace(face, u, v);
+                const float normalLength = std::sqrt(normal.x * normal.x +
+                                                     normal.y * normal.y +
+                                                     normal.z * normal.z);
+                normal.x /= normalLength; normal.y /= normalLength; normal.z /= normalLength;
+                const EnvironmentFloat3 up = std::abs(normal.y) < 0.99f
+                    ? EnvironmentFloat3{0.0f, 1.0f, 0.0f}
+                    : EnvironmentFloat3{1.0f, 0.0f, 0.0f};
+                auto tangent = EnvironmentFloat3{
+                    up.y * normal.z - up.z * normal.y,
+                    up.z * normal.x - up.x * normal.z,
+                    up.x * normal.y - up.y * normal.x};
+                const float tangentLength = std::sqrt(tangent.x * tangent.x +
+                                                       tangent.y * tangent.y +
+                                                       tangent.z * tangent.z);
+                tangent.x /= tangentLength; tangent.y /= tangentLength; tangent.z /= tangentLength;
+                const auto bitangent = EnvironmentFloat3{
+                    normal.y * tangent.z - normal.z * tangent.y,
+                    normal.z * tangent.x - normal.x * tangent.z,
+                    normal.x * tangent.y - normal.y * tangent.x};
+                EnvironmentFloat3 sum{0.0f, 0.0f, 0.0f};
+                EnvironmentFloat3 sheenSum{0.0f, 0.0f, 0.0f};
+                float weightSum = 0.0f;
+                float sheenWeightSum = 0.0f;
+                for (int sample = 0; sample < prefilterSamples; ++sample) {
+                    const float xi1 = (static_cast<float>(sample) + 0.5f) /
+                                      prefilterSamples;
+                    const float xi2 = radicalInverse(static_cast<std::uint32_t>(sample));
+                    const float phi = 2.0f * std::numbers::pi_v<float> * xi1;
+                    const float sheenAlphaG = std::max(roughness * roughness, 1.0e-4f);
+                    const float sheenSin2Theta = std::pow(
+                        xi2, (2.0f * sheenAlphaG) / (2.0f * sheenAlphaG + 1.0f));
+                    const float sheenSinTheta = std::sqrt(sheenSin2Theta);
+                    const float sheenCosTheta = std::sqrt(
+                        std::max(0.0f, 1.0f - sheenSin2Theta));
+                    const EnvironmentFloat3 sheenHalfVector{
+                        tangent.x * (std::cos(phi) * sheenSinTheta) +
+                            bitangent.x * (std::sin(phi) * sheenSinTheta) +
+                            normal.x * sheenCosTheta,
+                        tangent.y * (std::cos(phi) * sheenSinTheta) +
+                            bitangent.y * (std::sin(phi) * sheenSinTheta) +
+                            normal.y * sheenCosTheta,
+                        tangent.z * (std::cos(phi) * sheenSinTheta) +
+                            bitangent.z * (std::sin(phi) * sheenSinTheta) +
+                            normal.z * sheenCosTheta};
+                    const float sheenNormalHalf = std::max(
+                        normal.x * sheenHalfVector.x +
+                            normal.y * sheenHalfVector.y +
+                            normal.z * sheenHalfVector.z,
+                        0.0f);
+                    const EnvironmentFloat3 sheenLight{
+                        2.0f * sheenNormalHalf * sheenHalfVector.x - normal.x,
+                        2.0f * sheenNormalHalf * sheenHalfVector.y - normal.y,
+                        2.0f * sheenNormalHalf * sheenHalfVector.z - normal.z};
+                    const float sheenNormalLight = std::max(
+                        normal.x * sheenLight.x + normal.y * sheenLight.y +
+                            normal.z * sheenLight.z,
+                        0.0f);
+                    if (sheenNormalLight > 0.0f) {
+                        const auto sheenRadiance = sampleEquirectangular(sheenLight);
+                        sheenSum.x += sheenRadiance.x * sheenNormalLight;
+                        sheenSum.y += sheenRadiance.y * sheenNormalLight;
+                        sheenSum.z += sheenRadiance.z * sheenNormalLight;
+                        sheenWeightSum += sheenNormalLight;
                     }
-                    const std::size_t destination =
-                        (static_cast<std::size_t>(face) * nextSize * nextSize +
-                         static_cast<std::size_t>(y) * nextSize + x) * 4;
-                    const float inverseWeight = weightSum > 1e-5f
-                        ? 1.0f / weightSum : 0.0f;
-                    next[destination + 0] = sum.x * inverseWeight;
-                    next[destination + 1] = sum.y * inverseWeight;
-                    next[destination + 2] = sum.z * inverseWeight;
-                    next[destination + 3] = 1.0f;
+                    const float cosTheta = std::sqrt(
+                        (1.0f - xi2) /
+                        (1.0f + (alpha * alpha - 1.0f) * xi2));
+                    const float sinTheta = std::sqrt(std::max(
+                        0.0f, 1.0f - cosTheta * cosTheta));
+                    const EnvironmentFloat3 halfVector{
+                        tangent.x * (std::cos(phi) * sinTheta) +
+                            bitangent.x * (std::sin(phi) * sinTheta) + normal.x * cosTheta,
+                        tangent.y * (std::cos(phi) * sinTheta) +
+                            bitangent.y * (std::sin(phi) * sinTheta) + normal.y * cosTheta,
+                        tangent.z * (std::cos(phi) * sinTheta) +
+                            bitangent.z * (std::sin(phi) * sinTheta) + normal.z * cosTheta};
+                    const float normalHalf = std::max(
+                        normal.x * halfVector.x + normal.y * halfVector.y +
+                        normal.z * halfVector.z, 0.0f);
+                    const EnvironmentFloat3 light{
+                        2.0f * normalHalf * halfVector.x - normal.x,
+                        2.0f * normalHalf * halfVector.y - normal.y,
+                        2.0f * normalHalf * halfVector.z - normal.z};
+                    const float normalLight = std::max(
+                        normal.x * light.x + normal.y * light.y + normal.z * light.z,
+                        0.0f);
+                    if (normalLight <= 0.0f) continue;
+                    const auto radiance = sampleEquirectangular(light);
+                    sum.x += radiance.x * normalLight;
+                    sum.y += radiance.y * normalLight;
+                    sum.z += radiance.z * normalLight;
+                    weightSum += normalLight;
                 }
-            }
-        }
+                const std::size_t destination =
+                    (static_cast<std::size_t>(face) * nextSize * nextSize +
+                     static_cast<std::size_t>(y) * nextSize + x) * 4;
+                const float inverseWeight = weightSum > 1e-5f
+                    ? 1.0f / weightSum : 0.0f;
+                next[destination + 0] = sum.x * inverseWeight;
+                next[destination + 1] = sum.y * inverseWeight;
+                next[destination + 2] = sum.z * inverseWeight;
+                next[destination + 3] = 1.0f;
+                const float inverseSheenWeight = sheenWeightSum > 1.0e-5f
+                    ? 1.0f / sheenWeightSum : 0.0f;
+                nextSheen[destination + 0] = sheenSum.x * inverseSheenWeight;
+                nextSheen[destination + 1] = sheenSum.y * inverseSheenWeight;
+                nextSheen[destination + 2] = sheenSum.z * inverseSheenWeight;
+                nextSheen[destination + 3] = 1.0f;
+            });
         mipData.push_back(std::move(next));
+        sheenMipData.push_back(std::move(nextSheen));
     }
 
-    Diligent::TextureDesc desc;
-    desc.Name = "MeshRenderer/EnvironmentCubemap";
-    desc.Type = Diligent::RESOURCE_DIM_TEX_CUBE;
-    desc.Width = faceSize;
-    desc.Height = faceSize;
-    desc.ArraySize = 6;
-    desc.MipLevels = mipCount;
-    desc.Format = Diligent::TEX_FORMAT_RGBA32_FLOAT;
-    desc.Usage = Diligent::USAGE_IMMUTABLE;
-    desc.BindFlags = Diligent::BIND_SHADER_RESOURCE;
-    std::array<Diligent::TextureSubResData, 42> faces{};
-    int currentSize = faceSize;
-    std::size_t subresourceIndex = 0;
-    for (int mip = 0; mip < mipCount; ++mip) {
-        const auto& pixels = mipData[static_cast<std::size_t>(mip)];
+    auto createPrefilteredCube = [&](const char* name,
+                                 const std::vector<std::vector<float>>& levels,
+                                 Diligent::RefCntAutoPtr<Diligent::ITexture>& outTexture,
+                                 Diligent::RefCntAutoPtr<Diligent::ITextureView>& outView) {
+        Diligent::TextureDesc desc;
+        desc.Name = name;
+        desc.Type = Diligent::RESOURCE_DIM_TEX_CUBE;
+        desc.Width = faceSize;
+        desc.Height = faceSize;
+        desc.ArraySize = 6;
+        desc.MipLevels = mipCount;
+        desc.Format = Diligent::TEX_FORMAT_RGBA32_FLOAT;
+        desc.Usage = Diligent::USAGE_IMMUTABLE;
+        desc.BindFlags = Diligent::BIND_SHADER_RESOURCE;
+        std::array<Diligent::TextureSubResData, 42> faces{};
+        std::size_t subresourceIndex = 0;
         for (int face = 0; face < 6; ++face) {
+            int currentSize = faceSize;
+            for (int mip = 0; mip < mipCount; ++mip) {
+            const auto& pixels = levels[static_cast<std::size_t>(mip)];
             faces[subresourceIndex].pData = pixels.data() +
                 static_cast<std::size_t>(face) * currentSize * currentSize * 4;
             faces[subresourceIndex].Stride =
                 static_cast<Diligent::Uint64>(currentSize * 4 * sizeof(float));
             ++subresourceIndex;
+            currentSize = std::max(1, currentSize / 2);
+            }
         }
-        currentSize = std::max(1, currentSize / 2);
+        Diligent::TextureData initialData;
+        initialData.pSubResources = faces.data();
+        initialData.NumSubresources = static_cast<Diligent::Uint32>(subresourceIndex);
+        device->CreateTexture(desc, &initialData, &outTexture);
+        if (!outTexture) return false;
+        outView = outTexture->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+        return outView.RawPtr() != nullptr;
+    };
+    if (!createPrefilteredCube("MeshRenderer/EnvironmentCubemap", mipData,
+                           texture, view) ||
+        !createPrefilteredCube("MeshRenderer/CharlieSheenEnvironmentCubemap",
+                           sheenMipData, sheenTexture, sheenView)) {
+        return false;
     }
-    Diligent::TextureData initialData;
-    initialData.pSubResources = faces.data();
-    initialData.NumSubresources = static_cast<Diligent::Uint32>(subresourceIndex);
-    device->CreateTexture(desc, &initialData, &texture);
-    if (!texture) return false;
-    view = texture->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
 
     // Build a low-resolution diffuse irradiance cube from the original HDR
     // image.  This is intentionally kept separate from the specular cube:
@@ -553,53 +938,58 @@ bool createEnvironmentCube(ArtifactCore::GpuContext& context,
     constexpr int phiSamples = 8;
     std::vector<float> irradiance(
         static_cast<std::size_t>(irradianceSize) * irradianceSize * 6 * 4, 0.0f);
-    for (int face = 0; face < 6; ++face) {
-        for (int y = 0; y < irradianceSize; ++y) {
-            for (int x = 0; x < irradianceSize; ++x) {
-                const float u = 2.0f * (static_cast<float>(x) + 0.5f) / irradianceSize - 1.0f;
-                const float v = 2.0f * (static_cast<float>(y) + 0.5f) / irradianceSize - 1.0f;
-                auto normal = directionForFace(face, u, v);
-                const float normalLength = std::sqrt(normal.x * normal.x + normal.y * normal.y + normal.z * normal.z);
-                normal.x /= normalLength; normal.y /= normalLength; normal.z /= normalLength;
-                const EnvironmentFloat3 up = std::abs(normal.y) < 0.99f
-                    ? EnvironmentFloat3{0.0f, 1.0f, 0.0f}
-                    : EnvironmentFloat3{1.0f, 0.0f, 0.0f};
-                auto tangent = EnvironmentFloat3{up.y * normal.z - up.z * normal.y,
-                                                  up.z * normal.x - up.x * normal.z,
-                                                  up.x * normal.y - up.y * normal.x};
-                const float tangentLength = std::sqrt(tangent.x * tangent.x + tangent.y * tangent.y + tangent.z * tangent.z);
-                tangent.x /= tangentLength; tangent.y /= tangentLength; tangent.z /= tangentLength;
-                const auto bitangent = EnvironmentFloat3{normal.y * tangent.z - normal.z * tangent.y,
-                                                          normal.z * tangent.x - normal.x * tangent.z,
-                                                          normal.x * tangent.y - normal.y * tangent.x};
-                EnvironmentFloat3 sum{0.0f, 0.0f, 0.0f};
-                for (int thetaIndex = 0; thetaIndex < thetaSamples; ++thetaIndex) {
-                    const float theta = (static_cast<float>(thetaIndex) + 0.5f) *
-                        (0.5f * std::numbers::pi_v<float>) / thetaSamples;
-                    const float sinTheta = std::sin(theta);
-                    const float cosTheta = std::cos(theta);
-                    for (int phiIndex = 0; phiIndex < phiSamples; ++phiIndex) {
-                        const float phi = (static_cast<float>(phiIndex) + 0.5f) *
-                            (2.0f * std::numbers::pi_v<float>) / phiSamples;
-                        const EnvironmentFloat3 sampleDirection{
-                            tangent.x * (std::cos(phi) * sinTheta) + bitangent.x * (std::sin(phi) * sinTheta) + normal.x * cosTheta,
-                            tangent.y * (std::cos(phi) * sinTheta) + bitangent.y * (std::sin(phi) * sinTheta) + normal.y * cosTheta,
-                            tangent.z * (std::cos(phi) * sinTheta) + bitangent.z * (std::sin(phi) * sinTheta) + normal.z * cosTheta};
-                        const auto sample = sampleEquirectangular(sampleDirection);
-                        const float weight = cosTheta * sinTheta;
-                        sum.x += sample.x * weight; sum.y += sample.y * weight; sum.z += sample.z * weight;
-                    }
+    constexpr std::size_t irradianceFacePixelCount =
+        static_cast<std::size_t>(irradianceSize) * irradianceSize;
+    constexpr std::size_t irradiancePixelCount = irradianceFacePixelCount * 6;
+    Parallel::ForSize(0, irradiancePixelCount,
+        irradiancePixelCount * thetaSamples * phiSamples, 128,
+        [&](std::size_t pixelIndex) {
+            const int face = static_cast<int>(pixelIndex / irradianceFacePixelCount);
+            const auto localPixel = pixelIndex % irradianceFacePixelCount;
+            const int y = static_cast<int>(localPixel / irradianceSize);
+            const int x = static_cast<int>(localPixel % irradianceSize);
+            const float u = 2.0f * (static_cast<float>(x) + 0.5f) / irradianceSize - 1.0f;
+            const float v = 2.0f * (static_cast<float>(y) + 0.5f) / irradianceSize - 1.0f;
+            auto normal = directionForFace(face, u, v);
+            const float normalLength = std::sqrt(normal.x * normal.x + normal.y * normal.y + normal.z * normal.z);
+            normal.x /= normalLength; normal.y /= normalLength; normal.z /= normalLength;
+            const EnvironmentFloat3 up = std::abs(normal.y) < 0.99f
+                ? EnvironmentFloat3{0.0f, 1.0f, 0.0f}
+                : EnvironmentFloat3{1.0f, 0.0f, 0.0f};
+            auto tangent = EnvironmentFloat3{up.y * normal.z - up.z * normal.y,
+                                              up.z * normal.x - up.x * normal.z,
+                                              up.x * normal.y - up.y * normal.x};
+            const float tangentLength = std::sqrt(tangent.x * tangent.x + tangent.y * tangent.y + tangent.z * tangent.z);
+            tangent.x /= tangentLength; tangent.y /= tangentLength; tangent.z /= tangentLength;
+            const auto bitangent = EnvironmentFloat3{normal.y * tangent.z - normal.z * tangent.y,
+                                                      normal.z * tangent.x - normal.x * tangent.z,
+                                                      normal.x * tangent.y - normal.y * tangent.x};
+            EnvironmentFloat3 sum{0.0f, 0.0f, 0.0f};
+            for (int thetaIndex = 0; thetaIndex < thetaSamples; ++thetaIndex) {
+                const float theta = (static_cast<float>(thetaIndex) + 0.5f) *
+                    (0.5f * std::numbers::pi_v<float>) / thetaSamples;
+                const float sinTheta = std::sin(theta);
+                const float cosTheta = std::cos(theta);
+                for (int phiIndex = 0; phiIndex < phiSamples; ++phiIndex) {
+                    const float phi = (static_cast<float>(phiIndex) + 0.5f) *
+                        (2.0f * std::numbers::pi_v<float>) / phiSamples;
+                    const EnvironmentFloat3 sampleDirection{
+                        tangent.x * (std::cos(phi) * sinTheta) + bitangent.x * (std::sin(phi) * sinTheta) + normal.x * cosTheta,
+                        tangent.y * (std::cos(phi) * sinTheta) + bitangent.y * (std::sin(phi) * sinTheta) + normal.y * cosTheta,
+                        tangent.z * (std::cos(phi) * sinTheta) + bitangent.z * (std::sin(phi) * sinTheta) + normal.z * cosTheta};
+                    const auto sample = sampleEquirectangular(sampleDirection);
+                    const float weight = cosTheta * sinTheta;
+                    sum.x += sample.x * weight; sum.y += sample.y * weight; sum.z += sample.z * weight;
                 }
-                const float normalization = std::numbers::pi_v<float> / (thetaSamples * phiSamples);
-                const std::size_t dst = (static_cast<std::size_t>(face) * irradianceSize * irradianceSize +
-                                         static_cast<std::size_t>(y) * irradianceSize + x) * 4;
-                irradiance[dst + 0] = sum.x * normalization;
-                irradiance[dst + 1] = sum.y * normalization;
-                irradiance[dst + 2] = sum.z * normalization;
-                irradiance[dst + 3] = 1.0f;
             }
-        }
-    }
+            const float normalization = std::numbers::pi_v<float> / (thetaSamples * phiSamples);
+            const std::size_t dst = (static_cast<std::size_t>(face) * irradianceSize * irradianceSize +
+                                     static_cast<std::size_t>(y) * irradianceSize + x) * 4;
+            irradiance[dst + 0] = sum.x * normalization;
+            irradiance[dst + 1] = sum.y * normalization;
+            irradiance[dst + 2] = sum.z * normalization;
+            irradiance[dst + 3] = 1.0f;
+        });
     TextureDesc irradianceDesc;
     irradianceDesc.Name = "MeshRenderer/IrradianceCubemap";
     irradianceDesc.Type = RESOURCE_DIM_TEX_CUBE;
@@ -623,7 +1013,8 @@ bool createEnvironmentCube(ArtifactCore::GpuContext& context,
     if (irradianceTexture) {
         irradianceView = irradianceTexture->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
     }
-    return view.RawPtr() != nullptr && irradianceView.RawPtr() != nullptr;
+    return view.RawPtr() != nullptr && irradianceView.RawPtr() != nullptr &&
+           sheenView.RawPtr() != nullptr;
 }
 
 bool createBrdfLut(ArtifactCore::GpuContext& context,
@@ -633,8 +1024,9 @@ bool createBrdfLut(ArtifactCore::GpuContext& context,
     auto* device = context.RenderDevice();
     if (!device) return false;
     constexpr int size = 64;
-    constexpr int samples = 64;
-    std::vector<float> lut(static_cast<std::size_t>(size) * size * 2, 0.0f);
+    constexpr int lutWidth = size * 2;
+    constexpr int samples = 128;
+    std::vector<float> lut(static_cast<std::size_t>(lutWidth) * size * 4, 0.0f);
     auto radicalInverse = [](std::uint32_t bits) {
         bits = (bits << 16u) | (bits >> 16u);
         bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
@@ -643,14 +1035,34 @@ bool createBrdfLut(ArtifactCore::GpuContext& context,
         bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
         return static_cast<float>(bits) * 2.3283064365386963e-10f;
     };
+    auto sheenLambda = [](float cosine, float alphaG) {
+        const float x = std::clamp(cosine, 0.0f, 1.0f);
+        const float oneMinusAlphaSquared = (1.0f - alphaG) * (1.0f - alphaG);
+        const float a = std::lerp(21.5473f, 25.3245f, oneMinusAlphaSquared);
+        const float b = std::lerp(3.82987f, 3.32435f, oneMinusAlphaSquared);
+        const float c = std::lerp(0.19823f, 0.16801f, oneMinusAlphaSquared);
+        const float d = std::lerp(-1.97760f, -1.27393f, oneMinusAlphaSquared);
+        const float e = std::lerp(-4.32054f, -4.85967f, oneMinusAlphaSquared);
+        const auto l = [=](float value) {
+            return a / (1.0f + b * std::pow(std::max(value, 1.0e-5f), c)) +
+                   d * value + e;
+        };
+        return x < 0.5f ? std::exp(l(x))
+                        : std::exp(2.0f * l(0.5f) - l(1.0f - x));
+    };
     for (int y = 0; y < size; ++y) {
         const float roughness = (static_cast<float>(y) + 0.5f) / size;
         const float alpha = roughness * roughness;
+        std::array<float, size> singleScatterAlbedo{};
         for (int x = 0; x < size; ++x) {
             const float nDotV = (static_cast<float>(x) + 0.5f) / size;
             const float viewX = std::sqrt(std::max(0.0f, 1.0f - nDotV * nDotV));
             float scale = 0.0f;
             float bias = 0.0f;
+            float sheenDirectionalAlbedo = 0.0f;
+            float diffuseDirectionalAlbedo = 0.0f;
+            const float sheenAlphaG = std::max(alpha, 1.0e-4f);
+            const float sheenInverseRoughness = 1.0f / sheenAlphaG;
             for (std::uint32_t sample = 0; sample < samples; ++sample) {
                 const float xi1 = (static_cast<float>(sample) + 0.5f) / samples;
                 const float xi2 = radicalInverse(sample);
@@ -663,35 +1075,118 @@ bool createBrdfLut(ArtifactCore::GpuContext& context,
                 const float viewDotHalf = std::max(0.0f,
                     viewX * halfVector.x + nDotV * halfVector.z);
                 const float lightZ = 2.0f * viewDotHalf * halfVector.z - nDotV;
-                const float lightX = 2.0f * viewDotHalf * halfVector.x - viewX;
                 const float nDotL = std::max(0.0f, lightZ);
-                if (nDotL <= 0.0f) continue;
-                const float geometryV = nDotV / std::max(
-                    nDotV * (1.0f - roughness * 0.5f) + roughness * 0.5f, 1e-4f);
-                const float geometryL = nDotL / std::max(
-                    nDotL * (1.0f - roughness * 0.5f) + roughness * 0.5f, 1e-4f);
-                const float visibility = geometryV * geometryL;
-                const float fresnel = std::pow(1.0f - viewDotHalf, 5.0f);
-                scale += visibility * (1.0f - fresnel);
-                bias += visibility * fresnel;
+                if (nDotL > 0.0f) {
+                    // The half-vector is sampled from the GGX NDF. Convert its
+                    // PDF to the reflected-light PDF when integrating the BRDF;
+                    // omitting VdotH / (NdotH * NdotV) biases the split-sum LUT
+                    // toward an overly bright, view-insensitive environment.
+                    const float geometryK = (roughness + 1.0f) *
+                        (roughness + 1.0f) * 0.125f;
+                    const float geometryV = nDotV / std::max(
+                        nDotV * (1.0f - geometryK) + geometryK, 1e-4f);
+                    const float geometryL = nDotL / std::max(
+                        nDotL * (1.0f - geometryK) + geometryK, 1e-4f);
+                    const float visibility = geometryV * geometryL * viewDotHalf /
+                        std::max(halfVector.z * nDotV, 1e-4f);
+                    const float fresnel = std::pow(1.0f - viewDotHalf, 5.0f);
+                    scale += visibility * (1.0f - fresnel);
+                    bias += visibility * fresnel;
+                }
+
+                const float diskRadius = std::sqrt(xi1);
+                const float sheenLightX = diskRadius * std::cos(phi);
+                const float sheenLightZ = std::sqrt(std::max(0.0f, 1.0f - xi1));
+                const float sheenViewDotLight = std::max(
+                    nDotV * sheenLightZ + viewX * sheenLightX, 0.0f);
+                const float halfLength = std::sqrt(std::max(
+                    1.0e-8f, 2.0f + 2.0f * sheenViewDotLight));
+                const float nDotH = std::clamp(
+                    (sheenLightZ + nDotV) / halfLength, 0.0f, 1.0f);
+                const float sheenSin2H = std::max(1.0f - nDotH * nDotH, 1.0e-6f);
+                const float sheenDistribution =
+                    (2.0f + sheenInverseRoughness) *
+                    std::pow(sheenSin2H, 0.5f * sheenInverseRoughness) /
+                    (2.0f * std::numbers::pi_v<float>);
+                const float sheenVisibility = 1.0f /
+                    ((1.0f + sheenLambda(nDotV, sheenAlphaG) +
+                      sheenLambda(sheenLightZ, sheenAlphaG)) *
+                     (4.0f * std::max(nDotV, 1.0e-4f) *
+                      std::max(sheenLightZ, 1.0e-4f)));
+                sheenDirectionalAlbedo += sheenDistribution * sheenVisibility *
+                                          std::numbers::pi_v<float>;
+
+                const float diffuseXi1 =
+                    (static_cast<float>(sample) + 0.5f) / samples;
+                const float diffuseXi2 = radicalInverse(sample);
+                const float diffuseSinTheta = std::sqrt(diffuseXi1);
+                const float diffusePhi = 2.0f * std::numbers::pi_v<float> *
+                                         diffuseXi2;
+                const EnvironmentFloat3 diffuseLight{
+                    diffuseSinTheta * std::cos(diffusePhi),
+                    diffuseSinTheta * std::sin(diffusePhi),
+                    std::sqrt(std::max(0.0f, 1.0f - diffuseXi1))};
+                const EnvironmentFloat3 diffuseView{viewX, 0.0f, nDotV};
+                const EnvironmentFloat3 diffuseHalf{
+                    diffuseLight.x + diffuseView.x,
+                    diffuseLight.y + diffuseView.y,
+                    diffuseLight.z + diffuseView.z};
+                const float inverseHalfLength = 1.0f / std::sqrt(std::max(
+                    diffuseHalf.x * diffuseHalf.x +
+                    diffuseHalf.y * diffuseHalf.y +
+                    diffuseHalf.z * diffuseHalf.z, 1.0e-8f));
+                const float lightDotHalf = std::clamp(
+                    (diffuseLight.x * diffuseHalf.x +
+                     diffuseLight.y * diffuseHalf.y +
+                     diffuseLight.z * diffuseHalf.z) * inverseHalfLength,
+                    0.0f, 1.0f);
+                const float diffuseF90 = 0.5f + 2.0f * roughness *
+                                         lightDotHalf * lightDotHalf;
+                const float diffuseLightScatter = 1.0f + (diffuseF90 - 1.0f) *
+                    std::pow(1.0f - diffuseLight.z, 5.0f);
+                const float diffuseViewScatter = 1.0f + (diffuseF90 - 1.0f) *
+                    std::pow(1.0f - nDotV, 5.0f);
+                diffuseDirectionalAlbedo +=
+                    diffuseLightScatter * diffuseViewScatter;
             }
-            const std::size_t index = (static_cast<std::size_t>(y) * size + x) * 2;
+            const std::size_t index =
+                (static_cast<std::size_t>(y) * lutWidth + x) * 4;
             lut[index + 0] = scale / samples;
             lut[index + 1] = bias / samples;
+            singleScatterAlbedo[static_cast<std::size_t>(x)] =
+                lut[index + 0] + lut[index + 1];
+            lut[index + 2] = std::clamp(
+                sheenDirectionalAlbedo / samples, 0.0f, 1.0f);
+            const std::size_t diffuseIndex =
+                (static_cast<std::size_t>(y) * lutWidth + size + x) * 4;
+            lut[diffuseIndex + 0] = diffuseDirectionalAlbedo / samples;
+            lut[diffuseIndex + 3] = 1.0f;
+        }
+        float averageSingleScatterAlbedo = 0.0f;
+        for (int x = 0; x < size; ++x) {
+            const float nDotV = (static_cast<float>(x) + 0.5f) / size;
+            averageSingleScatterAlbedo +=
+                2.0f * singleScatterAlbedo[static_cast<std::size_t>(x)] *
+                nDotV / size;
+        }
+        for (int x = 0; x < size; ++x) {
+            const std::size_t index =
+                (static_cast<std::size_t>(y) * lutWidth + x) * 4;
+            lut[index + 3] = std::clamp(averageSingleScatterAlbedo, 0.0f, 1.0f);
         }
     }
     Diligent::TextureDesc desc;
     desc.Name = "MeshRenderer/BRDFLUT";
     desc.Type = Diligent::RESOURCE_DIM_TEX_2D;
-    desc.Width = size;
+    desc.Width = lutWidth;
     desc.Height = size;
     desc.MipLevels = 1;
-    desc.Format = Diligent::TEX_FORMAT_RG32_FLOAT;
+    desc.Format = Diligent::TEX_FORMAT_RGBA32_FLOAT;
     desc.Usage = Diligent::USAGE_IMMUTABLE;
     desc.BindFlags = Diligent::BIND_SHADER_RESOURCE;
     Diligent::TextureSubResData sub;
     sub.pData = lut.data();
-    sub.Stride = static_cast<Diligent::Uint64>(size * 2 * sizeof(float));
+    sub.Stride = static_cast<Diligent::Uint64>(lutWidth * 4 * sizeof(float));
     Diligent::TextureData data;
     data.pSubResources = &sub;
     data.NumSubresources = 1;
@@ -699,6 +1194,12 @@ bool createBrdfLut(ArtifactCore::GpuContext& context,
     if (!texture) return false;
     view = texture->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
     return view.RawPtr() != nullptr;
+}
+
+float clampFinite(float value, float minimum, float maximum,
+                  float fallback) noexcept {
+    return std::isfinite(value) ? std::clamp(value, minimum, maximum)
+                                : fallback;
 }
 }
 
@@ -708,6 +1209,7 @@ struct VSInput {
     float3 normal : ATTRIB1;
     float2 uv     : ATTRIB2;
     float4 color  : ATTRIB3;
+    float2 uv1    : ATTRIB4;
 };
 
 struct PSInput {
@@ -722,6 +1224,7 @@ struct PSInput {
     float4 Color : COLOR;
     float4 VertexColor : TEXCOORD7;
     float4 ShadowPosition : TEXCOORD6;
+    float2 UV1 : TEXCOORD8;
 };
 
 struct InstanceData {
@@ -762,12 +1265,25 @@ PSInput VSMain(VSInput In, uint InstanceID : SV_InstanceID) {
     float4 prevViewPos = mul(prevWorldPos, PrevViewMatrix);
     Out.PrevPos = mul(prevViewPos, PrevProjMatrix);
     
-    // Transform the normal into view space so studio lighting follows the camera.
-    float3x3 rotMat = (float3x3)inst.transform;
-    Out.WorldNormal = mul(In.normal, rotMat);
+    // Normals must use the inverse-transpose of the instance transform.
+    // Applying the position matrix directly is only correct for rigid or
+    // uniform-scale transforms and skews PBR lobes under non-uniform scale.
+    float3x3 transformMatrix = (float3x3)inst.transform;
+    float3 cofactor0 = cross(transformMatrix[1], transformMatrix[2]);
+    float3 cofactor1 = cross(transformMatrix[2], transformMatrix[0]);
+    float3 cofactor2 = cross(transformMatrix[0], transformMatrix[1]);
+    float determinant = dot(transformMatrix[0], cofactor0);
+    float3x3 normalMatrix = float3x3(cofactor0, cofactor1, cofactor2);
+    if (abs(determinant) > 1.0e-8) {
+        normalMatrix *= rcp(determinant);
+    } else {
+        normalMatrix = transformMatrix;
+    }
+    Out.WorldNormal = mul(In.normal, normalMatrix);
     Out.Normal = mul(Out.WorldNormal, (float3x3)ViewMatrix);
     
     Out.UV = In.uv;
+    Out.UV1 = In.uv1;
     Out.Mode = inst.timeOffset;
     Out.Color = inst.color * inst.weight; // weight acts as alpha multiplier
     Out.VertexColor = In.color;
@@ -775,11 +1291,14 @@ PSInput VSMain(VSInput In, uint InstanceID : SV_InstanceID) {
 }
 )";
 
-// Keep the shadow pass deliberately independent from the material shader.  A
-// shadow map records only the closest opaque surface in light clip space.
+// Shadow depth remains independent from surface lighting, while sharing the
+// material alpha contract so masked cutouts do not cast solid rectangular
+// shadows.
 const char* MeshShadowVSSource = R"(
 struct VSInput {
     float3 pos : ATTRIB0;
+    float2 uv : ATTRIB2;
+    float4 color : ATTRIB3;
 };
 
 struct InstanceData {
@@ -797,9 +1316,119 @@ cbuffer ShadowConstants : register(b0) {
     float4x4 LightViewProjection;
 };
 
-float4 VSMain(VSInput In, uint InstanceID : SV_InstanceID) : SV_Position {
-    return mul(mul(float4(In.pos, 1.0), g_Instances[InstanceID].transform),
-               LightViewProjection);
+struct VSOutput {
+    float4 position : SV_Position;
+    float2 uv : TEXCOORD0;
+    float4 color : COLOR0;
+    float instanceAlpha : TEXCOORD1;
+};
+
+VSOutput VSMain(VSInput In, uint InstanceID : SV_InstanceID) {
+    InstanceData instance = g_Instances[InstanceID];
+    VSOutput Out;
+    Out.position = mul(mul(float4(In.pos, 1.0), instance.transform),
+                       LightViewProjection);
+    Out.uv = In.uv;
+    Out.color = In.color;
+    Out.instanceAlpha = instance.color.a;
+    return Out;
+}
+)";
+
+const char* MeshShadowPSSource = R"(
+struct PSInput {
+    float4 position : SV_Position;
+    float2 uv : TEXCOORD0;
+    float4 color : COLOR0;
+    float instanceAlpha : TEXCOORD1;
+};
+
+Texture2D g_BaseColorTexture : register(t0);
+Texture2D g_OpacityTexture : register(t1);
+SamplerState g_ShadowMaskSampler : register(s0);
+
+cbuffer MaterialParams : register(b1) {
+    float4 MaterialBaseColorFactor;
+    float4 EmissionColorStrength;
+    float4 PbrFactors;
+    float4 PbrTextureFlags;
+    float4 PrincipledFactors;
+    float4 SpecularTintFactors;
+    float4 ThinFilmFactors;
+    float4 ClearcoatFactors;
+    float4 AlphaSettings;
+    float4 UvTransformA;
+    float4 UvTransformB;
+    float4 ClearcoatNormalUvTransform;
+    float4 EnvFactors;
+    float4 SheenFactors;
+    float4 AnisotropyFactors;
+    float4 SubsurfaceFactors;
+    float4 SubsurfaceRadius;
+    float4 SubsurfaceScatteringFactors;
+    float4 ClearcoatTintFactors;
+    float4 SurfaceTextureUvTransform;
+    float4 NormalTextureUvOffset;
+    float4 OcclusionTextureUvTransform;
+    float4 EmissionTextureUvTransform;
+    float4 OpacityTextureUvTransform;
+    float4 BaseColorTextureUvTransform;
+    float4 OpacityTextureUvOffset;
+    float4 EmissionTextureUvRotation;
+};
+
+float2 transformShadowUv(float2 uv) {
+    float2 scaled = uv * UvTransformA.zw;
+    float angle = UvTransformB.x;
+    float2 rotated = scaled;
+    if (abs(angle) > 1e-5) {
+        float2 s = float2(cos(angle), sin(angle));
+        float2 centered = scaled - 0.5;
+        rotated = float2(centered.x * s.x - centered.y * s.y,
+                         centered.x * s.y + centered.y * s.x) + 0.5;
+    }
+    return rotated + UvTransformA.xy;
+}
+
+float2 transformBaseColorUv(float2 uv) {
+    const float scale = clamp(UvTransformB.w, 0.01, 10.0);
+    const float angle = BaseColorTextureUvTransform.z;
+    float2 centered = (uv - 0.5) * scale;
+    if (abs(angle) > 1e-5) {
+        const float sine = sin(angle);
+        const float cosine = cos(angle);
+        centered = float2(centered.x * cosine - centered.y * sine,
+                          centered.x * sine + centered.y * cosine);
+    }
+    return centered + 0.5 + BaseColorTextureUvTransform.xy;
+}
+
+float2 transformOpacityTextureUv(float2 uv) {
+    const float scale = clamp(OpacityTextureUvTransform.x, 0.01, 10.0);
+    float2 centered = (uv - 0.5) * scale;
+    const float angle = OpacityTextureUvTransform.w;
+    if (abs(angle) > 1.0e-5) {
+        const float sine = sin(angle);
+        const float cosine = cos(angle);
+        centered = float2(centered.x * cosine - centered.y * sine,
+                          centered.x * sine + centered.y * cosine);
+    }
+    return centered + 0.5 + OpacityTextureUvOffset.xy;
+}
+
+void PSMain(PSInput In) {
+    if (PbrTextureFlags.w > 0.5) {
+        float2 uv = transformBaseColorUv(transformShadowUv(In.uv));
+        float2 opacityUv = transformOpacityTextureUv(
+            transformShadowUv(In.uv));
+        float baseAlpha = g_BaseColorTexture.Sample(
+            g_ShadowMaskSampler, uv).a;
+        float opacityAlpha = g_OpacityTexture.Sample(
+            g_ShadowMaskSampler, opacityUv).a;
+        float alpha = baseAlpha * opacityAlpha * In.color.a *
+                      In.instanceAlpha * MaterialBaseColorFactor.a;
+        clip(alpha - AlphaSettings.x);
+    }
 }
 )";
 
@@ -816,6 +1445,7 @@ struct PSInput {
     float4 Color : COLOR;
     float4 VertexColor : TEXCOORD7;
     float4 ShadowPosition : TEXCOORD6;
+    float2 UV1 : TEXCOORD8;
 };
 
 Texture2D g_BaseColorTexture : register(t0);
@@ -836,6 +1466,8 @@ Texture2D g_GoboTexture7 : register(t14);
 TextureCube g_IrradianceMap : register(t15);
 TextureCube g_PrefilteredEnvironment : register(t16);
 Texture2D g_BrdfLut : register(t17);
+TextureCube g_SheenPrefilteredEnvironment : register(t18);
+Texture2D g_ClearcoatNormalTexture : register(t19);
 SamplerState g_BaseColorSampler : register(s0);
 SamplerComparisonState g_ShadowSampler : register(s1);
 SamplerState g_GoboSampler : register(s2);
@@ -854,15 +1486,33 @@ float4 sampleGobo(uint lightIndex, float2 uv) {
 }
 
 cbuffer MaterialParams : register(b1) {
+    float4 MaterialBaseColorFactor;
     float4 EmissionColorStrength;
     float4 PbrFactors;
     float4 PbrTextureFlags;
     float4 PrincipledFactors;
+    float4 SpecularTintFactors;
+    float4 ThinFilmFactors;
     float4 ClearcoatFactors;
     float4 AlphaSettings;
     float4 UvTransformA;
     float4 UvTransformB;
+    float4 ClearcoatNormalUvTransform;
     float4 EnvFactors;
+    float4 SheenFactors;
+    float4 AnisotropyFactors;
+    float4 SubsurfaceFactors;
+    float4 SubsurfaceRadius;
+    float4 SubsurfaceScatteringFactors;
+    float4 ClearcoatTintFactors;
+    float4 SurfaceTextureUvTransform;
+    float4 NormalTextureUvOffset;
+    float4 OcclusionTextureUvTransform;
+    float4 EmissionTextureUvTransform;
+    float4 OpacityTextureUvTransform;
+    float4 BaseColorTextureUvTransform;
+    float4 OpacityTextureUvOffset;
+    float4 EmissionTextureUvRotation;
 };
 
 float2 transformMeshUv(float2 uv) {
@@ -876,6 +1526,105 @@ float2 transformMeshUv(float2 uv) {
                          centered.x * s.y + centered.y * s.x) + 0.5;
     }
     return rotated + UvTransformA.xy;
+}
+
+float2 applyNormalTextureUvOffset(float2 uv) {
+    return uv + NormalTextureUvOffset.xy;
+}
+
+float2 rotateNormalMapUv(float2 uv) {
+    const float angle = UvTransformB.y;
+    const float scale = UvTransformB.z;
+    if (abs(angle) <= 1e-5 && abs(scale - 1.0) <= 1e-5) {
+        return applyNormalTextureUvOffset(uv);
+    }
+    const float sine = sin(angle);
+    const float cosine = cos(angle);
+    const float2 center = 0.5 + UvTransformA.xy;
+    const float2 centered = (uv - center) * scale;
+    return applyNormalTextureUvOffset(
+        float2(centered.x * cosine - centered.y * sine,
+               centered.x * sine + centered.y * cosine) + center);
+}
+
+float2 transformClearcoatNormalUv(float2 uv) {
+    const float angle = ClearcoatNormalUvTransform.x;
+    const float scale = ClearcoatNormalUvTransform.y;
+    if (abs(angle) <= 1e-5 && abs(scale - 1.0) <= 1e-5) {
+        return uv + ClearcoatNormalUvTransform.zw;
+    }
+    const float sine = sin(angle);
+    const float cosine = cos(angle);
+    const float2 center = 0.5 + UvTransformA.xy;
+    const float2 centered = (uv - center) * scale;
+    return float2(centered.x * cosine - centered.y * sine,
+                  centered.x * sine + centered.y * cosine) + center +
+           ClearcoatNormalUvTransform.zw;
+}
+
+float2 transformBaseColorUv(float2 uv) {
+    const float scale = clamp(UvTransformB.w, 0.01, 10.0);
+    const float angle = BaseColorTextureUvTransform.z;
+    float2 centered = (uv - 0.5) * scale;
+    if (abs(angle) > 1e-5) {
+        const float sine = sin(angle);
+        const float cosine = cos(angle);
+        centered = float2(centered.x * cosine - centered.y * sine,
+                          centered.x * sine + centered.y * cosine);
+    }
+    return centered + 0.5 + BaseColorTextureUvTransform.xy;
+}
+
+float2 transformSurfaceTextureUv(float2 uv) {
+    const float scale = clamp(SurfaceTextureUvTransform.x, 0.01, 10.0);
+    float2 centered = (uv - 0.5) * scale;
+    const float angle = SurfaceTextureUvTransform.w;
+    if (abs(angle) > 1.0e-5) {
+        const float sine = sin(angle);
+        const float cosine = cos(angle);
+        centered = float2(centered.x * cosine - centered.y * sine,
+                          centered.x * sine + centered.y * cosine);
+    }
+    return centered + 0.5 + SurfaceTextureUvTransform.yz;
+}
+
+float2 transformOcclusionTextureUv(float2 uv) {
+    const float scale = clamp(OcclusionTextureUvTransform.x, 0.01, 10.0);
+    float2 centered = (uv - 0.5) * scale;
+    const float angle = OcclusionTextureUvTransform.w;
+    if (abs(angle) > 1.0e-5) {
+        const float sine = sin(angle);
+        const float cosine = cos(angle);
+        centered = float2(centered.x * cosine - centered.y * sine,
+                          centered.x * sine + centered.y * cosine);
+    }
+    return centered + 0.5 + OcclusionTextureUvTransform.yz;
+}
+
+float2 transformEmissionTextureUv(float2 uv) {
+    const float scale = clamp(EmissionTextureUvTransform.x, 0.01, 10.0);
+    float2 centered = (uv - 0.5) * scale;
+    const float angle = EmissionTextureUvRotation.x;
+    if (abs(angle) > 1.0e-5) {
+        const float sine = sin(angle);
+        const float cosine = cos(angle);
+        centered = float2(centered.x * cosine - centered.y * sine,
+                          centered.x * sine + centered.y * cosine);
+    }
+    return centered + 0.5 + EmissionTextureUvTransform.yz;
+}
+
+float2 transformOpacityTextureUv(float2 uv) {
+    const float scale = clamp(OpacityTextureUvTransform.x, 0.01, 10.0);
+    float2 centered = (uv - 0.5) * scale;
+    const float angle = OpacityTextureUvTransform.w;
+    if (abs(angle) > 1.0e-5) {
+        const float sine = sin(angle);
+        const float cosine = cos(angle);
+        centered = float2(centered.x * cosine - centered.y * sine,
+                          centered.x * sine + centered.y * cosine);
+    }
+    return centered + 0.5 + OpacityTextureUvOffset.xy;
 }
 
 struct SceneLight {
@@ -939,9 +1688,40 @@ float3 sampleEnvironmentDiffuse(float3 normal) {
         g_BaseColorSampler, normalize(normal), max(0, mipCount - 1)).rgb;
 }
 
+float4 sampleBrdfLut(float2 uv) {
+    const float halfTexel = 0.5 / 128.0;
+    const float specularU = clamp(
+        saturate(uv.x) * 0.5, halfTexel, 0.5 - halfTexel);
+    return g_BrdfLut.SampleLevel(
+        g_BaseColorSampler,
+        float2(specularU, saturate(uv.y)), 0);
+}
+
+float sampleDiffuseDirectionalAlbedo(float NdotV, float roughness) {
+    const float halfTexel = 0.5 / 128.0;
+    const float diffuseU = clamp(
+        0.5 + saturate(NdotV) * 0.5,
+        0.5 + halfTexel, 1.0 - halfTexel);
+    return max(g_BrdfLut.SampleLevel(
+        g_BaseColorSampler,
+        float2(diffuseU, saturate(roughness)), 0).r,
+        0.0);
+}
+
 float3 sampleEnvironmentSpecular(float3 normal, float3 viewDirection,
-                                 float roughness, float3 F0) {
-    float3 reflectionDirection = reflect(-normalize(viewDirection), normalize(normal));
+                                 float roughness, float3 F0, float3 tangent,
+                                 float3 bitangent, float anisotropy) {
+    float3 N = normalize(normal);
+    float3 V = normalize(viewDirection);
+    float3 anisotropyDirection = anisotropy >= 0.0 ? bitangent : tangent;
+    float3 anisotropicTangent = cross(anisotropyDirection, V);
+    float3 bentNormal = N;
+    if (dot(anisotropicTangent, anisotropicTangent) > 1.0e-6) {
+        float3 anisotropicNormal = normalize(
+            cross(anisotropicTangent, anisotropyDirection));
+        bentNormal = normalize(lerp(N, anisotropicNormal, anisotropy));
+    }
+    float3 reflectionDirection = reflect(-V, bentNormal);
     float angle = EnvironmentSettings.z;
     float2 rotation = float2(cos(angle), sin(angle));
     reflectionDirection = float3(
@@ -955,13 +1735,100 @@ float3 sampleEnvironmentSpecular(float3 normal, float3 viewDirection,
     float lod = saturate(roughness) * max(0.0, float(mipCount) - 1.0);
     float3 prefiltered = g_PrefilteredEnvironment.SampleLevel(
         g_BaseColorSampler, reflectionDirection, lod).rgb;
-    float2 brdf = g_BrdfLut.SampleLevel(
-        g_BaseColorSampler,
-        float2(saturate(dot(normalize(normal), normalize(viewDirection))),
-               saturate(roughness)), 0).rg;
-    float3 fresnel = F0 + (1.0 - F0) *
-        pow(1.0 - saturate(dot(normalize(normal), normalize(viewDirection))), 5.0);
-    return prefiltered * (fresnel * brdf.x + brdf.y);
+    float2 brdf = sampleBrdfLut(
+        float2(saturate(dot(N, V)), saturate(roughness))).rg;
+    // The LUT integrates the Schlick split-sum terms A and B separately;
+    // apply the same F0 * A + B expression used by the RT shader.
+    return prefiltered * (F0 * brdf.x + brdf.y);
+}
+
+float sampleSheenDirectionalAlbedo(float NdotV, float roughness) {
+    return saturate(sampleBrdfLut(
+        float2(saturate(NdotV), saturate(roughness))).b);
+}
+
+float3 evaluateEmissionLayerEnergy(float3 baseNormal, float3 coatNormal,
+                                   float3 viewDirection, float metallic) {
+    float coatWeight = saturate(ClearcoatFactors.x);
+    float sheenWeight = saturate(PrincipledFactors.w) *
+        (1.0 - metallic) * (1.0 - saturate(PrincipledFactors.z));
+    if (coatWeight <= 0.0 && sheenWeight <= 0.0) {
+        return float3(1.0, 1.0, 1.0);
+    }
+    float3 layerEnergy = float3(1.0, 1.0, 1.0);
+    if (coatWeight > 0.0) {
+        float coatIor = max(ClearcoatFactors.z, 1.0);
+        float coatIorRatio = (coatIor - 1.0) / (coatIor + 1.0);
+        float coatF0 = coatIorRatio * coatIorRatio;
+        float coatNdotV = saturate(dot(coatNormal, viewDirection));
+        float coatFresnel = coatF0 + (1.0 - coatF0) *
+            pow(1.0 - coatNdotV, 5.0);
+        float3 coatTint = srgbToLinear(saturate(ClearcoatTintFactors.rgb));
+        float coatViewCosInternal = sqrt(saturate(
+            1.0 - (1.0 - coatNdotV * coatNdotV) / (coatIor * coatIor)));
+        float3 coatTintPath = pow(max(coatTint, 1.0e-4),
+            rcp(max(coatViewCosInternal, 1.0e-3)));
+        layerEnergy *= (1.0 - coatWeight * coatFresnel) *
+            lerp(float3(1.0, 1.0, 1.0), coatTintPath, coatWeight);
+    }
+    if (sheenWeight > 0.0) {
+        float3 sheenTint = srgbToLinear(saturate(SheenFactors.yzw));
+        float sheenAlbedo = sampleSheenDirectionalAlbedo(
+            saturate(dot(baseNormal, viewDirection)), SheenFactors.x);
+        float sheenEnergy = saturate(1.0 -
+            max(sheenTint.r, max(sheenTint.g, sheenTint.b)) *
+            sheenWeight * sheenAlbedo);
+        layerEnergy *= sheenEnergy;
+    }
+    return layerEnergy;
+}
+
+float3 evaluateMultipleScatterCompensation(float NdotV, float NdotL,
+                                           float roughness, float3 F0) {
+    float4 viewLut = sampleBrdfLut(float2(saturate(NdotV), saturate(roughness)));
+    float4 lightLut = sampleBrdfLut(float2(saturate(NdotL), saturate(roughness)));
+    float Eavg = saturate(viewLut.a);
+    float EssV = saturate(viewLut.r + viewLut.g);
+    float EssL = saturate(lightLut.r + lightLut.g);
+    float3 Fss = F0 + (1.0 - F0) * (1.0 / 21.0);
+    float3 Fms = Fss * Eavg /
+        max(1.0 - Fss * (1.0 - Eavg), 1e-4);
+    return Fms * ((1.0 - EssV) * (1.0 - EssL)) /
+        max(3.14159265 * (1.0 - Eavg), 1e-4);
+}
+
+float3 evaluateMultipleScatterIbl(float NdotV, float roughness, float3 F0,
+                                  float3 diffuseIrradiance) {
+    float4 viewLut = sampleBrdfLut(float2(saturate(NdotV), saturate(roughness)));
+    float Eavg = saturate(viewLut.a);
+    float EssV = saturate(viewLut.r + viewLut.g);
+    float3 Fss = F0 + (1.0 - F0) * (1.0 / 21.0);
+    float3 Fms = Fss * Eavg /
+        max(1.0 - Fss * (1.0 - Eavg), 1e-4);
+    // Approximate the incoming-direction Ess term by its cosine-weighted
+    // average. The irradiance cube already contains the cosine convolution.
+    return diffuseIrradiance * Fms * (1.0 - EssV) / 3.14159265;
+}
+
+float3 sampleEnvironmentSheen(float3 normal, float3 viewDirection,
+                              float roughness) {
+    float3 reflectionDirection = reflect(-normalize(viewDirection), normalize(normal));
+    float angle = EnvironmentSettings.z;
+    float2 rotation = float2(cos(angle), sin(angle));
+    reflectionDirection = float3(
+        reflectionDirection.x * rotation.x - reflectionDirection.z * rotation.y,
+        reflectionDirection.y,
+        reflectionDirection.x * rotation.y + reflectionDirection.z * rotation.x);
+    uint width = 1;
+    uint height = 1;
+    uint mipCount = 1;
+    g_SheenPrefilteredEnvironment.GetDimensions(0, width, height, mipCount);
+    float lod = saturate(roughness) * max(0.0, float(mipCount) - 1.0);
+    float3 prefiltered = g_SheenPrefilteredEnvironment.SampleLevel(
+        g_BaseColorSampler, reflectionDirection, lod).rgb;
+    float sheenAlbedo = sampleSheenDirectionalAlbedo(
+        dot(normalize(normal), normalize(viewDirection)), roughness);
+    return prefiltered * sheenAlbedo;
 }
 
 float3 sampleEnvironmentTransmission(float3 normal, float3 viewDirection,
@@ -989,6 +1856,58 @@ float3 sampleEnvironmentTransmission(float3 normal, float3 viewDirection,
         g_BaseColorSampler, normalize(refractionDirection), lod).rgb * tint;
 }
 
+float specularOcclusion(float NdotV, float visibility, float roughness) {
+    // Lagarde and de Rousiers' roughness-aware approximation from
+    // "Moving Frostbite to PBR". Rough specular lobes span a wider cone, so
+    // they should lose less reflected environment energy to the same scalar AO.
+    const float exponent = exp2(-16.0 * saturate(roughness) - 1.0);
+    return saturate(pow(saturate(NdotV) + saturate(visibility), exponent) -
+                    1.0 + saturate(visibility));
+}
+
+float thinFilmChannelReflectance(float cosIncident, float filmIor,
+                                 float substrateIor, float thicknessNm,
+                                 float wavelengthNm) {
+    const float n0 = 1.0;
+    const float n1 = max(filmIor, 1.0001);
+    const float n2 = max(substrateIor, 1.0001);
+    const float c0 = saturate(cosIncident);
+    const float s0 = sqrt(max(1.0 - c0 * c0, 0.0));
+    const float s1 = min(s0 / n1, 0.9999);
+    const float s2 = min(s0 / n2, 0.9999);
+    const float c1 = sqrt(max(1.0 - s1 * s1, 0.0));
+    const float c2 = sqrt(max(1.0 - s2 * s2, 0.0));
+    const float rs01 = (n0 * c0 - n1 * c1) / max(n0 * c0 + n1 * c1, 1.0e-6);
+    const float rp01 = (n1 * c0 - n0 * c1) / max(n1 * c0 + n0 * c1, 1.0e-6);
+    const float rs12 = (n1 * c1 - n2 * c2) / max(n1 * c1 + n2 * c2, 1.0e-6);
+    const float rp12 = (n2 * c1 - n1 * c2) / max(n2 * c1 + n1 * c2, 1.0e-6);
+    const float phase = 12.5663706144 * n1 * max(thicknessNm, 0.0) * c1 /
+                        max(wavelengthNm, 1.0);
+    const float interference = cos(phase);
+    const float rsProduct = rs01 * rs12;
+    const float rpProduct = rp01 * rp12;
+    const float rs = (rs01 * rs01 + rs12 * rs12 +
+                      2.0 * rsProduct * interference) /
+                     max(1.0 + rsProduct * rsProduct +
+                         2.0 * rsProduct * interference, 1.0e-6);
+    const float rp = (rp01 * rp01 + rp12 * rp12 +
+                      2.0 * rpProduct * interference) /
+                     max(1.0 + rpProduct * rpProduct +
+                         2.0 * rpProduct * interference, 1.0e-6);
+    return saturate(0.5 * (rs + rp));
+}
+
+float3 thinFilmReflectance(float cosIncident, float filmIor,
+                           float substrateIor, float thicknessNm) {
+    return float3(
+        thinFilmChannelReflectance(cosIncident, filmIor, substrateIor,
+                                   thicknessNm, 610.0),
+        thinFilmChannelReflectance(cosIncident, filmIor, substrateIor,
+                                   thicknessNm, 550.0),
+        thinFilmChannelReflectance(cosIncident, filmIor, substrateIor,
+                                   thicknessNm, 460.0));
+}
+
 // Keep this helper name distinct from the shader compiler's internal normal-map
 // lowering symbol.  The D3D12 compiler otherwise reports a spurious
 // potentially-uninitialized-variable warning for applyNormalMap while creating
@@ -1008,13 +1927,38 @@ float3 computeNormalMapped(float3 position, float3 geometricNormal, float2 uv,
         return N;
     }
     float inverseDeterminant = rcp(determinant);
-    float3 T = normalize((dpdx * duvdy.y - dpdy * duvdx.y) * inverseDeterminant);
-    float3 B = normalize((-dpdx * duvdy.x + dpdy * duvdx.x) * inverseDeterminant);
+    float3 tangentCandidate =
+        (dpdx * duvdy.y - dpdy * duvdx.y) * inverseDeterminant;
+    float3 bitangentCandidate =
+        (-dpdx * duvdy.x + dpdy * duvdx.x) * inverseDeterminant;
+    tangentCandidate -= N * dot(tangentCandidate, N);
+    if (dot(tangentCandidate, tangentCandidate) <= 1.0e-12) {
+        return N;
+    }
+    float3 T = normalize(tangentCandidate);
+    float handedness = dot(cross(N, T), bitangentCandidate) < 0.0
+        ? -1.0 : 1.0;
+    float3 B = normalize(cross(N, T)) * handedness;
     float3 tangentNormal = normalSample * 2.0 - 1.0;
     tangentNormal.xy *= strength;
     tangentNormal = normalize(tangentNormal);
     return normalize(tangentNormal.x * T + tangentNormal.y * B +
                      tangentNormal.z * N);
+}
+
+float anisotropicGGXDistribution(float NoH, float ToH, float BoH,
+                                 float alphaT, float alphaB) {
+    float3 scaledHalf = float3(ToH / alphaT, BoH / alphaB, NoH);
+    float denominator = dot(scaledHalf, scaledHalf);
+    return rcp(3.14159265 * alphaT * alphaB * denominator * denominator);
+}
+
+float anisotropicGGXVisibility(float NoV, float NoL, float ToV, float BoV,
+                               float ToL, float BoL, float alphaT,
+                               float alphaB) {
+    float lambdaV = NoL * length(float3(alphaT * ToV, alphaB * BoV, NoV));
+    float lambdaL = NoV * length(float3(alphaT * ToL, alphaB * BoL, NoL));
+    return 0.5 / max(lambdaV + lambdaL, 1.0e-6);
 }
 
 float3 srgbToLinear(float3 value) {
@@ -1027,31 +1971,99 @@ float3 srgbToLinear(float3 value) {
                             : pow((value.b + 0.055) / 1.055, 2.4));
 }
 
+float3 sceneLinearToMeshOutput(float3 value) {
+    value = max(value, 0.0);
+#if ARTIFACT_MESH_OUTPUT_HDR
+    return value;
+#else
+    float3 displayLinear = value / (1.0 + value);
+#if ARTIFACT_MESH_OUTPUT_SRGB
+    return displayLinear;
+#else
+    return pow(displayLinear, 1.0 / 2.2);
+#endif
+#endif
+}
+
+float sheenLambda(float cosine, float alphaG) {
+    float x = saturate(cosine);
+    float oneMinusAlphaSquared = (1.0 - alphaG) * (1.0 - alphaG);
+    float a = lerp(21.5473, 25.3245, oneMinusAlphaSquared);
+    float b = lerp(3.82987, 3.32435, oneMinusAlphaSquared);
+    float c = lerp(0.19823, 0.16801, oneMinusAlphaSquared);
+    float d = lerp(-1.97760, -1.27393, oneMinusAlphaSquared);
+    float e = lerp(-4.32054, -4.85967, oneMinusAlphaSquared);
+    float lHalf = a / (1.0 + b * pow(0.5, c)) + d * 0.5 + e;
+    float l = a / (1.0 + b * pow(max(x, 1.0e-5), c)) + d * x + e;
+    float lComplement = a / (1.0 + b * pow(max(1.0 - x, 1.0e-5), c)) +
+                       d * (1.0 - x) + e;
+    return x < 0.5 ? exp(l) : exp(2.0 * lHalf - lComplement);
+}
+
+float sheenDistribution(float roughness, float NdotH) {
+    float alphaG = max(roughness * roughness, 1.0e-4);
+    float invR = rcp(alphaG);
+    float sin2H = max(1.0 - NdotH * NdotH, 1.0e-6);
+    return (2.0 + invR) * pow(sin2H, 0.5 * invR) /
+           (2.0 * 3.14159265);
+}
+
+float sheenVisibility(float roughness, float NdotV, float NdotL) {
+    float alphaG = max(roughness * roughness, 1.0e-4);
+    return rcp((1.0 + sheenLambda(NdotV, alphaG) +
+                sheenLambda(NdotL, alphaG)) *
+               (4.0 * max(NdotV, 1.0e-4) * max(NdotL, 1.0e-4)));
+}
+
 // __ARTIFACT_MATERIAL_GRAPH_HELPERS__
 
 float4 PSMain(PSInput In) : SV_Target {
     float2 meshUv = transformMeshUv(In.UV);
-    float4 baseSample = g_BaseColorTexture.Sample(g_BaseColorSampler, meshUv);
-    float4 opacitySample = g_OpacityTexture.Sample(g_BaseColorSampler, meshUv);
-    float4 emissionSample = g_EmissionTexture.Sample(g_BaseColorSampler, meshUv);
+    float2 baseColorUv = transformBaseColorUv(meshUv);
+    float2 surfaceTextureUv = transformSurfaceTextureUv(meshUv);
+    float2 normalMeshUv = transformMeshUv(
+        NormalTextureUvOffset.z > 0.5 ? In.UV1 : In.UV);
+    float2 normalMapUv = rotateNormalMapUv(normalMeshUv);
+    float2 clearcoatNormalUv = transformClearcoatNormalUv(normalMeshUv);
+    float4 baseSample = g_BaseColorTexture.Sample(g_BaseColorSampler, baseColorUv);
+    float2 opacityTextureUv = transformOpacityTextureUv(meshUv);
+    float4 opacitySample = g_OpacityTexture.Sample(
+        g_BaseColorSampler, opacityTextureUv);
+    float2 emissionTextureUv = transformEmissionTextureUv(meshUv);
+    float4 emissionSample = g_EmissionTexture.Sample(
+        g_BaseColorSampler, emissionTextureUv);
     float4 metallicRoughnessSample =
-        g_MetallicRoughnessTexture.Sample(g_BaseColorSampler, meshUv);
-    float3 normalSample = g_NormalTexture.Sample(g_BaseColorSampler, meshUv).xyz;
-    float occlusionSample = g_OcclusionTexture.Sample(g_BaseColorSampler, meshUv).r;
+        g_MetallicRoughnessTexture.Sample(g_BaseColorSampler,
+                                          surfaceTextureUv);
+    float4 normalTextureSample =
+        g_NormalTexture.Sample(g_BaseColorSampler, normalMapUv);
+    float3 normalSample = normalTextureSample.xyz;
+    float normalMapAverageLength = saturate(normalTextureSample.a);
+    float4 clearcoatNormalTextureSample = normalTextureSample;
+    float clearcoatNormalMapAverageLength = normalMapAverageLength;
+    if (ClearcoatFactors.w > 0.5) {
+        clearcoatNormalTextureSample =
+            g_ClearcoatNormalTexture.Sample(g_BaseColorSampler,
+                                            clearcoatNormalUv);
+        clearcoatNormalMapAverageLength =
+            saturate(clearcoatNormalTextureSample.a);
+    }
+    float2 occlusionTextureUv = transformOcclusionTextureUv(meshUv);
+    float occlusionSample = g_OcclusionTexture.Sample(
+        g_BaseColorSampler, occlusionTextureUv).r;
     // __ARTIFACT_MATERIAL_GRAPH_SAMPLES__
     float3 instanceColor = srgbToLinear(saturate(In.Color.rgb));
     float3 vertexColor = srgbToLinear(saturate(In.VertexColor.rgb));
+    float3 materialBaseColor =
+        srgbToLinear(saturate(MaterialBaseColorFactor.rgb));
     float vertexAlpha = saturate(In.VertexColor.a);
-    float4 baseColor = float4(baseSample.rgb * instanceColor * vertexColor,
-                              baseSample.a * In.Color.a * vertexAlpha);
+    float4 baseColor = float4(baseSample.rgb * instanceColor * vertexColor *
+                                  materialBaseColor,
+                              baseSample.a * In.Color.a * vertexAlpha *
+                                  MaterialBaseColorFactor.a);
     float emissionStrength = max(EmissionColorStrength.a, 0.0);
     float3 emissionTint = srgbToLinear(saturate(EmissionColorStrength.rgb));
     float materialAlpha = baseColor.a * opacitySample.a;
-    // Masked materials use the serialized material cutoff; 0.5 remains the
-    // default for materials created without an explicit value.
-    if (PbrTextureFlags.w > 0.5) {
-        clip(materialAlpha - AlphaSettings.x);
-    }
     float metallic = saturate(PbrFactors.x *
         lerp(1.0, metallicRoughnessSample.b, PbrTextureFlags.x));
     float roughness = clamp(PbrFactors.y *
@@ -1059,24 +2071,90 @@ float4 PSMain(PSInput In) : SV_Target {
     float ao = lerp(1.0,
                     lerp(1.0, occlusionSample, saturate(PbrFactors.w)),
                     PbrTextureFlags.z);
+    float3 geometricWorldNormal = normalize(In.WorldNormal);
     float3 worldNormal = computeNormalMapped(
-        In.WorldPosition, In.WorldNormal, meshUv, normalSample,
+        In.WorldPosition, In.WorldNormal, normalMapUv, normalSample,
         PbrFactors.z, PbrTextureFlags.y);
     float3 viewNormal = computeNormalMapped(
-        In.ViewPosition, In.Normal, meshUv, normalSample,
+        In.ViewPosition, In.Normal, normalMapUv, normalSample,
         PbrFactors.z, PbrTextureFlags.y);
+    float3 dpdx = ddx(In.WorldPosition);
+    float3 dpdy = ddy(In.WorldPosition);
+    // Match the RT tangent frame: anisotropy follows the final normal-map UV
+    // orientation, including its material-specific rotation and scale.
+    float2 duvdx = ddx(normalMapUv);
+    float2 duvdy = ddy(normalMapUv);
+    float uvDeterminant = duvdx.x * duvdy.y - duvdx.y * duvdy.x;
+    float3 tangentCandidate = abs(uvDeterminant) > 1.0e-6
+        ? (dpdx * duvdy.y - dpdy * duvdx.y) / uvDeterminant
+        : cross(abs(worldNormal.y) < 0.9 ? float3(0.0, 1.0, 0.0)
+                                         : float3(1.0, 0.0, 0.0), worldNormal);
+    float3 worldTangent = normalize(tangentCandidate);
+    worldTangent = normalize(worldTangent - worldNormal * dot(worldTangent, worldNormal));
+    float3 worldBitangent = normalize(cross(worldNormal, worldTangent)) *
+        (uvDeterminant < 0.0 ? -1.0 : 1.0);
     // __ARTIFACT_MATERIAL_GRAPH_OVERRIDE__
+    if (PbrTextureFlags.y > 0.5) {
+        float normalVariance = max(1.0 - normalMapAverageLength, 0.0) /
+                              max(normalMapAverageLength, 1e-4);
+        normalVariance *= PbrFactors.z * PbrFactors.z;
+        float alpha = roughness * roughness;
+        float alphaSquared = alpha * alpha;
+        float filteredAlphaSquared = saturate(
+            alphaSquared + min(2.0 * normalVariance, 0.2));
+        roughness = sqrt(sqrt(filteredAlphaSquared));
+    }
+    float3 coatNormal = normalize(lerp(
+        geometricWorldNormal, worldNormal,
+        saturate(ClearcoatTintFactors.w)));
+    if (ClearcoatFactors.w > 0.5) {
+        coatNormal = computeNormalMapped(
+            In.WorldPosition, In.WorldNormal, clearcoatNormalUv,
+            clearcoatNormalTextureSample.xyz,
+            ClearcoatTintFactors.w, ClearcoatTintFactors.w);
+    } else {
+        clearcoatNormalMapAverageLength = normalMapAverageLength;
+    }
+    float clearcoatRoughness = clamp(ClearcoatFactors.y, 0.04, 1.0);
+    if ((ClearcoatFactors.w > 0.5 || PbrTextureFlags.y > 0.5) &&
+        ClearcoatTintFactors.w > 0.0) {
+        float coatNormalVariance =
+            max(1.0 - clearcoatNormalMapAverageLength, 0.0) /
+            max(clearcoatNormalMapAverageLength, 1e-4);
+        coatNormalVariance *= ClearcoatTintFactors.w *
+                              ClearcoatTintFactors.w;
+        float coatAlpha = clearcoatRoughness * clearcoatRoughness;
+        float filteredCoatAlphaSquared = saturate(
+            coatAlpha * coatAlpha + min(2.0 * coatNormalVariance, 0.2));
+        clearcoatRoughness = sqrt(sqrt(filteredCoatAlphaSquared));
+    }
+    float anisotropyRotationSin;
+    float anisotropyRotationCos;
+    sincos(AnisotropyFactors.y, anisotropyRotationSin,
+          anisotropyRotationCos);
+    float3 unrotatedTangent = worldTangent;
+    float3 unrotatedBitangent = worldBitangent;
+    worldTangent = unrotatedTangent * anisotropyRotationCos +
+                   unrotatedBitangent * anisotropyRotationSin;
+    worldBitangent = -unrotatedTangent * anisotropyRotationSin +
+                     unrotatedBitangent * anisotropyRotationCos;
+    // Clip the final alpha after an optional material-graph override. Surviving
+    // Masked samples are opaque even when their source alpha was fractional.
+    if (PbrTextureFlags.w > 0.5) {
+        clip(materialAlpha - AlphaSettings.x);
+    }
+    float outputAlpha = PbrTextureFlags.w > 0.5 ? 1.0 : materialAlpha;
     if (In.Mode > 1.5 && In.Mode < 2.5) {
         float3 normalColor = viewNormal * 0.5 + 0.5;
-        return float4(normalColor, baseColor.a * opacitySample.a);
+        return float4(normalColor, outputAlpha);
     }
     if (In.Mode > 0.5 && In.Mode < 1.5) {
-        return float4(baseColor.rgb, baseColor.a * opacitySample.a);
+        return float4(baseColor.rgb, outputAlpha);
     }
     if (In.Mode > 3.5 && In.Mode < 4.5) {
         float3 emissionColor =
             emissionSample.rgb * emissionTint * emissionStrength;
-        return float4(emissionColor, baseColor.a * opacitySample.a);
+        return float4(sceneLinearToMeshOutput(emissionColor), outputAlpha);
     }
     if (In.Mode > 4.5 && In.Mode < 6.5) {
         return float4(In.Color.rgb, 1.0);
@@ -1120,10 +2198,19 @@ float4 PSMain(PSInput In) : SV_Target {
         // nearly black.
         float3 ambientColor = solidBase.rgb * (0.24 * ao);
         float dielectricF0 = pow((max(PrincipledFactors.y, 1.0) - 1.0) /
-                                 (max(PrincipledFactors.y, 1.0) + 1.0), 2.0);
-        float3 F0 = lerp(float3(dielectricF0, dielectricF0, dielectricF0),
-                         solidBase.rgb, metallic);
-        F0 *= lerp(1.0, saturate(PrincipledFactors.x), 1.0 - metallic);
+                                 (max(PrincipledFactors.y, 1.0) + 1.0), 2.0) *
+                             (saturate(PrincipledFactors.x) / 0.5);
+        float3 dielectricSpecularF0 = dielectricF0 *
+            srgbToLinear(saturate(SpecularTintFactors.rgb));
+        float3 F0 = lerp(dielectricSpecularF0, solidBase.rgb, metallic);
+        const float specularScale = saturate(PrincipledFactors.x) / 0.5;
+        if (ThinFilmFactors.x > 0.0) {
+            float3 filmF0 = thinFilmReflectance(
+                1.0, ThinFilmFactors.y, PrincipledFactors.y,
+                ThinFilmFactors.x) * specularScale *
+                srgbToLinear(saturate(SpecularTintFactors.rgb));
+            F0 = lerp(filmF0, solidBase.rgb, metallic);
+        }
         float transmissionWeight = saturate(PrincipledFactors.z) *
             (1.0 - metallic);
         float transmissionIor = max(PrincipledFactors.y, 1.0);
@@ -1132,46 +2219,115 @@ float4 PSMain(PSInput In) : SV_Target {
         float transmissionFresnel = transmissionF0 +
             (1.0 - transmissionF0) * pow(
                 1.0 - saturate(dot(worldNormal, viewDirection)), 5.0);
+        float3 transmissionFresnelColor = float3(
+            transmissionFresnel, transmissionFresnel, transmissionFresnel);
+        if (ThinFilmFactors.x > 0.0) {
+            transmissionFresnelColor = thinFilmReflectance(
+                saturate(dot(worldNormal, viewDirection)), ThinFilmFactors.y,
+                transmissionIor, ThinFilmFactors.x) * specularScale *
+                srgbToLinear(saturate(SpecularTintFactors.rgb));
+        }
         float3 transmissionDirection = refract(
             -viewDirection, worldNormal, 1.0 / transmissionIor);
         if (dot(transmissionDirection, transmissionDirection) <= 1e-5) {
             transmissionFresnel = 1.0;
+            transmissionFresnelColor = float3(1.0, 1.0, 1.0);
         }
         if (EnvironmentSettings.x > 0.5) {
-            float3 indirectDiffuse = sampleEnvironmentDiffuse(worldNormal) *
-                solidBase.rgb * (1.0 - metallic) * ao;
             float sheenWeight = saturate(PrincipledFactors.w) *
                 (1.0 - metallic) * (1.0 - saturate(PrincipledFactors.z));
-            indirectDiffuse += sheenWeight * pow(
-                1.0 - saturate(dot(worldNormal, viewDirection)), 5.0) *
-                sampleEnvironmentDiffuse(worldNormal) * ao;
+            float3 sheenTint = srgbToLinear(saturate(SheenFactors.yzw));
+            float sheenNdotV = saturate(dot(worldNormal, viewDirection));
+            float3 environmentF0 = F0;
+            if (ThinFilmFactors.x > 0.0) {
+                float3 filmViewFresnel = thinFilmReflectance(
+                    sheenNdotV, ThinFilmFactors.y, PrincipledFactors.y,
+                    ThinFilmFactors.x) * specularScale *
+                    srgbToLinear(saturate(SpecularTintFactors.rgb));
+                environmentF0 = lerp(filmViewFresnel, solidBase.rgb, metallic);
+            }
+            float sheenViewAlbedo = sampleSheenDirectionalAlbedo(
+                sheenNdotV, SheenFactors.x);
+            float sheenBaseEnergy = saturate(
+                1.0 - max(sheenTint.r, max(sheenTint.g, sheenTint.b)) *
+                    sheenWeight * sheenViewAlbedo);
+            float3 diffuseEnergy = (1.0 - environmentF0) * (1.0 - metallic) *
+                (1.0 - transmissionWeight);
+            float3 diffuseIrradiance = sampleEnvironmentDiffuse(worldNormal);
+            float diffuseDirectionalAlbedo = sampleDiffuseDirectionalAlbedo(
+                sheenNdotV, roughness);
+            diffuseDirectionalAlbedo = lerp(
+                diffuseDirectionalAlbedo, 1.0,
+                saturate(SubsurfaceFactors.x));
+            float3 diffuseColor = lerp(
+                solidBase.rgb,
+                srgbToLinear(saturate(SubsurfaceFactors.yzw)) *
+                    max(SubsurfaceRadius.rgb, 0.0),
+                saturate(SubsurfaceFactors.x));
+            float subsurfaceIorRatio = (max(SubsurfaceRadius.w, 1.0) - 1.0) /
+                                       (max(SubsurfaceRadius.w, 1.0) + 1.0);
+            float subsurfaceF0 = subsurfaceIorRatio * subsurfaceIorRatio;
+            float3 subsurfaceViewFresnel = subsurfaceF0 +
+                (1.0 - subsurfaceF0) * pow(1.0 - sheenNdotV, 5.0);
+            float3 subsurfaceDiffuseEnergy =
+                (1.0 - subsurfaceViewFresnel) * (1.0 - metallic) *
+                (1.0 - transmissionWeight);
+            diffuseEnergy = lerp(diffuseEnergy, subsurfaceDiffuseEnergy,
+                                 saturate(SubsurfaceFactors.x));
+            float3 indirectDiffuse = diffuseIrradiance *
+                (diffuseDirectionalAlbedo * diffuseColor * diffuseEnergy *
+                 ao * sheenBaseEnergy);
             float3 indirectSpecular = sampleEnvironmentSpecular(
-                worldNormal, viewDirection, roughness, F0);
+                worldNormal, viewDirection, roughness, environmentF0,
+                worldTangent, worldBitangent, AnisotropyFactors.x);
+            if (transmissionWeight <= 1e-4) {
+                indirectSpecular += evaluateMultipleScatterIbl(
+                    sheenNdotV, roughness, environmentF0, diffuseIrradiance);
+            }
+            indirectSpecular *= sheenBaseEnergy;
+            float3 sheenEnvironment = sampleEnvironmentSheen(
+                worldNormal, viewDirection, SheenFactors.x) *
+                (sheenWeight * sheenTint * specularOcclusion(
+                    dot(worldNormal, viewDirection), ao, SheenFactors.x));
             float coatWeight = saturate(ClearcoatFactors.x);
+            float3 coatEnvironmentEnergy = float3(1.0, 1.0, 1.0);
             if (coatWeight > 0.0) {
-                float coatRoughness = clamp(ClearcoatFactors.y, 0.04, 1.0);
-                float3 coatF0 = float3(0.04, 0.04, 0.04);
+                float coatIor = max(ClearcoatFactors.z, 1.0);
+                float coatIorRatio = (coatIor - 1.0) / (coatIor + 1.0);
+                float coatF0Value = coatIorRatio * coatIorRatio;
+                float coatNdotV = saturate(dot(coatNormal, viewDirection));
+                float3 coatTint = srgbToLinear(
+                    saturate(ClearcoatTintFactors.rgb));
+                float coatViewCosInternal = sqrt(saturate(
+                    1.0 - (1.0 - coatNdotV * coatNdotV) /
+                        (coatIor * coatIor)));
+                float coatViewPathLength = rcp(max(coatViewCosInternal, 1.0e-3));
+                float3 coatTintPath = pow(max(coatTint, 1.0e-4),
+                                          coatViewPathLength);
+                float3 coatF0 = float3(coatF0Value, coatF0Value,
+                                       coatF0Value);
                 float3 coatReflection = sampleEnvironmentSpecular(
-                    worldNormal, viewDirection, coatRoughness, coatF0);
-                float coatNdotV = saturate(dot(worldNormal, viewDirection));
-                float coatFresnel = 0.04 + (1.0 - 0.04) *
+                    coatNormal, viewDirection, clearcoatRoughness, coatF0,
+                    worldTangent, worldBitangent, 0.0);
+                float coatFresnel = coatF0Value + (1.0 - coatF0Value) *
                     pow(1.0 - coatNdotV, 5.0);
-                indirectDiffuse *= 1.0 - coatWeight * coatFresnel;
-                indirectSpecular = indirectSpecular *
-                    (1.0 - coatWeight * coatFresnel) +
+                coatReflection *= coatTintPath;
+                coatEnvironmentEnergy = (1.0 - coatWeight * coatFresnel) *
+                    lerp(float3(1.0, 1.0, 1.0), coatTintPath, coatWeight);
+                indirectDiffuse *= coatEnvironmentEnergy;
+                indirectSpecular = indirectSpecular * coatEnvironmentEnergy +
                     coatReflection * coatWeight;
             }
             float3 transmittedEnvironment = sampleEnvironmentTransmission(
                 worldNormal, viewDirection, roughness,
                 max(PrincipledFactors.y, 1.0), solidBase.rgb) * transmissionWeight;
-            transmittedEnvironment *= 1.0 - transmissionFresnel;
-            float specularOcclusion = saturate(
-                pow(saturate(dot(worldNormal, viewDirection)) + ao, 2.0) -
-                1.0 + ao);
-            indirectSpecular *= specularOcclusion;
+            transmittedEnvironment *= 1.0 - saturate(transmissionFresnelColor);
+            indirectSpecular *= specularOcclusion(
+                dot(worldNormal, viewDirection), ao, roughness);
             transmittedEnvironment *= ao;
             ambientColor += (indirectDiffuse + indirectSpecular +
-                             transmittedEnvironment) *
+                             sheenEnvironment * coatEnvironmentEnergy +
+                             transmittedEnvironment * coatEnvironmentEnergy) *
                 max(EnvironmentSettings.y, 0.0) * max(EnvFactors.x, 0.0);
         }
         [loop]
@@ -1253,58 +2409,249 @@ float4 PSMain(PSInput In) : SV_Target {
             }
             float NdotL = saturate(dot(worldNormal, lightDirection));
             if (NdotL <= 0.0) {
+                float backLight = saturate(dot(-worldNormal, lightDirection));
+                if (transmissionWeight > 0.0 && backLight > 0.0) {
+                    float3 transmissionCoatEnergy = float3(1.0, 1.0, 1.0);
+                    float coatWeight = saturate(ClearcoatFactors.x);
+                    if (coatWeight > 0.0) {
+                        float coatIor = max(ClearcoatFactors.z, 1.0);
+                        float coatIorRatio = (coatIor - 1.0) /
+                                             (coatIor + 1.0);
+                        float coatF0 = coatIorRatio * coatIorRatio;
+                        float coatNdotV = saturate(
+                            dot(coatNormal, viewDirection));
+                        float coatFresnel = coatF0 + (1.0 - coatF0) *
+                            pow(1.0 - coatNdotV, 5.0);
+                        float3 coatTint = srgbToLinear(
+                            saturate(ClearcoatTintFactors.rgb));
+                        float coatViewCosInternal = sqrt(saturate(
+                            1.0 - (1.0 - coatNdotV * coatNdotV) /
+                                (coatIor * coatIor)));
+                        float3 coatTintPath = pow(max(coatTint, 1.0e-4),
+                            rcp(max(coatViewCosInternal, 1.0e-3)));
+                        transmissionCoatEnergy =
+                            (1.0 - coatWeight * coatFresnel) *
+                            lerp(float3(1.0, 1.0, 1.0), coatTintPath,
+                                 coatWeight);
+                    }
+                    float lightShadow = (ShadowSettings.x > 0.5 &&
+                        lightIndex == (uint)ShadowSettings.z)
+                            ? shadowVisibility : 1.0;
+                    directColor += solidBase.rgb * transmissionWeight *
+                        radiance * backLight *
+                        (1.0 - saturate(transmissionFresnelColor)) *
+                        transmissionCoatEnergy * attenuation * lightShadow;
+                }
                 continue;
             }
             float3 halfVector = normalize(viewDirection + lightDirection);
             float NdotV = max(saturate(dot(worldNormal, viewDirection)), 1e-4);
             float NdotH = max(saturate(dot(worldNormal, halfVector)), 1e-4);
             float VdotH = max(saturate(dot(viewDirection, halfVector)), 1e-4);
+            float anisotropy = clamp(AnisotropyFactors.x, -1.0, 1.0);
             float alpha = roughness * roughness;
-            float alpha2 = alpha * alpha;
-            float denominatorNdf = NdotH * NdotH * (alpha2 - 1.0) + 1.0;
-            float distribution = alpha2 /
-                max(3.14159265 * denominatorNdf * denominatorNdf, 1e-4);
-            float geometryK = (roughness + 1.0) * (roughness + 1.0) * 0.125;
-            float geometryV = NdotV / lerp(NdotV, 1.0, geometryK);
-            float geometryL = NdotL / lerp(NdotL, 1.0, geometryK);
+            float alphaT = max(alpha * (1.0 + anisotropy), 1.0e-3);
+            float alphaB = max(alpha * (1.0 - anisotropy), 1.0e-3);
+            float distribution = anisotropicGGXDistribution(
+                NdotH, dot(halfVector, worldTangent),
+                dot(halfVector, worldBitangent), alphaT, alphaB);
+            float visibility = anisotropicGGXVisibility(
+                NdotV, NdotL, dot(viewDirection, worldTangent),
+                dot(viewDirection, worldBitangent),
+                dot(lightDirection, worldTangent),
+                dot(lightDirection, worldBitangent), alphaT, alphaB);
             float3 fresnel = F0 + (1.0 - F0) * pow(1.0 - VdotH, 5.0);
-            float3 specular = distribution * geometryV * geometryL * fresnel /
-                              max(4.0 * NdotV * NdotL, 1e-4);
+            if (ThinFilmFactors.x > 0.0) {
+                float3 filmFresnel = thinFilmReflectance(
+                    VdotH, ThinFilmFactors.y, PrincipledFactors.y,
+                    ThinFilmFactors.x) * specularScale *
+                    srgbToLinear(saturate(SpecularTintFactors.rgb));
+                fresnel = lerp(filmFresnel, solidBase.rgb, metallic);
+            }
+            float3 specular = distribution * visibility * fresnel;
+            if (transmissionWeight <= 1e-4) {
+                specular += evaluateMultipleScatterCompensation(
+                    NdotV, NdotL, roughness, F0);
+            }
             float coatWeight = saturate(ClearcoatFactors.x);
-            float coatFresnel = 0.04 + (1.0 - 0.04) * pow(1.0 - VdotH, 5.0);
-            float coatEnergy = 1.0 - coatWeight * coatFresnel;
-            float3 diffuse = (1.0 - fresnel) * (1.0 - metallic) *
-                             (1.0 - saturate(PrincipledFactors.z)) *
-                             solidBase.rgb / 3.14159265 * coatEnergy;
+            float coatIor = max(ClearcoatFactors.z, 1.0);
+            float coatIorRatio = (coatIor - 1.0) / (coatIor + 1.0);
+            float coatF0 = coatIorRatio * coatIorRatio;
+            float coatNdotV = max(saturate(dot(coatNormal, viewDirection)),
+                                  1.0e-4);
+            float coatNdotL = max(saturate(dot(coatNormal, lightDirection)),
+                                  1.0e-4);
+            float3 coatHalfVector = normalize(viewDirection + lightDirection);
+            float coatNdotH = max(saturate(dot(coatNormal, coatHalfVector)),
+                                  1.0e-4);
+            float3 coatTint = srgbToLinear(
+                saturate(ClearcoatTintFactors.rgb));
+            float coatViewCosInternal = sqrt(saturate(
+                1.0 - (1.0 - coatNdotV * coatNdotV) /
+                    (coatIor * coatIor)));
+            float coatLightCosInternal = sqrt(saturate(
+                1.0 - (1.0 - coatNdotL * coatNdotL) /
+                    (coatIor * coatIor)));
+            float coatPathLength = 0.5 * (
+                rcp(max(coatViewCosInternal, 1.0e-3)) +
+                rcp(max(coatLightCosInternal, 1.0e-3)));
+            float3 coatTintPath = pow(max(coatTint, 1.0e-4), coatPathLength);
+            float coatFresnel = coatF0 + (1.0 - coatF0) *
+                pow(1.0 - VdotH, 5.0);
+            float3 coatEnergy = (1.0 - coatWeight * coatFresnel) *
+                lerp(float3(1.0, 1.0, 1.0), coatTintPath, coatWeight);
+            float diffuseF90 = 0.5 + 2.0 * roughness * VdotH * VdotH;
+            float diffuseLightScatter = 1.0 + (diffuseF90 - 1.0) *
+                pow(1.0 - NdotL, 5.0);
+            float diffuseViewScatter = 1.0 + (diffuseF90 - 1.0) *
+                pow(1.0 - NdotV, 5.0);
+            float3 burleyDiffuse = solidBase.rgb * (1.0 - fresnel) *
+                (1.0 - metallic) * (1.0 - saturate(PrincipledFactors.z)) *
+                (diffuseLightScatter * diffuseViewScatter / 3.14159265) *
+                coatEnergy;
+            float diffuseSigma = saturate(SubsurfaceScatteringFactors.y);
+            if (diffuseSigma > 1.0e-5) {
+                // Preserve the Burley base lobe while applying the Oren-Nayar
+                // single-scatter response and albedo-dependent energy return.
+                float diffuseOrenA = rcp(3.14159265 + diffuseSigma *
+                                         (1.57079633 - 0.66666667));
+                float diffuseOrenB = diffuseSigma * diffuseOrenA;
+                float diffuseOrenT = dot(lightDirection, viewDirection) -
+                                     NdotL * NdotV;
+                if (diffuseOrenT > 0.0) {
+                    diffuseOrenT /= max(max(NdotL, NdotV), 1.0e-4);
+                }
+                float diffuseNdotL = saturate(NdotL);
+                float diffuseNdotV = saturate(NdotV);
+                float diffuseSinL = sqrt(max(
+                    1.0 - diffuseNdotL * diffuseNdotL, 0.0));
+                float diffuseSinV = sqrt(max(
+                    1.0 - diffuseNdotV * diffuseNdotV, 0.0));
+                float diffuseGL;
+                if (diffuseNdotL < 1.0e-6) {
+                    diffuseGL = 0.90412966 - diffuseNdotL;
+                } else {
+                    float diffuseThetaL = acos(diffuseNdotL);
+                    diffuseGL = diffuseSinL * (diffuseThetaL - 0.66666667 -
+                        diffuseSinL * diffuseNdotL) +
+                        0.66666667 * (diffuseSinL / diffuseNdotL) *
+                        (1.0 - diffuseSinL * diffuseSinL * diffuseSinL);
+                }
+                float diffuseGV;
+                if (diffuseNdotV < 1.0e-6) {
+                    diffuseGV = 0.90412966 - diffuseNdotV;
+                } else {
+                    float diffuseThetaV = acos(diffuseNdotV);
+                    diffuseGV = diffuseSinV * (diffuseThetaV - 0.66666667 -
+                        diffuseSinV * diffuseNdotV) +
+                        0.66666667 * (diffuseSinV / diffuseNdotV) *
+                        (1.0 - diffuseSinV * diffuseSinV * diffuseSinV);
+                }
+                float diffuseAverageEnergy = diffuseOrenA * 3.14159265 +
+                    ((6.28318531 - 5.6) / 3.0) * diffuseOrenB;
+                float diffuseEnergyL = diffuseOrenA * 3.14159265 +
+                                       diffuseOrenB * diffuseGL;
+                float diffuseEnergyV = diffuseOrenA * 3.14159265 +
+                                       diffuseOrenB * diffuseGV;
+                float3 diffuseAlbedo = saturate(solidBase.rgb);
+                float3 diffuseMultiScatter = (diffuseAlbedo * diffuseAlbedo) /
+                    (1.0 - diffuseAlbedo * (1.0 - diffuseAverageEnergy));
+                diffuseMultiScatter *= (diffuseAverageEnergy /
+                    max(1.0 - diffuseAverageEnergy, 1.0e-7)) /
+                    3.14159265;
+                float3 diffuseOren = diffuseOrenA +
+                    diffuseOrenB * diffuseOrenT + diffuseMultiScatter *
+                    (1.0 - diffuseEnergyV) * (1.0 - diffuseEnergyL);
+                burleyDiffuse *=
+                    diffuseOren * 3.14159265;
+            }
+            float subsurfaceWeight = saturate(SubsurfaceFactors.x);
+            float subsurfaceFss90 = roughness * VdotH * VdotH;
+            float subsurfaceFss =
+                lerp(1.0, subsurfaceFss90, 1.0 - NdotL) *
+                lerp(1.0, subsurfaceFss90, 1.0 - NdotV);
+            float subsurfaceScatter = 1.25 *
+                (subsurfaceFss * (rcp(max(NdotL + NdotV, 1.0e-4)) - 0.5) +
+                 0.5);
+            float3 subsurfaceColor = srgbToLinear(
+                saturate(SubsurfaceFactors.yzw));
+            float subsurfaceIorRatio = (max(SubsurfaceRadius.w, 1.0) - 1.0) /
+                                       (max(SubsurfaceRadius.w, 1.0) + 1.0);
+            float subsurfaceF0 = subsurfaceIorRatio * subsurfaceIorRatio;
+            float3 subsurfaceFresnel = subsurfaceF0 +
+                (1.0 - subsurfaceF0) * pow(1.0 - VdotH, 5.0);
+            float subsurfaceAnisotropy = clamp(
+                SubsurfaceScatteringFactors.x, -0.9, 0.9);
+            float subsurfaceCosTheta = clamp(
+                dot(-lightDirection, viewDirection) /
+                    max(length(lightDirection), 1.0e-4),
+                -1.0, 1.0);
+            float subsurfacePhaseDenom = max(
+                1.0 + subsurfaceAnisotropy * subsurfaceAnisotropy -
+                    2.0 * subsurfaceAnisotropy * subsurfaceCosTheta,
+                0.05);
+            float subsurfacePhase = clamp(
+                (1.0 - subsurfaceAnisotropy * subsurfaceAnisotropy) /
+                    pow(subsurfacePhaseDenom, 1.5), 0.05, 4.0);
+            float subsurfaceNeutralPhase = 1.0 /
+                pow(max(1.0 + subsurfaceCosTheta * subsurfaceCosTheta, 0.05), 1.5);
+            float subsurfacePhaseScale = subsurfacePhase /
+                max(subsurfaceNeutralPhase, 1.0e-3);
+            float3 subsurfaceDiffuse = subsurfaceColor *
+                (1.0 - subsurfaceFresnel) *
+                (1.0 - metallic) * (1.0 - saturate(PrincipledFactors.z)) *
+                (subsurfaceScatter * subsurfacePhaseScale / 3.14159265) *
+                coatEnergy *
+                max(SubsurfaceRadius.rgb, 0.0);
+            float3 diffuse = lerp(burleyDiffuse, subsurfaceDiffuse,
+                                  subsurfaceWeight);
             float sheenWeight = saturate(PrincipledFactors.w) *
                 (1.0 - metallic) * (1.0 - saturate(PrincipledFactors.z));
-            float sheen = sheenWeight * pow(1.0 - NdotV, 5.0) /
-                          3.14159265;
+            float3 sheenTint = srgbToLinear(saturate(SheenFactors.yzw));
+            float sheenLobe = sheenWeight *
+                sheenDistribution(SheenFactors.x, NdotH) *
+                sheenVisibility(SheenFactors.x, NdotV, NdotL);
+            float3 sheen = sheenTint * sheenLobe;
+            float sheenViewAlbedo = sampleSheenDirectionalAlbedo(
+                NdotV, SheenFactors.x);
+            float sheenLightAlbedo = sampleSheenDirectionalAlbedo(
+                NdotL, SheenFactors.x);
+            float sheenBaseEnergy = saturate(1.0 - sheenWeight *
+                max(sheenTint.r, max(sheenTint.g, sheenTint.b)) *
+                max(sheenViewAlbedo, sheenLightAlbedo));
+            diffuse *= sheenBaseEnergy;
+            specular *= sheenBaseEnergy;
             specular *= coatEnergy;
-            float coatRoughness = clamp(ClearcoatFactors.y, 0.04, 1.0);
-            float coatAlpha = coatRoughness * coatRoughness;
+            sheen *= coatEnergy;
+            float coatAlpha = clearcoatRoughness * clearcoatRoughness;
             float coatAlpha2 = coatAlpha * coatAlpha;
-            float coatDenom = NdotH * NdotH * (coatAlpha2 - 1.0) + 1.0;
+            float coatGeometryK = (clearcoatRoughness + 1.0) *
+                                  (clearcoatRoughness + 1.0) * 0.125;
+            float coatGeometryV = coatNdotV /
+                lerp(coatNdotV, 1.0, coatGeometryK);
+            float coatGeometryL = coatNdotL /
+                lerp(coatNdotL, 1.0, coatGeometryK);
+            float coatDenom = coatNdotH * coatNdotH *
+                (coatAlpha2 - 1.0) + 1.0;
             float coatDistribution = coatAlpha2 /
                 max(3.14159265 * coatDenom * coatDenom, 1e-4);
-            float coatSpecular = coatDistribution * geometryV * geometryL /
+            float coatSpecular = coatDistribution * coatGeometryV * coatGeometryL /
                 max(4.0 * NdotV * NdotL, 1e-4);
-            specular += coatSpecular * coatWeight * coatFresnel;
+            specular += coatSpecular * coatWeight * coatFresnel * coatTintPath;
             float lightShadow = (ShadowSettings.x > 0.5 &&
                                  lightIndex == (uint)ShadowSettings.z)
                                     ? shadowVisibility
                                     : 1.0;
             directColor += (diffuse + specular + sheen) * radiance *
                            NdotL * attenuation * lightShadow;
-            float backLight = saturate(dot(-worldNormal, lightDirection));
-            directColor += solidBase.rgb * transmissionWeight * radiance *
-                           backLight * (1.0 - transmissionFresnel) *
-                           attenuation * lightShadow;
         }
         float3 emissionColor = emissionSample.rgb * emissionTint *
                                emissionStrength;
-        return float4(directColor + ambientColor + emissionColor,
-                      solidBase.a * opacitySample.a);
+        emissionColor *= evaluateEmissionLayerEnergy(
+            worldNormal, coatNormal, viewDirection, metallic);
+        return float4(sceneLinearToMeshOutput(
+                          directColor + ambientColor + emissionColor),
+                      outputAlpha);
     }
 
     // Preserve the camera-relative studio rig when the composition has no
@@ -1323,14 +2670,18 @@ float4 PSMain(PSInput In) : SV_Target {
                            lerp(0.08, 0.55, metallic);
     float3 studioEmission = emissionSample.rgb * emissionTint *
                             emissionStrength;
+    float3 studioViewDirection = normalize(-In.ViewPosition);
+    float3 studioCoatNormal = normalize(lerp(
+        normalize(In.Normal), viewNormal,
+        saturate(ClearcoatTintFactors.w)));
+    studioEmission *= evaluateEmissionLayerEnergy(
+        viewNormal, studioCoatNormal, studioViewDirection, metallic);
     float3 studioHdr = (solidBase.rgb * studioLight * cavity +
                         rimColor * rim * 0.10 +
                         lerp(float3(1.0, 1.0, 1.0), solidBase.rgb,
                              metallic) * studioSpecular) * ao +
                        studioEmission;
-    float3 studioToneMapped = studioHdr / (studioHdr + 1.0);
-    float3 litColor = pow(max(studioToneMapped, 0.0), 1.0 / 2.2);
-    return float4(litColor, solidBase.a * opacitySample.a);
+    return float4(sceneLinearToMeshOutput(studioHdr), outputAlpha);
 }
 )";
 
@@ -1409,17 +2760,7 @@ struct MeshRenderer::Impl {
         float cameraPosition[4] = {};
     };
 
-    struct MaterialConstants {
-        float emissionColorStrength[4] = {};
-        float pbrFactors[4] = {0.0f, 0.5f, 1.0f, 1.0f};
-        float pbrTextureFlags[4] = {};
-        float principledFactors[4] = {0.5f, 1.5f, 0.0f, 0.0f};
-        float clearcoatFactors[4] = {0.0f, 0.2f, 0.0f, 0.0f};
-        float alphaSettings[4] = {0.5f, 0.0f, 0.0f, 0.0f};
-        float uvTransformA[4] = {0.0f, 0.0f, 1.0f, 1.0f};
-        float uvTransformB[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-        float envFactors[4] = {1.0f, 0.0f, 0.0f, 0.0f};
-    };
+    using MaterialConstants = MeshRenderer::MaterialState;
 
     struct ShadowParamsConstants {
         float lightViewProjection[16] = {};
@@ -1441,7 +2782,7 @@ struct MeshRenderer::Impl {
     static_assert(sizeof(SceneLightGpu) == sizeof(float) * 24);
     static_assert(sizeof(SceneLightingConstants) ==
                   sizeof(SceneLightGpu) * MaxSceneLights + sizeof(float) * 8);
-    static_assert(sizeof(MaterialConstants) == sizeof(float) * 36);
+    static_assert(sizeof(MaterialConstants) == sizeof(float) * 108);
     static_assert(sizeof(MeshletConstants) == sizeof(float) * 52);
 
     Diligent::RefCntAutoPtr<Diligent::IPipelineStateCache>    pPSOCache_;
@@ -1474,6 +2815,7 @@ struct MeshRenderer::Impl {
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pPositionBuffer_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pNormalBuffer_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pUVBuffer_;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer>                pUV1Buffer_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pColorBuffer_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pIndexBuffer_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pMeshletBuffer_;
@@ -1487,6 +2829,8 @@ struct MeshRenderer::Impl {
     float meshletModel_[16] = {};
     Diligent::RefCntAutoPtr<Diligent::ITexture>               pBaseColorTexture_;
     Diligent::RefCntAutoPtr<Diligent::ITextureView>           pBaseColorTextureSRV_;
+    Diligent::RefCntAutoPtr<Diligent::ITexture>               pWhiteBaseColorTexture_;
+    Diligent::RefCntAutoPtr<Diligent::ITextureView>           pWhiteBaseColorTextureSRV_;
     Diligent::RefCntAutoPtr<Diligent::ITexture>               pOpacityTexture_;
     Diligent::RefCntAutoPtr<Diligent::ITextureView>           pOpacityTextureSRV_;
     Diligent::RefCntAutoPtr<Diligent::ITexture>               pEmissionTexture_;
@@ -1497,6 +2841,8 @@ struct MeshRenderer::Impl {
     Diligent::RefCntAutoPtr<Diligent::ITextureView>           pMetallicRoughnessTextureSRV_;
     Diligent::RefCntAutoPtr<Diligent::ITexture>               pNormalTexture_;
     Diligent::RefCntAutoPtr<Diligent::ITextureView>           pNormalTextureSRV_;
+    Diligent::RefCntAutoPtr<Diligent::ITexture>               pClearcoatNormalTexture_;
+    Diligent::RefCntAutoPtr<Diligent::ITextureView>           pClearcoatNormalTextureSRV_;
     Diligent::RefCntAutoPtr<Diligent::ITexture>               pOcclusionTexture_;
     Diligent::RefCntAutoPtr<Diligent::ITextureView>           pOcclusionTextureSRV_;
     Diligent::RefCntAutoPtr<Diligent::ISampler>               pBaseColorSampler_;
@@ -1507,9 +2853,11 @@ struct MeshRenderer::Impl {
     Diligent::RefCntAutoPtr<Diligent::ITextureView>           pShadowFallbackSRV_;
     Diligent::RefCntAutoPtr<Diligent::ITextureView>           pIrradianceMapSRV_;
     Diligent::RefCntAutoPtr<Diligent::ITextureView>           pPrefilteredEnvironmentSRV_;
+    Diligent::RefCntAutoPtr<Diligent::ITextureView>           pSheenPrefilteredEnvironmentSRV_;
     Diligent::RefCntAutoPtr<Diligent::ITextureView>           pBrdfLutSRV_;
     Diligent::RefCntAutoPtr<Diligent::ITexture>                pEnvironmentFallbackTexture_;
     Diligent::RefCntAutoPtr<Diligent::ITexture>                pEnvironmentTexture_;
+    Diligent::RefCntAutoPtr<Diligent::ITexture>                pSheenEnvironmentTexture_;
     Diligent::RefCntAutoPtr<Diligent::ITexture>                pIrradianceTexture_;
     Diligent::RefCntAutoPtr<Diligent::ITexture>                pBrdfLutTexture_;
     std::array<Diligent::RefCntAutoPtr<Diligent::ITexture>, MaxSceneLights>
@@ -1548,15 +2896,32 @@ struct MeshRenderer::Impl {
     size_t vertexCount_ = 0;
     size_t indexCount_ = 0;
     size_t maxInstances_ = 0;
-    // Multi-material index spans, uploaded outside the frame loop and reused
-    // by drawMaterialSlots / drawShadowMaterialSlots.  Empty means the whole
-    // mesh is drawn once with the material set through the public setters.
+    // Multi-material index spans and scalar state. Geometry spans stay stable
+    // with topology; slot buffers are retained and updated only when their
+    // material state changes. Empty means the whole mesh uses the shared state.
     QVector<MeshRenderer::MaterialRange> materialRanges;
+    QVector<Diligent::RefCntAutoPtr<Diligent::IBuffer>> materialSlotBuffers;
+    struct MaterialSlotTexture {
+        QString path;
+        Diligent::RefCntAutoPtr<Diligent::ITexture> texture;
+        Diligent::RefCntAutoPtr<Diligent::ITextureView> srv;
+    };
+    struct MaterialSlotTextures {
+        MaterialSlotTexture baseColor;
+        MaterialSlotTexture metallicRoughness;
+        MaterialSlotTexture normal;
+        MaterialSlotTexture clearcoatNormal;
+        MaterialSlotTexture occlusion;
+        MaterialSlotTexture emission;
+        MaterialSlotTexture opacity;
+    };
+    QVector<MaterialSlotTextures> materialSlotTextures;
     QString baseColorTexturePath_;
     QString opacityTexturePath_;
     QString emissionTexturePath_;
     QString metallicRoughnessTexturePath_;
     QString normalTexturePath_;
+    QString clearcoatNormalTexturePath_;
     QString occlusionTexturePath_;
     QString environmentMapPath_;
     MaterialConstants materialConstants_;
@@ -1643,6 +3008,7 @@ void MeshRenderer::createBuffers()
     pImpl_->pPositionBuffer_.Release();
     pImpl_->pNormalBuffer_.Release();
     pImpl_->pUVBuffer_.Release();
+    pImpl_->pUV1Buffer_.Release();
     pImpl_->pColorBuffer_.Release();
     pImpl_->pIndexBuffer_.Release();
     pImpl_->pMeshletBuffer_.Release();
@@ -1728,6 +3094,8 @@ void MeshRenderer::createBuffers()
         BuffDesc.CPUAccessFlags    = CPU_ACCESS_WRITE;
         BuffDesc.Mode              = BUFFER_MODE_UNDEFINED;
         pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pUVBuffer_);
+        BuffDesc.Name = "Mesh UV1 Buffer";
+        pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pUV1Buffer_);
     }
     // 3b. Vertex color buffer (float4; white = identity when no source colors)
     if (vertexCount_ > 0) {
@@ -1866,14 +3234,24 @@ void MeshRenderer::createBuffers()
 
     if (!pImpl_->pBaseColorSampler_) {
         SamplerDesc samplerDesc;
-        samplerDesc.MinFilter = FILTER_TYPE_LINEAR;
-        samplerDesc.MagFilter = FILTER_TYPE_LINEAR;
-        samplerDesc.MipFilter = FILTER_TYPE_LINEAR;
+        const Uint32 supportedAnisotropy =
+            pDevice->GetAdapterInfo().Sampler.MaxAnisotropy;
+        if (supportedAnisotropy > 1) {
+            samplerDesc.MinFilter = FILTER_TYPE_ANISOTROPIC;
+            samplerDesc.MagFilter = FILTER_TYPE_ANISOTROPIC;
+            samplerDesc.MipFilter = FILTER_TYPE_ANISOTROPIC;
+            samplerDesc.MaxAnisotropy =
+                std::min<Uint32>(16, supportedAnisotropy);
+        } else {
+            samplerDesc.MinFilter = FILTER_TYPE_LINEAR;
+            samplerDesc.MagFilter = FILTER_TYPE_LINEAR;
+            samplerDesc.MipFilter = FILTER_TYPE_LINEAR;
+            samplerDesc.MaxAnisotropy = 1;
+        }
         samplerDesc.AddressU = TEXTURE_ADDRESS_WRAP;
         samplerDesc.AddressV = TEXTURE_ADDRESS_WRAP;
         samplerDesc.AddressW = TEXTURE_ADDRESS_WRAP;
         samplerDesc.ComparisonFunc = COMPARISON_FUNC_ALWAYS;
-        samplerDesc.MaxAnisotropy = 1;
         pDevice->CreateSampler(samplerDesc, &pImpl_->pBaseColorSampler_);
     }
     if (!pImpl_->pShadowSampler_) {
@@ -1920,6 +3298,8 @@ void MeshRenderer::createBuffers()
         if (pImpl_->pBaseColorTexture_) {
             pImpl_->pBaseColorTextureSRV_ =
                 pImpl_->pBaseColorTexture_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+            pImpl_->pWhiteBaseColorTexture_ = pImpl_->pBaseColorTexture_;
+            pImpl_->pWhiteBaseColorTextureSRV_ = pImpl_->pBaseColorTextureSRV_;
         }
     }
 
@@ -1998,6 +3378,9 @@ void MeshRenderer::createBuffers()
     if (!pImpl_->pNormalTextureSRV_) {
         pImpl_->pNormalTextureSRV_ = pImpl_->pLinearWhiteTextureSRV_;
     }
+    if (!pImpl_->pClearcoatNormalTextureSRV_) {
+        pImpl_->pClearcoatNormalTextureSRV_ = pImpl_->pLinearWhiteTextureSRV_;
+    }
     if (!pImpl_->pOcclusionTextureSRV_) {
         pImpl_->pOcclusionTextureSRV_ = pImpl_->pLinearWhiteTextureSRV_;
     }
@@ -2010,26 +3393,27 @@ void MeshRenderer::createPSO()
         return;
     }
     if (!pImpl_->pShadowFallbackTexture_) {
-        const float litDepth = 1.0f;
         TextureDesc texDesc;
         texDesc.Name = "MeshRenderer_LitShadowFallback";
         texDesc.Type = RESOURCE_DIM_TEX_2D;
         texDesc.Width = 1;
         texDesc.Height = 1;
         texDesc.MipLevels = 1;
-        texDesc.Format = TEX_FORMAT_R32_FLOAT;
-        texDesc.Usage = USAGE_IMMUTABLE;
-        texDesc.BindFlags = BIND_SHADER_RESOURCE;
-        TextureSubResData subRes;
-        subRes.pData = &litDepth;
-        subRes.Stride = sizeof(litDepth);
-        TextureData initData;
-        initData.pSubResources = &subRes;
-        initData.NumSubresources = 1;
-        pDevice->CreateTexture(texDesc, &initData, &pImpl_->pShadowFallbackTexture_);
+        texDesc.Format = TEX_FORMAT_D32_FLOAT;
+        texDesc.Usage = USAGE_DEFAULT;
+        texDesc.BindFlags = BIND_DEPTH_STENCIL | BIND_SHADER_RESOURCE;
+        pDevice->CreateTexture(texDesc, nullptr, &pImpl_->pShadowFallbackTexture_);
         if (pImpl_->pShadowFallbackTexture_) {
             pImpl_->pShadowFallbackSRV_ = pImpl_->pShadowFallbackTexture_
                 ->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+            RefCntAutoPtr<ITextureView> fallbackDSV;
+            fallbackDSV = pImpl_->pShadowFallbackTexture_->GetDefaultView(
+                TEXTURE_VIEW_DEPTH_STENCIL);
+            if (fallbackDSV && context_.DeviceContext()) {
+                context_.DeviceContext()->ClearDepthStencil(
+                    fallbackDSV, CLEAR_DEPTH_FLAG, 1.0f, 0,
+                    RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            }
         }
     }
     if (!pImpl_->pShadowMapSRV_) {
@@ -2062,6 +3446,7 @@ void MeshRenderer::createPSO()
                 TEXTURE_VIEW_SHADER_RESOURCE);
             pImpl_->pIrradianceMapSRV_ = view;
             pImpl_->pPrefilteredEnvironmentSRV_ = view;
+            pImpl_->pSheenPrefilteredEnvironmentSRV_ = view;
             pImpl_->pBrdfLutSRV_ = pImpl_->pLinearWhiteTextureSRV_;
         }
     }
@@ -2091,9 +3476,10 @@ void MeshRenderer::createPSO()
     PSOCreateInfo.GraphicsPipeline.RTVFormats[0] = renderTargetFormat_;
     PSOCreateInfo.GraphicsPipeline.DSVFormat = TEX_FORMAT_D32_FLOAT;
     
-    // Alpha blending
+    // Opaque and Masked ranges write full coverage. Blended ranges use the
+    // transparent PSO created from this state below.
     auto& RT0 = PSOCreateInfo.GraphicsPipeline.BlendDesc.RenderTargets[0];
-    RT0.BlendEnable = true;
+    RT0.BlendEnable = false;
     RT0.SrcBlend    = BLEND_FACTOR_SRC_ALPHA;
     RT0.DestBlend   = BLEND_FACTOR_INV_SRC_ALPHA;
     RT0.BlendOp     = BLEND_OPERATION_ADD;
@@ -2108,8 +3494,8 @@ void MeshRenderer::createPSO()
     PSOCreateInfo.GraphicsPipeline.RasterizerDesc.FrontCounterClockwise = true;
     
     // Vertex layout
-    PSOCreateInfo.GraphicsPipeline.InputLayout.NumElements = 4;
-    std::array<LayoutElement, 4> layoutElements;
+    PSOCreateInfo.GraphicsPipeline.InputLayout.NumElements = 5;
+    std::array<LayoutElement, 5> layoutElements;
     // Position
     // D3D input layouts keep the semantic name and semantic index separate.
     // The shader's ATTRIB0/1/2 declarations compile to name "ATTRIB" with
@@ -2142,6 +3528,12 @@ void MeshRenderer::createPSO()
     layoutElements[3].NumComponents = 4;
     layoutElements[3].ValueType = VT_FLOAT32;
     layoutElements[3].IsNormalized = false;
+    layoutElements[4].HLSLSemantic = "ATTRIB";
+    layoutElements[4].InputIndex = 4;
+    layoutElements[4].BufferSlot = 4;
+    layoutElements[4].NumComponents = 2;
+    layoutElements[4].ValueType = VT_FLOAT32;
+    layoutElements[4].IsNormalized = false;
     PSOCreateInfo.GraphicsPipeline.InputLayout.LayoutElements = layoutElements.data();
     
     // Compile Shaders
@@ -2198,6 +3590,14 @@ void MeshRenderer::createPSO()
             meshPSFinal.replace(bodyPos, kMarker.size(), replacement);
         }
     }
+    const bool hdrMeshTarget = renderTargetFormat_ == TEX_FORMAT_RGBA16_FLOAT ||
+                               renderTargetFormat_ == TEX_FORMAT_RGBA32_FLOAT;
+    const bool srgbMeshTarget = renderTargetFormat_ == TEX_FORMAT_RGBA8_UNORM_SRGB;
+    meshPSFinal.insert(0, hdrMeshTarget
+        ? "#define ARTIFACT_MESH_OUTPUT_HDR 1\n#define ARTIFACT_MESH_OUTPUT_SRGB 0\n"
+        : srgbMeshTarget
+            ? "#define ARTIFACT_MESH_OUTPUT_HDR 0\n#define ARTIFACT_MESH_OUTPUT_SRGB 1\n"
+            : "#define ARTIFACT_MESH_OUTPUT_HDR 0\n#define ARTIFACT_MESH_OUTPUT_SRGB 0\n");
     context_.CompileShader(meshPSFinal.c_str(), SHADER_TYPE_PIXEL, "PSMain", &ps);
     
     PSOCreateInfo.pVS = vs;
@@ -2206,8 +3606,9 @@ void MeshRenderer::createPSO()
     // Resource layout
     PSOCreateInfo.PSODesc.ResourceLayout.DefaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
     
-    static std::array<ShaderResourceVariableDesc, 20> Vars = {{
+    static std::array<ShaderResourceVariableDesc, 23> Vars = {{
         {SHADER_TYPE_VERTEX, "g_Instances", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "MaterialParams", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_BaseColorTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_OpacityTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_EmissionTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
@@ -2225,7 +3626,9 @@ void MeshRenderer::createPSO()
         {SHADER_TYPE_PIXEL, "g_GoboTexture7", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_IrradianceMap", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_PrefilteredEnvironment", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "g_SheenPrefilteredEnvironment", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_BrdfLut", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "g_ClearcoatNormalTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_BaseColorSampler", SHADER_RESOURCE_VARIABLE_TYPE_STATIC}
     }};
     PSOCreateInfo.PSODesc.ResourceLayout.Variables = Vars.data();
@@ -2235,6 +3638,13 @@ void MeshRenderer::createPSO()
 
     PSOCreateInfo.PSODesc.Name = "Mesh Transparent Instancing PSO";
     PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = false;
+    RT0.BlendEnable = true;
+    RT0.SrcBlend = BLEND_FACTOR_SRC_ALPHA;
+    RT0.DestBlend = BLEND_FACTOR_INV_SRC_ALPHA;
+    RT0.BlendOp = BLEND_OPERATION_ADD;
+    RT0.SrcBlendAlpha = BLEND_FACTOR_ONE;
+    RT0.DestBlendAlpha = BLEND_FACTOR_INV_SRC_ALPHA;
+    RT0.BlendOpAlpha = BLEND_OPERATION_ADD;
     pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &pImpl_->pTransparentPSO_);
     
     if (!pImpl_->pPSO_) {
@@ -2316,9 +3726,6 @@ void MeshRenderer::createPSO()
         if (auto* var = pso->GetStaticVariableByName(SHADER_TYPE_VERTEX, "Constants")) {
             var->Set(pImpl_->pConstantBuffer_);
         }
-        if (auto* var = pso->GetStaticVariableByName(SHADER_TYPE_PIXEL, "MaterialParams")) {
-            var->Set(pImpl_->pMaterialBuffer_);
-        }
         if (auto* var = pso->GetStaticVariableByName(SHADER_TYPE_PIXEL, "SceneLighting")) {
             var->Set(pImpl_->pSceneLightingBuffer_);
         }
@@ -2341,12 +3748,18 @@ void MeshRenderer::createPSO()
             var->Set(pImpl_->pGoboSampler_);
         }
         pso->CreateShaderResourceBinding(&srb, true);
+        if (srb) {
+            if (auto* var = srb->GetVariableByName(
+                    SHADER_TYPE_PIXEL, "MaterialParams")) {
+                var->Set(pImpl_->pMaterialBuffer_);
+            }
+        }
     };
     initializeBindings(pImpl_->pPSO_, pImpl_->pSRB_);
     initializeBindings(pImpl_->pTransparentPSO_, pImpl_->pTransparentSRB_);
 
     // Depth-only pipeline used by the composition renderer's shadow-map
-    // prepass.  It intentionally has no colour attachment or pixel shader.
+    // prepass. Its pixel shader only clips masked alpha; it writes no color.
     pImpl_->pShadowPSO_.Release();
     pImpl_->pShadowSRB_.Release();
     GraphicsPipelineStateCreateInfo shadowPSOInfo;
@@ -2362,26 +3775,58 @@ void MeshRenderer::createPSO()
     shadowPSOInfo.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = true;
     shadowPSOInfo.GraphicsPipeline.DepthStencilDesc.DepthFunc =
         COMPARISON_FUNC_LESS;
-    std::array<LayoutElement, 1> shadowLayout;
+    std::array<LayoutElement, 3> shadowLayout;
     shadowLayout[0].HLSLSemantic = "ATTRIB";
     shadowLayout[0].InputIndex = 0;
     shadowLayout[0].BufferSlot = 0;
     shadowLayout[0].NumComponents = 3;
     shadowLayout[0].ValueType = VT_FLOAT32;
-    shadowPSOInfo.GraphicsPipeline.InputLayout.NumElements = 1;
+    shadowLayout[1].HLSLSemantic = "ATTRIB";
+    shadowLayout[1].InputIndex = 2;
+    shadowLayout[1].BufferSlot = 2;
+    shadowLayout[1].NumComponents = 2;
+    shadowLayout[1].ValueType = VT_FLOAT32;
+    shadowLayout[2].HLSLSemantic = "ATTRIB";
+    shadowLayout[2].InputIndex = 3;
+    shadowLayout[2].BufferSlot = 3;
+    shadowLayout[2].NumComponents = 4;
+    shadowLayout[2].ValueType = VT_FLOAT32;
+    shadowPSOInfo.GraphicsPipeline.InputLayout.NumElements =
+        static_cast<Uint32>(shadowLayout.size());
     shadowPSOInfo.GraphicsPipeline.InputLayout.LayoutElements = shadowLayout.data();
     RefCntAutoPtr<IShader> shadowVS;
+    RefCntAutoPtr<IShader> shadowPS;
     context_.CompileShader(MeshShadowVSSource, SHADER_TYPE_VERTEX, "VSMain",
                            &shadowVS);
+    context_.CompileShader(MeshShadowPSSource, SHADER_TYPE_PIXEL, "PSMain",
+                           &shadowPS);
     shadowPSOInfo.pVS = shadowVS;
+    shadowPSOInfo.pPS = shadowPS;
     shadowPSOInfo.PSODesc.ResourceLayout.DefaultVariableType =
         SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
-    static std::array<ShaderResourceVariableDesc, 1> shadowVars = {{
-        {SHADER_TYPE_VERTEX, "g_Instances", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
+    static std::array<ShaderResourceVariableDesc, 4> shadowVars = {{
+        {SHADER_TYPE_VERTEX, "g_Instances", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "MaterialParams", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "g_BaseColorTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "g_OpacityTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
     }};
     shadowPSOInfo.PSODesc.ResourceLayout.Variables = shadowVars.data();
     shadowPSOInfo.PSODesc.ResourceLayout.NumVariables =
         static_cast<Uint32>(shadowVars.size());
+    static ImmutableSamplerDesc shadowMaskSampler = [] {
+        ImmutableSamplerDesc desc;
+        desc.ShaderStages = SHADER_TYPE_PIXEL;
+        desc.TextureName = "g_ShadowMaskSampler";
+        desc.Desc.MinFilter = FILTER_TYPE_LINEAR;
+        desc.Desc.MagFilter = FILTER_TYPE_LINEAR;
+        desc.Desc.MipFilter = FILTER_TYPE_LINEAR;
+        desc.Desc.AddressU = TEXTURE_ADDRESS_WRAP;
+        desc.Desc.AddressV = TEXTURE_ADDRESS_WRAP;
+        desc.Desc.AddressW = TEXTURE_ADDRESS_WRAP;
+        return desc;
+    }();
+    shadowPSOInfo.PSODesc.ResourceLayout.ImmutableSamplers = &shadowMaskSampler;
+    shadowPSOInfo.PSODesc.ResourceLayout.NumImmutableSamplers = 1;
     pDevice->CreateGraphicsPipelineState(shadowPSOInfo, &pImpl_->pShadowPSO_);
     if (pImpl_->pShadowPSO_) {
         if (auto* var = pImpl_->pShadowPSO_->GetStaticVariableByName(
@@ -2419,7 +3864,8 @@ void MeshRenderer::createPSO()
 }
 
 void MeshRenderer::updateMeshGeometry(const float* positions, const float* normals, const float* uvs,
-                                      const uint32_t* indices, const float* colors)
+                                      const uint32_t* indices, const float* colors,
+                                      const float* uvs1)
 {
     auto pContext = context_.DeviceContext();
     if (!pContext) {
@@ -2481,6 +3927,9 @@ void MeshRenderer::updateMeshGeometry(const float* positions, const float* norma
 
     if (uvs && pImpl_->pUVBuffer_) {
         uploadFloats(pImpl_->pUVBuffer_, uvs, vertexCount_, 2);
+    }
+    if (uvs1 && pImpl_->pUV1Buffer_) {
+        uploadFloats(pImpl_->pUV1Buffer_, uvs1, vertexCount_, 2);
     }
 
     if (pImpl_->pColorBuffer_) {
@@ -2852,6 +4301,9 @@ void MeshRenderer::prepare(IDeviceContext* pContext)
         if (auto* normalVar = activeSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_NormalTexture")) {
             normalVar->Set(pImpl_->pNormalTextureSRV_);
         }
+        if (auto* coatNormalVar = activeSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_ClearcoatNormalTexture")) {
+            coatNormalVar->Set(pImpl_->pClearcoatNormalTextureSRV_);
+        }
         if (auto* occlusionVar = activeSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_OcclusionTexture")) {
             occlusionVar->Set(pImpl_->pOcclusionTextureSRV_);
         }
@@ -2860,6 +4312,9 @@ void MeshRenderer::prepare(IDeviceContext* pContext)
         }
         if (auto* envVar = activeSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_PrefilteredEnvironment")) {
             envVar->Set(pImpl_->pPrefilteredEnvironmentSRV_);
+        }
+        if (auto* envVar = activeSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_SheenPrefilteredEnvironment")) {
+            envVar->Set(pImpl_->pSheenPrefilteredEnvironmentSRV_);
         }
         if (auto* envVar = activeSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_BrdfLut")) {
             envVar->Set(pImpl_->pBrdfLutSRV_);
@@ -2895,8 +4350,8 @@ void MeshRenderer::prepare(IDeviceContext* pContext)
     
     // Set vertex buffers
     if (pImpl_->pPositionBuffer_) {
-        IBuffer* pVBs[] = {pImpl_->pPositionBuffer_, pImpl_->pNormalBuffer_, pImpl_->pUVBuffer_, pImpl_->pColorBuffer_};
-        pContext->SetVertexBuffers(0, 4, pVBs, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+        IBuffer* pVBs[] = {pImpl_->pPositionBuffer_, pImpl_->pNormalBuffer_, pImpl_->pUVBuffer_, pImpl_->pColorBuffer_, pImpl_->pUV1Buffer_};
+        pContext->SetVertexBuffers(0, 5, pVBs, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
                                   SET_VERTEX_BUFFERS_FLAG_RESET);
     }
     
@@ -2908,18 +4363,208 @@ void MeshRenderer::prepare(IDeviceContext* pContext)
 }
 
 void MeshRenderer::setMaterialRanges(const MaterialRange* ranges, size_t count) {
-    if (pImpl_->materialRanges.empty()) {
-        pImpl_->materialRanges.reserve(count);
-    } else {
+    if (!ranges || count == 0) {
         pImpl_->materialRanges.clear();
+        pImpl_->materialSlotBuffers.clear();
+        pImpl_->materialSlotTextures.clear();
+        return;
     }
+
+    const bool resized = pImpl_->materialRanges.size() != count;
+    if (resized) {
+        pImpl_->materialRanges.resize(static_cast<qsizetype>(count));
+        pImpl_->materialSlotBuffers.resize(static_cast<qsizetype>(count));
+        pImpl_->materialSlotTextures.resize(static_cast<qsizetype>(count));
+    }
+
+    auto* device = context_.RenderDevice();
+    auto* context = context_.DeviceContext();
+    const auto pathChanged = [](const QString& current, const QString& incoming) {
+        return current != incoming.trimmed();
+    };
+    const auto resolveTexture = [&](size_t currentIndex, auto& target,
+                                    const QString& requestedPath,
+                                    ITextureView* fallback,
+                                    const QString& primaryPath,
+                                    const auto& primaryView,
+                                    auto member, auto&& loader) {
+        const QString path = requestedPath.trimmed();
+        if (target.path == path && target.srv) {
+            return;
+        }
+        target.path = path;
+        target.texture = nullptr;
+        target.srv = nullptr;
+        if (path.isEmpty()) {
+            target.srv = fallback;
+            return;
+        }
+        if (path == primaryPath && primaryView) {
+            target.srv = primaryView;
+            return;
+        }
+        for (qsizetype cachedIndex = 0;
+             cachedIndex < static_cast<qsizetype>(currentIndex); ++cachedIndex) {
+            const auto& cachedTextures =
+                pImpl_->materialSlotTextures[cachedIndex];
+            const auto& cached = cachedTextures.*member;
+            if (cached.path == path && cached.srv) {
+                target.texture = cached.texture;
+                target.srv = cached.srv;
+                return;
+            }
+        }
+        if (!loader(path, target.texture, target.srv)) {
+            target.texture = nullptr;
+            target.srv = fallback;
+        }
+    };
     for (size_t i = 0; i < count; ++i) {
-        pImpl_->materialRanges.push_back(ranges[i]);
+        auto& current = pImpl_->materialRanges[static_cast<qsizetype>(i)];
+        const auto& incoming = ranges[i];
+        auto& slotTextures =
+            pImpl_->materialSlotTextures[static_cast<qsizetype>(i)];
+        const bool missingBuffer =
+            !pImpl_->materialSlotBuffers[static_cast<qsizetype>(i)];
+        const bool texturePathsChanged = resized ||
+            pathChanged(current.baseColorTexturePath,
+                        incoming.baseColorTexturePath) ||
+            pathChanged(current.metallicRoughnessTexturePath,
+                        incoming.metallicRoughnessTexturePath) ||
+            pathChanged(current.normalTexturePath, incoming.normalTexturePath) ||
+            pathChanged(current.clearcoatNormalTexturePath,
+                        incoming.clearcoatNormalTexturePath) ||
+            pathChanged(current.occlusionTexturePath,
+                        incoming.occlusionTexturePath) ||
+            pathChanged(current.emissionTexturePath,
+                        incoming.emissionTexturePath) ||
+            pathChanged(current.opacityTexturePath,
+                        incoming.opacityTexturePath);
+        const bool stateChanged = resized ||
+            missingBuffer ||
+            current.firstIndex != incoming.firstIndex ||
+            current.indexCount != incoming.indexCount ||
+            current.materialIndex != incoming.materialIndex ||
+            current.transparent != incoming.transparent ||
+            texturePathsChanged ||
+            std::memcmp(&current.material, &incoming.material,
+                        sizeof(MaterialState)) != 0;
+        if (!stateChanged) {
+            continue;
+        }
+
+        current = incoming;
+        resolveTexture(i, slotTextures.baseColor, incoming.baseColorTexturePath,
+                       pImpl_->pWhiteBaseColorTextureSRV_.RawPtr(),
+                       pImpl_->baseColorTexturePath_,
+                       pImpl_->pBaseColorTextureSRV_,
+                       &Impl::MaterialSlotTextures::baseColor,
+                       [&](const QString& path, auto& texture, auto& srv) {
+                           return loadSrgbTexture(
+                               context_, path,
+                               "MeshRenderer_MaterialSlotBaseColorTexture",
+                               texture, srv);
+                       });
+        resolveTexture(i, slotTextures.metallicRoughness,
+                       incoming.metallicRoughnessTexturePath,
+                       pImpl_->pLinearWhiteTextureSRV_.RawPtr(),
+                       pImpl_->metallicRoughnessTexturePath_,
+                       pImpl_->pMetallicRoughnessTextureSRV_,
+                       &Impl::MaterialSlotTextures::metallicRoughness,
+                       [&](const QString& path, auto& texture, auto& srv) {
+                           return loadLinearTexture(
+                               context_, path,
+                               "MeshRenderer_MaterialSlotMetallicRoughnessTexture",
+                               texture, srv);
+                       });
+        resolveTexture(i, slotTextures.normal, incoming.normalTexturePath,
+                       pImpl_->pLinearWhiteTextureSRV_.RawPtr(),
+                       pImpl_->normalTexturePath_, pImpl_->pNormalTextureSRV_,
+                       &Impl::MaterialSlotTextures::normal,
+                       [&](const QString& path, auto& texture, auto& srv) {
+                           return loadLinearTexture(
+                               context_, path,
+                               "MeshRenderer_MaterialSlotNormalTexture",
+                               texture, srv, true);
+                       });
+        resolveTexture(i, slotTextures.clearcoatNormal,
+                       incoming.clearcoatNormalTexturePath,
+                       pImpl_->pLinearWhiteTextureSRV_.RawPtr(),
+                       pImpl_->clearcoatNormalTexturePath_,
+                       pImpl_->pClearcoatNormalTextureSRV_,
+                       &Impl::MaterialSlotTextures::clearcoatNormal,
+                       [&](const QString& path, auto& texture, auto& srv) {
+                           return loadLinearTexture(
+                               context_, path,
+                               "MeshRenderer_MaterialSlotClearcoatNormalTexture",
+                               texture, srv, true);
+                       });
+        resolveTexture(i, slotTextures.occlusion, incoming.occlusionTexturePath,
+                       pImpl_->pLinearWhiteTextureSRV_.RawPtr(),
+                       pImpl_->occlusionTexturePath_, pImpl_->pOcclusionTextureSRV_,
+                       &Impl::MaterialSlotTextures::occlusion,
+                       [&](const QString& path, auto& texture, auto& srv) {
+                           return loadLinearTexture(
+                               context_, path,
+                               "MeshRenderer_MaterialSlotOcclusionTexture",
+                               texture, srv);
+                       });
+        resolveTexture(i, slotTextures.emission, incoming.emissionTexturePath,
+                       pImpl_->pWhiteBaseColorTextureSRV_.RawPtr(),
+                       pImpl_->emissionTexturePath_, pImpl_->pEmissionTextureSRV_,
+                       &Impl::MaterialSlotTextures::emission,
+                       [&](const QString& path, auto& texture, auto& srv) {
+                           return loadEmissionTexture(
+                               context_, path,
+                               "MeshRenderer_MaterialSlotEmissionTexture",
+                               texture, srv);
+                       });
+        resolveTexture(i, slotTextures.opacity, incoming.opacityTexturePath,
+                       pImpl_->pLinearWhiteTextureSRV_.RawPtr(),
+                       pImpl_->opacityTexturePath_, pImpl_->pOpacityTextureSRV_,
+                       &Impl::MaterialSlotTextures::opacity,
+                       [&](const QString& path, auto& texture, auto& srv) {
+                           return loadOpacityTexture(
+                               context_, path,
+                               "MeshRenderer_MaterialSlotOpacityTexture",
+                               texture, srv);
+                       });
+        MaterialState materialForGpu = incoming.material;
+        materialForGpu.clearcoatFactors[3] =
+            slotTextures.clearcoatNormal.texture ? 1.0f : 0.0f;
+        if (!device) {
+            pImpl_->materialSlotBuffers[static_cast<qsizetype>(i)].Release();
+            continue;
+        }
+
+        auto& slotBuffer =
+            pImpl_->materialSlotBuffers[static_cast<qsizetype>(i)];
+        if (slotBuffer && context) {
+            context->UpdateBuffer(
+                slotBuffer, 0, sizeof(MaterialState), &materialForGpu,
+                RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            continue;
+        }
+        slotBuffer.Release();
+
+        BufferDesc desc;
+        desc.Name = "Mesh Material Slot CB";
+        desc.Usage = USAGE_DEFAULT;
+        desc.Size = sizeof(MaterialState);
+        desc.BindFlags = BIND_UNIFORM_BUFFER;
+        desc.CPUAccessFlags = CPU_ACCESS_NONE;
+        BufferData initialData;
+        initialData.pData = &materialForGpu;
+        initialData.DataSize = sizeof(MaterialState);
+        initialData.pContext = context;
+        device->CreateBuffer(desc, &initialData, &slotBuffer);
     }
 }
 
 void MeshRenderer::clearMaterialRanges() {
     pImpl_->materialRanges.clear();
+    pImpl_->materialSlotBuffers.clear();
+    pImpl_->materialSlotTextures.clear();
 }
 
 void MeshRenderer::drawMaterialSlots(IDeviceContext* pContext, size_t instanceCount) {
@@ -2929,39 +4574,124 @@ void MeshRenderer::drawMaterialSlots(IDeviceContext* pContext, size_t instanceCo
     }
     if (!pContext || !prepared_ || instanceCount == 0) return;
 
-    const IPipelineState* activePSO =
-        pImpl_->transparentPass_ && pImpl_->pTransparentPSO_
-            ? pImpl_->pTransparentPSO_.RawPtr()
-            : pImpl_->pPSO_.RawPtr();
-    const IShaderResourceBinding* activeSRB =
-        pImpl_->transparentPass_ && pImpl_->pTransparentSRB_
-            ? pImpl_->pTransparentSRB_.RawPtr()
-            : pImpl_->pSRB_.RawPtr();
-    if (!activePSO || !activeSRB) {
-        if (!pImpl_->missingPipelineWarningIssued_) {
-            qWarning("[MeshRenderer] drawMaterialSlots skipped because PSO/SRB is unavailable");
-            pImpl_->missingPipelineWarningIssued_ = true;
-        }
-        return;
-    }
     if (!pImpl_->pIndexBuffer_) {
         draw(pContext, instanceCount);
         return;
     }
 
     instanceCount = std::min(instanceCount, maxInstances_);
-    for (const MaterialRange& range : pImpl_->materialRanges) {
-        if (range.indexCount == 0) continue;
-        if (frameCostStats_) ++frameCostStats_->drawCalls;
-        DrawIndexedAttribs drawAttrs;
-        drawAttrs.NumIndices = range.indexCount;
-        drawAttrs.NumInstances = static_cast<Uint32>(instanceCount);
-        drawAttrs.IndexType = VT_UINT32;
-        drawAttrs.Flags = DRAW_FLAG_NONE;
-        drawAttrs.FirstIndexLocation = range.firstIndex;
-        drawAttrs.BaseVertex = 0;
-        pContext->DrawIndexed(drawAttrs);
-    }
+    const auto drawPass = [&](bool transparentPass) {
+        const IPipelineState* activePSO = transparentPass && pImpl_->pTransparentPSO_
+            ? pImpl_->pTransparentPSO_.RawPtr() : pImpl_->pPSO_.RawPtr();
+        IShaderResourceBinding* activeSRB = transparentPass && pImpl_->pTransparentSRB_
+            ? pImpl_->pTransparentSRB_.RawPtr() : pImpl_->pSRB_.RawPtr();
+        if (!activePSO || !activeSRB) {
+            if (!pImpl_->missingPipelineWarningIssued_) {
+                qWarning("[MeshRenderer] drawMaterialSlots skipped because PSO/SRB is unavailable");
+                pImpl_->missingPipelineWarningIssued_ = true;
+            }
+            return;
+        }
+        pContext->SetPipelineState(activePSO);
+        auto* materialVariable = activeSRB->GetVariableByName(
+            SHADER_TYPE_PIXEL, "MaterialParams");
+        auto* baseColorVariable = activeSRB->GetVariableByName(
+            SHADER_TYPE_PIXEL, "g_BaseColorTexture");
+        auto* metallicRoughnessVariable = activeSRB->GetVariableByName(
+            SHADER_TYPE_PIXEL, "g_MetallicRoughnessTexture");
+        auto* normalVariable = activeSRB->GetVariableByName(
+            SHADER_TYPE_PIXEL, "g_NormalTexture");
+        auto* clearcoatNormalVariable = activeSRB->GetVariableByName(
+            SHADER_TYPE_PIXEL, "g_ClearcoatNormalTexture");
+        auto* occlusionVariable = activeSRB->GetVariableByName(
+            SHADER_TYPE_PIXEL, "g_OcclusionTexture");
+        auto* emissionVariable = activeSRB->GetVariableByName(
+            SHADER_TYPE_PIXEL, "g_EmissionTexture");
+        auto* opacityVariable = activeSRB->GetVariableByName(
+            SHADER_TYPE_PIXEL, "g_OpacityTexture");
+        for (qsizetype rangeIndex = 0;
+             rangeIndex < pImpl_->materialRanges.size(); ++rangeIndex) {
+            const MaterialRange& range = pImpl_->materialRanges[rangeIndex];
+            if (range.indexCount == 0) continue;
+            const bool masked = range.material.pbrTextureFlags[3] > 0.5f;
+            const bool rangeTransparent = !masked &&
+                (pImpl_->transparentPass_ || range.transparent);
+            if (rangeTransparent != transparentPass) continue;
+            if (materialVariable) {
+                const auto& slotBuffer = pImpl_->materialSlotBuffers[rangeIndex];
+                materialVariable->Set(slotBuffer ? slotBuffer
+                                                  : pImpl_->pMaterialBuffer_);
+            }
+            if (baseColorVariable) {
+                const auto& slotTexture =
+                    pImpl_->materialSlotTextures[rangeIndex].baseColor;
+                baseColorVariable->Set(slotTexture.srv
+                                           ? slotTexture.srv
+                                           : pImpl_->pBaseColorTextureSRV_);
+            }
+            if (metallicRoughnessVariable) {
+                const auto& slotTexture =
+                    pImpl_->materialSlotTextures[rangeIndex].metallicRoughness;
+                metallicRoughnessVariable->Set(slotTexture.srv
+                    ? slotTexture.srv : pImpl_->pMetallicRoughnessTextureSRV_);
+            }
+            if (normalVariable) {
+                const auto& slotTexture =
+                    pImpl_->materialSlotTextures[rangeIndex].normal;
+                normalVariable->Set(slotTexture.srv
+                    ? slotTexture.srv : pImpl_->pNormalTextureSRV_);
+            }
+            if (clearcoatNormalVariable) {
+                const auto& slotTexture =
+                    pImpl_->materialSlotTextures[rangeIndex].clearcoatNormal;
+                clearcoatNormalVariable->Set(slotTexture.srv
+                    ? slotTexture.srv : pImpl_->pClearcoatNormalTextureSRV_);
+            }
+            if (occlusionVariable) {
+                const auto& slotTexture =
+                    pImpl_->materialSlotTextures[rangeIndex].occlusion;
+                occlusionVariable->Set(slotTexture.srv
+                    ? slotTexture.srv : pImpl_->pOcclusionTextureSRV_);
+            }
+            if (emissionVariable) {
+                const auto& slotTexture =
+                    pImpl_->materialSlotTextures[rangeIndex].emission;
+                emissionVariable->Set(slotTexture.srv
+                    ? slotTexture.srv : pImpl_->pEmissionTextureSRV_);
+            }
+            if (opacityVariable) {
+                const auto& slotTexture =
+                    pImpl_->materialSlotTextures[rangeIndex].opacity;
+                opacityVariable->Set(slotTexture.srv
+                    ? slotTexture.srv : pImpl_->pOpacityTextureSRV_);
+            }
+            pContext->CommitShaderResources(
+                activeSRB, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            if (frameCostStats_) ++frameCostStats_->drawCalls;
+            DrawIndexedAttribs drawAttrs;
+            drawAttrs.NumIndices = range.indexCount;
+            drawAttrs.NumInstances = static_cast<Uint32>(instanceCount);
+            drawAttrs.IndexType = VT_UINT32;
+            drawAttrs.Flags = DRAW_FLAG_NONE;
+            drawAttrs.FirstIndexLocation = range.firstIndex;
+            drawAttrs.BaseVertex = 0;
+            pContext->DrawIndexed(drawAttrs);
+        }
+        if (materialVariable) materialVariable->Set(pImpl_->pMaterialBuffer_);
+        if (baseColorVariable) baseColorVariable->Set(pImpl_->pBaseColorTextureSRV_);
+        if (metallicRoughnessVariable) {
+            metallicRoughnessVariable->Set(pImpl_->pMetallicRoughnessTextureSRV_);
+        }
+        if (normalVariable) normalVariable->Set(pImpl_->pNormalTextureSRV_);
+        if (clearcoatNormalVariable) {
+            clearcoatNormalVariable->Set(pImpl_->pClearcoatNormalTextureSRV_);
+        }
+        if (occlusionVariable) occlusionVariable->Set(pImpl_->pOcclusionTextureSRV_);
+        if (emissionVariable) emissionVariable->Set(pImpl_->pEmissionTextureSRV_);
+        if (opacityVariable) opacityVariable->Set(pImpl_->pOpacityTextureSRV_);
+    };
+    drawPass(false);
+    drawPass(true);
 }
 
 void MeshRenderer::drawShadowMaterialSlots(IDeviceContext* pContext, size_t instanceCount) {
@@ -2978,8 +4708,37 @@ void MeshRenderer::drawShadowMaterialSlots(IDeviceContext* pContext, size_t inst
     }
 
     instanceCount = std::min(instanceCount, maxInstances_);
-    for (const MaterialRange& range : pImpl_->materialRanges) {
+    auto* materialVariable = pImpl_->pShadowSRB_->GetVariableByName(
+        SHADER_TYPE_PIXEL, "MaterialParams");
+    auto* baseColorVariable = pImpl_->pShadowSRB_->GetVariableByName(
+        SHADER_TYPE_PIXEL, "g_BaseColorTexture");
+    auto* opacityVariable = pImpl_->pShadowSRB_->GetVariableByName(
+        SHADER_TYPE_PIXEL, "g_OpacityTexture");
+    for (qsizetype rangeIndex = 0;
+         rangeIndex < pImpl_->materialRanges.size(); ++rangeIndex) {
+        const MaterialRange& range = pImpl_->materialRanges[rangeIndex];
         if (range.indexCount == 0) continue;
+        if (materialVariable) {
+            const auto& slotBuffer = pImpl_->materialSlotBuffers[rangeIndex];
+            materialVariable->Set(slotBuffer ? slotBuffer
+                                              : pImpl_->pMaterialBuffer_);
+        }
+        if (baseColorVariable) {
+            const auto& slotTexture =
+                pImpl_->materialSlotTextures[rangeIndex].baseColor;
+            baseColorVariable->Set(slotTexture.srv
+                                       ? slotTexture.srv
+                                       : pImpl_->pBaseColorTextureSRV_);
+        }
+        if (opacityVariable) {
+            const auto& slotTexture =
+                pImpl_->materialSlotTextures[rangeIndex].opacity;
+            opacityVariable->Set(slotTexture.srv
+                                     ? slotTexture.srv
+                                     : pImpl_->pOpacityTextureSRV_);
+        }
+        pContext->CommitShaderResources(
+            pImpl_->pShadowSRB_, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         DrawIndexedAttribs drawAttrs;
         drawAttrs.NumIndices = range.indexCount;
         drawAttrs.NumInstances = static_cast<Uint32>(instanceCount);
@@ -3105,11 +4864,25 @@ void MeshRenderer::prepareShadow(IDeviceContext* pContext,
         instances->Set(pImpl_->pInstanceBuffer_->GetDefaultView(
             BUFFER_VIEW_SHADER_RESOURCE));
     }
+    if (auto* material = pImpl_->pShadowSRB_->GetVariableByName(
+            SHADER_TYPE_PIXEL, "MaterialParams")) {
+        material->Set(pImpl_->pMaterialBuffer_);
+    }
+    if (auto* baseColor = pImpl_->pShadowSRB_->GetVariableByName(
+            SHADER_TYPE_PIXEL, "g_BaseColorTexture")) {
+        baseColor->Set(pImpl_->pBaseColorTextureSRV_);
+    }
+    if (auto* opacity = pImpl_->pShadowSRB_->GetVariableByName(
+            SHADER_TYPE_PIXEL, "g_OpacityTexture")) {
+        opacity->Set(pImpl_->pOpacityTextureSRV_);
+    }
     pContext->SetPipelineState(pImpl_->pShadowPSO_);
     pContext->CommitShaderResources(pImpl_->pShadowSRB_,
                                     RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    IBuffer* positionBuffer[] = {pImpl_->pPositionBuffer_};
-    pContext->SetVertexBuffers(0, 1, positionBuffer, nullptr,
+    IBuffer* vertexBuffers[] = {
+        pImpl_->pPositionBuffer_, pImpl_->pNormalBuffer_,
+        pImpl_->pUVBuffer_, pImpl_->pColorBuffer_};
+    pContext->SetVertexBuffers(0, 4, vertexBuffers, nullptr,
                                RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
                                SET_VERTEX_BUFFERS_FLAG_RESET);
     if (pImpl_->pIndexBuffer_) {
@@ -3313,13 +5086,18 @@ void MeshRenderer::setShadowMap(ITextureView* shadowMap,
 void MeshRenderer::setEnvironmentMaps(ITextureView* irradianceMap,
                                       ITextureView* prefilteredEnvironment,
                                       ITextureView* brdfLut,
-                                      float intensity)
+                                      float intensity,
+                                      ITextureView* sheenPrefilteredEnvironment)
 {
     prepared_ = false;
     pImpl_->pIrradianceMapSRV_ = irradianceMap
         ? irradianceMap : pImpl_->pIrradianceMapSRV_;
     pImpl_->pPrefilteredEnvironmentSRV_ = prefilteredEnvironment
         ? prefilteredEnvironment : pImpl_->pPrefilteredEnvironmentSRV_;
+    pImpl_->pSheenPrefilteredEnvironmentSRV_ = sheenPrefilteredEnvironment
+        ? sheenPrefilteredEnvironment
+        : (prefilteredEnvironment ? prefilteredEnvironment
+                                  : pImpl_->pSheenPrefilteredEnvironmentSRV_);
     pImpl_->pBrdfLutSRV_ = brdfLut
         ? brdfLut : pImpl_->pBrdfLutSRV_;
     const bool enabled = irradianceMap && prefilteredEnvironment && brdfLut;
@@ -3340,6 +5118,7 @@ bool MeshRenderer::setEnvironmentMap(const QString& path, float intensity)
     }
     pImpl_->environmentMapPath_ = normalizedPath;
     pImpl_->pEnvironmentTexture_.Release();
+    pImpl_->pSheenEnvironmentTexture_.Release();
     pImpl_->pIrradianceTexture_.Release();
     pImpl_->pBrdfLutTexture_.Release();
     if (normalizedPath.isEmpty()) {
@@ -3347,10 +5126,12 @@ bool MeshRenderer::setEnvironmentMap(const QString& path, float intensity)
         return false;
     }
     RefCntAutoPtr<ITextureView> environmentView;
+    RefCntAutoPtr<ITextureView> sheenEnvironmentView;
     RefCntAutoPtr<ITextureView> irradianceView;
     if (!createEnvironmentCube(context_, normalizedPath,
                                pImpl_->pEnvironmentTexture_, environmentView,
-                               pImpl_->pIrradianceTexture_, irradianceView)) {
+                               pImpl_->pIrradianceTexture_, irradianceView,
+                               pImpl_->pSheenEnvironmentTexture_, sheenEnvironmentView)) {
         setEnvironmentMaps(nullptr, nullptr, nullptr, 0.0f);
         return false;
     }
@@ -3358,11 +5139,13 @@ bool MeshRenderer::setEnvironmentMap(const QString& path, float intensity)
     // cube separately. The BRDF LUT is generated below and replaces the
     // fallback binding when creation succeeds.
     setEnvironmentMaps(irradianceView.RawPtr(), environmentView.RawPtr(),
-                       pImpl_->pBrdfLutSRV_.RawPtr(), intensity);
+                       pImpl_->pBrdfLutSRV_.RawPtr(), intensity,
+                       sheenEnvironmentView.RawPtr());
     RefCntAutoPtr<ITextureView> brdfView;
     if (createBrdfLut(context_, pImpl_->pBrdfLutTexture_, brdfView)) {
         setEnvironmentMaps(irradianceView.RawPtr(), environmentView.RawPtr(),
-                           brdfView.RawPtr(), intensity);
+                           brdfView.RawPtr(), intensity,
+                           sheenEnvironmentView.RawPtr());
     }
     return true;
 }
@@ -3375,9 +5158,12 @@ void MeshRenderer::shareEnvironmentMapsFrom(const MeshRenderer& source)
     prepared_ = false;
     pImpl_->environmentMapPath_ = source.pImpl_->environmentMapPath_;
     pImpl_->pEnvironmentTexture_ = source.pImpl_->pEnvironmentTexture_;
+    pImpl_->pSheenEnvironmentTexture_ = source.pImpl_->pSheenEnvironmentTexture_;
     pImpl_->pIrradianceTexture_ = source.pImpl_->pIrradianceTexture_;
     pImpl_->pBrdfLutTexture_ = source.pImpl_->pBrdfLutTexture_;
     pImpl_->pPrefilteredEnvironmentSRV_ = source.pImpl_->pPrefilteredEnvironmentSRV_;
+    pImpl_->pSheenPrefilteredEnvironmentSRV_ =
+        source.pImpl_->pSheenPrefilteredEnvironmentSRV_;
     pImpl_->pIrradianceMapSRV_ = source.pImpl_->pIrradianceMapSRV_;
     pImpl_->pBrdfLutSRV_ = source.pImpl_->pBrdfLutSRV_;
     pImpl_->environmentConstants_ = source.pImpl_->environmentConstants_;
@@ -3398,6 +5184,21 @@ void MeshRenderer::setEnvironmentRotation(float degrees)
 Diligent::ITextureView* MeshRenderer::environmentMapView() const
 {
     return pImpl_->pPrefilteredEnvironmentSRV_.RawPtr();
+}
+
+Diligent::ITextureView* MeshRenderer::sheenEnvironmentMapView() const
+{
+    return pImpl_->pSheenPrefilteredEnvironmentSRV_.RawPtr();
+}
+
+Diligent::ITextureView* MeshRenderer::irradianceMapView() const
+{
+    return pImpl_->pIrradianceMapSRV_.RawPtr();
+}
+
+Diligent::ITextureView* MeshRenderer::brdfLutView() const
+{
+    return pImpl_->pBrdfLutSRV_.RawPtr();
 }
 
 void MeshRenderer::setTransparentPass(bool transparent)
@@ -3528,6 +5329,8 @@ void MeshRenderer::clearBaseColorTexture()
     if (pImpl_->pBaseColorTexture_) {
         pImpl_->pBaseColorTextureSRV_ =
             pImpl_->pBaseColorTexture_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+        pImpl_->pWhiteBaseColorTexture_ = pImpl_->pBaseColorTexture_;
+        pImpl_->pWhiteBaseColorTextureSRV_ = pImpl_->pBaseColorTextureSRV_;
     }
 }
 
@@ -3545,62 +5348,13 @@ void MeshRenderer::setEmissionTexture(const QString& path)
         return;
     }
 
-    pImpl_->emissionTexturePath_ = newPath;
-
-    ArtifactCore::ImageImporter importer;
-    if (!importer.open(pImpl_->emissionTexturePath_)) {
-        qWarning() << "[MeshRenderer] Failed to open emission texture path:" << pImpl_->emissionTexturePath_;
-        clearEmissionTexture();
+    if (loadEmissionTexture(context_, newPath, "MeshRenderer_EmissionTexture",
+                            pImpl_->pEmissionTexture_, pImpl_->pEmissionTextureSRV_)) {
+        pImpl_->emissionTexturePath_ = newPath;
         return;
     }
-
-    const ArtifactCore::RawImage rawImage = importer.readImage();
-    if (!rawImage.isValid() || rawImage.width <= 0 || rawImage.height <= 0) {
-        qWarning() << "[MeshRenderer] Failed to read emission texture image:" << pImpl_->emissionTexturePath_;
-        clearEmissionTexture();
-        return;
-    }
-
-    TextureDesc texDesc;
-    texDesc.Name = "MeshRenderer_EmissionTexture";
-    texDesc.Type = RESOURCE_DIM_TEX_2D;
-    texDesc.Width = static_cast<Uint32>(rawImage.width);
-    texDesc.Height = static_cast<Uint32>(rawImage.height);
-    texDesc.MipLevels = 1;
-    texDesc.Format = TEX_FORMAT_RGBA8_UNORM_SRGB;
-    texDesc.Usage = USAGE_IMMUTABLE;
-    texDesc.BindFlags = BIND_SHADER_RESOURCE;
-
-    QVector<quint8> rgba8 = expandTextureToRgba8(rawImage, false);
-    if (rgba8.isEmpty()) {
-        qWarning() << "[MeshRenderer] Unsupported emission texture pixel type:"
-                   << pImpl_->emissionTexturePath_
-                   << rawImage.pixelType;
-        clearEmissionTexture();
-        return;
-    }
-
-    QVector<QVector<quint8>> mipData = buildRgba8MipChain(
-        rgba8, rawImage.width, rawImage.height, true);
-    texDesc.MipLevels = static_cast<Uint32>(mipData.size());
-    QVector<TextureSubResData> subResources;
-    subResources.resize(mipData.size());
-    int levelWidth = rawImage.width;
-    for (int level = 0; level < mipData.size(); ++level) {
-        subResources[level].pData = mipData[level].constData();
-        subResources[level].Stride = static_cast<Uint64>(levelWidth * 4);
-        levelWidth = std::max(1, levelWidth / 2);
-    }
-
-    TextureData initData;
-    initData.pSubResources = subResources.data();
-    initData.NumSubresources = static_cast<Uint32>(subResources.size());
-
-    pDevice->CreateTexture(texDesc, &initData, &pImpl_->pEmissionTexture_);
-    if (pImpl_->pEmissionTexture_) {
-        pImpl_->pEmissionTextureSRV_ =
-            pImpl_->pEmissionTexture_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
-    }
+    qWarning() << "[MeshRenderer] Failed to load emission texture:" << newPath;
+    clearEmissionTexture();
 }
 
 void MeshRenderer::clearEmissionTexture()
@@ -3647,7 +5401,7 @@ void MeshRenderer::setEmissionColor(const QColor& color, float strength)
     pImpl_->materialConstants_.emissionColorStrength[1] = color.greenF();
     pImpl_->materialConstants_.emissionColorStrength[2] = color.blueF();
     pImpl_->materialConstants_.emissionColorStrength[3] =
-        std::max(strength, 0.0f);
+        std::isfinite(strength) ? std::max(strength, 0.0f) : 0.0f;
 }
 
 void MeshRenderer::setPbrFactors(float metallic, float roughness,
@@ -3655,34 +5409,124 @@ void MeshRenderer::setPbrFactors(float metallic, float roughness,
                                  float occlusionStrength)
 {
     prepared_ = false;
-    pImpl_->materialConstants_.pbrFactors[0] = std::clamp(metallic, 0.0f, 1.0f);
-    pImpl_->materialConstants_.pbrFactors[1] = std::clamp(roughness, 0.0f, 1.0f);
-    pImpl_->materialConstants_.pbrFactors[2] = std::max(normalStrength, 0.0f);
+    pImpl_->materialConstants_.pbrFactors[0] =
+        clampFinite(metallic, 0.0f, 1.0f, 0.0f);
+    pImpl_->materialConstants_.pbrFactors[1] =
+        clampFinite(roughness, 0.0f, 1.0f, 0.5f);
+    pImpl_->materialConstants_.pbrFactors[2] =
+        std::isfinite(normalStrength) ? std::max(normalStrength, 0.0f) : 1.0f;
     pImpl_->materialConstants_.pbrFactors[3] =
-        std::clamp(occlusionStrength, 0.0f, 1.0f);
+        clampFinite(occlusionStrength, 0.0f, 1.0f, 1.0f);
+}
+
+void MeshRenderer::setDiffuseRoughness(float roughness)
+{
+    prepared_ = false;
+    pImpl_->materialConstants_.subsurfaceScatteringFactors[1] =
+        clampFinite(roughness, 0.0f, 1.0f, 0.0f);
 }
 
 void MeshRenderer::setPrincipledFactors(float specular, float ior,
                                         float transmission, float clearcoat,
-                                        float clearcoatRoughness, float sheen)
+                                        float clearcoatRoughness, float sheen,
+                                        float clearcoatIor)
 {
     prepared_ = false;
     pImpl_->materialConstants_.principledFactors[0] =
-        std::clamp(specular, 0.0f, 1.0f);
+        clampFinite(specular, 0.0f, 1.0f, 0.5f);
     pImpl_->materialConstants_.principledFactors[1] =
-        std::clamp(ior, 1.0f, 3.0f);
+        clampFinite(ior, 1.0f, 3.0f, 1.5f);
     pImpl_->materialConstants_.principledFactors[2] =
-        std::clamp(transmission, 0.0f, 1.0f);
+        clampFinite(transmission, 0.0f, 1.0f, 0.0f);
     pImpl_->materialConstants_.principledFactors[3] =
-        std::clamp(sheen, 0.0f, 1.0f);
+        clampFinite(sheen, 0.0f, 1.0f, 0.0f);
     pImpl_->materialConstants_.clearcoatFactors[0] =
-        std::clamp(clearcoat, 0.0f, 1.0f);
+        clampFinite(clearcoat, 0.0f, 1.0f, 0.0f);
     pImpl_->materialConstants_.clearcoatFactors[1] =
-        std::clamp(clearcoatRoughness, 0.0f, 1.0f);
+        clampFinite(clearcoatRoughness, 0.0f, 1.0f, 0.03f);
+    pImpl_->materialConstants_.clearcoatFactors[2] =
+        clampFinite(clearcoatIor, 1.0f, 2.0f, 1.5f);
+}
+
+void MeshRenderer::setSpecularTint(const QColor& color)
+{
+    prepared_ = false;
+    const QColor safeTint = color.isValid() ? color : QColor(255, 255, 255);
+    auto& tint = pImpl_->materialConstants_.specularTintFactors;
+    tint[0] = safeTint.redF();
+    tint[1] = safeTint.greenF();
+    tint[2] = safeTint.blueF();
+}
+
+void MeshRenderer::setThinFilm(float thicknessNanometers, float ior)
+{
+    prepared_ = false;
+    auto& factors = pImpl_->materialConstants_.thinFilmFactors;
+    factors[0] = clampFinite(thicknessNanometers, 0.0f, 1000.0f, 0.0f);
+    factors[1] = clampFinite(ior, 1.0f, 2.5f, 1.33f);
+}
+
+void MeshRenderer::setClearcoatTint(const QColor& color, float normalStrength)
+{
+    prepared_ = false;
+    auto& factors = pImpl_->materialConstants_.clearcoatTintFactors;
+    const QColor safeTint = color.isValid() ? color : QColor(255, 255, 255);
+    factors[0] = safeTint.redF();
+    factors[1] = safeTint.greenF();
+    factors[2] = safeTint.blueF();
+    factors[3] = clampFinite(normalStrength, 0.0f, 1.0f, 1.0f);
+}
+
+void MeshRenderer::setSheenFactors(float roughness, const QColor& tint)
+{
+    prepared_ = false;
+    auto& factors = pImpl_->materialConstants_.sheenFactors;
+    factors[0] = clampFinite(roughness, 0.0f, 1.0f, 0.5f);
+    const QColor safeTint = tint.isValid() ? tint : QColor(255, 255, 255);
+    factors[1] = safeTint.redF();
+    factors[2] = safeTint.greenF();
+    factors[3] = safeTint.blueF();
+}
+
+void MeshRenderer::setSubsurfaceFactors(float weight, const QColor& color,
+                                        const QVector3D& radius, float ior,
+                                        float anisotropy)
+{
+    prepared_ = false;
+    auto& factors = pImpl_->materialConstants_.subsurfaceFactors;
+    factors[0] = clampFinite(weight, 0.0f, 1.0f, 0.0f);
+    const QColor safeColor = color.isValid() ? color : QColor(255, 255, 255);
+    factors[1] = safeColor.redF();
+    factors[2] = safeColor.greenF();
+    factors[3] = safeColor.blueF();
+    auto& radiusFactors = pImpl_->materialConstants_.subsurfaceRadius;
+    radiusFactors[0] = std::isfinite(radius.x()) ? std::clamp(radius.x(), 0.0f, 10.0f) : 1.0f;
+    radiusFactors[1] = std::isfinite(radius.y()) ? std::clamp(radius.y(), 0.0f, 10.0f) : 0.2f;
+    radiusFactors[2] = std::isfinite(radius.z()) ? std::clamp(radius.z(), 0.0f, 10.0f) : 0.1f;
+    radiusFactors[3] = clampFinite(ior, 1.0f, 2.0f, 1.4f);
+    pImpl_->materialConstants_.subsurfaceScatteringFactors[0] =
+        clampFinite(anisotropy, -0.9f, 0.9f, 0.0f);
+}
+
+void MeshRenderer::setAnisotropy(float value, float rotationDegrees)
+{
+    prepared_ = false;
+    pImpl_->materialConstants_.anisotropyFactors[0] =
+        std::isfinite(value) ? std::clamp(value, -1.0f, 1.0f) : 0.0f;
+    pImpl_->materialConstants_.anisotropyFactors[1] =
+        std::isfinite(rotationDegrees)
+            ? std::clamp(rotationDegrees, -180.0f, 180.0f) *
+                  3.14159265358979323846f / 180.0f
+            : 0.0f;
 }
 
 void MeshRenderer::setUvTransform(float offsetU, float offsetV, float scaleU,
-                                  float scaleV, float rotationDegrees)
+                                  float scaleV, float rotationDegrees,
+                                  float normalRotationDegrees,
+                                  float normalScale, float baseColorScale,
+                                  float baseColorOffsetU,
+                                  float baseColorOffsetV,
+                                  float baseColorRotationDegrees)
 {
     prepared_ = false;
     pImpl_->materialConstants_.uvTransformA[0] =
@@ -3697,9 +5541,146 @@ void MeshRenderer::setUvTransform(float offsetU, float offsetV, float scaleU,
         ? std::clamp(rotationDegrees, -360.0f, 360.0f) : 0.0f;
     pImpl_->materialConstants_.uvTransformB[0] =
         rotation * std::numbers::pi_v<float> / 180.0f;
-    pImpl_->materialConstants_.uvTransformB[1] = 0.0f;
-    pImpl_->materialConstants_.uvTransformB[2] = 0.0f;
-    pImpl_->materialConstants_.uvTransformB[3] = 0.0f;
+    const float normalRotation = std::isfinite(normalRotationDegrees)
+        ? std::clamp(normalRotationDegrees, -360.0f, 360.0f) : 0.0f;
+    pImpl_->materialConstants_.uvTransformB[1] =
+        normalRotation * std::numbers::pi_v<float> / 180.0f;
+    pImpl_->materialConstants_.uvTransformB[2] =
+        std::isfinite(normalScale) ? std::clamp(normalScale, 0.01f, 10.0f)
+                                   : 1.0f;
+    pImpl_->materialConstants_.uvTransformB[3] =
+        std::isfinite(baseColorScale)
+            ? std::clamp(baseColorScale, 0.01f, 10.0f) : 1.0f;
+    pImpl_->materialConstants_.baseColorTextureUvTransform[0] =
+        std::isfinite(baseColorOffsetU)
+            ? std::clamp(baseColorOffsetU, -10.0f, 10.0f) : 0.0f;
+    pImpl_->materialConstants_.baseColorTextureUvTransform[1] =
+        std::isfinite(baseColorOffsetV)
+            ? std::clamp(baseColorOffsetV, -10.0f, 10.0f) : 0.0f;
+    const float baseColorRotation = std::isfinite(baseColorRotationDegrees)
+        ? std::clamp(baseColorRotationDegrees, -360.0f, 360.0f) : 0.0f;
+    pImpl_->materialConstants_.baseColorTextureUvTransform[2] =
+        baseColorRotation * std::numbers::pi_v<float> / 180.0f;
+}
+
+void MeshRenderer::setMetallicRoughnessUvScale(float scale,
+                                               float offsetU,
+                                               float offsetV)
+{
+    prepared_ = false;
+    auto& transform = pImpl_->materialConstants_.surfaceTextureUvTransform;
+    transform[0] =
+        std::isfinite(scale) ? std::clamp(scale, 0.01f, 10.0f) : 1.0f;
+    transform[1] =
+        std::isfinite(offsetU) ? std::clamp(offsetU, -10.0f, 10.0f) : 0.0f;
+    transform[2] =
+        std::isfinite(offsetV) ? std::clamp(offsetV, -10.0f, 10.0f) : 0.0f;
+}
+
+void MeshRenderer::setMetallicRoughnessUvRotation(float rotationDegrees)
+{
+    prepared_ = false;
+    const float rotation = std::isfinite(rotationDegrees)
+        ? std::clamp(rotationDegrees, -360.0f, 360.0f) : 0.0f;
+    pImpl_->materialConstants_.surfaceTextureUvTransform[3] =
+        rotation * std::numbers::pi_v<float> / 180.0f;
+}
+
+void MeshRenderer::setNormalUvOffset(float offsetU, float offsetV, int uvSet)
+{
+    prepared_ = false;
+    auto& offset = pImpl_->materialConstants_.normalTextureUvOffset;
+    offset[0] = std::isfinite(offsetU)
+        ? std::clamp(offsetU, -10.0f, 10.0f) : 0.0f;
+    offset[1] = std::isfinite(offsetV)
+        ? std::clamp(offsetV, -10.0f, 10.0f) : 0.0f;
+    offset[2] = uvSet == 1 ? 1.0f : 0.0f;
+}
+
+void MeshRenderer::setOcclusionTextureUvScale(float scale,
+                                              float offsetU,
+                                              float offsetV)
+{
+    prepared_ = false;
+    auto& transform = pImpl_->materialConstants_.occlusionTextureUvTransform;
+    transform[0] =
+        std::isfinite(scale) ? std::clamp(scale, 0.01f, 10.0f) : 1.0f;
+    transform[1] =
+        std::isfinite(offsetU) ? std::clamp(offsetU, -10.0f, 10.0f) : 0.0f;
+    transform[2] =
+        std::isfinite(offsetV) ? std::clamp(offsetV, -10.0f, 10.0f) : 0.0f;
+}
+
+void MeshRenderer::setOcclusionTextureUvRotation(float rotationDegrees)
+{
+    prepared_ = false;
+    const float rotation = std::isfinite(rotationDegrees)
+        ? std::clamp(rotationDegrees, -360.0f, 360.0f) : 0.0f;
+    pImpl_->materialConstants_.occlusionTextureUvTransform[3] =
+        rotation * std::numbers::pi_v<float> / 180.0f;
+}
+
+void MeshRenderer::setEmissionTextureUvScale(float scale,
+                                             float offsetU,
+                                             float offsetV)
+{
+    prepared_ = false;
+    auto& transform = pImpl_->materialConstants_.emissionTextureUvTransform;
+    transform[0] =
+        std::isfinite(scale) ? std::clamp(scale, 0.01f, 10.0f) : 1.0f;
+    transform[1] =
+        std::isfinite(offsetU) ? std::clamp(offsetU, -10.0f, 10.0f) : 0.0f;
+    transform[2] =
+        std::isfinite(offsetV) ? std::clamp(offsetV, -10.0f, 10.0f) : 0.0f;
+}
+
+void MeshRenderer::setEmissionTextureUvRotation(float rotationDegrees)
+{
+    prepared_ = false;
+    const float rotation = std::isfinite(rotationDegrees)
+        ? std::clamp(rotationDegrees, -360.0f, 360.0f) : 0.0f;
+    pImpl_->materialConstants_.emissionTextureUvRotation[0] =
+        rotation * std::numbers::pi_v<float> / 180.0f;
+}
+
+void MeshRenderer::setOpacityTextureUvScale(float scale,
+                                            float offsetU,
+                                            float offsetV)
+{
+    prepared_ = false;
+    pImpl_->materialConstants_.opacityTextureUvTransform[0] =
+        std::isfinite(scale) ? std::clamp(scale, 0.01f, 10.0f) : 1.0f;
+    pImpl_->materialConstants_.opacityTextureUvOffset[0] =
+        std::isfinite(offsetU) ? std::clamp(offsetU, -10.0f, 10.0f) : 0.0f;
+    pImpl_->materialConstants_.opacityTextureUvOffset[1] =
+        std::isfinite(offsetV) ? std::clamp(offsetV, -10.0f, 10.0f) : 0.0f;
+}
+
+void MeshRenderer::setOpacityTextureUvRotation(float rotationDegrees)
+{
+    prepared_ = false;
+    const float rotation = std::isfinite(rotationDegrees)
+        ? std::clamp(rotationDegrees, -360.0f, 360.0f) : 0.0f;
+    pImpl_->materialConstants_.opacityTextureUvTransform[3] =
+        rotation * std::numbers::pi_v<float> / 180.0f;
+}
+
+void MeshRenderer::setClearcoatNormalUvTransform(float rotationDegrees,
+                                                float scale,
+                                                float offsetU,
+                                                float offsetV)
+{
+    prepared_ = false;
+    const float rotation = std::isfinite(rotationDegrees)
+        ? std::clamp(rotationDegrees, -360.0f, 360.0f) : 0.0f;
+    pImpl_->materialConstants_.clearcoatNormalUvTransform[0] =
+        rotation * std::numbers::pi_v<float> / 180.0f;
+    pImpl_->materialConstants_.clearcoatNormalUvTransform[1] =
+        std::isfinite(scale) ? std::clamp(scale, 0.01f, 10.0f) : 1.0f;
+    pImpl_->materialConstants_.clearcoatNormalUvTransform[2] =
+        std::isfinite(offsetU) ? std::clamp(offsetU, -10.0f, 10.0f) : 0.0f;
+    pImpl_->materialConstants_.clearcoatNormalUvTransform[3] =
+        std::isfinite(offsetV) ? std::clamp(offsetV, -10.0f, 10.0f) : 0.0f;
 }
 
 void MeshRenderer::setEnvironmentIntensity(float intensity)
@@ -3833,6 +5814,30 @@ void MeshRenderer::setNormalTexture(const QString& path)
         pImpl_->materialConstants_.pbrTextureFlags[1] = 1.0f;
     } else {
         pImpl_->pNormalTextureSRV_ = pImpl_->pLinearWhiteTextureSRV_;
+    }
+}
+
+void MeshRenderer::setClearcoatNormalTexture(const QString& path)
+{
+    prepared_ = false;
+    const QString newPath = path.trimmed();
+    if (newPath == pImpl_->clearcoatNormalTexturePath_ &&
+        (newPath.isEmpty() || pImpl_->materialConstants_.clearcoatFactors[3] > 0.5f)) {
+        return;
+    }
+    pImpl_->pClearcoatNormalTexture_ = nullptr;
+    pImpl_->pClearcoatNormalTextureSRV_ = pImpl_->pLinearWhiteTextureSRV_;
+    pImpl_->clearcoatNormalTexturePath_.clear();
+    pImpl_->materialConstants_.clearcoatFactors[3] = 0.0f;
+    if (newPath.isEmpty()) return;
+    if (loadLinearTexture(context_, newPath,
+                          "MeshRenderer_ClearcoatNormalTexture",
+                          pImpl_->pClearcoatNormalTexture_,
+                          pImpl_->pClearcoatNormalTextureSRV_, true)) {
+        pImpl_->clearcoatNormalTexturePath_ = newPath;
+        pImpl_->materialConstants_.clearcoatFactors[3] = 1.0f;
+    } else {
+        pImpl_->pClearcoatNormalTextureSRV_ = pImpl_->pLinearWhiteTextureSRV_;
     }
 }
 

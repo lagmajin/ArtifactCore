@@ -8,6 +8,8 @@ module;
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Texture.h>
 #include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
 #include <QColor>
+#include <QVector3D>
+#include <QString>
 #include "../Define/DllExportMacro.hpp"
 #include <cstdint>
 #include <vector>
@@ -117,7 +119,8 @@ public:
      * @param colors Pointer to float4 vertex colors (optional, can be nullptr; white = identity)
      */
     void updateMeshGeometry(const float* positions, const float* normals, const float* uvs,
-                            const uint32_t* indices, const float* colors = nullptr);
+                            const uint32_t* indices, const float* colors = nullptr,
+                            const float* uvs1 = nullptr);
 
     // Upload the packed resources consumed by the future mesh-shader path.
     // The indexed renderer remains the fallback until a mesh-shader PSO is active.
@@ -142,12 +145,49 @@ public:
     void setEmissionColor(const QColor& color, float strength);
     void setPbrFactors(float metallic, float roughness,
                        float normalStrength, float occlusionStrength);
+    void setDiffuseRoughness(float roughness);
     void setPrincipledFactors(float specular, float ior, float transmission,
                                float clearcoat, float clearcoatRoughness,
-                               float sheen = 0.0f);
-    // Shared UV texture transform (offset/scale/rotation in degrees).
+                               float sheen = 0.0f, float clearcoatIor = 1.5f);
+    void setSpecularTint(const QColor& color);
+    void setThinFilm(float thicknessNanometers, float ior);
+    void setClearcoatTint(const QColor& color, float normalStrength = 1.0f);
+    void setClearcoatNormalTexture(const QString& path);
+    void setSheenFactors(float roughness, const QColor& tint);
+    void setSubsurfaceFactors(float weight, const QColor& color,
+                              const QVector3D& radius = QVector3D(1.0f, 0.2f, 0.1f),
+                              float ior = 1.4f,
+                              float anisotropy = 0.0f);
+    void setAnisotropy(float value, float rotationDegrees);
+    // Shared UV texture transform plus independent base/normal-map scales.
     void setUvTransform(float offsetU, float offsetV, float scaleU, float scaleV,
-                        float rotationDegrees);
+                        float rotationDegrees,
+                        float normalRotationDegrees = 0.0f,
+                        float normalScale = 1.0f,
+                        float baseColorScale = 1.0f,
+                        float baseColorOffsetU = 0.0f,
+                        float baseColorOffsetV = 0.0f,
+                        float baseColorRotationDegrees = 0.0f);
+    void setMetallicRoughnessUvScale(float scale,
+                                     float offsetU = 0.0f,
+                                     float offsetV = 0.0f);
+    void setMetallicRoughnessUvRotation(float rotationDegrees);
+    void setNormalUvOffset(float offsetU, float offsetV, int uvSet = 0);
+    void setOcclusionTextureUvScale(float scale,
+                                    float offsetU = 0.0f,
+                                    float offsetV = 0.0f);
+    void setOcclusionTextureUvRotation(float rotationDegrees);
+    void setEmissionTextureUvScale(float scale,
+                                   float offsetU = 0.0f,
+                                   float offsetV = 0.0f);
+    void setEmissionTextureUvRotation(float rotationDegrees);
+    void setOpacityTextureUvScale(float scale,
+                                  float offsetU = 0.0f,
+                                  float offsetV = 0.0f);
+    void setOpacityTextureUvRotation(float rotationDegrees);
+    void setClearcoatNormalUvTransform(float rotationDegrees, float scale,
+                                       float offsetU = 0.0f,
+                                       float offsetV = 0.0f);
     // Per-material IBL intensity scale for indirect lighting.
     void setEnvironmentIntensity(float intensity);
     // Blender-style material graph splices (Artifact.ShaderNode.Core
@@ -170,7 +210,8 @@ public:
     void setEnvironmentMaps(ITextureView* irradianceMap,
                             ITextureView* prefilteredEnvironment,
                             ITextureView* brdfLut,
-                            float intensity = 1.0f);
+                            float intensity = 1.0f,
+                            ITextureView* sheenPrefilteredEnvironment = nullptr);
     // Load an equirectangular HDR/EXR image and create a runtime cubemap.
     // The generated cubemap is used as the initial environment input; callers
     // may replace the derived irradiance/prefilter maps through setEnvironmentMaps.
@@ -184,6 +225,12 @@ public:
     /// The returned view is owned by MeshRenderer and remains valid until the
     /// next environment-map replacement or renderer destruction.
     Diligent::ITextureView* environmentMapView() const;
+    /// Returns the Charlie-distribution prefiltered environment used by sheen.
+    Diligent::ITextureView* sheenEnvironmentMapView() const;
+    /// Returns the diffuse irradiance cubemap used by the split-sum IBL path.
+    Diligent::ITextureView* irradianceMapView() const;
+    /// Returns the split-sum BRDF integration lookup texture.
+    Diligent::ITextureView* brdfLutView() const;
     void setSceneLights(const std::vector<Light>& lights);
     // Overrides the file-backed GOBO texture for a packed scene-light slot.
     // This is an internal render input only; it neither creates nor persists a
@@ -243,16 +290,55 @@ public:
      */
     void draw(IDeviceContext* pContext, size_t instanceCount);
 
-    // Multi-material draw.  Each range names a contiguous index span and the
-    // index of the material that should be bound while that span is drawn.
-    // The ranges are uploaded once (outside the frame loop) and reused by
-    // drawMaterialSlots, so issuing several draws costs no per-frame upload.
+    // CPU/GPU ABI for the scalar material constants used by MeshPSSource.
+    // Keep these float4 fields in the same order as cbuffer MaterialParams.
+    struct MaterialState {
+        std::array<float, 4> baseColorFactor{1.0f, 1.0f, 1.0f, 1.0f};
+        std::array<float, 4> emissionColorStrength{};
+        std::array<float, 4> pbrFactors{0.0f, 0.5f, 1.0f, 1.0f};
+        std::array<float, 4> pbrTextureFlags{};
+        std::array<float, 4> principledFactors{0.5f, 1.5f, 0.0f, 0.0f};
+        std::array<float, 4> specularTintFactors{1.0f, 1.0f, 1.0f, 0.0f};
+        std::array<float, 4> thinFilmFactors{0.0f, 1.33f, 0.0f, 0.0f};
+        std::array<float, 4> clearcoatFactors{0.0f, 0.2f, 1.5f, 0.0f};
+        std::array<float, 4> alphaSettings{0.5f, 0.0f, 0.0f, 0.0f};
+        std::array<float, 4> uvTransformA{0.0f, 0.0f, 1.0f, 1.0f};
+        std::array<float, 4> uvTransformB{0.0f, 0.0f, 1.0f, 1.0f};
+        std::array<float, 4> clearcoatNormalUvTransform{0.0f, 1.0f, 0.0f, 0.0f};
+        std::array<float, 4> envFactors{1.0f, 0.0f, 0.0f, 0.0f};
+        std::array<float, 4> sheenFactors{0.5f, 1.0f, 1.0f, 1.0f};
+        std::array<float, 4> anisotropyFactors{};
+        std::array<float, 4> subsurfaceFactors{0.0f, 1.0f, 1.0f, 1.0f};
+        std::array<float, 4> subsurfaceRadius{1.0f, 0.2f, 0.1f, 1.4f};
+        std::array<float, 4> subsurfaceScatteringFactors{};
+        std::array<float, 4> clearcoatTintFactors{1.0f, 1.0f, 1.0f, 1.0f};
+        std::array<float, 4> surfaceTextureUvTransform{1.0f, 0.0f, 0.0f, 0.0f};
+        std::array<float, 4> normalTextureUvOffset{};
+        std::array<float, 4> occlusionTextureUvTransform{1.0f, 0.0f, 0.0f, 0.0f};
+        std::array<float, 4> emissionTextureUvTransform{1.0f, 0.0f, 0.0f, 0.0f};
+        std::array<float, 4> opacityTextureUvTransform{1.0f, 0.0f, 0.0f, 0.0f};
+        std::array<float, 4> baseColorTextureUvTransform{};
+        std::array<float, 4> opacityTextureUvOffset{};
+        std::array<float, 4> emissionTextureUvRotation{};
+    };
+
+    // Multi-material draw. Each range names a contiguous index span and the
+    // scalar material state and texture SRVs bound while that span is drawn.
     // With no ranges configured the call falls back to a single whole-mesh
     // draw using the material set through the existing setters.
     struct MaterialRange {
         std::uint32_t firstIndex = 0;
         std::uint32_t indexCount = 0;
         std::uint32_t materialIndex = 0;
+        bool transparent = false;
+        MaterialState material;
+        QString baseColorTexturePath;
+        QString metallicRoughnessTexturePath;
+        QString normalTexturePath;
+        QString clearcoatNormalTexturePath;
+        QString occlusionTexturePath;
+        QString emissionTexturePath;
+        QString opacityTexturePath;
     };
     void setMaterialRanges(const MaterialRange* ranges, std::size_t count);
     void clearMaterialRanges();

@@ -242,6 +242,7 @@ export namespace ArtifactCore {
             QVector<QVector3D> positions;
             QVector<QVector3D> normals;
             QVector<QVector2D> uvs;
+            QVector<QVector2D> uvs1;
             QVector<QVector4D> colors;
             QVector<unsigned int> indices;
         };

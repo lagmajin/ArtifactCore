@@ -40,7 +40,8 @@ OIIO::TypeDesc chooseReadType(const QString& filePath)
 {
     const QString suffix = QFileInfo(filePath).suffix().toLower();
     if (suffix == QStringLiteral("exr") ||
-        suffix == QStringLiteral("dpx")) {
+        suffix == QStringLiteral("dpx") ||
+        suffix == QStringLiteral("hdr")) {
         return OIIO::TypeDesc::FLOAT;
     }
     if (suffix == QStringLiteral("tif") || suffix == QStringLiteral("tiff") ||
