@@ -383,11 +383,17 @@ public:
                             &imported.metallic, &imported.hasMetallic);
       captureMaterialScalar(material->pbr.roughness, 0.0f, 1.0f, 0.5f,
                             &imported.roughness, &imported.hasRoughness);
+      captureMaterialScalar(material->pbr.diffuse_roughness, 0.0f, 1.0f,
+                            0.0f, &imported.diffuseRoughness,
+                            &imported.hasDiffuseRoughness);
       captureMaterialScalar(material->pbr.coat_factor, 0.0f, 1.0f, 0.0f,
                             &imported.clearcoat, &imported.hasClearcoat);
       captureMaterialScalar(material->pbr.coat_roughness, 0.0f, 1.0f,
                             0.03f, &imported.clearcoatRoughness,
                             &imported.hasClearcoatRoughness);
+      captureMaterialScalar(material->pbr.coat_ior, 1.0f, 2.0f, 1.5f,
+                            &imported.clearcoatIor,
+                            &imported.hasClearcoatIor);
       captureMaterialScalar(material->pbr.transmission_factor, 0.0f, 1.0f,
                             0.0f, &imported.transmission,
                             &imported.hasTransmission);
@@ -398,6 +404,16 @@ public:
       captureMaterialScalar(material->pbr.sheen_roughness, 0.0f, 1.0f,
                             0.5f, &imported.sheenRoughness,
                             &imported.hasSheenRoughness);
+      captureMaterialScalar(material->pbr.subsurface_factor, 0.0f, 1.0f,
+                            0.0f, &imported.subsurface,
+                            &imported.hasSubsurface);
+      captureMaterialScalar(material->pbr.subsurface_anisotropy,
+                            -0.9f, 0.9f, 0.0f,
+                            &imported.subsurfaceAnisotropy,
+                            &imported.hasSubsurfaceAnisotropy);
+      captureMaterialScalar(material->pbr.specular_anisotropy,
+                            -1.0f, 1.0f, 0.0f, &imported.anisotropy,
+                            &imported.hasAnisotropy);
       if (material->pbr.specular_factor.has_value) {
         float sourceFactor = 1.0f;
         bool hasFactor = false;
@@ -427,6 +443,26 @@ public:
         imported.sheenTint[2] = linearToSrgb(
             static_cast<float>(material->pbr.sheen_color.value_vec3.z));
         imported.hasSheenTint = true;
+      }
+      if (material->pbr.subsurface_color.has_value &&
+          material->pbr.subsurface_color.value_components >= 3) {
+        imported.subsurfaceColor[0] = linearToSrgb(
+            static_cast<float>(material->pbr.subsurface_color.value_vec3.x));
+        imported.subsurfaceColor[1] = linearToSrgb(
+            static_cast<float>(material->pbr.subsurface_color.value_vec3.y));
+        imported.subsurfaceColor[2] = linearToSrgb(
+            static_cast<float>(material->pbr.subsurface_color.value_vec3.z));
+        imported.hasSubsurfaceColor = true;
+      }
+      if (material->pbr.subsurface_radius.has_value &&
+          material->pbr.subsurface_radius.value_components >= 3) {
+        imported.subsurfaceRadius[0] = std::clamp(static_cast<float>(
+            material->pbr.subsurface_radius.value_vec3.x), 0.0f, 10.0f);
+        imported.subsurfaceRadius[1] = std::clamp(static_cast<float>(
+            material->pbr.subsurface_radius.value_vec3.y), 0.0f, 10.0f);
+        imported.subsurfaceRadius[2] = std::clamp(static_cast<float>(
+            material->pbr.subsurface_radius.value_vec3.z), 0.0f, 10.0f);
+        imported.hasSubsurfaceRadius = true;
       }
       setImportedTexture(material->pbr.base_color.texture,
                          &imported.baseColorTexture);
