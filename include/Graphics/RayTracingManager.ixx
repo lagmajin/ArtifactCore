@@ -129,6 +129,13 @@ struct RTPbrMaterial {
     float subsurfaceRadius[3] = {1.0f, 0.2f, 0.1f};
     float anisotropy = 0.0f;
     float anisotropyRotationDegrees = 0.0f;
+    UniString anisotropyTexture;
+    float anisotropyTextureUvScaleU = 1.0f;
+    float anisotropyTextureUvScaleV = 1.0f;
+    float anisotropyTextureUvRotationDegrees = 0.0f;
+    float anisotropyTextureUvOffsetU = 0.0f;
+    float anisotropyTextureUvOffsetV = 0.0f;
+    int anisotropyTextureUvSet = 0;
     float emissionColor[3] = {0.0f, 0.0f, 0.0f};
     float emissionStrength = 0.0f;
     float opacity = 1.0f;

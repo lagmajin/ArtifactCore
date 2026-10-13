@@ -173,6 +173,9 @@ public:
                               float ior = 1.4f,
                               float anisotropy = 0.0f);
     void setAnisotropy(float value, float rotationDegrees);
+    void setAnisotropyTexture(const QString& path, float scaleU,
+                              float scaleV, float rotationDegrees,
+                              float offsetU, float offsetV, int uvSet);
     // Shared UV texture transform plus independent base/normal-map scales.
     void setUvTransform(float offsetU, float offsetV, float scaleU, float scaleV,
                         float rotationDegrees,
@@ -368,8 +371,10 @@ public:
         std::array<float, 4> sheenRoughnessTextureFactors{};
         // x/y: UV offset, z: rotation radians.
         std::array<float, 4> sheenRoughnessTextureUvOffset{};
+        std::array<float, 4> anisotropyTextureFactors{};
+        std::array<float, 4> anisotropyTextureUvOffset{};
     };
-    static_assert(sizeof(MaterialState) == 41u * 4u * sizeof(float));
+    static_assert(sizeof(MaterialState) == 43u * 4u * sizeof(float));
 
     // Multi-material draw. Each range names a contiguous index span and the
     // scalar material state and texture SRVs bound while that span is drawn.
@@ -394,6 +399,7 @@ public:
         QString opacityTexturePath;
         QString sheenColorTexturePath;
         QString sheenRoughnessTexturePath;
+        QString anisotropyTexturePath;
     };
     void setMaterialRanges(const MaterialRange* ranges, std::size_t count);
     void clearMaterialRanges();

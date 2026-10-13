@@ -153,6 +153,11 @@ export struct MaterialTextureUvTransform {
   void setAnisotropy(float value, float rotationDegrees);
   float anisotropy() const;
   float anisotropyRotationDegrees() const;
+  void setAnisotropyTexture(const UniString& path);
+  UniString anisotropyTexture() const;
+  void setAnisotropyTextureUvTransform(
+      const MaterialTextureUvTransform& transform);
+  MaterialTextureUvTransform anisotropyTextureUvTransform() const;
 
   // --- Emission ---
   void setEmissionColor(const QColor& color);

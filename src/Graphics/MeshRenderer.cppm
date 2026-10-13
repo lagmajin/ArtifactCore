@@ -1393,6 +1393,8 @@ cbuffer MaterialParams : register(b1) {
     float4 SheenColorTextureUvOffset;
     float4 SheenRoughnessTextureFactors;
     float4 SheenRoughnessTextureUvOffset;
+    float4 AnisotropyTextureFactors;
+    float4 AnisotropyTextureUvOffset;
 };
 
 float2 transformShadowUv(float2 uv) {
@@ -1496,6 +1498,7 @@ Texture2D g_ClearcoatTexture : register(t22);
 Texture2D g_ClearcoatRoughnessTexture : register(t23);
 Texture2D g_SheenColorTexture : register(t24);
 Texture2D g_SheenRoughnessTexture : register(t25);
+Texture2D g_AnisotropyTexture : register(t26);
 SamplerState g_BaseColorSampler : register(s0);
 SamplerComparisonState g_ShadowSampler : register(s1);
 SamplerState g_GoboSampler : register(s2);
@@ -1555,6 +1558,8 @@ cbuffer MaterialParams : register(b1) {
     float4 SheenColorTextureUvOffset;
     float4 SheenRoughnessTextureFactors;
     float4 SheenRoughnessTextureUvOffset;
+    float4 AnisotropyTextureFactors;
+    float4 AnisotropyTextureUvOffset;
 };
 
 float2 transformMeshUv(float2 uv) {
@@ -2225,6 +2230,20 @@ float4 PSMain(PSInput In) : SV_Target {
     }
     float2 sheenRoughnessTextureUv = sheenRoughnessCentered + 0.5 +
         SheenRoughnessTextureUvOffset.xy;
+    float2 anisotropyMeshUv = transformMeshUv(
+        AnisotropyTextureFactors.y > 0.5 ? In.UV1 : In.UV);
+    float2 anisotropyCentered = (anisotropyMeshUv - 0.5) *
+        AnisotropyTextureFactors.zw;
+    float anisotropyTextureAngle = AnisotropyTextureUvOffset.z;
+    if (abs(anisotropyTextureAngle) > 1.0e-5) {
+        float sine = sin(anisotropyTextureAngle);
+        float cosine = cos(anisotropyTextureAngle);
+        anisotropyCentered = float2(
+            anisotropyCentered.x * cosine - anisotropyCentered.y * sine,
+            anisotropyCentered.x * sine + anisotropyCentered.y * cosine);
+    }
+    float2 anisotropyTextureUv = anisotropyCentered + 0.5 +
+        AnisotropyTextureUvOffset.xy;
     float4 baseSample = g_BaseColorTexture.Sample(g_BaseColorSampler, baseColorUv);
     float2 opacityMeshUv = transformMeshUv(
         TextureUvSetSelectors.w > 0.5 ? In.UV1 : In.UV);
@@ -2254,6 +2273,11 @@ float4 PSMain(PSInput In) : SV_Target {
         g_BaseColorSampler, sheenRoughnessTextureUv).r;
     float sheenRoughness = saturate(SheenFactors.x *
         sheenRoughnessTextureSample);
+    float anisotropyTextureSample = g_AnisotropyTexture.Sample(
+        g_BaseColorSampler, anisotropyTextureUv).r;
+    float anisotropyAmount = clamp(AnisotropyFactors.x, -1.0, 1.0) *
+        lerp(1.0, saturate(anisotropyTextureSample),
+             AnisotropyTextureFactors.x);
     float3 materialSheenTint = srgbToLinear(saturate(SheenFactors.yzw)) *
         saturate(sheenColorTextureSample);
     float4 normalTextureSample =
@@ -2531,7 +2555,7 @@ float4 PSMain(PSInput In) : SV_Target {
                  ao * sheenBaseEnergy);
             float3 indirectSpecular = sampleEnvironmentSpecular(
                 worldNormal, viewDirection, roughness, environmentF0,
-                worldTangent, worldBitangent, AnisotropyFactors.x);
+                worldTangent, worldBitangent, anisotropyAmount);
             if (transmissionWeight <= 1e-4) {
                 indirectSpecular += evaluateMultipleScatterIbl(
                     sheenNdotV, roughness, environmentF0, diffuseIrradiance);
@@ -2701,7 +2725,7 @@ float4 PSMain(PSInput In) : SV_Target {
             float NdotV = max(saturate(dot(worldNormal, viewDirection)), 1e-4);
             float NdotH = max(saturate(dot(worldNormal, halfVector)), 1e-4);
             float VdotH = max(saturate(dot(viewDirection, halfVector)), 1e-4);
-            float anisotropy = clamp(AnisotropyFactors.x, -1.0, 1.0);
+            float anisotropy = anisotropyAmount;
             float alpha = roughness * roughness;
             float alphaT = max(alpha * (1.0 + anisotropy), 1.0e-3);
             float alphaB = max(alpha * (1.0 - anisotropy), 1.0e-3);
@@ -3037,7 +3061,7 @@ struct MeshRenderer::Impl {
     static_assert(sizeof(SceneLightGpu) == sizeof(float) * 24);
     static_assert(sizeof(SceneLightingConstants) ==
                   sizeof(SceneLightGpu) * MaxSceneLights + sizeof(float) * 8);
-    static_assert(sizeof(MaterialConstants) == sizeof(float) * 164);
+    static_assert(sizeof(MaterialConstants) == sizeof(float) * 172);
     static_assert(sizeof(MeshletConstants) == sizeof(float) * 52);
 
     Diligent::RefCntAutoPtr<Diligent::IPipelineStateCache>    pPSOCache_;
@@ -3109,6 +3133,8 @@ struct MeshRenderer::Impl {
     Diligent::RefCntAutoPtr<Diligent::ITextureView>           pSheenColorTextureSRV_;
     Diligent::RefCntAutoPtr<Diligent::ITexture>               pSheenRoughnessTexture_;
     Diligent::RefCntAutoPtr<Diligent::ITextureView>           pSheenRoughnessTextureSRV_;
+    Diligent::RefCntAutoPtr<Diligent::ITexture>               pAnisotropyTexture_;
+    Diligent::RefCntAutoPtr<Diligent::ITextureView>           pAnisotropyTextureSRV_;
     Diligent::RefCntAutoPtr<Diligent::ITextureView>           pClearcoatRoughnessTextureSRV_;
     Diligent::RefCntAutoPtr<Diligent::ITexture>               pOcclusionTexture_;
     Diligent::RefCntAutoPtr<Diligent::ITextureView>           pOcclusionTextureSRV_;
@@ -3187,6 +3213,7 @@ struct MeshRenderer::Impl {
         MaterialSlotTexture opacity;
         MaterialSlotTexture sheenColor;
         MaterialSlotTexture sheenRoughness;
+        MaterialSlotTexture anisotropy;
     };
     QVector<MaterialSlotTextures> materialSlotTextures;
     QString baseColorTexturePath_;
@@ -3200,6 +3227,7 @@ struct MeshRenderer::Impl {
     QString clearcoatRoughnessTexturePath_;
     QString sheenColorTexturePath_;
     QString sheenRoughnessTexturePath_;
+    QString anisotropyTexturePath_;
     QString clearcoatNormalTexturePath_;
     QString occlusionTexturePath_;
     QString environmentMapPath_;
@@ -3897,7 +3925,7 @@ void MeshRenderer::createPSO()
     // Resource layout
     PSOCreateInfo.PSODesc.ResourceLayout.DefaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
     
-    static std::array<ShaderResourceVariableDesc, 29> Vars = {{
+    static std::array<ShaderResourceVariableDesc, 30> Vars = {{
         {SHADER_TYPE_VERTEX, "g_Instances", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "MaterialParams", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_BaseColorTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
@@ -3926,6 +3954,7 @@ void MeshRenderer::createPSO()
         {SHADER_TYPE_PIXEL, "g_ClearcoatRoughnessTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_SheenColorTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_SheenRoughnessTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "g_AnisotropyTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_BaseColorSampler", SHADER_RESOURCE_VARIABLE_TYPE_STATIC}
     }};
     PSOCreateInfo.PSODesc.ResourceLayout.Variables = Vars.data();
@@ -4626,6 +4655,12 @@ void MeshRenderer::prepare(IDeviceContext* pContext)
                 ? pImpl_->pSheenRoughnessTextureSRV_
                 : pImpl_->pLinearWhiteTextureSRV_);
         }
+        if (auto* anisotropyVar = activeSRB->GetVariableByName(
+                SHADER_TYPE_PIXEL, "g_AnisotropyTexture")) {
+            anisotropyVar->Set(pImpl_->pAnisotropyTextureSRV_
+                ? pImpl_->pAnisotropyTextureSRV_
+                : pImpl_->pLinearWhiteTextureSRV_);
+        }
         if (auto* normalVar = activeSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_NormalTexture")) {
             normalVar->Set(pImpl_->pNormalTextureSRV_);
         }
@@ -4777,7 +4812,11 @@ void MeshRenderer::setMaterialRanges(const MaterialRange* ranges, size_t count) 
             pathChanged(current.opacityTexturePath,
                         incoming.opacityTexturePath) ||
             pathChanged(current.sheenColorTexturePath,
-                        incoming.sheenColorTexturePath);
+                        incoming.sheenColorTexturePath) ||
+            pathChanged(current.sheenRoughnessTexturePath,
+                        incoming.sheenRoughnessTexturePath) ||
+            pathChanged(current.anisotropyTexturePath,
+                        incoming.anisotropyTexturePath);
         const bool stateChanged = resized ||
             missingBuffer ||
             current.firstIndex != incoming.firstIndex ||
@@ -4939,6 +4978,18 @@ void MeshRenderer::setMaterialRanges(const MaterialRange* ranges, size_t count) 
                                "MeshRenderer_MaterialSlotSheenRoughnessTexture",
                                texture, srv);
                        });
+        resolveTexture(i, slotTextures.anisotropy,
+                       incoming.anisotropyTexturePath,
+                       pImpl_->pLinearWhiteTextureSRV_.RawPtr(),
+                       pImpl_->anisotropyTexturePath_,
+                       pImpl_->pAnisotropyTextureSRV_,
+                       &Impl::MaterialSlotTextures::anisotropy,
+                       [&](const QString& path, auto& texture, auto& srv) {
+                           return loadLinearTexture(
+                               context_, path,
+                               "MeshRenderer_MaterialSlotAnisotropyTexture",
+                               texture, srv);
+                       });
         MaterialState materialForGpu = incoming.material;
         materialForGpu.clearcoatTextureFactors[0] =
             slotTextures.clearcoat.texture ? 1.0f : 0.0f;
@@ -4963,6 +5014,12 @@ void MeshRenderer::setMaterialRanges(const MaterialRange* ranges, size_t count) 
                           incoming.sheenRoughnessTexturePath,
                           pImpl_->sheenRoughnessTexturePath_,
                           pImpl_->materialConstants_.sheenRoughnessTextureFactors[0])
+                ? 1.0f : 0.0f;
+        materialForGpu.anisotropyTextureFactors[0] =
+            loadedTexture(slotTextures.anisotropy,
+                          incoming.anisotropyTexturePath,
+                          pImpl_->anisotropyTexturePath_,
+                          pImpl_->materialConstants_.anisotropyTextureFactors[0])
                 ? 1.0f : 0.0f;
         materialForGpu.pbrTextureFlags2[0] =
             loadedTexture(slotTextures.metallic,
@@ -5067,6 +5124,8 @@ void MeshRenderer::drawMaterialSlots(IDeviceContext* pContext, size_t instanceCo
             SHADER_TYPE_PIXEL, "g_SheenColorTexture");
         auto* sheenRoughnessVariable = activeSRB->GetVariableByName(
             SHADER_TYPE_PIXEL, "g_SheenRoughnessTexture");
+        auto* anisotropyVariable = activeSRB->GetVariableByName(
+            SHADER_TYPE_PIXEL, "g_AnisotropyTexture");
         for (qsizetype rangeIndex = 0;
              rangeIndex < pImpl_->materialRanges.size(); ++rangeIndex) {
             const MaterialRange& range = pImpl_->materialRanges[rangeIndex];
@@ -5160,6 +5219,12 @@ void MeshRenderer::drawMaterialSlots(IDeviceContext* pContext, size_t instanceCo
                 sheenRoughnessVariable->Set(slotTexture.srv
                     ? slotTexture.srv : pImpl_->pLinearWhiteTextureSRV_);
             }
+            if (anisotropyVariable) {
+                const auto& slotTexture =
+                    pImpl_->materialSlotTextures[rangeIndex].anisotropy;
+                anisotropyVariable->Set(slotTexture.srv
+                    ? slotTexture.srv : pImpl_->pLinearWhiteTextureSRV_);
+            }
             pContext->CommitShaderResources(
                 activeSRB, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
             if (frameCostStats_) ++frameCostStats_->drawCalls;
@@ -5195,6 +5260,9 @@ void MeshRenderer::drawMaterialSlots(IDeviceContext* pContext, size_t instanceCo
         if (opacityVariable) opacityVariable->Set(pImpl_->pOpacityTextureSRV_);
         if (sheenRoughnessVariable) {
             sheenRoughnessVariable->Set(pImpl_->pSheenRoughnessTextureSRV_);
+        }
+        if (anisotropyVariable) {
+            anisotropyVariable->Set(pImpl_->pAnisotropyTextureSRV_);
         }
         if (sheenColorVariable) {
             sheenColorVariable->Set(pImpl_->pSheenColorTextureSRV_);
@@ -6052,6 +6120,52 @@ void MeshRenderer::setAnisotropy(float value, float rotationDegrees)
             ? std::clamp(rotationDegrees, -180.0f, 180.0f) *
                   3.14159265358979323846f / 180.0f
             : 0.0f;
+}
+
+void MeshRenderer::setAnisotropyTexture(
+    const QString& path, float scaleU, float scaleV, float rotationDegrees,
+    float offsetU, float offsetV, int uvSet)
+{
+    const QString newPath = path.trimmed();
+    bool changed = false;
+    if (newPath != pImpl_->anisotropyTexturePath_) {
+        changed = true;
+        pImpl_->pAnisotropyTexture_ = nullptr;
+        pImpl_->pAnisotropyTextureSRV_ = pImpl_->pLinearWhiteTextureSRV_;
+        pImpl_->anisotropyTexturePath_.clear();
+        pImpl_->materialConstants_.anisotropyTextureFactors[0] = 0.0f;
+        if (!newPath.isEmpty()) {
+            pImpl_->anisotropyTexturePath_ = newPath;
+            if (loadLinearTexture(context_, newPath,
+                    "MeshRenderer_AnisotropyTexture",
+                    pImpl_->pAnisotropyTexture_,
+                    pImpl_->pAnisotropyTextureSRV_)) {
+                pImpl_->materialConstants_.anisotropyTextureFactors[0] = 1.0f;
+            } else {
+                pImpl_->pAnisotropyTextureSRV_ =
+                    pImpl_->pLinearWhiteTextureSRV_;
+            }
+        }
+    }
+    const auto safeScale = [](float value) {
+        return std::isfinite(value)
+            ? std::clamp(value, 0.0001f, 10000.0f) : 1.0f;
+    };
+    const float safeRotation = std::isfinite(rotationDegrees)
+        ? std::clamp(rotationDegrees, -360.0f, 360.0f) : 0.0f;
+    auto& factors = pImpl_->materialConstants_.anisotropyTextureFactors;
+    const std::array<float, 4> nextFactors = {
+        factors[0], uvSet == 1 ? 1.0f : 0.0f,
+        safeScale(scaleU), safeScale(scaleV)};
+    auto& offset = pImpl_->materialConstants_.anisotropyTextureUvOffset;
+    const std::array<float, 4> nextOffset = {
+        std::isfinite(offsetU) ? std::clamp(offsetU, -1000000.0f, 1000000.0f) : 0.0f,
+        std::isfinite(offsetV) ? std::clamp(offsetV, -1000000.0f, 1000000.0f) : 0.0f,
+        safeRotation * std::numbers::pi_v<float> / 180.0f, 0.0f};
+    changed = changed || factors != nextFactors || offset != nextOffset;
+    factors = nextFactors;
+    offset = nextOffset;
+    if (changed) prepared_ = false;
 }
 
 void MeshRenderer::setUvTransform(float offsetU, float offsetV, float scaleU,

@@ -67,6 +67,8 @@ public:
  QVector3D subsurfaceRadius_{1.0f, 0.2f, 0.1f};
  float anisotropy_ = 0.0f;
  float anisotropyRotationDegrees_ = 0.0f;
+ UniString anisotropyTexture_;
+ MaterialTextureUvTransform anisotropyTextureUvTransform_{};
 
  // Emission
  QColor emissionColor_ = QColor(0, 0, 0);
@@ -540,6 +542,28 @@ void Material::setAnisotropy(float v, float rotationDegrees) {
 float Material::anisotropy() const { return impl_->anisotropy_; }
 float Material::anisotropyRotationDegrees() const {
  return impl_->anisotropyRotationDegrees_;
+}
+void Material::setAnisotropyTexture(const UniString& path) {
+ impl_->anisotropyTexture_ = path;
+}
+UniString Material::anisotropyTexture() const {
+ return impl_->anisotropyTexture_;
+}
+void Material::setAnisotropyTextureUvTransform(
+    const MaterialTextureUvTransform& transform) {
+ auto finiteOr = [](float value, float fallback) {
+  return std::isfinite(value) ? value : fallback;
+ };
+ impl_->anisotropyTextureUvTransform_ = {
+     std::clamp(finiteOr(transform.scaleU, 1.0f), 0.0001f, 10000.0f),
+     std::clamp(finiteOr(transform.scaleV, 1.0f), 0.0001f, 10000.0f),
+     std::clamp(finiteOr(transform.rotationDegrees, 0.0f), -360.0f, 360.0f),
+     std::clamp(finiteOr(transform.offsetU, 0.0f), -1000000.0f, 1000000.0f),
+     std::clamp(finiteOr(transform.offsetV, 0.0f), -1000000.0f, 1000000.0f),
+     transform.uvSet == 1 ? 1 : 0};
+}
+MaterialTextureUvTransform Material::anisotropyTextureUvTransform() const {
+ return impl_->anisotropyTextureUvTransform_;
 }
 
 // Emission

@@ -180,6 +180,8 @@ struct RTMaterial
     float4 sheenColorTextureUvOffset;
     float4 sheenRoughnessTexture;
     float4 sheenRoughnessTextureUvOffset;
+    float4 anisotropyTexture;
+    float4 anisotropyTextureUvOffset;
 };
 StructuredBuffer<float4> g_RenderVertices : register(t1);
 StructuredBuffer<RTPrimitive> g_RenderPrimitives : register(t2);
@@ -661,6 +663,29 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
         sheenRoughnessUv1 - sheenRoughnessUv0;
     const float2 sheenRoughnessUvEdge2 =
         sheenRoughnessUv2 - sheenRoughnessUv0;
+    const float2 anisotropySetUv0 =
+        material.anisotropyTextureUvOffset.w > 0.5f
+            ? g_RenderUvs1[primitive.i0] : uv0;
+    const float2 anisotropySetUv1 =
+        material.anisotropyTextureUvOffset.w > 0.5f
+            ? g_RenderUvs1[primitive.i1] : uv1;
+    const float2 anisotropySetUv2 =
+        material.anisotropyTextureUvOffset.w > 0.5f
+            ? g_RenderUvs1[primitive.i2] : uv2;
+    const float2 anisotropyUv0 = transformPbrUv(
+        anisotropySetUv0, material.anisotropyTexture.yz,
+        material.anisotropyTexture.w,
+        material.anisotropyTextureUvOffset.xy);
+    const float2 anisotropyUv1 = transformPbrUv(
+        anisotropySetUv1, material.anisotropyTexture.yz,
+        material.anisotropyTexture.w,
+        material.anisotropyTextureUvOffset.xy);
+    const float2 anisotropyUv2 = transformPbrUv(
+        anisotropySetUv2, material.anisotropyTexture.yz,
+        material.anisotropyTexture.w,
+        material.anisotropyTextureUvOffset.xy);
+    const float2 anisotropyUvEdge1 = anisotropyUv1 - anisotropyUv0;
+    const float2 anisotropyUvEdge2 = anisotropyUv2 - anisotropyUv0;
     const float baseColorUvRotation =
         material.baseColorTextureUvRotation.x;
     const float surfaceUvRotation = material.surfaceTextureUvRotation.x;
@@ -738,6 +763,9 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
     const float3 worldP0 = mul(ObjectToWorld3x4(), float4(p0, 1.0f));
     const float3 worldP1 = mul(ObjectToWorld3x4(), float4(p1, 1.0f));
     const float3 worldP2 = mul(ObjectToWorld3x4(), float4(p2, 1.0f));
+    const float3 worldEdge1 = worldP1 - worldP0;
+    const float3 worldEdge2 = worldP2 - worldP0;
+    const float rayConeRadius = max(payload.rayConeWidth * RayTCurrent(), 0.0f);
     const float3 worldEdge1 = worldP1 - worldP0;
     const float3 worldEdge2 = worldP2 - worldP0;
     const float rayConeRadius = max(payload.rayConeWidth * RayTCurrent(), 0.0f);
@@ -1394,7 +1422,24 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
             const float NdotV = max(saturate(dot(worldNormal, viewDirection)), 1.0e-4f);
             const float NdotH = max(saturate(dot(worldNormal, halfVector)), 1.0e-4f);
             const float VdotH = max(saturate(dot(viewDirection, halfVector)), 1.0e-4f);
-            const float anisotropy = clamp(material.anisotropy.x, -1.0f, 1.0f);
+            float anisotropy = clamp(material.anisotropy.x, -1.0f, 1.0f);
+            if (material.anisotropyTexture.x >= 0.0f) {
+                const uint textureIndex = NonUniformResourceIndex(
+                    (uint)material.anisotropyTexture.x);
+                const float2 anisotropyUv =
+                    anisotropyUv0 *
+                        (1.0f - attributes.barycentrics.x -
+                         attributes.barycentrics.y) +
+                    anisotropyUv1 * attributes.barycentrics.x +
+                    anisotropyUv2 * attributes.barycentrics.y;
+                const float textureLod = calculatePbrTextureLod(
+                    textureIndex, worldEdge1, worldEdge2,
+                    anisotropyUvEdge1, anisotropyUvEdge2, rayConeRadius);
+                const float anisotropySample =
+                    g_RTPbrTextures[textureIndex].SampleLevel(
+                        g_RTPbrSampler, anisotropyUv, textureLod).r;
+                anisotropy *= saturate(anisotropySample);
+            }
             const float alpha = roughness * roughness;
             const float alphaT = max(alpha * (1.0f + anisotropy), 1.0e-3f);
             const float alphaB = max(alpha * (1.0f - anisotropy), 1.0e-3f);
@@ -1979,6 +2024,8 @@ struct RTMaterial
     float4 sheenColorTextureUvOffset;
     float4 sheenRoughnessTexture;
     float4 sheenRoughnessTextureUvOffset;
+    float4 anisotropyTexture;
+    float4 anisotropyTextureUvOffset;
 };
 StructuredBuffer<float4> g_RenderVertices : register(t1);
 StructuredBuffer<RTPrimitive> g_RenderPrimitives : register(t2);
@@ -2690,6 +2737,21 @@ public:
             1000000.0f, 0.0f);
         nextMaterial.sheenRoughnessTextureUvOffset[3] =
             material.sheenRoughnessTextureUvSet == 1 ? 1.0f : 0.0f;
+        nextMaterial.anisotropyTexture[1] = clampFinite(
+            material.anisotropyTextureUvScaleU, 0.0001f, 10000.0f, 1.0f);
+        nextMaterial.anisotropyTexture[2] = clampFinite(
+            material.anisotropyTextureUvScaleV, 0.0001f, 10000.0f, 1.0f);
+        nextMaterial.anisotropyTexture[3] = clampFinite(
+            material.anisotropyTextureUvRotationDegrees, -360.0f, 360.0f,
+            0.0f) * (3.14159265358979323846f / 180.0f);
+        nextMaterial.anisotropyTextureUvOffset[1] = clampFinite(
+            material.anisotropyTextureUvOffsetU, -1000000.0f,
+            1000000.0f, 0.0f);
+        nextMaterial.anisotropyTextureUvOffset[2] = clampFinite(
+            material.anisotropyTextureUvOffsetV, -1000000.0f,
+            1000000.0f, 0.0f);
+        nextMaterial.anisotropyTextureUvOffset[3] =
+            material.anisotropyTextureUvSet == 1 ? 1.0f : 0.0f;
         if (materialIndex >= node.pbrMaterials.size()) {
             node.pbrMaterials.resize(static_cast<size_t>(materialIndex) + 1u,
                                      node.pbrMaterials.front());
@@ -2718,6 +2780,8 @@ public:
             node.sheenColorTexturePaths.resize(
                 static_cast<size_t>(materialIndex) + 1u);
             node.sheenRoughnessTexturePaths.resize(
+                static_cast<size_t>(materialIndex) + 1u);
+            node.anisotropyTexturePaths.resize(
                 static_cast<size_t>(materialIndex) + 1u);
         }
         bool textureChanged = false;
@@ -2770,6 +2834,9 @@ public:
         updateTexturePath(node.sheenRoughnessTexturePaths,
                           material.sheenRoughnessTexture,
                           PbrTextureKind::SheenRoughness);
+        updateTexturePath(node.anisotropyTexturePaths,
+                          material.anisotropyTexture,
+                          PbrTextureKind::Anisotropy);
         auto& current = node.pbrMaterials[materialIndex];
         if (std::memcmp(&current, &nextMaterial, sizeof(RTMaterial)) == 0) {
             if (!textureChanged) return false;
@@ -3377,8 +3444,10 @@ private:
         float sheenColorTextureUvOffset[4]{};
         float sheenRoughnessTexture[4]{-1.0f, 1.0f, 1.0f, 0.0f};
         float sheenRoughnessTextureUvOffset[4]{};
+        float anisotropyTexture[4]{-1.0f, 1.0f, 1.0f, 0.0f};
+        float anisotropyTextureUvOffset[4]{};
     };
-    static_assert(sizeof(RTMaterial) == 41u * 4u * sizeof(float));
+    static_assert(sizeof(RTMaterial) == 43u * 4u * sizeof(float));
     struct RTPbrTexture {
         RefCntAutoPtr<ITexture> texture;
         RefCntAutoPtr<ITextureView> view;
@@ -3386,7 +3455,7 @@ private:
     enum class PbrTextureKind : Uint8 {
         BaseColor, MetallicRoughness, Metallic, Roughness, Normal,
         Clearcoat, ClearcoatNormal, Occlusion, Emission, Opacity,
-        ClearcoatRoughness, SheenColor, SheenRoughness
+        ClearcoatRoughness, SheenColor, SheenRoughness, Anisotropy
     };
     struct BLASNode {
         RefCntAutoPtr<IBottomLevelAS> pBLAS;
@@ -3436,6 +3505,7 @@ private:
         std::vector<QString> opacityTexturePaths{QString()};
         std::vector<QString> sheenColorTexturePaths{QString()};
         std::vector<QString> sheenRoughnessTexturePaths{QString()};
+        std::vector<QString> anisotropyTexturePaths{QString()};
         bool materialDirty = false;
     };
 
@@ -3547,6 +3617,7 @@ private:
             : kind == PbrTextureKind::Emission ? QLatin1Char('e')
             : kind == PbrTextureKind::SheenColor ? QLatin1Char('h')
             : kind == PbrTextureKind::SheenRoughness ? QLatin1Char('j')
+            : kind == PbrTextureKind::Anisotropy ? QLatin1Char('l')
                                                : QLatin1Char('a');
         return path + QLatin1Char('\x1f') + suffix;
     }
@@ -3890,6 +3961,8 @@ private:
                     ? "RayTracing Emission Texture"
                     : kind == PbrTextureKind::SheenRoughness
                         ? "RayTracing Sheen Roughness Texture"
+                    : kind == PbrTextureKind::Anisotropy
+                        ? "RayTracing Anisotropy Texture"
                     : kind == PbrTextureKind::Opacity
                         ? "RayTracing Opacity Texture"
                         : "RayTracing Normal Texture";
@@ -4205,6 +4278,11 @@ private:
                     gpuMaterial.sheenRoughnessTexture[0] = resolveTextureIndex(
                         node.sheenRoughnessTexturePaths[materialIndex],
                         PbrTextureKind::SheenRoughness);
+                }
+                if (materialIndex < node.anisotropyTexturePaths.size()) {
+                    gpuMaterial.anisotropyTexture[0] = resolveTextureIndex(
+                        node.anisotropyTexturePaths[materialIndex],
+                        PbrTextureKind::Anisotropy);
                 }
                 materials.push_back(gpuMaterial);
             }

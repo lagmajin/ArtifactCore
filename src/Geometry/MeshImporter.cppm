@@ -521,6 +521,8 @@ public:
                          &imported.sheenColorTexture);
       setImportedTexture(material->pbr.sheen_roughness.texture,
                          &imported.sheenRoughnessTexture);
+      setImportedTexture(material->pbr.specular_anisotropy.texture,
+                         &imported.anisotropyTexture);
       captureUvTransform(material->pbr.base_color.texture, &imported.baseColorUv);
       captureUvTransform(material->pbr.base_factor.texture,
                          &imported.metallicRoughnessUv);
@@ -540,6 +542,8 @@ public:
                          &imported.sheenColorUv);
       captureUvTransform(material->pbr.sheen_roughness.texture,
                          &imported.sheenRoughnessUv);
+      captureUvTransform(material->pbr.specular_anisotropy.texture,
+                         &imported.anisotropyUv);
       importedPbrMaterials_.push_back(std::move(imported));
 
       assignTexture(material->pbr.base_color.texture, [&](const QString& p) { setLastBaseColorTexture(p); }, "base color texture");
