@@ -90,6 +90,10 @@ public:
  int baseColorUvSet_ = 0;
  UniString metallicRoughnessTexture_;
  bool hasMetallicRoughnessTexture_ = false;
+ UniString metallicTexture_;
+ bool hasMetallicTexture_ = false;
+ UniString roughnessTexture_;
+ bool hasRoughnessTexture_ = false;
  UniString normalTexture_;
  bool hasNormalTexture_ = false;
  UniString emissionTexture_;
@@ -552,6 +556,12 @@ bool Material::hasBaseColorTexture() const { return impl_->hasBaseColorTexture_;
 void Material::setMetallicRoughnessTexture(const UniString& p) { impl_->metallicRoughnessTexture_ = p; impl_->hasMetallicRoughnessTexture_ = !p.toQString().trimmed().isEmpty(); }
 UniString Material::metallicRoughnessTexture() const { return impl_->metallicRoughnessTexture_; }
 bool Material::hasMetallicRoughnessTexture() const { return impl_->hasMetallicRoughnessTexture_; }
+void Material::setMetallicTexture(const UniString& p) { impl_->metallicTexture_ = p; impl_->hasMetallicTexture_ = !p.toQString().trimmed().isEmpty(); }
+UniString Material::metallicTexture() const { return impl_->metallicTexture_; }
+bool Material::hasMetallicTexture() const { return impl_->hasMetallicTexture_; }
+void Material::setRoughnessTexture(const UniString& p) { impl_->roughnessTexture_ = p; impl_->hasRoughnessTexture_ = !p.toQString().trimmed().isEmpty(); }
+UniString Material::roughnessTexture() const { return impl_->roughnessTexture_; }
+bool Material::hasRoughnessTexture() const { return impl_->hasRoughnessTexture_; }
 void Material::setNormalTexture(const UniString& p) { impl_->normalTexture_ = p; impl_->hasNormalTexture_ = !p.toQString().trimmed().isEmpty(); }
 UniString Material::normalTexture() const { return impl_->normalTexture_; }
 bool Material::hasNormalTexture() const { return impl_->hasNormalTexture_; }

@@ -118,6 +118,8 @@ public:
         UniString name;
         UniString baseColorTexture;
         UniString metallicRoughnessTexture;
+        UniString metallicTexture;
+        UniString roughnessTexture;
         UniString normalTexture;
         UniString clearcoatNormalTexture;
         UniString emissionTexture;
@@ -125,6 +127,8 @@ public:
         UniString opacityTexture;
         ImportedPbrTextureTransform baseColorUv;
         ImportedPbrTextureTransform metallicRoughnessUv;
+        ImportedPbrTextureTransform metallicUv;
+        ImportedPbrTextureTransform roughnessUv;
         ImportedPbrTextureTransform normalUv;
         ImportedPbrTextureTransform clearcoatNormalUv;
         ImportedPbrTextureTransform emissionUv;

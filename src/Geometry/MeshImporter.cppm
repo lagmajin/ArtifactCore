@@ -691,6 +691,10 @@ public:
       captureTexture(material.diffuse_texname, material.diffuse_texopt,
                      &imported.baseColorTexture, &imported.baseColorUv);
       captureTexture(material.roughness_texname, material.roughness_texopt,
+                     &imported.roughnessTexture, &imported.roughnessUv);
+      captureTexture(material.metallic_texname, material.metallic_texopt,
+                     &imported.metallicTexture, &imported.metallicUv);
+      captureTexture(material.roughness_texname, material.roughness_texopt,
                      &imported.metallicRoughnessTexture,
                      &imported.metallicRoughnessUv);
       if (imported.metallicRoughnessTexture.toQString().isEmpty()) {
