@@ -1380,6 +1380,10 @@ cbuffer MaterialParams : register(b1) {
     float4 OpacityTextureUvOffset;
     float4 EmissionTextureUvRotation;
     float4 TextureUvSetSelectors;
+    float4 PbrTextureFlags2;
+    float4 MetallicTextureUvTransform;
+    float4 RoughnessTextureUvTransform;
+    float4 IndependentPbrTextureUvRotation;
 };
 
 float2 transformShadowUv(float2 uv) {
@@ -1477,6 +1481,8 @@ TextureCube g_PrefilteredEnvironment : register(t16);
 Texture2D g_BrdfLut : register(t17);
 TextureCube g_SheenPrefilteredEnvironment : register(t18);
 Texture2D g_ClearcoatNormalTexture : register(t19);
+Texture2D g_MetallicTexture : register(t20);
+Texture2D g_RoughnessTexture : register(t21);
 SamplerState g_BaseColorSampler : register(s0);
 SamplerComparisonState g_ShadowSampler : register(s1);
 SamplerState g_GoboSampler : register(s2);
@@ -1523,6 +1529,10 @@ cbuffer MaterialParams : register(b1) {
     float4 OpacityTextureUvOffset;
     float4 EmissionTextureUvRotation;
     float4 TextureUvSetSelectors;
+    float4 PbrTextureFlags2;
+    float4 MetallicTextureUvTransform;
+    float4 RoughnessTextureUvTransform;
+    float4 IndependentPbrTextureUvRotation;
 };
 
 float2 transformMeshUv(float2 uv) {
@@ -2035,6 +2045,34 @@ float4 PSMain(PSInput In) : SV_Target {
     float2 surfaceMeshUv = transformMeshUv(
         TextureUvSetSelectors.x > 0.5 ? In.UV1 : In.UV);
     float2 surfaceTextureUv = transformSurfaceTextureUv(surfaceMeshUv);
+    float2 metallicMapMeshUv = transformMeshUv(
+        PbrTextureFlags2.z > 0.5 ? In.UV1 : In.UV);
+    float2 metallicMapCentered =
+        (metallicMapMeshUv - 0.5) * MetallicTextureUvTransform.xy;
+    float metallicMapAngle = IndependentPbrTextureUvRotation.x;
+    if (abs(metallicMapAngle) > 1.0e-5) {
+        float sine = sin(metallicMapAngle);
+        float cosine = cos(metallicMapAngle);
+        metallicMapCentered = float2(
+            metallicMapCentered.x * cosine - metallicMapCentered.y * sine,
+            metallicMapCentered.x * sine + metallicMapCentered.y * cosine);
+    }
+    float2 metallicTextureUv = metallicMapCentered + 0.5 +
+                               MetallicTextureUvTransform.zw;
+    float2 roughnessMapMeshUv = transformMeshUv(
+        PbrTextureFlags2.w > 0.5 ? In.UV1 : In.UV);
+    float2 roughnessMapCentered =
+        (roughnessMapMeshUv - 0.5) * RoughnessTextureUvTransform.xy;
+    float roughnessMapAngle = IndependentPbrTextureUvRotation.y;
+    if (abs(roughnessMapAngle) > 1.0e-5) {
+        float sine = sin(roughnessMapAngle);
+        float cosine = cos(roughnessMapAngle);
+        roughnessMapCentered = float2(
+            roughnessMapCentered.x * cosine - roughnessMapCentered.y * sine,
+            roughnessMapCentered.x * sine + roughnessMapCentered.y * cosine);
+    }
+    float2 roughnessTextureUv = roughnessMapCentered + 0.5 +
+                                RoughnessTextureUvTransform.zw;
     float2 normalMeshUv = transformMeshUv(
         NormalTextureUvOffset.z > 0.5 ? In.UV1 : In.UV);
     float2 normalMapUv = rotateNormalMapUv(normalMeshUv);
@@ -2056,6 +2094,10 @@ float4 PSMain(PSInput In) : SV_Target {
     float4 metallicRoughnessSample =
         g_MetallicRoughnessTexture.Sample(g_BaseColorSampler,
                                           surfaceTextureUv);
+    float metallicMapSample =
+        g_MetallicTexture.Sample(g_BaseColorSampler, metallicTextureUv).r;
+    float roughnessMapSample =
+        g_RoughnessTexture.Sample(g_BaseColorSampler, roughnessTextureUv).r;
     float4 normalTextureSample =
         g_NormalTexture.Sample(g_BaseColorSampler, normalMapUv);
     float3 normalSample = normalTextureSample.xyz;
@@ -2087,10 +2129,20 @@ float4 PSMain(PSInput In) : SV_Target {
     float emissionStrength = max(EmissionColorStrength.a, 0.0);
     float3 emissionTint = srgbToLinear(saturate(EmissionColorStrength.rgb));
     float materialAlpha = baseColor.a * opacitySample.a;
-    float metallic = saturate(PbrFactors.x *
-        lerp(1.0, metallicRoughnessSample.b, PbrTextureFlags.x));
-    float roughness = clamp(PbrFactors.y *
-        lerp(1.0, metallicRoughnessSample.g, PbrTextureFlags.x), 0.04, 1.0);
+    float hasIndependentPbrMap =
+        max(PbrTextureFlags2.x, PbrTextureFlags2.y);
+    float packedMetallic = lerp(
+        1.0, metallicRoughnessSample.b,
+        PbrTextureFlags.x * (1.0 - hasIndependentPbrMap));
+    float packedRoughness = lerp(
+        1.0, metallicRoughnessSample.g,
+        PbrTextureFlags.x * (1.0 - hasIndependentPbrMap));
+    float metallicTextureValue =
+        lerp(packedMetallic, metallicMapSample, PbrTextureFlags2.x);
+    float roughnessTextureValue =
+        lerp(packedRoughness, roughnessMapSample, PbrTextureFlags2.y);
+    float metallic = saturate(PbrFactors.x * metallicTextureValue);
+    float roughness = clamp(PbrFactors.y * roughnessTextureValue, 0.04, 1.0);
     float ao = lerp(1.0,
                     lerp(1.0, occlusionSample, saturate(PbrFactors.w)),
                     PbrTextureFlags.z);
@@ -2805,7 +2857,7 @@ struct MeshRenderer::Impl {
     static_assert(sizeof(SceneLightGpu) == sizeof(float) * 24);
     static_assert(sizeof(SceneLightingConstants) ==
                   sizeof(SceneLightGpu) * MaxSceneLights + sizeof(float) * 8);
-    static_assert(sizeof(MaterialConstants) == sizeof(float) * 108);
+    static_assert(sizeof(MaterialConstants) == sizeof(float) * 124);
     static_assert(sizeof(MeshletConstants) == sizeof(float) * 52);
 
     Diligent::RefCntAutoPtr<Diligent::IPipelineStateCache>    pPSOCache_;
@@ -2862,6 +2914,10 @@ struct MeshRenderer::Impl {
     Diligent::RefCntAutoPtr<Diligent::ITextureView>           pLinearWhiteTextureSRV_;
     Diligent::RefCntAutoPtr<Diligent::ITexture>               pMetallicRoughnessTexture_;
     Diligent::RefCntAutoPtr<Diligent::ITextureView>           pMetallicRoughnessTextureSRV_;
+    Diligent::RefCntAutoPtr<Diligent::ITexture>               pMetallicTexture_;
+    Diligent::RefCntAutoPtr<Diligent::ITextureView>           pMetallicTextureSRV_;
+    Diligent::RefCntAutoPtr<Diligent::ITexture>               pRoughnessTexture_;
+    Diligent::RefCntAutoPtr<Diligent::ITextureView>           pRoughnessTextureSRV_;
     Diligent::RefCntAutoPtr<Diligent::ITexture>               pNormalTexture_;
     Diligent::RefCntAutoPtr<Diligent::ITextureView>           pNormalTextureSRV_;
     Diligent::RefCntAutoPtr<Diligent::ITexture>               pClearcoatNormalTexture_;
@@ -2932,6 +2988,8 @@ struct MeshRenderer::Impl {
     struct MaterialSlotTextures {
         MaterialSlotTexture baseColor;
         MaterialSlotTexture metallicRoughness;
+        MaterialSlotTexture metallic;
+        MaterialSlotTexture roughness;
         MaterialSlotTexture normal;
         MaterialSlotTexture clearcoatNormal;
         MaterialSlotTexture occlusion;
@@ -2943,6 +3001,8 @@ struct MeshRenderer::Impl {
     QString opacityTexturePath_;
     QString emissionTexturePath_;
     QString metallicRoughnessTexturePath_;
+    QString metallicTexturePath_;
+    QString roughnessTexturePath_;
     QString normalTexturePath_;
     QString clearcoatNormalTexturePath_;
     QString occlusionTexturePath_;
@@ -3398,6 +3458,12 @@ void MeshRenderer::createBuffers()
     if (!pImpl_->pMetallicRoughnessTextureSRV_) {
         pImpl_->pMetallicRoughnessTextureSRV_ = pImpl_->pLinearWhiteTextureSRV_;
     }
+    if (!pImpl_->pMetallicTextureSRV_) {
+        pImpl_->pMetallicTextureSRV_ = pImpl_->pLinearWhiteTextureSRV_;
+    }
+    if (!pImpl_->pRoughnessTextureSRV_) {
+        pImpl_->pRoughnessTextureSRV_ = pImpl_->pLinearWhiteTextureSRV_;
+    }
     if (!pImpl_->pNormalTextureSRV_) {
         pImpl_->pNormalTextureSRV_ = pImpl_->pLinearWhiteTextureSRV_;
     }
@@ -3629,7 +3695,7 @@ void MeshRenderer::createPSO()
     // Resource layout
     PSOCreateInfo.PSODesc.ResourceLayout.DefaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
     
-    static std::array<ShaderResourceVariableDesc, 23> Vars = {{
+    static std::array<ShaderResourceVariableDesc, 25> Vars = {{
         {SHADER_TYPE_VERTEX, "g_Instances", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "MaterialParams", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_BaseColorTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
@@ -3652,6 +3718,8 @@ void MeshRenderer::createPSO()
         {SHADER_TYPE_PIXEL, "g_SheenPrefilteredEnvironment", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_BrdfLut", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_ClearcoatNormalTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "g_MetallicTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "g_RoughnessTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_BaseColorSampler", SHADER_RESOURCE_VARIABLE_TYPE_STATIC}
     }};
     PSOCreateInfo.PSODesc.ResourceLayout.Variables = Vars.data();
@@ -4326,6 +4394,12 @@ void MeshRenderer::prepare(IDeviceContext* pContext)
         if (auto* pbrVar = activeSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_MetallicRoughnessTexture")) {
             pbrVar->Set(pImpl_->pMetallicRoughnessTextureSRV_);
         }
+        if (auto* metallicVar = activeSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_MetallicTexture")) {
+            metallicVar->Set(pImpl_->pMetallicTextureSRV_);
+        }
+        if (auto* roughnessVar = activeSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_RoughnessTexture")) {
+            roughnessVar->Set(pImpl_->pRoughnessTextureSRV_);
+        }
         if (auto* normalVar = activeSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_NormalTexture")) {
             normalVar->Set(pImpl_->pNormalTextureSRV_);
         }
@@ -4459,6 +4533,10 @@ void MeshRenderer::setMaterialRanges(const MaterialRange* ranges, size_t count) 
                         incoming.baseColorTexturePath) ||
             pathChanged(current.metallicRoughnessTexturePath,
                         incoming.metallicRoughnessTexturePath) ||
+            pathChanged(current.metallicTexturePath,
+                        incoming.metallicTexturePath) ||
+            pathChanged(current.roughnessTexturePath,
+                        incoming.roughnessTexturePath) ||
             pathChanged(current.normalTexturePath, incoming.normalTexturePath) ||
             pathChanged(current.clearcoatNormalTexturePath,
                         incoming.clearcoatNormalTexturePath) ||
@@ -4503,6 +4581,30 @@ void MeshRenderer::setMaterialRanges(const MaterialRange* ranges, size_t count) 
                            return loadLinearTexture(
                                context_, path,
                                "MeshRenderer_MaterialSlotMetallicRoughnessTexture",
+                               texture, srv);
+                       });
+        resolveTexture(i, slotTextures.metallic,
+                       incoming.metallicTexturePath,
+                       pImpl_->pLinearWhiteTextureSRV_.RawPtr(),
+                       pImpl_->metallicTexturePath_,
+                       pImpl_->pMetallicTextureSRV_,
+                       &Impl::MaterialSlotTextures::metallic,
+                       [&](const QString& path, auto& texture, auto& srv) {
+                           return loadLinearTexture(
+                               context_, path,
+                               "MeshRenderer_MaterialSlotMetallicTexture",
+                               texture, srv);
+                       });
+        resolveTexture(i, slotTextures.roughness,
+                       incoming.roughnessTexturePath,
+                       pImpl_->pLinearWhiteTextureSRV_.RawPtr(),
+                       pImpl_->roughnessTexturePath_,
+                       pImpl_->pRoughnessTextureSRV_,
+                       &Impl::MaterialSlotTextures::roughness,
+                       [&](const QString& path, auto& texture, auto& srv) {
+                           return loadLinearTexture(
+                               context_, path,
+                               "MeshRenderer_MaterialSlotRoughnessTexture",
                                texture, srv);
                        });
         resolveTexture(i, slotTextures.normal, incoming.normalTexturePath,
@@ -4558,6 +4660,26 @@ void MeshRenderer::setMaterialRanges(const MaterialRange* ranges, size_t count) 
                                texture, srv);
                        });
         MaterialState materialForGpu = incoming.material;
+        const auto loadedTexture = [](const Impl::MaterialSlotTexture& texture,
+                                      const QString& path,
+                                      const QString& primaryPath,
+                                      float primaryLoaded) {
+            return !path.trimmed().isEmpty() &&
+                   (texture.texture ||
+                    (path.trimmed() == primaryPath && primaryLoaded > 0.5f));
+        };
+        materialForGpu.pbrTextureFlags2[0] =
+            loadedTexture(slotTextures.metallic,
+                          incoming.metallicTexturePath,
+                          pImpl_->metallicTexturePath_,
+                          pImpl_->materialConstants_.pbrTextureFlags2[0])
+                ? 1.0f : 0.0f;
+        materialForGpu.pbrTextureFlags2[1] =
+            loadedTexture(slotTextures.roughness,
+                          incoming.roughnessTexturePath,
+                          pImpl_->roughnessTexturePath_,
+                          pImpl_->materialConstants_.pbrTextureFlags2[1])
+                ? 1.0f : 0.0f;
         materialForGpu.clearcoatFactors[3] =
             slotTextures.clearcoatNormal.texture ? 1.0f : 0.0f;
         if (!device) {
@@ -4627,6 +4749,10 @@ void MeshRenderer::drawMaterialSlots(IDeviceContext* pContext, size_t instanceCo
             SHADER_TYPE_PIXEL, "g_BaseColorTexture");
         auto* metallicRoughnessVariable = activeSRB->GetVariableByName(
             SHADER_TYPE_PIXEL, "g_MetallicRoughnessTexture");
+        auto* metallicVariable = activeSRB->GetVariableByName(
+            SHADER_TYPE_PIXEL, "g_MetallicTexture");
+        auto* roughnessVariable = activeSRB->GetVariableByName(
+            SHADER_TYPE_PIXEL, "g_RoughnessTexture");
         auto* normalVariable = activeSRB->GetVariableByName(
             SHADER_TYPE_PIXEL, "g_NormalTexture");
         auto* clearcoatNormalVariable = activeSRB->GetVariableByName(
@@ -4662,6 +4788,18 @@ void MeshRenderer::drawMaterialSlots(IDeviceContext* pContext, size_t instanceCo
                     pImpl_->materialSlotTextures[rangeIndex].metallicRoughness;
                 metallicRoughnessVariable->Set(slotTexture.srv
                     ? slotTexture.srv : pImpl_->pMetallicRoughnessTextureSRV_);
+            }
+            if (metallicVariable) {
+                const auto& slotTexture =
+                    pImpl_->materialSlotTextures[rangeIndex].metallic;
+                metallicVariable->Set(slotTexture.srv
+                    ? slotTexture.srv : pImpl_->pMetallicTextureSRV_);
+            }
+            if (roughnessVariable) {
+                const auto& slotTexture =
+                    pImpl_->materialSlotTextures[rangeIndex].roughness;
+                roughnessVariable->Set(slotTexture.srv
+                    ? slotTexture.srv : pImpl_->pRoughnessTextureSRV_);
             }
             if (normalVariable) {
                 const auto& slotTexture =
@@ -4710,6 +4848,8 @@ void MeshRenderer::drawMaterialSlots(IDeviceContext* pContext, size_t instanceCo
         if (metallicRoughnessVariable) {
             metallicRoughnessVariable->Set(pImpl_->pMetallicRoughnessTextureSRV_);
         }
+        if (metallicVariable) metallicVariable->Set(pImpl_->pMetallicTextureSRV_);
+        if (roughnessVariable) roughnessVariable->Set(pImpl_->pRoughnessTextureSRV_);
         if (normalVariable) normalVariable->Set(pImpl_->pNormalTextureSRV_);
         if (clearcoatNormalVariable) {
             clearcoatNormalVariable->Set(pImpl_->pClearcoatNormalTextureSRV_);
@@ -5837,6 +5977,84 @@ void MeshRenderer::setMetallicRoughnessTexture(const QString& path)
     } else {
         pImpl_->pMetallicRoughnessTextureSRV_ = pImpl_->pLinearWhiteTextureSRV_;
     }
+}
+
+void MeshRenderer::setMetallicTexture(const QString& path)
+{
+    prepared_ = false;
+    const QString newPath = path.trimmed();
+    if (newPath == pImpl_->metallicTexturePath_) {
+        return;
+    }
+    pImpl_->pMetallicTexture_ = nullptr;
+    pImpl_->pMetallicTextureSRV_ = pImpl_->pLinearWhiteTextureSRV_;
+    pImpl_->metallicTexturePath_.clear();
+    pImpl_->materialConstants_.pbrTextureFlags2[0] = 0.0f;
+    if (newPath.isEmpty()) return;
+    pImpl_->metallicTexturePath_ = newPath;
+    if (loadLinearTexture(context_, newPath, "MeshRenderer_MetallicTexture",
+                          pImpl_->pMetallicTexture_,
+                          pImpl_->pMetallicTextureSRV_)) {
+        pImpl_->materialConstants_.pbrTextureFlags2[0] = 1.0f;
+    } else {
+        pImpl_->pMetallicTextureSRV_ = pImpl_->pLinearWhiteTextureSRV_;
+    }
+}
+
+void MeshRenderer::setRoughnessTexture(const QString& path)
+{
+    prepared_ = false;
+    const QString newPath = path.trimmed();
+    if (newPath == pImpl_->roughnessTexturePath_) {
+        return;
+    }
+    pImpl_->pRoughnessTexture_ = nullptr;
+    pImpl_->pRoughnessTextureSRV_ = pImpl_->pLinearWhiteTextureSRV_;
+    pImpl_->roughnessTexturePath_.clear();
+    pImpl_->materialConstants_.pbrTextureFlags2[1] = 0.0f;
+    if (newPath.isEmpty()) return;
+    pImpl_->roughnessTexturePath_ = newPath;
+    if (loadLinearTexture(context_, newPath, "MeshRenderer_RoughnessTexture",
+                          pImpl_->pRoughnessTexture_,
+                          pImpl_->pRoughnessTextureSRV_)) {
+        pImpl_->materialConstants_.pbrTextureFlags2[1] = 1.0f;
+    } else {
+        pImpl_->pRoughnessTextureSRV_ = pImpl_->pLinearWhiteTextureSRV_;
+    }
+}
+
+void MeshRenderer::setMetallicTextureUvTransform(
+    float scaleU, float scaleV, float rotationDegrees, float offsetU,
+    float offsetV, int uvSet)
+{
+    prepared_ = false;
+    auto& transform = pImpl_->materialConstants_.metallicTextureUvTransform;
+    transform[0] = std::isfinite(scaleU) ? std::clamp(scaleU, 0.01f, 10.0f) : 1.0f;
+    transform[1] = std::isfinite(scaleV) ? std::clamp(scaleV, 0.01f, 10.0f) : 1.0f;
+    transform[2] = std::isfinite(offsetU) ? std::clamp(offsetU, -10.0f, 10.0f) : 0.0f;
+    transform[3] = std::isfinite(offsetV) ? std::clamp(offsetV, -10.0f, 10.0f) : 0.0f;
+    const float rotation = std::isfinite(rotationDegrees)
+        ? std::clamp(rotationDegrees, -360.0f, 360.0f) : 0.0f;
+    pImpl_->materialConstants_.independentPbrTextureUvRotation[0] =
+        rotation * std::numbers::pi_v<float> / 180.0f;
+    pImpl_->materialConstants_.pbrTextureFlags2[2] = uvSet == 1 ? 1.0f : 0.0f;
+}
+
+void MeshRenderer::setRoughnessTextureUvTransform(
+    float scaleU, float scaleV, float rotationDegrees, float offsetU,
+    float offsetV, int uvSet)
+{
+    prepared_ = false;
+    auto& transform = pImpl_->materialConstants_.roughnessTextureUvTransform;
+    transform[0] = std::isfinite(scaleU) ? std::clamp(scaleU, 0.01f, 10.0f) : 1.0f;
+    transform[1] = std::isfinite(scaleV) ? std::clamp(scaleV, 0.01f, 10.0f) : 1.0f;
+    transform[2] = std::isfinite(offsetU) ? std::clamp(offsetU, -10.0f, 10.0f) : 0.0f;
+    transform[3] = std::isfinite(offsetV) ? std::clamp(offsetV, -10.0f, 10.0f) : 0.0f;
+    const float rotation = std::isfinite(rotationDegrees)
+        ? std::clamp(rotationDegrees, -360.0f, 360.0f) : 0.0f;
+    pImpl_->materialConstants_.independentPbrTextureUvRotation[1] =
+        rotation * std::numbers::pi_v<float> / 180.0f;
+    pImpl_->materialConstants_.pbrTextureFlags2[3] = uvSet == 1 ? 1.0f : 0.0f;
 }
 
 void MeshRenderer::setNormalTexture(const QString& path)

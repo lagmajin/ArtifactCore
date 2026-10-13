@@ -210,6 +210,12 @@ public:
     // current payload. Returns false on invalid JSON (keeps old material).
     bool setMaterialGraphJson(const std::string& json);
     void setMetallicRoughnessTexture(const QString& path);
+    void setMetallicTexture(const QString& path);
+    void setRoughnessTexture(const QString& path);
+    void setMetallicTextureUvTransform(float scaleU, float scaleV,
+        float rotationDegrees, float offsetU, float offsetV, int uvSet);
+    void setRoughnessTextureUvTransform(float scaleU, float scaleV,
+        float rotationDegrees, float offsetU, float offsetV, int uvSet);
     void setNormalTexture(const QString& path);
     void setOcclusionTexture(const QString& path);
     // Optional split-sum environment lighting inputs. Passing nullptr for all
@@ -329,6 +335,11 @@ public:
         std::array<float, 4> emissionTextureUvRotation{};
         // x/y/z/w select Metallic-Roughness/Occlusion/Emission/Opacity UV sets.
         std::array<float, 4> textureUvSetSelectors{};
+        // x/y indicate independent maps, z/w select their UV set.
+        std::array<float, 4> pbrTextureFlags2{};
+        std::array<float, 4> metallicTextureUvTransform{1.0f, 1.0f, 0.0f, 0.0f};
+        std::array<float, 4> roughnessTextureUvTransform{1.0f, 1.0f, 0.0f, 0.0f};
+        std::array<float, 4> independentPbrTextureUvRotation{};
     };
 
     // Multi-material draw. Each range names a contiguous index span and the
@@ -343,6 +354,8 @@ public:
         MaterialState material;
         QString baseColorTexturePath;
         QString metallicRoughnessTexturePath;
+        QString metallicTexturePath;
+        QString roughnessTexturePath;
         QString normalTexturePath;
         QString clearcoatNormalTexturePath;
         QString occlusionTexturePath;

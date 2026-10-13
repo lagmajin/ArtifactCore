@@ -26,6 +26,15 @@ export enum class MaterialAlphaMode {
 
 export enum class MaterialPresetKind { Matte, Metal, Plastic, Glass };
 
+export struct MaterialTextureUvTransform {
+  float scaleU = 1.0f;
+  float scaleV = 1.0f;
+  float rotationDegrees = 0.0f;
+  float offsetU = 0.0f;
+  float offsetV = 0.0f;
+  int uvSet = 0;
+};
+
  /// PBR マテリアル。DCC 標準 (glTF / Standard Surface 互換)。
  export class Material {
  private:
@@ -201,9 +210,15 @@ export enum class MaterialPresetKind { Matte, Metal, Plastic, Glass };
   void setMetallicTexture(const UniString& path);
   UniString metallicTexture() const;
   bool hasMetallicTexture() const;
+  void setMetallicTextureUvTransform(
+      const MaterialTextureUvTransform& transform);
+  MaterialTextureUvTransform metallicTextureUvTransform() const;
   void setRoughnessTexture(const UniString& path);
   UniString roughnessTexture() const;
   bool hasRoughnessTexture() const;
+  void setRoughnessTextureUvTransform(
+      const MaterialTextureUvTransform& transform);
+  MaterialTextureUvTransform roughnessTextureUvTransform() const;
   void setNormalTexture(const UniString& path);
   UniString normalTexture() const;
   bool hasNormalTexture() const;

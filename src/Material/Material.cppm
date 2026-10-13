@@ -92,8 +92,10 @@ public:
  bool hasMetallicRoughnessTexture_ = false;
  UniString metallicTexture_;
  bool hasMetallicTexture_ = false;
+ MaterialTextureUvTransform metallicTextureUvTransform_;
  UniString roughnessTexture_;
  bool hasRoughnessTexture_ = false;
+ MaterialTextureUvTransform roughnessTextureUvTransform_;
  UniString normalTexture_;
  bool hasNormalTexture_ = false;
  UniString emissionTexture_;
@@ -559,9 +561,47 @@ bool Material::hasMetallicRoughnessTexture() const { return impl_->hasMetallicRo
 void Material::setMetallicTexture(const UniString& p) { impl_->metallicTexture_ = p; impl_->hasMetallicTexture_ = !p.toQString().trimmed().isEmpty(); }
 UniString Material::metallicTexture() const { return impl_->metallicTexture_; }
 bool Material::hasMetallicTexture() const { return impl_->hasMetallicTexture_; }
+void Material::setMetallicTextureUvTransform(
+    const MaterialTextureUvTransform& value) {
+  impl_->metallicTextureUvTransform_ = value;
+  auto& transform = impl_->metallicTextureUvTransform_;
+  transform.scaleU = std::isfinite(transform.scaleU)
+      ? std::clamp(transform.scaleU, 0.01f, 10.0f) : 1.0f;
+  transform.scaleV = std::isfinite(transform.scaleV)
+      ? std::clamp(transform.scaleV, 0.01f, 10.0f) : 1.0f;
+  transform.rotationDegrees = std::isfinite(transform.rotationDegrees)
+      ? std::clamp(transform.rotationDegrees, -360.0f, 360.0f) : 0.0f;
+  transform.offsetU = std::isfinite(transform.offsetU)
+      ? std::clamp(transform.offsetU, -10.0f, 10.0f) : 0.0f;
+  transform.offsetV = std::isfinite(transform.offsetV)
+      ? std::clamp(transform.offsetV, -10.0f, 10.0f) : 0.0f;
+  transform.uvSet = transform.uvSet == 1 ? 1 : 0;
+}
+MaterialTextureUvTransform Material::metallicTextureUvTransform() const {
+  return impl_->metallicTextureUvTransform_;
+}
 void Material::setRoughnessTexture(const UniString& p) { impl_->roughnessTexture_ = p; impl_->hasRoughnessTexture_ = !p.toQString().trimmed().isEmpty(); }
 UniString Material::roughnessTexture() const { return impl_->roughnessTexture_; }
 bool Material::hasRoughnessTexture() const { return impl_->hasRoughnessTexture_; }
+void Material::setRoughnessTextureUvTransform(
+    const MaterialTextureUvTransform& value) {
+  impl_->roughnessTextureUvTransform_ = value;
+  auto& transform = impl_->roughnessTextureUvTransform_;
+  transform.scaleU = std::isfinite(transform.scaleU)
+      ? std::clamp(transform.scaleU, 0.01f, 10.0f) : 1.0f;
+  transform.scaleV = std::isfinite(transform.scaleV)
+      ? std::clamp(transform.scaleV, 0.01f, 10.0f) : 1.0f;
+  transform.rotationDegrees = std::isfinite(transform.rotationDegrees)
+      ? std::clamp(transform.rotationDegrees, -360.0f, 360.0f) : 0.0f;
+  transform.offsetU = std::isfinite(transform.offsetU)
+      ? std::clamp(transform.offsetU, -10.0f, 10.0f) : 0.0f;
+  transform.offsetV = std::isfinite(transform.offsetV)
+      ? std::clamp(transform.offsetV, -10.0f, 10.0f) : 0.0f;
+  transform.uvSet = transform.uvSet == 1 ? 1 : 0;
+}
+MaterialTextureUvTransform Material::roughnessTextureUvTransform() const {
+  return impl_->roughnessTextureUvTransform_;
+}
 void Material::setNormalTexture(const UniString& p) { impl_->normalTexture_ = p; impl_->hasNormalTexture_ = !p.toQString().trimmed().isEmpty(); }
 UniString Material::normalTexture() const { return impl_->normalTexture_; }
 bool Material::hasNormalTexture() const { return impl_->hasNormalTexture_; }
