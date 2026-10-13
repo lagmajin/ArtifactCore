@@ -58,6 +58,8 @@ public:
  QColor sheenTint_ = QColor(255, 255, 255);
  UniString sheenColorTexture_;
  MaterialTextureUvTransform sheenColorTextureUvTransform_{};
+ UniString sheenRoughnessTexture_;
+ MaterialTextureUvTransform sheenRoughnessTextureUvTransform_{};
  float subsurface_ = 0.0f;
  float subsurfaceIOR_ = 1.4f;
  float subsurfaceAnisotropy_ = 0.0f;
@@ -460,6 +462,33 @@ void Material::setSheenColorTexture(const UniString& path) {
 }
 UniString Material::sheenColorTexture() const {
  return impl_->sheenColorTexture_;
+}
+void Material::setSheenRoughnessTexture(const UniString& path) {
+ impl_->sheenRoughnessTexture_ = path;
+}
+UniString Material::sheenRoughnessTexture() const {
+ return impl_->sheenRoughnessTexture_;
+}
+void Material::setSheenRoughnessTextureUvTransform(
+    const MaterialTextureUvTransform& transform) {
+ auto finiteOr = [](float value, float fallback) {
+  return std::isfinite(value) ? value : fallback;
+ };
+ impl_->sheenRoughnessTextureUvTransform_.scaleU = std::clamp(
+     finiteOr(transform.scaleU, 1.0f), 0.0001f, 10000.0f);
+ impl_->sheenRoughnessTextureUvTransform_.scaleV = std::clamp(
+     finiteOr(transform.scaleV, 1.0f), 0.0001f, 10000.0f);
+ impl_->sheenRoughnessTextureUvTransform_.rotationDegrees = std::clamp(
+     finiteOr(transform.rotationDegrees, 0.0f), -360.0f, 360.0f);
+ impl_->sheenRoughnessTextureUvTransform_.offsetU = std::clamp(
+     finiteOr(transform.offsetU, 0.0f), -1000000.0f, 1000000.0f);
+ impl_->sheenRoughnessTextureUvTransform_.offsetV = std::clamp(
+     finiteOr(transform.offsetV, 0.0f), -1000000.0f, 1000000.0f);
+ impl_->sheenRoughnessTextureUvTransform_.uvSet =
+     transform.uvSet == 1 ? 1 : 0;
+}
+MaterialTextureUvTransform Material::sheenRoughnessTextureUvTransform() const {
+ return impl_->sheenRoughnessTextureUvTransform_;
 }
 void Material::setSheenColorTextureUvTransform(
     const MaterialTextureUvTransform& transform) {

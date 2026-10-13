@@ -178,6 +178,8 @@ struct RTMaterial
     float4 clearcoatRoughnessTextureUvOffset;
     float4 sheenColorTexture;
     float4 sheenColorTextureUvOffset;
+    float4 sheenRoughnessTexture;
+    float4 sheenRoughnessTextureUvOffset;
 };
 StructuredBuffer<float4> g_RenderVertices : register(t1);
 StructuredBuffer<RTPrimitive> g_RenderPrimitives : register(t2);
@@ -634,6 +636,31 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
         material.sheenColorTextureUvOffset.xy);
     const float2 sheenColorUvEdge1 = sheenColorUv1 - sheenColorUv0;
     const float2 sheenColorUvEdge2 = sheenColorUv2 - sheenColorUv0;
+    const float2 sheenRoughnessSetUv0 =
+        material.sheenRoughnessTextureUvOffset.w > 0.5f
+            ? g_RenderUvs1[primitive.i0] : uv0;
+    const float2 sheenRoughnessSetUv1 =
+        material.sheenRoughnessTextureUvOffset.w > 0.5f
+            ? g_RenderUvs1[primitive.i1] : uv1;
+    const float2 sheenRoughnessSetUv2 =
+        material.sheenRoughnessTextureUvOffset.w > 0.5f
+            ? g_RenderUvs1[primitive.i2] : uv2;
+    const float2 sheenRoughnessUv0 = transformPbrUv(
+        sheenRoughnessSetUv0, material.sheenRoughnessTexture.yz,
+        material.sheenRoughnessTexture.w,
+        material.sheenRoughnessTextureUvOffset.xy);
+    const float2 sheenRoughnessUv1 = transformPbrUv(
+        sheenRoughnessSetUv1, material.sheenRoughnessTexture.yz,
+        material.sheenRoughnessTexture.w,
+        material.sheenRoughnessTextureUvOffset.xy);
+    const float2 sheenRoughnessUv2 = transformPbrUv(
+        sheenRoughnessSetUv2, material.sheenRoughnessTexture.yz,
+        material.sheenRoughnessTexture.w,
+        material.sheenRoughnessTextureUvOffset.xy);
+    const float2 sheenRoughnessUvEdge1 =
+        sheenRoughnessUv1 - sheenRoughnessUv0;
+    const float2 sheenRoughnessUvEdge2 =
+        sheenRoughnessUv2 - sheenRoughnessUv0;
     const float baseColorUvRotation =
         material.baseColorTextureUvRotation.x;
     const float surfaceUvRotation = material.surfaceTextureUvRotation.x;
@@ -1102,6 +1129,23 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
     float sheen = saturate(material.extras.w) * (1.0f - metallic) *
                   (1.0f - transmission);
     float sheenRoughness = clamp(material.sheen.x, 0.0f, 1.0f);
+    if (material.sheenRoughnessTexture.x >= 0.0f) {
+        const uint textureIndex = NonUniformResourceIndex(
+            (uint)material.sheenRoughnessTexture.x);
+        const float2 sheenRoughnessUv =
+            sheenRoughnessUv0 *
+                (1.0f - attributes.barycentrics.x -
+                 attributes.barycentrics.y) +
+            sheenRoughnessUv1 * attributes.barycentrics.x +
+            sheenRoughnessUv2 * attributes.barycentrics.y;
+        const float textureLod = calculatePbrTextureLod(
+            textureIndex, worldEdge1, worldEdge2,
+            sheenRoughnessUvEdge1, sheenRoughnessUvEdge2, rayConeRadius);
+        const float sampledSheenRoughness =
+            g_RTPbrTextures[textureIndex].SampleLevel(
+                g_RTPbrSampler, sheenRoughnessUv, textureLod).r;
+        sheenRoughness = saturate(sheenRoughness * sampledSheenRoughness);
+    }
     float3 sheenTint = float3(SrgbChannelToLinear(material.sheen.y),
                               SrgbChannelToLinear(material.sheen.z),
                               SrgbChannelToLinear(material.sheen.w));
@@ -1933,6 +1977,8 @@ struct RTMaterial
     float4 clearcoatRoughnessTextureUvOffset;
     float4 sheenColorTexture;
     float4 sheenColorTextureUvOffset;
+    float4 sheenRoughnessTexture;
+    float4 sheenRoughnessTextureUvOffset;
 };
 StructuredBuffer<float4> g_RenderVertices : register(t1);
 StructuredBuffer<RTPrimitive> g_RenderPrimitives : register(t2);
@@ -2629,6 +2675,21 @@ public:
             material.sheenColorTextureUvOffsetV, -1000000.0f, 1000000.0f, 0.0f);
         nextMaterial.sheenColorTextureUvOffset[3] =
             material.sheenColorTextureUvSet == 1 ? 1.0f : 0.0f;
+        nextMaterial.sheenRoughnessTexture[1] = clampFinite(
+            material.sheenRoughnessTextureUvScaleU, 0.0001f, 10000.0f, 1.0f);
+        nextMaterial.sheenRoughnessTexture[2] = clampFinite(
+            material.sheenRoughnessTextureUvScaleV, 0.0001f, 10000.0f, 1.0f);
+        nextMaterial.sheenRoughnessTexture[3] = clampFinite(
+            material.sheenRoughnessTextureUvRotationDegrees, -360.0f, 360.0f,
+            0.0f) * (3.14159265358979323846f / 180.0f);
+        nextMaterial.sheenRoughnessTextureUvOffset[1] = clampFinite(
+            material.sheenRoughnessTextureUvOffsetU, -1000000.0f,
+            1000000.0f, 0.0f);
+        nextMaterial.sheenRoughnessTextureUvOffset[2] = clampFinite(
+            material.sheenRoughnessTextureUvOffsetV, -1000000.0f,
+            1000000.0f, 0.0f);
+        nextMaterial.sheenRoughnessTextureUvOffset[3] =
+            material.sheenRoughnessTextureUvSet == 1 ? 1.0f : 0.0f;
         if (materialIndex >= node.pbrMaterials.size()) {
             node.pbrMaterials.resize(static_cast<size_t>(materialIndex) + 1u,
                                      node.pbrMaterials.front());
@@ -2655,6 +2716,8 @@ public:
             node.opacityTexturePaths.resize(
                 static_cast<size_t>(materialIndex) + 1u);
             node.sheenColorTexturePaths.resize(
+                static_cast<size_t>(materialIndex) + 1u);
+            node.sheenRoughnessTexturePaths.resize(
                 static_cast<size_t>(materialIndex) + 1u);
         }
         bool textureChanged = false;
@@ -2704,6 +2767,9 @@ public:
                           material.opacityTexture, PbrTextureKind::Opacity);
         updateTexturePath(node.sheenColorTexturePaths,
                           material.sheenColorTexture, PbrTextureKind::SheenColor);
+        updateTexturePath(node.sheenRoughnessTexturePaths,
+                          material.sheenRoughnessTexture,
+                          PbrTextureKind::SheenRoughness);
         auto& current = node.pbrMaterials[materialIndex];
         if (std::memcmp(&current, &nextMaterial, sizeof(RTMaterial)) == 0) {
             if (!textureChanged) return false;
@@ -3309,6 +3375,8 @@ private:
         float clearcoatRoughnessTextureUvOffset[4]{};
         float sheenColorTexture[4]{-1.0f, 1.0f, 1.0f, 0.0f};
         float sheenColorTextureUvOffset[4]{};
+        float sheenRoughnessTexture[4]{-1.0f, 1.0f, 1.0f, 0.0f};
+        float sheenRoughnessTextureUvOffset[4]{};
     };
     static_assert(sizeof(RTMaterial) == 41u * 4u * sizeof(float));
     struct RTPbrTexture {
@@ -3318,7 +3386,7 @@ private:
     enum class PbrTextureKind : Uint8 {
         BaseColor, MetallicRoughness, Metallic, Roughness, Normal,
         Clearcoat, ClearcoatNormal, Occlusion, Emission, Opacity,
-        ClearcoatRoughness, SheenColor
+        ClearcoatRoughness, SheenColor, SheenRoughness
     };
     struct BLASNode {
         RefCntAutoPtr<IBottomLevelAS> pBLAS;
@@ -3367,6 +3435,7 @@ private:
         std::vector<QString> emissionTexturePaths{QString()};
         std::vector<QString> opacityTexturePaths{QString()};
         std::vector<QString> sheenColorTexturePaths{QString()};
+        std::vector<QString> sheenRoughnessTexturePaths{QString()};
         bool materialDirty = false;
     };
 
@@ -3477,6 +3546,7 @@ private:
             : kind == PbrTextureKind::Occlusion ? QLatin1Char('o')
             : kind == PbrTextureKind::Emission ? QLatin1Char('e')
             : kind == PbrTextureKind::SheenColor ? QLatin1Char('h')
+            : kind == PbrTextureKind::SheenRoughness ? QLatin1Char('j')
                                                : QLatin1Char('a');
         return path + QLatin1Char('\x1f') + suffix;
     }
@@ -3818,6 +3888,8 @@ private:
                     ? "RayTracing Metallic or Roughness Texture"
                 : kind == PbrTextureKind::Emission
                     ? "RayTracing Emission Texture"
+                    : kind == PbrTextureKind::SheenRoughness
+                        ? "RayTracing Sheen Roughness Texture"
                     : kind == PbrTextureKind::Opacity
                         ? "RayTracing Opacity Texture"
                         : "RayTracing Normal Texture";
@@ -4128,6 +4200,11 @@ private:
                     gpuMaterial.sheenColorTexture[0] = resolveTextureIndex(
                         node.sheenColorTexturePaths[materialIndex],
                         PbrTextureKind::SheenColor);
+                }
+                if (materialIndex < node.sheenRoughnessTexturePaths.size()) {
+                    gpuMaterial.sheenRoughnessTexture[0] = resolveTextureIndex(
+                        node.sheenRoughnessTexturePaths[materialIndex],
+                        PbrTextureKind::SheenRoughness);
                 }
                 materials.push_back(gpuMaterial);
             }
