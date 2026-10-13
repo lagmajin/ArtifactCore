@@ -394,6 +394,13 @@ public:
       captureMaterialScalar(material->pbr.coat_ior, 1.0f, 2.0f, 1.5f,
                             &imported.clearcoatIor,
                             &imported.hasClearcoatIor);
+      captureMaterialScalar(material->pbr.thin_film_thickness,
+                            0.0f, 1000.0f, 0.0f,
+                            &imported.thinFilmThickness,
+                            &imported.hasThinFilmThickness);
+      captureMaterialScalar(material->pbr.thin_film_ior, 1.0f, 2.5f, 1.33f,
+                            &imported.thinFilmIor,
+                            &imported.hasThinFilmIor);
       captureMaterialScalar(material->pbr.opacity, 0.0f, 1.0f, 1.0f,
                             &imported.opacity, &imported.hasOpacity);
       captureMaterialScalar(material->pbr.emission_factor, 0.0f, 100000.0f,

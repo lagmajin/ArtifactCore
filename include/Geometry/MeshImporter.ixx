@@ -141,6 +141,8 @@ public:
         bool hasClearcoatRoughness = false;
         bool hasClearcoatIor = false;
         bool hasClearcoatTint = false;
+        bool hasThinFilmThickness = false;
+        bool hasThinFilmIor = false;
         bool hasTransmission = false;
         bool hasIor = false;
         bool hasSheen = false;
@@ -163,6 +165,8 @@ public:
         float clearcoatRoughness = 0.03f;
         float clearcoatIor = 1.5f;
         float clearcoatTint[3] = {1.0f, 1.0f, 1.0f};
+        float thinFilmThickness = 0.0f;
+        float thinFilmIor = 1.33f;
         float transmission = 0.0f;
         float ior = 1.5f;
         float sheen = 0.0f;
