@@ -83,6 +83,18 @@ public:
   float lastMetallicFactor_ = 0.0f;
   bool hasLastRoughnessFactor_ = false;
   float lastRoughnessFactor_ = 0.5f;
+  bool hasLastClearcoatFactor_ = false;
+  float lastClearcoatFactor_ = 0.0f;
+  bool hasLastClearcoatRoughnessFactor_ = false;
+  float lastClearcoatRoughnessFactor_ = 0.03f;
+  bool hasLastTransmissionFactor_ = false;
+  float lastTransmissionFactor_ = 0.0f;
+  bool hasLastIorFactor_ = false;
+  float lastIorFactor_ = 1.5f;
+  bool hasLastSheenFactor_ = false;
+  float lastSheenFactor_ = 0.0f;
+  bool hasLastSheenRoughnessFactor_ = false;
+  float lastSheenRoughnessFactor_ = 0.5f;
 
   // Per-source-mesh data produced by importers that concatenate several
   // primitives (USD stages).  Empty for the single-mesh import paths; the
@@ -310,6 +322,36 @@ public:
           hasLastRoughnessFactor_ = true;
         }
       }
+      const auto captureScalar = [](const ufbx_material_map& map,
+                                    bool* hasValue, float* output,
+                                    float minimum, float maximum,
+                                    float fallback) {
+        if (*hasValue || !map.has_value || !std::isfinite(map.value_real)) {
+          return;
+        }
+        *output = std::clamp(static_cast<float>(map.value_real), minimum,
+                             maximum);
+        if (!std::isfinite(*output)) {
+          *output = fallback;
+          return;
+        }
+        *hasValue = true;
+      };
+      captureScalar(material->pbr.coat_factor, &hasLastClearcoatFactor_,
+                    &lastClearcoatFactor_, 0.0f, 1.0f, 0.0f);
+      captureScalar(material->pbr.coat_roughness,
+                    &hasLastClearcoatRoughnessFactor_,
+                    &lastClearcoatRoughnessFactor_, 0.0f, 1.0f, 0.03f);
+      captureScalar(material->pbr.transmission_factor,
+                    &hasLastTransmissionFactor_, &lastTransmissionFactor_,
+                    0.0f, 1.0f, 0.0f);
+      captureScalar(material->pbr.specular_ior, &hasLastIorFactor_,
+                    &lastIorFactor_, 1.0f, 3.0f, 1.5f);
+      captureScalar(material->pbr.sheen_factor, &hasLastSheenFactor_,
+                    &lastSheenFactor_, 0.0f, 1.0f, 0.0f);
+      captureScalar(material->pbr.sheen_roughness,
+                    &hasLastSheenRoughnessFactor_,
+                    &lastSheenRoughnessFactor_, 0.0f, 1.0f, 0.5f);
       if (lastNormalTexture_.isEmpty()) {
         assignTexture(material->pbr.normal_map.texture, [&](const QString& p) { setLastNormalTexture(p); }, "normal texture");
       }
@@ -327,7 +369,11 @@ public:
           !lastNormalTexture_.isEmpty() &&
           !lastEmissionTexture_.isEmpty() &&
           !lastOpacityTexture_.isEmpty() &&
-          !lastOcclusionTexture_.isEmpty()) {
+          !lastOcclusionTexture_.isEmpty() &&
+          hasLastMetallicFactor_ && hasLastRoughnessFactor_ &&
+          hasLastClearcoatFactor_ && hasLastClearcoatRoughnessFactor_ &&
+          hasLastTransmissionFactor_ && hasLastIorFactor_ &&
+          hasLastSheenFactor_ && hasLastSheenRoughnessFactor_) {
         return;
       }
     }
@@ -414,6 +460,18 @@ public:
     lastMetallicFactor_ = 0.0f;
     hasLastRoughnessFactor_ = false;
     lastRoughnessFactor_ = 0.5f;
+    hasLastClearcoatFactor_ = false;
+    lastClearcoatFactor_ = 0.0f;
+    hasLastClearcoatRoughnessFactor_ = false;
+    lastClearcoatRoughnessFactor_ = 0.03f;
+    hasLastTransmissionFactor_ = false;
+    lastTransmissionFactor_ = 0.0f;
+    hasLastIorFactor_ = false;
+    lastIorFactor_ = 1.5f;
+    hasLastSheenFactor_ = false;
+    lastSheenFactor_ = 0.0f;
+    hasLastSheenRoughnessFactor_ = false;
+    lastSheenRoughnessFactor_ = 0.5f;
 
     // Detect glTF/glb from extension
     const QString lowerPath = path.toLower();
@@ -2241,6 +2299,18 @@ public:
     lastMetallicFactor_ = 0.0f;
     hasLastRoughnessFactor_ = false;
     lastRoughnessFactor_ = 0.0f;
+    hasLastClearcoatFactor_ = false;
+    lastClearcoatFactor_ = 0.0f;
+    hasLastClearcoatRoughnessFactor_ = false;
+    lastClearcoatRoughnessFactor_ = 0.03f;
+    hasLastTransmissionFactor_ = false;
+    lastTransmissionFactor_ = 0.0f;
+    hasLastIorFactor_ = false;
+    lastIorFactor_ = 1.5f;
+    hasLastSheenFactor_ = false;
+    lastSheenFactor_ = 0.0f;
+    hasLastSheenRoughnessFactor_ = false;
+    lastSheenRoughnessFactor_ = 0.5f;
 
     pxr::UsdStageRefPtr stage;
     if (cachedUsdStage_ && cachedUsdPath_ == path) {
@@ -2838,6 +2908,54 @@ bool MeshImporter::hasLastRoughnessFactor() const {
 
 float MeshImporter::lastRoughnessFactor() const {
   return impl_ ? impl_->lastRoughnessFactor_ : 0.5f;
+}
+
+bool MeshImporter::hasLastClearcoatFactor() const {
+  return impl_ && impl_->hasLastClearcoatFactor_;
+}
+
+float MeshImporter::lastClearcoatFactor() const {
+  return impl_ ? impl_->lastClearcoatFactor_ : 0.0f;
+}
+
+bool MeshImporter::hasLastClearcoatRoughnessFactor() const {
+  return impl_ && impl_->hasLastClearcoatRoughnessFactor_;
+}
+
+float MeshImporter::lastClearcoatRoughnessFactor() const {
+  return impl_ ? impl_->lastClearcoatRoughnessFactor_ : 0.03f;
+}
+
+bool MeshImporter::hasLastTransmissionFactor() const {
+  return impl_ && impl_->hasLastTransmissionFactor_;
+}
+
+float MeshImporter::lastTransmissionFactor() const {
+  return impl_ ? impl_->lastTransmissionFactor_ : 0.0f;
+}
+
+bool MeshImporter::hasLastIorFactor() const {
+  return impl_ && impl_->hasLastIorFactor_;
+}
+
+float MeshImporter::lastIorFactor() const {
+  return impl_ ? impl_->lastIorFactor_ : 1.5f;
+}
+
+bool MeshImporter::hasLastSheenFactor() const {
+  return impl_ && impl_->hasLastSheenFactor_;
+}
+
+float MeshImporter::lastSheenFactor() const {
+  return impl_ ? impl_->lastSheenFactor_ : 0.0f;
+}
+
+bool MeshImporter::hasLastSheenRoughnessFactor() const {
+  return impl_ && impl_->hasLastSheenRoughnessFactor_;
+}
+
+float MeshImporter::lastSheenRoughnessFactor() const {
+  return impl_ ? impl_->lastSheenRoughnessFactor_ : 0.5f;
 }
 
 int MeshImporter::sourceMeshCount() const {

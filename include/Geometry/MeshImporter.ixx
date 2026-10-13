@@ -90,6 +90,18 @@ public:
     [[nodiscard]] float lastMetallicFactor() const;
     [[nodiscard]] bool hasLastRoughnessFactor() const;
     [[nodiscard]] float lastRoughnessFactor() const;
+    [[nodiscard]] bool hasLastClearcoatFactor() const;
+    [[nodiscard]] float lastClearcoatFactor() const;
+    [[nodiscard]] bool hasLastClearcoatRoughnessFactor() const;
+    [[nodiscard]] float lastClearcoatRoughnessFactor() const;
+    [[nodiscard]] bool hasLastTransmissionFactor() const;
+    [[nodiscard]] float lastTransmissionFactor() const;
+    [[nodiscard]] bool hasLastIorFactor() const;
+    [[nodiscard]] float lastIorFactor() const;
+    [[nodiscard]] bool hasLastSheenFactor() const;
+    [[nodiscard]] float lastSheenFactor() const;
+    [[nodiscard]] bool hasLastSheenRoughnessFactor() const;
+    [[nodiscard]] float lastSheenRoughnessFactor() const;
 
     // Per-source-mesh data for importers that concatenate several primitives
     // into one mesh (a USD stage with multiple UsdGeomMesh prims).  Each entry
