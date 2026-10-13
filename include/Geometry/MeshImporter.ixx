@@ -140,6 +140,7 @@ public:
         bool hasClearcoat = false;
         bool hasClearcoatRoughness = false;
         bool hasClearcoatIor = false;
+        bool hasClearcoatTint = false;
         bool hasTransmission = false;
         bool hasIor = false;
         bool hasSheen = false;
@@ -152,12 +153,16 @@ public:
         bool hasSubsurfaceRadius = false;
         bool hasSubsurfaceAnisotropy = false;
         bool hasAnisotropy = false;
+        bool hasOpacity = false;
+        bool hasEmissionColor = false;
+        bool hasEmissionStrength = false;
         float metallic = 0.0f;
         float roughness = 0.5f;
         float diffuseRoughness = 0.0f;
         float clearcoat = 0.0f;
         float clearcoatRoughness = 0.03f;
         float clearcoatIor = 1.5f;
+        float clearcoatTint[3] = {1.0f, 1.0f, 1.0f};
         float transmission = 0.0f;
         float ior = 1.5f;
         float sheen = 0.0f;
@@ -166,8 +171,11 @@ public:
         float subsurface = 0.0f;
         float subsurfaceAnisotropy = 0.0f;
         float anisotropy = 0.0f;
+        float opacity = 1.0f;
+        float emissionStrength = 0.0f;
         float subsurfaceColor[3] = {1.0f, 1.0f, 1.0f};
         float subsurfaceRadius[3] = {1.0f, 0.2f, 0.1f};
+        float emissionColor[3] = {0.0f, 0.0f, 0.0f};
     };
     [[nodiscard]] const std::vector<ImportedPbrMaterial>&
     importedPbrMaterials() const;

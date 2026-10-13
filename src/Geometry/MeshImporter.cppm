@@ -394,6 +394,11 @@ public:
       captureMaterialScalar(material->pbr.coat_ior, 1.0f, 2.0f, 1.5f,
                             &imported.clearcoatIor,
                             &imported.hasClearcoatIor);
+      captureMaterialScalar(material->pbr.opacity, 0.0f, 1.0f, 1.0f,
+                            &imported.opacity, &imported.hasOpacity);
+      captureMaterialScalar(material->pbr.emission_factor, 0.0f, 100000.0f,
+                            0.0f, &imported.emissionStrength,
+                            &imported.hasEmissionStrength);
       captureMaterialScalar(material->pbr.transmission_factor, 0.0f, 1.0f,
                             0.0f, &imported.transmission,
                             &imported.hasTransmission);
@@ -443,6 +448,26 @@ public:
         imported.sheenTint[2] = linearToSrgb(
             static_cast<float>(material->pbr.sheen_color.value_vec3.z));
         imported.hasSheenTint = true;
+      }
+      if (material->pbr.coat_color.has_value &&
+          material->pbr.coat_color.value_components >= 3) {
+        imported.clearcoatTint[0] = linearToSrgb(
+            static_cast<float>(material->pbr.coat_color.value_vec3.x));
+        imported.clearcoatTint[1] = linearToSrgb(
+            static_cast<float>(material->pbr.coat_color.value_vec3.y));
+        imported.clearcoatTint[2] = linearToSrgb(
+            static_cast<float>(material->pbr.coat_color.value_vec3.z));
+        imported.hasClearcoatTint = true;
+      }
+      if (material->pbr.emission_color.has_value &&
+          material->pbr.emission_color.value_components >= 3) {
+        imported.emissionColor[0] = linearToSrgb(
+            static_cast<float>(material->pbr.emission_color.value_vec3.x));
+        imported.emissionColor[1] = linearToSrgb(
+            static_cast<float>(material->pbr.emission_color.value_vec3.y));
+        imported.emissionColor[2] = linearToSrgb(
+            static_cast<float>(material->pbr.emission_color.value_vec3.z));
+        imported.hasEmissionColor = true;
       }
       if (material->pbr.subsurface_color.has_value &&
           material->pbr.subsurface_color.value_components >= 3) {
