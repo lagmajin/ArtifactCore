@@ -1389,6 +1389,8 @@ cbuffer MaterialParams : register(b1) {
     float4 ClearcoatTextureUvOffset;
     float4 ClearcoatRoughnessTextureFactors;
     float4 ClearcoatRoughnessTextureUvOffset;
+    float4 SheenColorTextureFactors;
+    float4 SheenColorTextureUvOffset;
 };
 
 float2 transformShadowUv(float2 uv) {
@@ -1490,6 +1492,7 @@ Texture2D g_MetallicTexture : register(t20);
 Texture2D g_RoughnessTexture : register(t21);
 Texture2D g_ClearcoatTexture : register(t22);
 Texture2D g_ClearcoatRoughnessTexture : register(t23);
+Texture2D g_SheenColorTexture : register(t24);
 SamplerState g_BaseColorSampler : register(s0);
 SamplerComparisonState g_ShadowSampler : register(s1);
 SamplerState g_GoboSampler : register(s2);
@@ -1545,6 +1548,8 @@ cbuffer MaterialParams : register(b1) {
     float4 ClearcoatTextureUvOffset;
     float4 ClearcoatRoughnessTextureFactors;
     float4 ClearcoatRoughnessTextureUvOffset;
+    float4 SheenColorTextureFactors;
+    float4 SheenColorTextureUvOffset;
 };
 
 float2 transformMeshUv(float2 uv) {
@@ -1852,7 +1857,8 @@ float sampleSheenDirectionalAlbedo(float NdotV, float roughness) {
 
 float3 evaluateEmissionLayerEnergy(float3 baseNormal, float3 coatNormal,
                                    float3 viewDirection, float metallic,
-                                   float clearcoatWeight) {
+                                   float clearcoatWeight,
+                                   float3 sheenTint) {
     float coatWeight = saturate(clearcoatWeight);
     float sheenWeight = saturate(PrincipledFactors.w) *
         (1.0 - metallic) * (1.0 - saturate(PrincipledFactors.z));
@@ -1876,7 +1882,6 @@ float3 evaluateEmissionLayerEnergy(float3 baseNormal, float3 coatNormal,
             lerp(float3(1.0, 1.0, 1.0), coatTintPath, coatWeight);
     }
     if (sheenWeight > 0.0) {
-        float3 sheenTint = srgbToLinear(saturate(SheenFactors.yzw));
         float sheenAlbedo = sampleSheenDirectionalAlbedo(
             saturate(dot(baseNormal, viewDirection)), SheenFactors.x);
         float sheenEnergy = saturate(1.0 -
@@ -2186,6 +2191,20 @@ float4 PSMain(PSInput In) : SV_Target {
     }
     float2 clearcoatRoughnessTextureUv = clearcoatRoughnessCentered + 0.5 +
         ClearcoatRoughnessTextureUvOffset.xy;
+    float2 sheenColorMeshUv = transformMeshUv(
+        SheenColorTextureFactors.y > 0.5 ? In.UV1 : In.UV);
+    float2 sheenColorCentered = (sheenColorMeshUv - 0.5) *
+        SheenColorTextureFactors.zw;
+    float sheenColorAngle = SheenColorTextureUvOffset.z;
+    if (abs(sheenColorAngle) > 1.0e-5) {
+        float sine = sin(sheenColorAngle);
+        float cosine = cos(sheenColorAngle);
+        sheenColorCentered = float2(
+            sheenColorCentered.x * cosine - sheenColorCentered.y * sine,
+            sheenColorCentered.x * sine + sheenColorCentered.y * cosine);
+    }
+    float2 sheenColorTextureUv = sheenColorCentered + 0.5 +
+        SheenColorTextureUvOffset.xy;
     float4 baseSample = g_BaseColorTexture.Sample(g_BaseColorSampler, baseColorUv);
     float2 opacityMeshUv = transformMeshUv(
         TextureUvSetSelectors.w > 0.5 ? In.UV1 : In.UV);
@@ -2209,6 +2228,10 @@ float4 PSMain(PSInput In) : SV_Target {
     float clearcoatRoughnessTextureSample =
         g_ClearcoatRoughnessTexture.Sample(
             g_BaseColorSampler, clearcoatRoughnessTextureUv).g;
+    float3 sheenColorTextureSample = g_SheenColorTexture.Sample(
+        g_BaseColorSampler, sheenColorTextureUv).rgb;
+    float3 materialSheenTint = srgbToLinear(saturate(SheenFactors.yzw)) *
+        saturate(sheenColorTextureSample);
     float4 normalTextureSample =
         g_NormalTexture.Sample(g_BaseColorSampler, normalMapUv);
     float3 normalSample = normalTextureSample.xyz;
@@ -2441,7 +2464,7 @@ float4 PSMain(PSInput In) : SV_Target {
         if (EnvironmentSettings.x > 0.5) {
             float sheenWeight = saturate(PrincipledFactors.w) *
                 (1.0 - metallic) * (1.0 - saturate(PrincipledFactors.z));
-            float3 sheenTint = srgbToLinear(saturate(SheenFactors.yzw));
+            float3 sheenTint = materialSheenTint;
             float sheenNdotV = saturate(dot(worldNormal, viewDirection));
             float3 environmentF0 = F0;
             if (ThinFilmFactors.x > 0.0) {
@@ -2813,7 +2836,7 @@ float4 PSMain(PSInput In) : SV_Target {
                                   subsurfaceWeight);
             float sheenWeight = saturate(PrincipledFactors.w) *
                 (1.0 - metallic) * (1.0 - saturate(PrincipledFactors.z));
-            float3 sheenTint = srgbToLinear(saturate(SheenFactors.yzw));
+            float3 sheenTint = materialSheenTint;
             float sheenLobe = sheenWeight *
                 sheenDistribution(SheenFactors.x, NdotH) *
                 sheenVisibility(SheenFactors.x, NdotV, NdotL);
@@ -2855,7 +2878,7 @@ float4 PSMain(PSInput In) : SV_Target {
                                emissionStrength;
         emissionColor *= evaluateEmissionLayerEnergy(
             worldNormal, coatNormal, viewDirection, metallic,
-            clearcoatWeight);
+            clearcoatWeight, materialSheenTint);
         return float4(sceneLinearToMeshOutput(
                           directColor + ambientColor + emissionColor),
                       outputAlpha);
@@ -2883,7 +2906,7 @@ float4 PSMain(PSInput In) : SV_Target {
         saturate(ClearcoatTintFactors.w)));
     studioEmission *= evaluateEmissionLayerEnergy(
         viewNormal, studioCoatNormal, studioViewDirection, metallic,
-        clearcoatWeight);
+        clearcoatWeight, materialSheenTint);
     float3 studioHdr = (solidBase.rgb * studioLight * cavity +
                         rimColor * rim * 0.10 +
                         lerp(float3(1.0, 1.0, 1.0), solidBase.rgb,
@@ -2990,7 +3013,7 @@ struct MeshRenderer::Impl {
     static_assert(sizeof(SceneLightGpu) == sizeof(float) * 24);
     static_assert(sizeof(SceneLightingConstants) ==
                   sizeof(SceneLightGpu) * MaxSceneLights + sizeof(float) * 8);
-    static_assert(sizeof(MaterialConstants) == sizeof(float) * 148);
+    static_assert(sizeof(MaterialConstants) == sizeof(float) * 156);
     static_assert(sizeof(MeshletConstants) == sizeof(float) * 52);
 
     Diligent::RefCntAutoPtr<Diligent::IPipelineStateCache>    pPSOCache_;
@@ -3058,6 +3081,8 @@ struct MeshRenderer::Impl {
     Diligent::RefCntAutoPtr<Diligent::ITexture>               pClearcoatTexture_;
     Diligent::RefCntAutoPtr<Diligent::ITextureView>           pClearcoatTextureSRV_;
     Diligent::RefCntAutoPtr<Diligent::ITexture>               pClearcoatRoughnessTexture_;
+    Diligent::RefCntAutoPtr<Diligent::ITexture>               pSheenColorTexture_;
+    Diligent::RefCntAutoPtr<Diligent::ITextureView>           pSheenColorTextureSRV_;
     Diligent::RefCntAutoPtr<Diligent::ITextureView>           pClearcoatRoughnessTextureSRV_;
     Diligent::RefCntAutoPtr<Diligent::ITexture>               pOcclusionTexture_;
     Diligent::RefCntAutoPtr<Diligent::ITextureView>           pOcclusionTextureSRV_;
@@ -3134,6 +3159,7 @@ struct MeshRenderer::Impl {
         MaterialSlotTexture occlusion;
         MaterialSlotTexture emission;
         MaterialSlotTexture opacity;
+        MaterialSlotTexture sheenColor;
     };
     QVector<MaterialSlotTextures> materialSlotTextures;
     QString baseColorTexturePath_;
@@ -3145,6 +3171,7 @@ struct MeshRenderer::Impl {
     QString normalTexturePath_;
     QString clearcoatTexturePath_;
     QString clearcoatRoughnessTexturePath_;
+    QString sheenColorTexturePath_;
     QString clearcoatNormalTexturePath_;
     QString occlusionTexturePath_;
     QString environmentMapPath_;
@@ -3842,7 +3869,7 @@ void MeshRenderer::createPSO()
     // Resource layout
     PSOCreateInfo.PSODesc.ResourceLayout.DefaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
     
-    static std::array<ShaderResourceVariableDesc, 27> Vars = {{
+    static std::array<ShaderResourceVariableDesc, 28> Vars = {{
         {SHADER_TYPE_VERTEX, "g_Instances", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "MaterialParams", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_BaseColorTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
@@ -3869,6 +3896,7 @@ void MeshRenderer::createPSO()
         {SHADER_TYPE_PIXEL, "g_RoughnessTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_ClearcoatTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_ClearcoatRoughnessTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "g_SheenColorTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_BaseColorSampler", SHADER_RESOURCE_VARIABLE_TYPE_STATIC}
     }};
     PSOCreateInfo.PSODesc.ResourceLayout.Variables = Vars.data();
@@ -4557,6 +4585,12 @@ void MeshRenderer::prepare(IDeviceContext* pContext)
             clearcoatRoughnessVar->Set(
                 pImpl_->pClearcoatRoughnessTextureSRV_);
         }
+        if (auto* sheenColorVar = activeSRB->GetVariableByName(
+                SHADER_TYPE_PIXEL, "g_SheenColorTexture")) {
+            sheenColorVar->Set(pImpl_->pSheenColorTextureSRV_
+                ? pImpl_->pSheenColorTextureSRV_
+                : pImpl_->pWhiteBaseColorTextureSRV_);
+        }
         if (auto* normalVar = activeSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_NormalTexture")) {
             normalVar->Set(pImpl_->pNormalTextureSRV_);
         }
@@ -4706,7 +4740,9 @@ void MeshRenderer::setMaterialRanges(const MaterialRange* ranges, size_t count) 
             pathChanged(current.emissionTexturePath,
                         incoming.emissionTexturePath) ||
             pathChanged(current.opacityTexturePath,
-                        incoming.opacityTexturePath);
+                        incoming.opacityTexturePath) ||
+            pathChanged(current.sheenColorTexturePath,
+                        incoming.sheenColorTexturePath);
         const bool stateChanged = resized ||
             missingBuffer ||
             current.firstIndex != incoming.firstIndex ||
@@ -4844,6 +4880,18 @@ void MeshRenderer::setMaterialRanges(const MaterialRange* ranges, size_t count) 
                                "MeshRenderer_MaterialSlotOpacityTexture",
                                texture, srv);
                        });
+        resolveTexture(i, slotTextures.sheenColor,
+                       incoming.sheenColorTexturePath,
+                       pImpl_->pWhiteBaseColorTextureSRV_.RawPtr(),
+                       pImpl_->sheenColorTexturePath_,
+                       pImpl_->pSheenColorTextureSRV_,
+                       &Impl::MaterialSlotTextures::sheenColor,
+                       [&](const QString& path, auto& texture, auto& srv) {
+                           return loadSrgbTexture(
+                               context_, path,
+                               "MeshRenderer_MaterialSlotSheenColorTexture",
+                               texture, srv);
+                       });
         MaterialState materialForGpu = incoming.material;
         materialForGpu.clearcoatTextureFactors[0] =
             slotTextures.clearcoat.texture ? 1.0f : 0.0f;
@@ -4857,6 +4905,12 @@ void MeshRenderer::setMaterialRanges(const MaterialRange* ranges, size_t count) 
                    (texture.texture ||
                     (path.trimmed() == primaryPath && primaryLoaded > 0.5f));
         };
+        materialForGpu.sheenColorTextureFactors[0] =
+            loadedTexture(slotTextures.sheenColor,
+                          incoming.sheenColorTexturePath,
+                          pImpl_->sheenColorTexturePath_,
+                          pImpl_->materialConstants_.sheenColorTextureFactors[0])
+                ? 1.0f : 0.0f;
         materialForGpu.pbrTextureFlags2[0] =
             loadedTexture(slotTextures.metallic,
                           incoming.metallicTexturePath,
@@ -4956,6 +5010,8 @@ void MeshRenderer::drawMaterialSlots(IDeviceContext* pContext, size_t instanceCo
             SHADER_TYPE_PIXEL, "g_EmissionTexture");
         auto* opacityVariable = activeSRB->GetVariableByName(
             SHADER_TYPE_PIXEL, "g_OpacityTexture");
+        auto* sheenColorVariable = activeSRB->GetVariableByName(
+            SHADER_TYPE_PIXEL, "g_SheenColorTexture");
         for (qsizetype rangeIndex = 0;
              rangeIndex < pImpl_->materialRanges.size(); ++rangeIndex) {
             const MaterialRange& range = pImpl_->materialRanges[rangeIndex];
@@ -5037,6 +5093,12 @@ void MeshRenderer::drawMaterialSlots(IDeviceContext* pContext, size_t instanceCo
                 opacityVariable->Set(slotTexture.srv
                     ? slotTexture.srv : pImpl_->pOpacityTextureSRV_);
             }
+            if (sheenColorVariable) {
+                const auto& slotTexture =
+                    pImpl_->materialSlotTextures[rangeIndex].sheenColor;
+                sheenColorVariable->Set(slotTexture.srv
+                    ? slotTexture.srv : pImpl_->pWhiteBaseColorTextureSRV_);
+            }
             pContext->CommitShaderResources(
                 activeSRB, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
             if (frameCostStats_) ++frameCostStats_->drawCalls;
@@ -5070,6 +5132,9 @@ void MeshRenderer::drawMaterialSlots(IDeviceContext* pContext, size_t instanceCo
         if (occlusionVariable) occlusionVariable->Set(pImpl_->pOcclusionTextureSRV_);
         if (emissionVariable) emissionVariable->Set(pImpl_->pEmissionTextureSRV_);
         if (opacityVariable) opacityVariable->Set(pImpl_->pOpacityTextureSRV_);
+        if (sheenColorVariable) {
+            sheenColorVariable->Set(pImpl_->pSheenColorTextureSRV_);
+        }
     };
     drawPass(false);
     drawPass(true);
@@ -6410,6 +6475,53 @@ void MeshRenderer::setClearcoatRoughnessTexture(
         std::isfinite(offsetU) ? std::clamp(offsetU, -10.0f, 10.0f) : 0.0f,
         std::isfinite(offsetV) ? std::clamp(offsetV, -10.0f, 10.0f) : 0.0f,
         0.0f, 0.0f};
+    changed = changed || factors != nextFactors || offset != nextOffset;
+    factors = nextFactors;
+    offset = nextOffset;
+    if (changed) prepared_ = false;
+}
+
+void MeshRenderer::setSheenColorTexture(
+    const QString& path, float scaleU, float scaleV, float rotationDegrees,
+    float offsetU, float offsetV, int uvSet)
+{
+    const QString newPath = path.trimmed();
+    bool changed = false;
+    if (newPath != pImpl_->sheenColorTexturePath_) {
+        changed = true;
+        pImpl_->pSheenColorTexture_ = nullptr;
+        pImpl_->pSheenColorTextureSRV_ =
+            pImpl_->pWhiteBaseColorTextureSRV_;
+        pImpl_->sheenColorTexturePath_.clear();
+        pImpl_->materialConstants_.sheenColorTextureFactors[0] = 0.0f;
+        if (!newPath.isEmpty()) {
+            pImpl_->sheenColorTexturePath_ = newPath;
+            if (loadSrgbTexture(context_, newPath,
+                    "MeshRenderer_SheenColorTexture",
+                    pImpl_->pSheenColorTexture_,
+                    pImpl_->pSheenColorTextureSRV_)) {
+                pImpl_->materialConstants_.sheenColorTextureFactors[0] = 1.0f;
+            } else {
+                pImpl_->pSheenColorTextureSRV_ =
+                    pImpl_->pWhiteBaseColorTextureSRV_;
+            }
+        }
+    }
+    const auto finiteScale = [](float value) {
+        return std::isfinite(value)
+            ? std::clamp(value, 0.0001f, 10000.0f) : 1.0f;
+    };
+    const float safeRotation = std::isfinite(rotationDegrees)
+        ? std::clamp(rotationDegrees, -360.0f, 360.0f) : 0.0f;
+    auto& factors = pImpl_->materialConstants_.sheenColorTextureFactors;
+    const std::array<float, 4> nextFactors = {
+        factors[0], uvSet == 1 ? 1.0f : 0.0f,
+        finiteScale(scaleU), finiteScale(scaleV)};
+    auto& offset = pImpl_->materialConstants_.sheenColorTextureUvOffset;
+    const std::array<float, 4> nextOffset = {
+        std::isfinite(offsetU) ? std::clamp(offsetU, -1000000.0f, 1000000.0f) : 0.0f,
+        std::isfinite(offsetV) ? std::clamp(offsetV, -1000000.0f, 1000000.0f) : 0.0f,
+        safeRotation * std::numbers::pi_v<float> / 180.0f, 0.0f};
     changed = changed || factors != nextFactors || offset != nextOffset;
     factors = nextFactors;
     offset = nextOffset;

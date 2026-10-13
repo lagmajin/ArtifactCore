@@ -162,6 +162,9 @@ public:
     void setClearcoatTint(const QColor& color, float normalStrength = 1.0f);
     void setClearcoatNormalTexture(const QString& path);
     void setSheenFactors(float roughness, const QColor& tint);
+    void setSheenColorTexture(const QString& path, float scaleU,
+                              float scaleV, float rotationDegrees,
+                              float offsetU, float offsetV, int uvSet);
     void setSubsurfaceFactors(float weight, const QColor& color,
                               const QVector3D& radius = QVector3D(1.0f, 0.2f, 0.1f),
                               float ior = 1.4f,
@@ -354,8 +357,12 @@ public:
         // x: has roughness map; y: UV1 selector; z: scale; w: rotation.
         std::array<float, 4> clearcoatRoughnessTextureFactors{};
         std::array<float, 4> clearcoatRoughnessTextureUvOffset{};
+        // x: enabled, y: UV1 selector, z/w: independent UV scales.
+        std::array<float, 4> sheenColorTextureFactors{};
+        // x/y: UV offset, z: rotation radians.
+        std::array<float, 4> sheenColorTextureUvOffset{};
     };
-    static_assert(sizeof(MaterialState) == 37u * 4u * sizeof(float));
+    static_assert(sizeof(MaterialState) == 39u * 4u * sizeof(float));
 
     // Multi-material draw. Each range names a contiguous index span and the
     // scalar material state and texture SRVs bound while that span is drawn.
@@ -378,6 +385,7 @@ public:
         QString occlusionTexturePath;
         QString emissionTexturePath;
         QString opacityTexturePath;
+        QString sheenColorTexturePath;
     };
     void setMaterialRanges(const MaterialRange* ranges, std::size_t count);
     void clearMaterialRanges();

@@ -176,6 +176,8 @@ struct RTMaterial
     float4 clearcoatTextureUvOffset;
     float4 clearcoatRoughnessTexture;
     float4 clearcoatRoughnessTextureUvOffset;
+    float4 sheenColorTexture;
+    float4 sheenColorTextureUvOffset;
 };
 StructuredBuffer<float4> g_RenderVertices : register(t1);
 StructuredBuffer<RTPrimitive> g_RenderPrimitives : register(t2);
@@ -504,6 +506,15 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
     const float2 clearcoatRoughnessSetUv2 =
         material.clearcoatRoughnessTexture.w > 0.5f
             ? g_RenderUvs1[primitive.i2] : uv2;
+    const float2 sheenColorSetUv0 =
+        material.sheenColorTextureUvOffset.w > 0.5f
+            ? g_RenderUvs1[primitive.i0] : uv0;
+    const float2 sheenColorSetUv1 =
+        material.sheenColorTextureUvOffset.w > 0.5f
+            ? g_RenderUvs1[primitive.i1] : uv1;
+    const float2 sheenColorSetUv2 =
+        material.sheenColorTextureUvOffset.w > 0.5f
+            ? g_RenderUvs1[primitive.i2] : uv2;
     const float2 normalTransformedUv0 = transformPbrUv(
         normalUv0, material.occlusionUv.xy, material.occlusionUv.z,
         material.occlusion.zw);
@@ -609,6 +620,20 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
         clearcoatRoughnessUv1 - clearcoatRoughnessUv0;
     const float2 clearcoatRoughnessUvEdge2 =
         clearcoatRoughnessUv2 - clearcoatRoughnessUv0;
+    const float2 sheenColorUv0 = transformPbrUv(
+        sheenColorSetUv0, material.sheenColorTexture.yz,
+        material.sheenColorTexture.w,
+        material.sheenColorTextureUvOffset.xy);
+    const float2 sheenColorUv1 = transformPbrUv(
+        sheenColorSetUv1, material.sheenColorTexture.yz,
+        material.sheenColorTexture.w,
+        material.sheenColorTextureUvOffset.xy);
+    const float2 sheenColorUv2 = transformPbrUv(
+        sheenColorSetUv2, material.sheenColorTexture.yz,
+        material.sheenColorTexture.w,
+        material.sheenColorTextureUvOffset.xy);
+    const float2 sheenColorUvEdge1 = sheenColorUv1 - sheenColorUv0;
+    const float2 sheenColorUvEdge2 = sheenColorUv2 - sheenColorUv0;
     const float baseColorUvRotation =
         material.baseColorTextureUvRotation.x;
     const float surfaceUvRotation = material.surfaceTextureUvRotation.x;
@@ -1080,6 +1105,25 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
     float3 sheenTint = float3(SrgbChannelToLinear(material.sheen.y),
                               SrgbChannelToLinear(material.sheen.z),
                               SrgbChannelToLinear(material.sheen.w));
+    if (material.sheenColorTexture.x >= 0.0f) {
+        const uint textureIndex = NonUniformResourceIndex(
+            (uint)material.sheenColorTexture.x);
+        const float2 sheenColorUv =
+            sheenColorUv0 *
+                (1.0f - attributes.barycentrics.x -
+                 attributes.barycentrics.y) +
+            sheenColorUv1 * attributes.barycentrics.x +
+            sheenColorUv2 * attributes.barycentrics.y;
+        const float textureLod = calculatePbrTextureLod(
+            textureIndex, worldEdge1, worldEdge2,
+            sheenColorUvEdge1, sheenColorUvEdge2, rayConeRadius);
+        const float3 sampledSheenColor =
+            g_RTPbrTextures[textureIndex].SampleLevel(
+                g_RTPbrSampler, sheenColorUv, textureLod).rgb;
+        sheenTint *= float3(SrgbChannelToLinear(sampledSheenColor.x),
+                            SrgbChannelToLinear(sampledSheenColor.y),
+                            SrgbChannelToLinear(sampledSheenColor.z));
+    }
     float ao = 1.0f;
     if (material.occlusion.x >= 0.0f) {
         const uint textureIndex = NonUniformResourceIndex((uint)material.occlusion.x);
@@ -1887,6 +1931,8 @@ struct RTMaterial
     float4 clearcoatTextureUvOffset;
     float4 clearcoatRoughnessTexture;
     float4 clearcoatRoughnessTextureUvOffset;
+    float4 sheenColorTexture;
+    float4 sheenColorTextureUvOffset;
 };
 StructuredBuffer<float4> g_RenderVertices : register(t1);
 StructuredBuffer<RTPrimitive> g_RenderPrimitives : register(t2);
@@ -2570,6 +2616,19 @@ public:
             material.clearcoatRoughnessTextureUvOffsetU, -10.0f, 10.0f, 0.0f);
         nextMaterial.clearcoatRoughnessTextureUvOffset[1] = clampFinite(
             material.clearcoatRoughnessTextureUvOffsetV, -10.0f, 10.0f, 0.0f);
+        nextMaterial.sheenColorTexture[1] = clampFinite(
+            material.sheenColorTextureUvScaleU, 0.0001f, 10000.0f, 1.0f);
+        nextMaterial.sheenColorTexture[2] = clampFinite(
+            material.sheenColorTextureUvScaleV, 0.0001f, 10000.0f, 1.0f);
+        nextMaterial.sheenColorTexture[3] = clampFinite(
+            material.sheenColorTextureUvRotationDegrees, -360.0f, 360.0f,
+            0.0f) * (3.14159265358979323846f / 180.0f);
+        nextMaterial.sheenColorTextureUvOffset[1] = clampFinite(
+            material.sheenColorTextureUvOffsetU, -1000000.0f, 1000000.0f, 0.0f);
+        nextMaterial.sheenColorTextureUvOffset[2] = clampFinite(
+            material.sheenColorTextureUvOffsetV, -1000000.0f, 1000000.0f, 0.0f);
+        nextMaterial.sheenColorTextureUvOffset[3] =
+            material.sheenColorTextureUvSet == 1 ? 1.0f : 0.0f;
         if (materialIndex >= node.pbrMaterials.size()) {
             node.pbrMaterials.resize(static_cast<size_t>(materialIndex) + 1u,
                                      node.pbrMaterials.front());
@@ -2594,6 +2653,8 @@ public:
             node.emissionTexturePaths.resize(
                 static_cast<size_t>(materialIndex) + 1u);
             node.opacityTexturePaths.resize(
+                static_cast<size_t>(materialIndex) + 1u);
+            node.sheenColorTexturePaths.resize(
                 static_cast<size_t>(materialIndex) + 1u);
         }
         bool textureChanged = false;
@@ -2641,6 +2702,8 @@ public:
                           material.emissionTexture, PbrTextureKind::Emission);
         updateTexturePath(node.opacityTexturePaths,
                           material.opacityTexture, PbrTextureKind::Opacity);
+        updateTexturePath(node.sheenColorTexturePaths,
+                          material.sheenColorTexture, PbrTextureKind::SheenColor);
         auto& current = node.pbrMaterials[materialIndex];
         if (std::memcmp(&current, &nextMaterial, sizeof(RTMaterial)) == 0) {
             if (!textureChanged) return false;
@@ -3244,8 +3307,10 @@ private:
         float clearcoatTextureUvOffset[4]{};
         float clearcoatRoughnessTexture[4]{-1.0f, 1.0f, 0.0f, 0.0f};
         float clearcoatRoughnessTextureUvOffset[4]{};
+        float sheenColorTexture[4]{-1.0f, 1.0f, 1.0f, 0.0f};
+        float sheenColorTextureUvOffset[4]{};
     };
-    static_assert(sizeof(RTMaterial) == 39u * 4u * sizeof(float));
+    static_assert(sizeof(RTMaterial) == 41u * 4u * sizeof(float));
     struct RTPbrTexture {
         RefCntAutoPtr<ITexture> texture;
         RefCntAutoPtr<ITextureView> view;
@@ -3253,7 +3318,7 @@ private:
     enum class PbrTextureKind : Uint8 {
         BaseColor, MetallicRoughness, Metallic, Roughness, Normal,
         Clearcoat, ClearcoatNormal, Occlusion, Emission, Opacity,
-        ClearcoatRoughness
+        ClearcoatRoughness, SheenColor
     };
     struct BLASNode {
         RefCntAutoPtr<IBottomLevelAS> pBLAS;
@@ -3301,6 +3366,7 @@ private:
         std::vector<QString> occlusionTexturePaths{QString()};
         std::vector<QString> emissionTexturePaths{QString()};
         std::vector<QString> opacityTexturePaths{QString()};
+        std::vector<QString> sheenColorTexturePaths{QString()};
         bool materialDirty = false;
     };
 
@@ -3410,6 +3476,7 @@ private:
             : kind == PbrTextureKind::ClearcoatRoughness ? QLatin1Char('k')
             : kind == PbrTextureKind::Occlusion ? QLatin1Char('o')
             : kind == PbrTextureKind::Emission ? QLatin1Char('e')
+            : kind == PbrTextureKind::SheenColor ? QLatin1Char('h')
                                                : QLatin1Char('a');
         return path + QLatin1Char('\x1f') + suffix;
     }
@@ -3617,7 +3684,8 @@ private:
         }
 
         const bool srgb = kind == PbrTextureKind::BaseColor ||
-                          kind == PbrTextureKind::Emission;
+                          kind == PbrTextureKind::Emission ||
+                          kind == PbrTextureKind::SheenColor;
         const bool renormalizeNormal = kind == PbrTextureKind::Normal ||
                                        kind == PbrTextureKind::ClearcoatNormal;
         const auto decodeSrgb = [](float value) {
@@ -4055,6 +4123,11 @@ private:
                     gpuMaterial.opacityTexture[0] = resolveTextureIndex(
                         node.opacityTexturePaths[materialIndex],
                         PbrTextureKind::Opacity);
+                }
+                if (materialIndex < node.sheenColorTexturePaths.size()) {
+                    gpuMaterial.sheenColorTexture[0] = resolveTextureIndex(
+                        node.sheenColorTexturePaths[materialIndex],
+                        PbrTextureKind::SheenColor);
                 }
                 materials.push_back(gpuMaterial);
             }

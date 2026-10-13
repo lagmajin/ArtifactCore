@@ -130,6 +130,11 @@ export struct MaterialTextureUvTransform {
   float sheenRoughness() const;
   void setSheenTint(const QColor& color);
   QColor sheenTint() const;
+  void setSheenColorTexture(const UniString& path);
+  UniString sheenColorTexture() const;
+  void setSheenColorTextureUvTransform(
+      const MaterialTextureUvTransform& transform);
+  MaterialTextureUvTransform sheenColorTextureUvTransform() const;
   void setSubsurface(float value);
   float subsurface() const;
   void setSubsurfaceIOR(float value);

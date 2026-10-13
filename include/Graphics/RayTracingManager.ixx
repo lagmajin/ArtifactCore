@@ -109,6 +109,13 @@ struct RTPbrMaterial {
     float sheen = 0.0f;
     float sheenRoughness = 0.5f;
     float sheenTint[3] = {1.0f, 1.0f, 1.0f};
+    UniString sheenColorTexture;
+    float sheenColorTextureUvScaleU = 1.0f;
+    float sheenColorTextureUvScaleV = 1.0f;
+    float sheenColorTextureUvRotationDegrees = 0.0f;
+    float sheenColorTextureUvOffsetU = 0.0f;
+    float sheenColorTextureUvOffsetV = 0.0f;
+    int sheenColorTextureUvSet = 0;
     float subsurface = 0.0f;
     float subsurfaceIOR = 1.4f;
     float subsurfaceAnisotropy = 0.0f;

@@ -128,6 +128,7 @@ public:
         UniString emissionTexture;
         UniString occlusionTexture;
         UniString opacityTexture;
+        UniString sheenColorTexture;
         ImportedPbrTextureTransform baseColorUv;
         ImportedPbrTextureTransform metallicRoughnessUv;
         ImportedPbrTextureTransform metallicUv;
@@ -139,6 +140,7 @@ public:
         ImportedPbrTextureTransform emissionUv;
         ImportedPbrTextureTransform occlusionUv;
         ImportedPbrTextureTransform opacityUv;
+        ImportedPbrTextureTransform sheenColorUv;
         float baseColor[4] = {1.0f, 1.0f, 1.0f, 1.0f};
         float specularTint[3] = {1.0f, 1.0f, 1.0f};
         float sheenTint[3] = {1.0f, 1.0f, 1.0f};
