@@ -117,6 +117,7 @@ public:
      * @param uvs Pointer to float2 uvs (optional, can be nullptr)
      * @param indices Pointer to uint32 indices (optional for non-indexed)
      * @param colors Pointer to float4 vertex colors (optional, can be nullptr; white = identity)
+     * @param uvs1 Pointer to float2 second UV set (optional; falls back at the caller)
      */
     void updateMeshGeometry(const float* positions, const float* normals, const float* uvs,
                             const uint32_t* indices, const float* colors = nullptr,
@@ -139,6 +140,7 @@ public:
      *        Empty path clears the texture and falls back to a white texture.
      */
     void setBaseColorTexture(const QString& path);
+    void setBaseColorUvSet(int uvSet);
     void clearBaseColorTexture();
     void setEmissionTexture(const QString& path);
     void clearEmissionTexture();

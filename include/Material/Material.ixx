@@ -147,6 +147,7 @@ export enum class MaterialPresetKind { Matte, Metal, Plastic, Glass };
   float normalUvOffsetU() const;
   void setNormalUvOffsetV(float value);
   float normalUvOffsetV() const;
+  // Selects UV0 (0) or UV1 (1) for Normal and Coat Normal maps.
   void setNormalUvSet(int value);
   int normalUvSet() const;
 
@@ -174,6 +175,8 @@ export enum class MaterialPresetKind { Matte, Metal, Plastic, Glass };
   float baseColorUvOffsetU() const;
   void setBaseColorUvOffsetV(float value);
   float baseColorUvOffsetV() const;
+  void setBaseColorUvSet(int value);
+  int baseColorUvSet() const;
   void setMetallicRoughnessUvScale(float value);
   float metallicRoughnessUvScale() const;
   void setMetallicRoughnessUvOffsetU(float value);

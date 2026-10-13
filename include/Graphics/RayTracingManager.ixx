@@ -68,6 +68,7 @@ struct RTPbrMaterial {
     float baseColorUvRotationDegrees = 0.0f;
     float baseColorUvOffsetU = 0.0f;
     float baseColorUvOffsetV = 0.0f;
+    int baseColorUvSet = 0;
     float metallicRoughnessUvScale = 1.0f;
     float metallicRoughnessUvOffsetU = 0.0f;
     float metallicRoughnessUvOffsetV = 0.0f;
@@ -113,6 +114,7 @@ struct RTPbrMaterial {
     float normalUvScale = 1.0f;
     float normalUvOffsetU = 0.0f;
     float normalUvOffsetV = 0.0f;
+    int normalUvSet = 0;
     UniString occlusionTexture;
     float occlusionStrength = 1.0f;
     float occlusionTextureUvScale = 1.0f;
@@ -169,7 +171,9 @@ public:
                                        // One material index per triangle; null selects material 0.
                                        const Uint32* primitiveMaterialIndices = nullptr,
                                        const float* vertexUvs = nullptr,
-                                       const float* vertexColors = nullptr) = 0;
+                                       const float* vertexColors = nullptr,
+                                       // Optional second UV set, two floats per vertex.
+                                       const float* vertexUvs1 = nullptr) = 0;
     virtual bool setInstancePbrMaterial(const UniString& id,
                                         const RTPbrMaterial& material,
                                         // Material index referenced by RT triangle data.

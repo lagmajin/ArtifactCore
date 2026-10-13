@@ -84,6 +84,7 @@ public:
  float baseColorUvRotationDegrees_ = 0.0f;
  float baseColorUvOffsetU_ = 0.0f;
  float baseColorUvOffsetV_ = 0.0f;
+ int baseColorUvSet_ = 0;
  UniString metallicRoughnessTexture_;
  bool hasMetallicRoughnessTexture_ = false;
  UniString normalTexture_;
@@ -174,6 +175,10 @@ void Material::setBaseColorUvOffsetV(float v) {
 float Material::baseColorUvOffsetV() const {
   return impl_->baseColorUvOffsetV_;
 }
+void Material::setBaseColorUvSet(int value) {
+  impl_->baseColorUvSet_ = value == 1 ? 1 : 0;
+}
+int Material::baseColorUvSet() const { return impl_->baseColorUvSet_; }
 void Material::setMetallicRoughnessUvScale(float v) {
   impl_->metallicRoughnessUvScale_ =
       std::isfinite(v) ? std::clamp(v, 0.01f, 10.0f) : 1.0f;

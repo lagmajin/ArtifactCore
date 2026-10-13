@@ -175,6 +175,7 @@ StructuredBuffer<float4> g_RenderNormals : register(t4);
 StructuredBuffer<RTMaterial> g_RenderMaterials : register(t5);
 StructuredBuffer<float2> g_RenderUvs : register(t10);
 StructuredBuffer<float4> g_RenderColors : register(t11);
+StructuredBuffer<float2> g_RenderUvs1 : register(t12);
 Texture2D<float4> g_RTPbrTextures[RT_OCCLUSION_TEXTURE_COUNT] : register(t0, space1);
 TextureCube<float4> g_RTEnvironment : register(t6);
 TextureCube<float4> g_RTIrradiance : register(t7);
@@ -418,6 +419,18 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
                          g_RenderColors[primitive.i1] * attributes.barycentrics.x +
                          g_RenderColors[primitive.i2] * attributes.barycentrics.y;
     RTMaterial material = g_RenderMaterials[primitive.materialIndex];
+    const float2 baseColorSetUv0 = material.baseColorTextureUvRotation.y > 0.5f
+        ? g_RenderUvs1[primitive.i0] : uv0;
+    const float2 baseColorSetUv1 = material.baseColorTextureUvRotation.y > 0.5f
+        ? g_RenderUvs1[primitive.i1] : uv1;
+    const float2 baseColorSetUv2 = material.baseColorTextureUvRotation.y > 0.5f
+        ? g_RenderUvs1[primitive.i2] : uv2;
+    const float2 normalUv0 = material.normalUvOffset.z > 0.5f
+        ? g_RenderUvs1[primitive.i0] : uv0;
+    const float2 normalUv1 = material.normalUvOffset.z > 0.5f
+        ? g_RenderUvs1[primitive.i1] : uv1;
+    const float2 normalUv2 = material.normalUvOffset.z > 0.5f
+        ? g_RenderUvs1[primitive.i2] : uv2;
     const float2 transformedUv0 = transformPbrUv(
         uv0, material.occlusionUv.xy, material.occlusionUv.z,
         material.occlusion.zw);
@@ -427,17 +440,35 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
     const float2 transformedUv2 = transformPbrUv(
         uv2, material.occlusionUv.xy, material.occlusionUv.z,
         material.occlusion.zw);
+    const float2 normalTransformedUv0 = transformPbrUv(
+        normalUv0, material.occlusionUv.xy, material.occlusionUv.z,
+        material.occlusion.zw);
+    const float2 normalTransformedUv1 = transformPbrUv(
+        normalUv1, material.occlusionUv.xy, material.occlusionUv.z,
+        material.occlusion.zw);
+    const float2 normalTransformedUv2 = transformPbrUv(
+        normalUv2, material.occlusionUv.xy, material.occlusionUv.z,
+        material.occlusion.zw);
+    const float2 baseColorTransformedUv0 = transformPbrUv(
+        baseColorSetUv0, material.occlusionUv.xy, material.occlusionUv.z,
+        material.occlusion.zw);
+    const float2 baseColorTransformedUv1 = transformPbrUv(
+        baseColorSetUv1, material.occlusionUv.xy, material.occlusionUv.z,
+        material.occlusion.zw);
+    const float2 baseColorTransformedUv2 = transformPbrUv(
+        baseColorSetUv2, material.occlusionUv.xy, material.occlusionUv.z,
+        material.occlusion.zw);
     const float baseColorUvRotation =
         material.baseColorTextureUvRotation.x;
     const float surfaceUvRotation = material.surfaceTextureUvRotation.x;
     const float2 baseColorUv0 = transformBaseColorTextureUv(
-        transformedUv0, material.baseColorTexture.y, baseColorUvRotation,
+        baseColorTransformedUv0, material.baseColorTexture.y, baseColorUvRotation,
         material.baseColorTexture.zw);
     const float2 baseColorUv1 = transformBaseColorTextureUv(
-        transformedUv1, material.baseColorTexture.y, baseColorUvRotation,
+        baseColorTransformedUv1, material.baseColorTexture.y, baseColorUvRotation,
         material.baseColorTexture.zw);
     const float2 baseColorUv2 = transformBaseColorTextureUv(
-        transformedUv2, material.baseColorTexture.y, baseColorUvRotation,
+        baseColorTransformedUv2, material.baseColorTexture.y, baseColorUvRotation,
         material.baseColorTexture.zw);
     const float2 baseColorUvEdge1 = baseColorUv1 - baseColorUv0;
     const float2 baseColorUvEdge2 = baseColorUv2 - baseColorUv0;
@@ -477,8 +508,8 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
         material.emissionTexture.zw);
     const float2 emissionUvEdge1 = emissionUv1 - emissionUv0;
     const float2 emissionUvEdge2 = emissionUv2 - emissionUv0;
-    const float2 uvEdge1 = transformedUv1 - transformedUv0;
-    const float2 uvEdge2 = transformedUv2 - transformedUv0;
+    const float2 uvEdge1 = normalTransformedUv1 - normalTransformedUv0;
+    const float2 uvEdge2 = normalTransformedUv2 - normalTransformedUv0;
     const float3 worldP0 = mul(ObjectToWorld3x4(), float4(p0, 1.0f));
     const float3 worldP1 = mul(ObjectToWorld3x4(), float4(p1, 1.0f));
     const float3 worldP2 = mul(ObjectToWorld3x4(), float4(p2, 1.0f));
@@ -488,8 +519,13 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
     const float angle = material.occlusionUv.z;
     const float2 transformedUv = transformPbrUv(
         meshUv, material.occlusionUv.xy, angle, material.occlusion.zw);
+    const float2 baseColorTransformedUv =
+        baseColorTransformedUv0 * (1.0f - attributes.barycentrics.x -
+                                   attributes.barycentrics.y) +
+        baseColorTransformedUv1 * attributes.barycentrics.x +
+        baseColorTransformedUv2 * attributes.barycentrics.y;
     const float2 baseColorUv = transformBaseColorTextureUv(
-        transformedUv, material.baseColorTexture.y, baseColorUvRotation,
+        baseColorTransformedUv, material.baseColorTexture.y, baseColorUvRotation,
         material.baseColorTexture.zw);
     const float2 surfaceTextureUv = transformBaseColorTextureUv(
         transformedUv, material.surfaceTexture.y, surfaceUvRotation,
@@ -536,8 +572,13 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
     const float3 geometricWorldBitangent = worldBitangent;
     const float normalUvRotation = material.normalTexture.z;
     const float normalUvScale = clamp(material.normalTexture.w, 0.01f, 10.0f);
+    const float2 normalTransformedUv =
+        normalTransformedUv0 * (1.0f - attributes.barycentrics.x -
+                                 attributes.barycentrics.y) +
+        normalTransformedUv1 * attributes.barycentrics.x +
+        normalTransformedUv2 * attributes.barycentrics.y;
     const float2 normalMapUv = rotatePbrUv(
-        transformedUv, normalUvRotation, normalUvScale,
+        normalTransformedUv, normalUvRotation, normalUvScale,
         material.occlusion.zw) + material.normalUvOffset.xy;
     const float2 normalMapUvEdge1 = uvEdge1 * normalUvScale;
     const float2 normalMapUvEdge2 = uvEdge2 * normalUvScale;
@@ -582,7 +623,7 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
         const float coatNormalUvRotation = material.clearcoatNormal.z;
         const float coatNormalUvScale =
             clamp(material.clearcoatNormal.w, 0.01f, 10.0f);
-        const float2 coatNormalUv = rotatePbrUv(transformedUv,
+        const float2 coatNormalUv = rotatePbrUv(normalTransformedUv,
             coatNormalUvRotation, coatNormalUvScale, material.occlusion.zw) +
             material.clearcoatNormalUvOffset.xy;
         const float2 coatNormalUvEdge1 = uvEdge1 * coatNormalUvScale;
@@ -1473,6 +1514,7 @@ StructuredBuffer<uint> g_InstancePrimitiveOffsets : register(t3);
 StructuredBuffer<RTMaterial> g_RenderMaterials : register(t5);
 StructuredBuffer<float2> g_RenderUvs : register(t10);
 StructuredBuffer<float4> g_RenderColors : register(t11);
+StructuredBuffer<float2> g_RenderUvs1 : register(t12);
 Texture2D<float4> g_RTPbrTextures[RT_OCCLUSION_TEXTURE_COUNT] : register(t0, space1);
 SamplerState g_RTPbrSampler : register(s2);
 struct Payload { float4 color; float3 rayDirection; uint isShadow; uint blocked; float rayConeWidth; };
@@ -1550,6 +1592,12 @@ void RTWarmup_AnyHit(inout Payload payload,
     const float2 uv0 = g_RenderUvs[primitive.i0];
     const float2 uv1 = g_RenderUvs[primitive.i1];
     const float2 uv2 = g_RenderUvs[primitive.i2];
+    const float2 baseColorSetUv0 = material.baseColorTextureUvRotation.y > 0.5f
+        ? g_RenderUvs1[primitive.i0] : uv0;
+    const float2 baseColorSetUv1 = material.baseColorTextureUvRotation.y > 0.5f
+        ? g_RenderUvs1[primitive.i1] : uv1;
+    const float2 baseColorSetUv2 = material.baseColorTextureUvRotation.y > 0.5f
+        ? g_RenderUvs1[primitive.i2] : uv2;
     const float4 color0 = g_RenderColors[primitive.i0];
     const float4 color1 = g_RenderColors[primitive.i1];
     const float4 color2 = g_RenderColors[primitive.i2];
@@ -1567,19 +1615,29 @@ void RTWarmup_AnyHit(inout Payload payload,
         uv1, material.occlusionUv.xy, angle, material.occlusion.zw);
     const float2 transformedUv2 = transformOpacityUv(
         uv2, material.occlusionUv.xy, angle, material.occlusion.zw);
+    const float2 baseColorTransformedUv0 = transformOpacityUv(
+        baseColorSetUv0, material.occlusionUv.xy, angle, material.occlusion.zw);
+    const float2 baseColorTransformedUv1 = transformOpacityUv(
+        baseColorSetUv1, material.occlusionUv.xy, angle, material.occlusion.zw);
+    const float2 baseColorTransformedUv2 = transformOpacityUv(
+        baseColorSetUv2, material.occlusionUv.xy, angle, material.occlusion.zw);
     const float baseColorUvRotation =
         material.baseColorTextureUvRotation.x;
+    const float2 baseColorTransformedUv =
+        baseColorTransformedUv0 * barycentric0 +
+        baseColorTransformedUv1 * attributes.barycentrics.x +
+        baseColorTransformedUv2 * attributes.barycentrics.y;
     const float2 baseColorUv = transformBaseColorTextureOpacityUv(
-        transformedUv, material.baseColorTexture.y, baseColorUvRotation,
+        baseColorTransformedUv, material.baseColorTexture.y, baseColorUvRotation,
         material.baseColorTexture.zw);
     const float2 baseColorUv0 = transformBaseColorTextureOpacityUv(
-        transformedUv0, material.baseColorTexture.y, baseColorUvRotation,
+        baseColorTransformedUv0, material.baseColorTexture.y, baseColorUvRotation,
         material.baseColorTexture.zw);
     const float2 baseColorUv1 = transformBaseColorTextureOpacityUv(
-        transformedUv1, material.baseColorTexture.y, baseColorUvRotation,
+        baseColorTransformedUv1, material.baseColorTexture.y, baseColorUvRotation,
         material.baseColorTexture.zw);
     const float2 baseColorUv2 = transformBaseColorTextureOpacityUv(
-        transformedUv2, material.baseColorTexture.y, baseColorUvRotation,
+        baseColorTransformedUv2, material.baseColorTexture.y, baseColorUvRotation,
         material.baseColorTexture.zw);
     const float opacityUvRotation = material.opacityTextureUvRotation.x;
     const float2 opacityUv = transformOpacityMapUv(
@@ -1656,9 +1714,11 @@ void bindWarmupTLAS(IPipelineState* pPSO, ITopLevelAS* pTLAS)
 
 void bindWarmupSceneGeometry(IShaderResourceBinding* pSRB, IBuffer* pVertices,
                              IBuffer* pPrimitives, IBuffer* pOffsets, IBuffer* pNormals,
-                             IBuffer* pUvs, IBuffer* pColors, IBuffer* pMaterials)
+                             IBuffer* pUvs, IBuffer* pUvs1, IBuffer* pColors,
+                             IBuffer* pMaterials)
 {
-    if (!pSRB || !pVertices || !pPrimitives || !pOffsets || !pNormals || !pUvs || !pColors || !pMaterials) return;
+    if (!pSRB || !pVertices || !pPrimitives || !pOffsets || !pNormals ||
+        !pUvs || !pUvs1 || !pColors || !pMaterials) return;
     if (auto* pVar = pSRB->GetVariableByName(SHADER_TYPE_RAY_CLOSEST_HIT, "g_RenderVertices")) {
         pVar->Set(pVertices->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE));
     }
@@ -1673,6 +1733,9 @@ void bindWarmupSceneGeometry(IShaderResourceBinding* pSRB, IBuffer* pVertices,
     }
     if (auto* pVar = pSRB->GetVariableByName(SHADER_TYPE_RAY_CLOSEST_HIT, "g_RenderUvs")) {
         pVar->Set(pUvs->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE));
+    }
+    if (auto* pVar = pSRB->GetVariableByName(SHADER_TYPE_RAY_CLOSEST_HIT, "g_RenderUvs1")) {
+        pVar->Set(pUvs1->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE));
     }
     if (auto* pVar = pSRB->GetVariableByName(SHADER_TYPE_RAY_CLOSEST_HIT, "g_RenderColors")) {
         pVar->Set(pColors->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE));
@@ -1691,6 +1754,9 @@ void bindWarmupSceneGeometry(IShaderResourceBinding* pSRB, IBuffer* pVertices,
     }
     if (auto* pVar = pSRB->GetVariableByName(SHADER_TYPE_RAY_ANY_HIT, "g_RenderUvs")) {
         pVar->Set(pUvs->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE));
+    }
+    if (auto* pVar = pSRB->GetVariableByName(SHADER_TYPE_RAY_ANY_HIT, "g_RenderUvs1")) {
+        pVar->Set(pUvs1->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE));
     }
     if (auto* pVar = pSRB->GetVariableByName(SHADER_TYPE_RAY_ANY_HIT, "g_RenderColors")) {
         pVar->Set(pColors->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE));
@@ -1763,6 +1829,7 @@ public:
         pRenderVertices_.Release();
         pRenderNormals_.Release();
         pRenderUvs_.Release();
+        pRenderUvs1_.Release();
         pRenderColors_.Release();
         pRenderIndices_.Release();
         pInstancePrimitiveOffsets_.Release();
@@ -1874,7 +1941,8 @@ public:
                                Uint32 indexCount, const float* vertexNormals,
                                const Uint32* primitiveMaterialIndices,
                                const float* vertexUvs,
-                               const float* vertexColors) override {
+                               const float* vertexColors,
+                               const float* vertexUvs1) override {
         const auto it = blasMap_.find(id.toQString().toStdWString());
         if (it == blasMap_.end() || !vertices || vertexCount < 3 ||
             indexCount < 3 || (indexCount % 3u) != 0 || !indices) return false;
@@ -1895,6 +1963,12 @@ public:
                                    vertexUvs + static_cast<size_t>(vertexCount) * 2u);
         } else {
             node.shadingUvs.clear();
+        }
+        if (vertexUvs1) {
+            node.shadingUvs1.assign(
+                vertexUvs1, vertexUvs1 + static_cast<size_t>(vertexCount) * 2u);
+        } else {
+            node.shadingUvs1.clear();
         }
         if (vertexColors) {
             node.shadingColors.assign(vertexColors,
@@ -2003,6 +2077,8 @@ public:
         nextMaterial.baseColorTextureUvRotation[0] = clampFinite(
             material.baseColorUvRotationDegrees, -360.0f, 360.0f, 0.0f) *
             (3.14159265358979323846f / 180.0f);
+        nextMaterial.baseColorTextureUvRotation[1] =
+            material.baseColorUvSet == 1 ? 1.0f : 0.0f;
         nextMaterial.surfaceTexture[1] = clampFinite(
             material.metallicRoughnessUvScale, 0.01f, 10.0f, 1.0f);
         nextMaterial.surfaceTexture[2] = clampFinite(
@@ -2016,6 +2092,7 @@ public:
             clampFinite(material.normalUvOffsetU, -10.0f, 10.0f, 0.0f);
         nextMaterial.normalUvOffset[1] =
             clampFinite(material.normalUvOffsetV, -10.0f, 10.0f, 0.0f);
+        nextMaterial.normalUvOffset[2] = material.normalUvSet == 1 ? 1.0f : 0.0f;
         nextMaterial.occlusionUv[3] = clampFinite(
             material.occlusionTextureUvScale, 0.01f, 10.0f, 1.0f);
         nextMaterial.occlusionTextureUvOffset[0] = clampFinite(
@@ -2489,6 +2566,7 @@ public:
                 {SHADER_TYPE_RAY_CLOSEST_HIT, "g_InstancePrimitiveOffsets", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
                 {SHADER_TYPE_RAY_CLOSEST_HIT, "g_RenderNormals", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
                 {SHADER_TYPE_RAY_CLOSEST_HIT, "g_RenderUvs", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+                {SHADER_TYPE_RAY_CLOSEST_HIT, "g_RenderUvs1", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
                 {SHADER_TYPE_RAY_CLOSEST_HIT, "g_RenderColors", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
                 {SHADER_TYPE_RAY_CLOSEST_HIT, "g_RenderMaterials", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
                 {SHADER_TYPE_RAY_CLOSEST_HIT, "g_RTPbrTextures", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -2504,6 +2582,7 @@ public:
                 {SHADER_TYPE_RAY_ANY_HIT, "g_RenderPrimitives", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
                 {SHADER_TYPE_RAY_ANY_HIT, "g_InstancePrimitiveOffsets", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
                 {SHADER_TYPE_RAY_ANY_HIT, "g_RenderUvs", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+                {SHADER_TYPE_RAY_ANY_HIT, "g_RenderUvs1", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
                 {SHADER_TYPE_RAY_ANY_HIT, "g_RenderColors", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
                 {SHADER_TYPE_RAY_ANY_HIT, "g_RenderMaterials", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
                 {SHADER_TYPE_RAY_ANY_HIT, "g_RTPbrTextures", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}
@@ -2713,6 +2792,7 @@ private:
         std::vector<float> shadingVertices;
         std::vector<float> shadingNormals;
         std::vector<float> shadingUvs;
+        std::vector<float> shadingUvs1;
         std::vector<float> shadingColors;
         std::vector<Uint32> shadingIndices;
         std::vector<Uint32> shadingMaterialIndices;
@@ -3387,6 +3467,7 @@ private:
         std::vector<float> vertices;
         std::vector<float> normals;
         std::vector<float> uvs;
+        std::vector<float> uvs1;
         std::vector<float> colors;
         std::vector<RTPrimitive> primitives;
         std::vector<RTMaterial> materials;
@@ -3395,6 +3476,7 @@ private:
         vertices.reserve(1024);
         normals.reserve(1024);
         uvs.reserve(512);
+        uvs1.reserve(512);
         primitives.reserve(1024);
         offsets.reserve(blasMap_.size());
         for (const auto& [name, node] : blasMap_) {
@@ -3495,6 +3577,15 @@ private:
                     uvs.push_back(0.0f);
                     uvs.push_back(0.0f);
                 }
+                if (node.shadingUvs1.size() == node.shadingVertices.size() / 3u * 2u) {
+                    const size_t uvOffset = vertex / 3u * 2u;
+                    uvs1.push_back(node.shadingUvs1[uvOffset]);
+                    uvs1.push_back(node.shadingUvs1[uvOffset + 1u]);
+                } else {
+                    const size_t uvOffset = vertex / 3u * 2u;
+                    uvs1.push_back(uvs[uvOffset]);
+                    uvs1.push_back(uvs[uvOffset + 1u]);
+                }
                 if (node.shadingColors.size() == node.shadingVertices.size() / 3u * 4u) {
                     const size_t colorOffset = vertex / 3u * 4u;
                     colors.insert(colors.end(), node.shadingColors.begin() + colorOffset,
@@ -3540,17 +3631,20 @@ private:
         if (vertices.empty()) vertices.insert(vertices.end(), std::begin(fallbackVertex), std::end(fallbackVertex));
         if (normals.empty()) normals.insert(normals.end(), std::begin(fallbackNormal), std::end(fallbackNormal));
         if (uvs.empty()) uvs.insert(uvs.end(), std::begin(fallbackUv), std::end(fallbackUv));
+        if (uvs1.empty()) uvs1.insert(uvs1.end(), uvs.begin(), uvs.end());
         if (colors.empty()) colors.insert(colors.end(), std::begin(fallbackColor), std::end(fallbackColor));
         if (primitives.empty()) primitives.push_back(fallbackPrimitive);
         if (materials.empty()) materials.push_back(fallbackMaterial);
         if (offsets.empty()) offsets.push_back(fallbackOffset);
-        RefCntAutoPtr<IBuffer> newVertices, newNormals, newUvs, newColors, newPrimitives, newOffsets, newMaterials;
+        RefCntAutoPtr<IBuffer> newVertices, newNormals, newUvs, newUvs1, newColors, newPrimitives, newOffsets, newMaterials;
         if (!createStructuredBuffer("RayTracing Shading Vertices", vertices.data(),
                                     vertices.size() * sizeof(float), 4u * sizeof(float), newVertices) ||
             !createStructuredBuffer("RayTracing Shading Normals", normals.data(),
                                     normals.size() * sizeof(float), 4u * sizeof(float), newNormals) ||
             !createStructuredBuffer("RayTracing Shading UVs", uvs.data(),
                                     uvs.size() * sizeof(float), 2u * sizeof(float), newUvs) ||
+            !createStructuredBuffer("RayTracing Shading UV1s", uvs1.data(),
+                                    uvs1.size() * sizeof(float), 2u * sizeof(float), newUvs1) ||
             !createStructuredBuffer("RayTracing Shading Colors", colors.data(),
                                     colors.size() * sizeof(float), 4u * sizeof(float), newColors) ||
             !createStructuredBuffer("RayTracing Shading Primitives", primitives.data(),
@@ -3562,6 +3656,7 @@ private:
         pRenderVertices_ = std::move(newVertices);
         pRenderNormals_ = std::move(newNormals);
         pRenderUvs_ = std::move(newUvs);
+        pRenderUvs1_ = std::move(newUvs1);
         pRenderColors_ = std::move(newColors);
         pRenderIndices_ = std::move(newPrimitives);
         pRenderMaterials_ = std::move(newMaterials);
@@ -3573,7 +3668,8 @@ private:
         }
         rebuildResourceBinding();
         bindWarmupSceneGeometry(pRayTracingSRB_, pRenderVertices_, pRenderIndices_,
-                                pInstancePrimitiveOffsets_, pRenderNormals_, pRenderUvs_, pRenderColors_, pRenderMaterials_);
+                                pInstancePrimitiveOffsets_, pRenderNormals_, pRenderUvs_,
+                                pRenderUvs1_, pRenderColors_, pRenderMaterials_);
         return true;
     }
 
@@ -3582,7 +3678,8 @@ private:
         if (pRayTracingPSO_) {
             pRayTracingPSO_->CreateShaderResourceBinding(&pRayTracingSRB_, true);
             bindWarmupSceneGeometry(pRayTracingSRB_, pRenderVertices_, pRenderIndices_,
-                                    pInstancePrimitiveOffsets_, pRenderNormals_, pRenderUvs_, pRenderColors_, pRenderMaterials_);
+                                    pInstancePrimitiveOffsets_, pRenderNormals_, pRenderUvs_,
+                                    pRenderUvs1_, pRenderColors_, pRenderMaterials_);
             std::vector<IDeviceObject*> textureViews;
             textureViews.reserve(pbrTextureCapacity_);
             for (Uint32 i = 0; i < pbrTextureCapacity_; ++i) {
@@ -3659,6 +3756,7 @@ private:
     RefCntAutoPtr<IBuffer> pRenderVertices_;
     RefCntAutoPtr<IBuffer> pRenderNormals_;
     RefCntAutoPtr<IBuffer> pRenderUvs_;
+    RefCntAutoPtr<IBuffer> pRenderUvs1_;
     RefCntAutoPtr<IBuffer> pRenderColors_;
     RefCntAutoPtr<IBuffer> pRenderIndices_;
     RefCntAutoPtr<IBuffer> pRenderMaterials_;

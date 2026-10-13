@@ -1299,6 +1299,7 @@ struct VSInput {
     float3 pos : ATTRIB0;
     float2 uv : ATTRIB2;
     float4 color : ATTRIB3;
+    float2 uv1 : ATTRIB4;
 };
 
 struct InstanceData {
@@ -1321,6 +1322,7 @@ struct VSOutput {
     float2 uv : TEXCOORD0;
     float4 color : COLOR0;
     float instanceAlpha : TEXCOORD1;
+    float2 uv1 : TEXCOORD2;
 };
 
 VSOutput VSMain(VSInput In, uint InstanceID : SV_InstanceID) {
@@ -1329,6 +1331,7 @@ VSOutput VSMain(VSInput In, uint InstanceID : SV_InstanceID) {
     Out.position = mul(mul(float4(In.pos, 1.0), instance.transform),
                        LightViewProjection);
     Out.uv = In.uv;
+    Out.uv1 = In.uv1;
     Out.color = In.color;
     Out.instanceAlpha = instance.color.a;
     return Out;
@@ -1341,6 +1344,7 @@ struct PSInput {
     float2 uv : TEXCOORD0;
     float4 color : COLOR0;
     float instanceAlpha : TEXCOORD1;
+    float2 uv1 : TEXCOORD2;
 };
 
 Texture2D g_BaseColorTexture : register(t0);
@@ -1418,7 +1422,9 @@ float2 transformOpacityTextureUv(float2 uv) {
 
 void PSMain(PSInput In) {
     if (PbrTextureFlags.w > 0.5) {
-        float2 uv = transformBaseColorUv(transformShadowUv(In.uv));
+        float2 baseColorMeshUv = BaseColorTextureUvTransform.w > 0.5
+            ? In.uv1 : In.uv;
+        float2 uv = transformBaseColorUv(transformShadowUv(baseColorMeshUv));
         float2 opacityUv = transformOpacityTextureUv(
             transformShadowUv(In.uv));
         float baseAlpha = g_BaseColorTexture.Sample(
@@ -2019,7 +2025,9 @@ float sheenVisibility(float roughness, float NdotV, float NdotL) {
 
 float4 PSMain(PSInput In) : SV_Target {
     float2 meshUv = transformMeshUv(In.UV);
-    float2 baseColorUv = transformBaseColorUv(meshUv);
+    float2 baseColorMeshUv = transformMeshUv(
+        BaseColorTextureUvTransform.w > 0.5 ? In.UV1 : In.UV);
+    float2 baseColorUv = transformBaseColorUv(baseColorMeshUv);
     float2 surfaceTextureUv = transformSurfaceTextureUv(meshUv);
     float2 normalMeshUv = transformMeshUv(
         NormalTextureUvOffset.z > 0.5 ? In.UV1 : In.UV);
@@ -3775,7 +3783,7 @@ void MeshRenderer::createPSO()
     shadowPSOInfo.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = true;
     shadowPSOInfo.GraphicsPipeline.DepthStencilDesc.DepthFunc =
         COMPARISON_FUNC_LESS;
-    std::array<LayoutElement, 3> shadowLayout;
+    std::array<LayoutElement, 4> shadowLayout;
     shadowLayout[0].HLSLSemantic = "ATTRIB";
     shadowLayout[0].InputIndex = 0;
     shadowLayout[0].BufferSlot = 0;
@@ -3791,6 +3799,11 @@ void MeshRenderer::createPSO()
     shadowLayout[2].BufferSlot = 3;
     shadowLayout[2].NumComponents = 4;
     shadowLayout[2].ValueType = VT_FLOAT32;
+    shadowLayout[3].HLSLSemantic = "ATTRIB";
+    shadowLayout[3].InputIndex = 4;
+    shadowLayout[3].BufferSlot = 4;
+    shadowLayout[3].NumComponents = 2;
+    shadowLayout[3].ValueType = VT_FLOAT32;
     shadowPSOInfo.GraphicsPipeline.InputLayout.NumElements =
         static_cast<Uint32>(shadowLayout.size());
     shadowPSOInfo.GraphicsPipeline.InputLayout.LayoutElements = shadowLayout.data();
@@ -4881,8 +4894,8 @@ void MeshRenderer::prepareShadow(IDeviceContext* pContext,
                                     RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     IBuffer* vertexBuffers[] = {
         pImpl_->pPositionBuffer_, pImpl_->pNormalBuffer_,
-        pImpl_->pUVBuffer_, pImpl_->pColorBuffer_};
-    pContext->SetVertexBuffers(0, 4, vertexBuffers, nullptr,
+        pImpl_->pUVBuffer_, pImpl_->pColorBuffer_, pImpl_->pUV1Buffer_};
+    pContext->SetVertexBuffers(0, 5, vertexBuffers, nullptr,
                                RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
                                SET_VERTEX_BUFFERS_FLAG_RESET);
     if (pImpl_->pIndexBuffer_) {
@@ -5293,6 +5306,13 @@ void MeshRenderer::setBaseColorTexture(const QString& path)
         pImpl_->pBaseColorTextureSRV_ =
             pImpl_->pBaseColorTexture_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
     }
+}
+
+void MeshRenderer::setBaseColorUvSet(int uvSet)
+{
+    prepared_ = false;
+    pImpl_->materialConstants_.baseColorTextureUvTransform[3] =
+        uvSet == 1 ? 1.0f : 0.0f;
 }
 
 void MeshRenderer::clearBaseColorTexture()
