@@ -155,6 +155,7 @@ public:
         bool hasSubsurfaceRadius = false;
         bool hasSubsurfaceAnisotropy = false;
         bool hasAnisotropy = false;
+        bool hasAnisotropyRotation = false;
         bool hasOpacity = false;
         bool hasEmissionColor = false;
         bool hasEmissionStrength = false;
@@ -175,6 +176,7 @@ public:
         float subsurface = 0.0f;
         float subsurfaceAnisotropy = 0.0f;
         float anisotropy = 0.0f;
+        float anisotropyRotationDegrees = 0.0f;
         float opacity = 1.0f;
         float emissionStrength = 0.0f;
         float subsurfaceColor[3] = {1.0f, 1.0f, 1.0f};

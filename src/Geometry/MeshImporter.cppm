@@ -592,12 +592,126 @@ public:
   void detectTexturesFromTinyObj(const QString& modelPath,
                                  const tinyobj::ObjReader& reader)
   {
+    importedPbrMaterials_.clear();
     const auto& materials = reader.GetMaterials();
     if (materials.empty()) {
       return;
     }
 
+    importedPbrMaterials_.reserve(materials.size());
+    const auto finiteClamped = [](double value, float minimum, float maximum,
+                                  float fallback) {
+      if (!std::isfinite(value)) return fallback;
+      return std::clamp(static_cast<float>(value), minimum, maximum);
+    };
+    const auto captureTexture = [&](const std::string& path,
+                                    const tinyobj::texture_option_t& options,
+                                    UniString* destination,
+                                    MeshImporter::ImportedPbrTextureTransform* uv) {
+      if (path.empty()) return;
+      const QString resolved = resolveTexturePath(
+          modelPath, QString::fromUtf8(path.data(), static_cast<int>(path.size())));
+      if (resolved.isEmpty()) return;
+      *destination = UniString::fromQString(resolved);
+      uv->scaleU = finiteClamped(options.scale[0], 0.0001f, 10000.0f, 1.0f);
+      uv->scaleV = finiteClamped(options.scale[1], 0.0001f, 10000.0f, 1.0f);
+      uv->offsetU = finiteClamped(options.origin_offset[0], -1000000.0f,
+                                  1000000.0f, 0.0f);
+      uv->offsetV = finiteClamped(options.origin_offset[1], -1000000.0f,
+                                  1000000.0f, 0.0f);
+      uv->hasTransform = std::abs(uv->scaleU - 1.0f) > 1.0e-6f ||
+                         std::abs(uv->scaleV - 1.0f) > 1.0e-6f ||
+                         std::abs(uv->offsetU) > 1.0e-6f ||
+                         std::abs(uv->offsetV) > 1.0e-6f;
+    };
+
     for (const auto& material : materials) {
+      MeshImporter::ImportedPbrMaterial imported;
+      imported.name = UniString::fromQString(QString::fromUtf8(
+          material.name.data(), static_cast<int>(material.name.size())));
+      imported.baseColor[0] = finiteClamped(material.diffuse[0], 0.0f, 1.0f, 1.0f);
+      imported.baseColor[1] = finiteClamped(material.diffuse[1], 0.0f, 1.0f, 1.0f);
+      imported.baseColor[2] = finiteClamped(material.diffuse[2], 0.0f, 1.0f, 1.0f);
+      if (imported.baseColor[0] <= 1.0e-6f &&
+          imported.baseColor[1] <= 1.0e-6f &&
+          imported.baseColor[2] <= 1.0e-6f) {
+        imported.baseColor[0] = 1.0f;
+        imported.baseColor[1] = 1.0f;
+        imported.baseColor[2] = 1.0f;
+      }
+      imported.baseColor[3] = 1.0f;
+      imported.hasBaseColor = true;
+      imported.opacity = finiteClamped(material.dissolve, 0.0f, 1.0f, 1.0f);
+      imported.hasOpacity = true;
+      imported.metallic = finiteClamped(material.metallic, 0.0f, 1.0f, 0.0f);
+      imported.hasMetallic = true;
+      const float mtlRoughness = finiteClamped(material.roughness, 0.0f, 1.0f, 0.0f);
+      const float phongExponent = finiteClamped(material.shininess, 0.0f, 100000.0f, 1.0f);
+      imported.roughness = mtlRoughness > 0.0f
+          ? mtlRoughness
+          : std::clamp(std::sqrt(2.0f / (phongExponent + 2.0f)), 0.04f, 1.0f);
+      imported.hasRoughness = true;
+      imported.clearcoat = finiteClamped(material.clearcoat_thickness, 0.0f, 1.0f, 0.0f);
+      imported.hasClearcoat = true;
+      imported.clearcoatRoughness = finiteClamped(material.clearcoat_roughness, 0.0f, 1.0f, 0.03f);
+      imported.hasClearcoatRoughness = true;
+      imported.sheen = finiteClamped(material.sheen, 0.0f, 1.0f, 0.0f);
+      imported.hasSheen = true;
+      imported.anisotropy = finiteClamped(material.anisotropy, 0.0f, 1.0f, 0.0f);
+      imported.hasAnisotropy = true;
+      // tinyobjloader's MTL extension expresses anisor as turns in [0, 1].
+      imported.anisotropyRotationDegrees =
+          finiteClamped(material.anisotropy_rotation, 0.0f, 1.0f, 0.0f) * 360.0f;
+      imported.hasAnisotropyRotation = true;
+      float maxEmission = 0.0f;
+      for (int channel = 0; channel < 3; ++channel) {
+        imported.specularTint[channel] = finiteClamped(
+            material.specular[channel], 0.0f, 1.0f, 1.0f);
+        imported.emissionColor[channel] = finiteClamped(
+            material.emission[channel], 0.0f, 100000.0f, 0.0f);
+        maxEmission = std::max(maxEmission, imported.emissionColor[channel]);
+      }
+      if (maxEmission > 1.0f) {
+        for (float& channel : imported.emissionColor) {
+          channel /= maxEmission;
+        }
+      }
+      imported.hasSpecularTint = imported.specularTint[0] > 1.0e-6f ||
+                                 imported.specularTint[1] > 1.0e-6f ||
+                                 imported.specularTint[2] > 1.0e-6f;
+      imported.hasEmissionColor = true;
+      imported.emissionStrength = maxEmission > 1.0f ? maxEmission : 1.0f;
+      imported.hasEmissionStrength = true;
+      const float sourceIor = finiteClamped(material.ior, 1.0f, 3.0f, 1.0f);
+      if (sourceIor > 1.0f) {
+        imported.ior = sourceIor;
+        imported.hasIor = true;
+      }
+
+      captureTexture(material.diffuse_texname, material.diffuse_texopt,
+                     &imported.baseColorTexture, &imported.baseColorUv);
+      captureTexture(material.roughness_texname, material.roughness_texopt,
+                     &imported.metallicRoughnessTexture,
+                     &imported.metallicRoughnessUv);
+      if (imported.metallicRoughnessTexture.toQString().isEmpty()) {
+        captureTexture(material.metallic_texname, material.metallic_texopt,
+                       &imported.metallicRoughnessTexture,
+                       &imported.metallicRoughnessUv);
+      }
+      captureTexture(material.normal_texname, material.normal_texopt,
+                     &imported.normalTexture, &imported.normalUv);
+      if (imported.normalTexture.toQString().isEmpty()) {
+        captureTexture(material.bump_texname, material.bump_texopt,
+                       &imported.normalTexture, &imported.normalUv);
+      }
+      captureTexture(material.emissive_texname, material.emissive_texopt,
+                     &imported.emissionTexture, &imported.emissionUv);
+      captureTexture(material.ambient_texname, material.ambient_texopt,
+                     &imported.occlusionTexture, &imported.occlusionUv);
+      captureTexture(material.alpha_texname, material.alpha_texopt,
+                     &imported.opacityTexture, &imported.opacityUv);
+      importedPbrMaterials_.push_back(std::move(imported));
+
       const auto assignTexture = [&](const std::string& path, auto&& setter,
                                      const char* label) {
         const QString candidate = QString::fromUtf8(path.data(), static_cast<int>(path.size()));
@@ -1490,6 +1604,7 @@ public:
     lastEmissionTexture_.clear();
     lastOcclusionTexture_.clear();
     lastOpacityTexture_.clear();
+    importedPbrMaterials_.clear();
     tinyobj::ObjReaderConfig config;
     config.triangulate = false;
 
@@ -1538,8 +1653,16 @@ public:
     auto posAttr = mesh->vertexAttributes().add<QVector3D>("position");
     auto normAttr = mesh->vertexAttributes().add<QVector3D>("normal");
     auto uvAttr = mesh->vertexAttributes().add<QVector2D>("uv");
+    detectTexturesFromTinyObj(path, reader);
 
+    struct MaterialFaceGroup {
+      int materialIndex = 0;
+      int firstIndex = 0;
+      int indexCount = 0;
+    };
+    QVector<MaterialFaceGroup> materialFaceGroups;
     size_t vertexOffset = 0;
+    int materialIndexOffset = 0;
     for (const auto &shape : shapes) {
       size_t indexOffset = 0;
       for (size_t face = 0; face < shape.mesh.num_face_vertices.size();
@@ -1588,12 +1711,36 @@ public:
         }
 
         mesh->addPolygon(polyIndices);
+        const int faceIndexCount = std::max(fv - 2, 0) * 3;
+        if (faceIndexCount > 0 && !importedPbrMaterials_.empty()) {
+          const int sourceMaterialIndex =
+              face < shape.mesh.material_ids.size()
+                  ? shape.mesh.material_ids[face] : -1;
+          const int materialIndex = sourceMaterialIndex >= 0 &&
+                  static_cast<std::size_t>(sourceMaterialIndex) <
+                      importedPbrMaterials_.size()
+              ? sourceMaterialIndex : 0;
+          if (!materialFaceGroups.isEmpty() &&
+              materialFaceGroups.back().materialIndex == materialIndex &&
+              materialFaceGroups.back().firstIndex +
+                      materialFaceGroups.back().indexCount == materialIndexOffset) {
+            materialFaceGroups.back().indexCount += faceIndexCount;
+          } else {
+            materialFaceGroups.push_back(
+                {materialIndex, materialIndexOffset, faceIndexCount});
+          }
+          materialIndexOffset += faceIndexCount;
+        }
         indexOffset += static_cast<size_t>(fv);
       }
     }
 
+    for (const MaterialFaceGroup& group : materialFaceGroups) {
+      mesh->addMaterialSlot(group.firstIndex, group.indexCount,
+                            group.materialIndex);
+    }
+
     mesh->updateBounds();
-    detectTexturesFromTinyObj(path, reader);
     return mesh;
   }
 
