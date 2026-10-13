@@ -95,6 +95,7 @@ public:
   float lastSheenFactor_ = 0.0f;
   bool hasLastSheenRoughnessFactor_ = false;
   float lastSheenRoughnessFactor_ = 0.5f;
+  std::vector<MeshImporter::ImportedPbrMaterial> importedPbrMaterials_;
 
   // Per-source-mesh data produced by importers that concatenate several
   // primitives (USD stages).  Empty for the single-mesh import paths; the
@@ -276,8 +277,13 @@ public:
     for (size_t i = 0; i < scene->materials.count; ++i) {
       const ufbx_material* material = scene->materials[i];
       if (!material) {
+        importedPbrMaterials_.emplace_back();
         continue;
       }
+
+      MeshImporter::ImportedPbrMaterial imported;
+      imported.name = UniString::fromQString(
+          ufbxStringToQString(material->name));
 
       const auto assignTexture = [&](const ufbx_texture* texture, auto&& setter,
                                      const char* label) {
@@ -301,6 +307,116 @@ public:
         setter(resolved);
         qDebug() << "[MeshImporter] ufbx" << label << ":" << resolved;
       };
+
+      const auto texturePath = [&](const ufbx_texture* texture) {
+        if (!texture || texture->type != UFBX_TEXTURE_FILE) return QString();
+        QString candidate = ufbxStringToQString(texture->absolute_filename);
+        if (candidate.isEmpty()) {
+          candidate = ufbxStringToQString(texture->relative_filename);
+        }
+        if (candidate.isEmpty()) {
+          candidate = ufbxStringToQString(texture->filename);
+        }
+        return resolveTexturePath(modelPath, candidate);
+      };
+      const auto setImportedTexture = [&](const ufbx_texture* texture,
+                                          UniString* destination) {
+        const QString resolved = texturePath(texture);
+        if (!resolved.isEmpty()) {
+          *destination = UniString::fromQString(resolved);
+        }
+      };
+      const auto captureMaterialScalar = [](
+          const ufbx_material_map& map, float minimum, float maximum,
+          float fallback, float* value, bool* hasValue) {
+        if (!map.has_value || !std::isfinite(map.value_real)) return;
+        const float converted = static_cast<float>(map.value_real);
+        *value = std::isfinite(converted)
+            ? std::clamp(converted, minimum, maximum) : fallback;
+        *hasValue = std::isfinite(converted);
+      };
+      const auto linearToSrgb = [](float value) {
+        value = std::clamp(value, 0.0f, 1.0f);
+        return value <= 0.0031308f
+            ? value * 12.92f
+            : 1.055f * std::pow(value, 1.0f / 2.4f) - 0.055f;
+      };
+      if (material->pbr.base_color.has_value &&
+          material->pbr.base_color.value_components >= 3) {
+        imported.baseColor[0] = linearToSrgb(
+            static_cast<float>(material->pbr.base_color.value_vec4.x));
+        imported.baseColor[1] = linearToSrgb(
+            static_cast<float>(material->pbr.base_color.value_vec4.y));
+        imported.baseColor[2] = linearToSrgb(
+            static_cast<float>(material->pbr.base_color.value_vec4.z));
+        imported.baseColor[3] = std::clamp(static_cast<float>(
+            material->pbr.base_color.value_vec4.w), 0.0f, 1.0f);
+        imported.hasBaseColor = true;
+      }
+      captureMaterialScalar(material->pbr.metalness, 0.0f, 1.0f, 0.0f,
+                            &imported.metallic, &imported.hasMetallic);
+      captureMaterialScalar(material->pbr.roughness, 0.0f, 1.0f, 0.5f,
+                            &imported.roughness, &imported.hasRoughness);
+      captureMaterialScalar(material->pbr.coat_factor, 0.0f, 1.0f, 0.0f,
+                            &imported.clearcoat, &imported.hasClearcoat);
+      captureMaterialScalar(material->pbr.coat_roughness, 0.0f, 1.0f,
+                            0.03f, &imported.clearcoatRoughness,
+                            &imported.hasClearcoatRoughness);
+      captureMaterialScalar(material->pbr.transmission_factor, 0.0f, 1.0f,
+                            0.0f, &imported.transmission,
+                            &imported.hasTransmission);
+      captureMaterialScalar(material->pbr.specular_ior, 1.0f, 3.0f, 1.5f,
+                            &imported.ior, &imported.hasIor);
+      captureMaterialScalar(material->pbr.sheen_factor, 0.0f, 1.0f, 0.0f,
+                            &imported.sheen, &imported.hasSheen);
+      captureMaterialScalar(material->pbr.sheen_roughness, 0.0f, 1.0f,
+                            0.5f, &imported.sheenRoughness,
+                            &imported.hasSheenRoughness);
+      if (material->pbr.specular_factor.has_value) {
+        float sourceFactor = 1.0f;
+        bool hasFactor = false;
+        captureMaterialScalar(material->pbr.specular_factor, 0.0f, 1.0f,
+                              1.0f, &sourceFactor, &hasFactor);
+        if (hasFactor) {
+          imported.specular = sourceFactor * 0.5f;
+          imported.hasSpecular = true;
+        }
+      }
+      if (material->pbr.specular_color.has_value &&
+          material->pbr.specular_color.value_components >= 3) {
+        imported.specularTint[0] = linearToSrgb(
+            static_cast<float>(material->pbr.specular_color.value_vec3.x));
+        imported.specularTint[1] = linearToSrgb(
+            static_cast<float>(material->pbr.specular_color.value_vec3.y));
+        imported.specularTint[2] = linearToSrgb(
+            static_cast<float>(material->pbr.specular_color.value_vec3.z));
+        imported.hasSpecularTint = true;
+      }
+      if (material->pbr.sheen_color.has_value &&
+          material->pbr.sheen_color.value_components >= 3) {
+        imported.sheenTint[0] = linearToSrgb(
+            static_cast<float>(material->pbr.sheen_color.value_vec3.x));
+        imported.sheenTint[1] = linearToSrgb(
+            static_cast<float>(material->pbr.sheen_color.value_vec3.y));
+        imported.sheenTint[2] = linearToSrgb(
+            static_cast<float>(material->pbr.sheen_color.value_vec3.z));
+        imported.hasSheenTint = true;
+      }
+      setImportedTexture(material->pbr.base_color.texture,
+                         &imported.baseColorTexture);
+      setImportedTexture(material->pbr.base_factor.texture,
+                         &imported.metallicRoughnessTexture);
+      setImportedTexture(material->pbr.normal_map.texture,
+                         &imported.normalTexture);
+      setImportedTexture(material->pbr.coat_normal.texture,
+                         &imported.clearcoatNormalTexture);
+      setImportedTexture(material->pbr.emission_color.texture,
+                         &imported.emissionTexture);
+      setImportedTexture(material->pbr.ambient_occlusion.texture,
+                         &imported.occlusionTexture);
+      setImportedTexture(material->pbr.opacity.texture,
+                         &imported.opacityTexture);
+      importedPbrMaterials_.push_back(std::move(imported));
 
       assignTexture(material->pbr.base_color.texture, [&](const QString& p) { setLastBaseColorTexture(p); }, "base color texture");
       if (lastMetallicRoughnessTexture_.isEmpty()) {
@@ -365,17 +481,6 @@ public:
         assignTexture(material->pbr.ambient_occlusion.texture, [&](const QString& p) { setLastOcclusionTexture(p); }, "occlusion texture");
       }
 
-      if (!lastBaseColorTexture_.isEmpty() &&
-          !lastNormalTexture_.isEmpty() &&
-          !lastEmissionTexture_.isEmpty() &&
-          !lastOpacityTexture_.isEmpty() &&
-          !lastOcclusionTexture_.isEmpty() &&
-          hasLastMetallicFactor_ && hasLastRoughnessFactor_ &&
-          hasLastClearcoatFactor_ && hasLastClearcoatRoughnessFactor_ &&
-          hasLastTransmissionFactor_ && hasLastIorFactor_ &&
-          hasLastSheenFactor_ && hasLastSheenRoughnessFactor_) {
-        return;
-      }
     }
   }
 
@@ -456,6 +561,7 @@ public:
     lastEmissionTexture_.clear();
     lastOcclusionTexture_.clear();
     lastOpacityTexture_.clear();
+    importedPbrMaterials_.clear();
     hasLastMetallicFactor_ = false;
     lastMetallicFactor_ = 0.0f;
     hasLastRoughnessFactor_ = false;
@@ -579,6 +685,18 @@ public:
       return nullptr;
     }
 
+    detectTexturesFromUfbx(path, scene);
+    QHash<const ufbx_material*, int> importedMaterialIndices;
+    for (size_t materialIndex = 0;
+         materialIndex < scene->materials.count &&
+         materialIndex < importedPbrMaterials_.size(); ++materialIndex) {
+      const ufbx_material* sourceMaterial = scene->materials[materialIndex];
+      if (sourceMaterial) {
+        importedMaterialIndices.insert(sourceMaterial,
+                                       static_cast<int>(materialIndex));
+      }
+    }
+
     mesh->setVertexCount(totalVertices);
     auto posAttr = mesh->vertexAttributes().add<QVector3D>("position");
     auto normAttr = mesh->vertexAttributes().add<QVector3D>("normal");
@@ -698,6 +816,7 @@ public:
     mesh->setSkinAnimationClips(animationClips);
 
     int vertexOffset = 0;
+    int indexOutputOffset = 0;
     bool warnedNonLinearSkinning = false;
     bool warnedInfluenceTruncation = false;
     for (size_t i = 0; i < scene->meshes.count; ++i) {
@@ -988,7 +1107,62 @@ public:
         }
       }
 
-      for (size_t f = 0; f < srcMesh->num_faces; ++f) {
+      struct MaterialFaceGroup {
+        int materialIndex = -1;
+        int firstIndex = 0;
+        int indexCount = 0;
+      };
+      QVector<uint32_t> orderedFaceIndices;
+      orderedFaceIndices.reserve(static_cast<qsizetype>(srcMesh->num_faces));
+      QVector<MaterialFaceGroup> materialFaceGroups;
+      QVector<quint8> faceSeen(static_cast<qsizetype>(srcMesh->num_faces), 0);
+      int groupIndexOffset = 0;
+      for (size_t usageIndex = 0;
+           usageIndex < srcMesh->material_part_usage_order.count;
+           ++usageIndex) {
+        const uint32_t partIndex = srcMesh->material_part_usage_order[usageIndex];
+        if (partIndex >= srcMesh->material_parts.count) continue;
+        const ufbx_mesh_part& part = srcMesh->material_parts[partIndex];
+        const size_t groupFaceStart = orderedFaceIndices.size();
+        for (size_t partFace = 0; partFace < part.face_indices.count; ++partFace) {
+          const uint32_t faceIndex = part.face_indices[partFace];
+          if (faceIndex >= srcMesh->num_faces || faceSeen[faceIndex]) continue;
+          faceSeen[faceIndex] = 1;
+          orderedFaceIndices.push_back(faceIndex);
+        }
+        const size_t groupFaceCount = orderedFaceIndices.size() - groupFaceStart;
+        if (groupFaceCount == 0 || part.num_triangles == 0 ||
+            importedPbrMaterials_.empty()) {
+          continue;
+        }
+        int materialIndex = 0;
+        if (part.index < srcMesh->materials.count) {
+          const ufbx_material* sourceMaterial =
+              srcMesh->materials[part.index];
+          const auto importedIndex =
+              importedMaterialIndices.constFind(sourceMaterial);
+          if (importedIndex != importedMaterialIndices.cend()) {
+            materialIndex = importedIndex.value();
+          }
+        }
+        MaterialFaceGroup group;
+        group.materialIndex = materialIndex;
+        group.firstIndex = groupIndexOffset;
+        group.indexCount = static_cast<int>(part.num_triangles * 3u);
+        groupIndexOffset += group.indexCount;
+        materialFaceGroups.push_back(group);
+      }
+      if (orderedFaceIndices.size() !=
+          static_cast<qsizetype>(srcMesh->num_faces)) {
+        orderedFaceIndices.clear();
+        materialFaceGroups.clear();
+        for (size_t faceIndex = 0; faceIndex < srcMesh->num_faces; ++faceIndex) {
+          orderedFaceIndices.push_back(static_cast<uint32_t>(faceIndex));
+        }
+      }
+      for (size_t orderedFace = 0;
+           orderedFace < orderedFaceIndices.size(); ++orderedFace) {
+        const size_t f = orderedFaceIndices[static_cast<qsizetype>(orderedFace)];
         ufbx_face face = srcMesh->faces[f];
         QVector<int> polyIndices;
         polyIndices.reserve((int)face.num_indices);
@@ -1085,13 +1259,17 @@ public:
         }
         mesh->addPolygon(polyIndices);
       }
+      for (const MaterialFaceGroup& group : materialFaceGroups) {
+        mesh->addMaterialSlot(indexOutputOffset + group.firstIndex,
+                              group.indexCount, group.materialIndex);
+      }
+      indexOutputOffset += static_cast<int>(srcMesh->num_triangles * 3u);
       vertexOffset += (int)srcMesh->num_indices;
     }
 
     mesh->setSkinningMethod(importedSkinningMethod);
     mesh->setBlendShapes(blendShapes);
     mesh->applyBlendShapes();
-    detectTexturesFromUfbx(path, scene);
     if (scene != sourceScene) ufbx_free_scene(scene);
     if (sourceScene->anim_stacks.count == 0) {
       ufbx_free_scene(sourceScene);
@@ -2739,6 +2917,7 @@ MeshImporter::~MeshImporter() { delete impl_; }
 SharedPtr<Mesh> MeshImporter::importMeshFromFile(const UniString &path) {
   QString qpath = path.toQString();
   const QString ext = QFileInfo(qpath).suffix().toLower();
+  impl_->importedPbrMaterials_.clear();
   impl_->lastBackend_ = MeshImporter::Backend::None;
   impl_->lastError_.clear();
   impl_->lastBaseColorTexture_.clear();
@@ -2956,6 +3135,12 @@ bool MeshImporter::hasLastSheenRoughnessFactor() const {
 
 float MeshImporter::lastSheenRoughnessFactor() const {
   return impl_ ? impl_->lastSheenRoughnessFactor_ : 0.5f;
+}
+
+const std::vector<MeshImporter::ImportedPbrMaterial>&
+MeshImporter::importedPbrMaterials() const {
+  static const std::vector<ImportedPbrMaterial> empty;
+  return impl_ ? impl_->importedPbrMaterials_ : empty;
 }
 
 int MeshImporter::sourceMeshCount() const {

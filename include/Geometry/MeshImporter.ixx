@@ -103,6 +103,45 @@ public:
     [[nodiscard]] bool hasLastSheenRoughnessFactor() const;
     [[nodiscard]] float lastSheenRoughnessFactor() const;
 
+    // PBR values and texture paths indexed by the ufbx material table. Mesh
+    // material slots refer to these indices after import.
+    struct ImportedPbrMaterial {
+        UniString name;
+        UniString baseColorTexture;
+        UniString metallicRoughnessTexture;
+        UniString normalTexture;
+        UniString clearcoatNormalTexture;
+        UniString emissionTexture;
+        UniString occlusionTexture;
+        UniString opacityTexture;
+        float baseColor[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+        float specularTint[3] = {1.0f, 1.0f, 1.0f};
+        float sheenTint[3] = {1.0f, 1.0f, 1.0f};
+        bool hasBaseColor = false;
+        bool hasMetallic = false;
+        bool hasRoughness = false;
+        bool hasClearcoat = false;
+        bool hasClearcoatRoughness = false;
+        bool hasTransmission = false;
+        bool hasIor = false;
+        bool hasSheen = false;
+        bool hasSheenRoughness = false;
+        bool hasSpecular = false;
+        bool hasSpecularTint = false;
+        bool hasSheenTint = false;
+        float metallic = 0.0f;
+        float roughness = 0.5f;
+        float clearcoat = 0.0f;
+        float clearcoatRoughness = 0.03f;
+        float transmission = 0.0f;
+        float ior = 1.5f;
+        float sheen = 0.0f;
+        float sheenRoughness = 0.5f;
+        float specular = 0.5f;
+    };
+    [[nodiscard]] const std::vector<ImportedPbrMaterial>&
+    importedPbrMaterials() const;
+
     // Per-source-mesh data for importers that concatenate several primitives
     // into one mesh (a USD stage with multiple UsdGeomMesh prims).  Each entry
     // lines up with one Mesh::MaterialSlot range, in the same order.  Both
