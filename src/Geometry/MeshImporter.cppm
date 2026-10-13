@@ -78,6 +78,7 @@ public:
   QString lastEmissionTexture_;
   QString lastOcclusionTexture_;
   QString lastOpacityTexture_;
+  QString lastClearcoatRoughnessTexture_;
   // PBR scalar factors (first ufbx material that specifies them).
   bool hasLastMetallicFactor_ = false;
   float lastMetallicFactor_ = 0.0f;
@@ -107,6 +108,7 @@ public:
     QString emissionTexture;
     QString occlusionTexture;
     QString opacityTexture;
+    QString clearcoatRoughnessTexture;
     float metallic = 0.0f;
     float roughness = 0.5f;
     bool hasMetallic = false;
@@ -125,6 +127,7 @@ public:
   mutable std::vector<UniString> emissionTextureScratch_;
   mutable std::vector<UniString> occlusionTextureScratch_;
   mutable std::vector<UniString> opacityTextureScratch_;
+  mutable std::vector<UniString> clearcoatRoughnessTextureScratch_;
   mutable std::vector<float> metallicFactorScratch_;
   mutable std::vector<float> roughnessFactorScratch_;
   ufbx_scene* cachedUfbxScene_ = nullptr;
@@ -502,6 +505,10 @@ public:
                          &imported.metallicRoughnessTexture);
       setImportedTexture(material->pbr.normal_map.texture,
                          &imported.normalTexture);
+      setImportedTexture(material->pbr.coat_factor.texture,
+                         &imported.clearcoatTexture);
+      setImportedTexture(material->pbr.coat_roughness.texture,
+                         &imported.clearcoatRoughnessTexture);
       setImportedTexture(material->pbr.coat_normal.texture,
                          &imported.clearcoatNormalTexture);
       setImportedTexture(material->pbr.emission_color.texture,
@@ -514,6 +521,10 @@ public:
       captureUvTransform(material->pbr.base_factor.texture,
                          &imported.metallicRoughnessUv);
       captureUvTransform(material->pbr.normal_map.texture, &imported.normalUv);
+      captureUvTransform(material->pbr.coat_factor.texture,
+                         &imported.clearcoatUv);
+      captureUvTransform(material->pbr.coat_roughness.texture,
+                         &imported.clearcoatRoughnessUv);
       captureUvTransform(material->pbr.coat_normal.texture,
                          &imported.clearcoatNormalUv);
       captureUvTransform(material->pbr.emission_color.texture,
@@ -784,6 +795,7 @@ public:
     lastEmissionTexture_.clear();
     lastOcclusionTexture_.clear();
     lastOpacityTexture_.clear();
+    lastClearcoatRoughnessTexture_.clear();
     importedPbrMaterials_.clear();
     hasLastMetallicFactor_ = false;
     lastMetallicFactor_ = 0.0f;
@@ -1608,6 +1620,7 @@ public:
     lastEmissionTexture_.clear();
     lastOcclusionTexture_.clear();
     lastOpacityTexture_.clear();
+    lastClearcoatRoughnessTexture_.clear();
     importedPbrMaterials_.clear();
     tinyobj::ObjReaderConfig config;
     config.triangulate = false;
@@ -2506,6 +2519,7 @@ public:
     lastEmissionTexture_.clear();
     lastOcclusionTexture_.clear();
     lastOpacityTexture_.clear();
+    lastClearcoatRoughnessTexture_.clear();
 
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
@@ -2729,6 +2743,7 @@ public:
     lastEmissionTexture_.clear();
     lastOcclusionTexture_.clear();
     lastOpacityTexture_.clear();
+    lastClearcoatRoughnessTexture_.clear();
     hasLastMetallicFactor_ = false;
     lastMetallicFactor_ = 0.0f;
     hasLastRoughnessFactor_ = false;
@@ -2955,6 +2970,7 @@ public:
       lastEmissionTexture_ = first.emissionTexture;
       lastOcclusionTexture_ = first.occlusionTexture;
       lastOpacityTexture_ = first.opacityTexture;
+      lastClearcoatRoughnessTexture_ = first.clearcoatRoughnessTexture;
       lastMetallicFactor_ = first.metallic;
       hasLastMetallicFactor_ = first.hasMetallic;
       lastRoughnessFactor_ = first.roughness;
@@ -3016,6 +3032,8 @@ public:
                                 &entry->occlusionTexture);
       readUsdShaderTextureInput(shader, "opacity",
                                 &entry->opacityTexture);
+      readUsdShaderTextureInput(shader, "clearcoatRoughness",
+                                &entry->clearcoatRoughnessTexture);
 
       if (const pxr::UsdShadeInput scalarInput =
               shader.GetInput(pxr::TfToken("metallic"))) {
@@ -3064,6 +3082,7 @@ public:
     lastEmissionTexture_.clear();
     lastOcclusionTexture_.clear();
     lastOpacityTexture_.clear();
+    lastClearcoatRoughnessTexture_.clear();
 
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly)) {
@@ -3329,6 +3348,10 @@ QString MeshImporter::lastOpacityTexture() const {
   return impl_ ? impl_->lastOpacityTexture_ : QString();
 }
 
+QString MeshImporter::lastClearcoatRoughnessTexture() const {
+  return impl_ ? impl_->lastClearcoatRoughnessTexture_ : QString();
+}
+
 bool MeshImporter::hasLastMetallicFactor() const {
   return impl_ ? impl_->hasLastMetallicFactor_ : false;
 }
@@ -3515,6 +3538,17 @@ const std::vector<UniString>& MeshImporter::sourceMeshOpacityTextures() const {
   return collectSourceMeshField(impl_->sourceMeshes_,
                                 &Impl::SourceMeshEntry::opacityTexture,
                                 impl_->opacityTextureScratch_);
+}
+
+const std::vector<UniString>&
+MeshImporter::sourceMeshClearcoatRoughnessTextures() const {
+  if (!impl_ || impl_->sourceMeshes_.isEmpty()) {
+    return emptyTexturePaths();
+  }
+  return collectSourceMeshField(
+      impl_->sourceMeshes_,
+      &Impl::SourceMeshEntry::clearcoatRoughnessTexture,
+      impl_->clearcoatRoughnessTextureScratch_);
 }
 
 const std::vector<float>& MeshImporter::sourceMeshMetallicFactors() const {

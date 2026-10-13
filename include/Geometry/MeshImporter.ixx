@@ -83,6 +83,7 @@ public:
     [[nodiscard]] QString lastEmissionTexture() const;
     [[nodiscard]] QString lastOcclusionTexture() const;
     [[nodiscard]] QString lastOpacityTexture() const;
+    [[nodiscard]] QString lastClearcoatRoughnessTexture() const;
     // PBR scalar factors from the first ufbx material that specifies them
     // (glTF metallic/roughness factors, FBX equivalents). Colorspace-free
     // scalars only; base-color factors stay out (sRGB/linear ambiguity).
@@ -121,6 +122,8 @@ public:
         UniString metallicTexture;
         UniString roughnessTexture;
         UniString normalTexture;
+        UniString clearcoatTexture;
+        UniString clearcoatRoughnessTexture;
         UniString clearcoatNormalTexture;
         UniString emissionTexture;
         UniString occlusionTexture;
@@ -130,6 +133,8 @@ public:
         ImportedPbrTextureTransform metallicUv;
         ImportedPbrTextureTransform roughnessUv;
         ImportedPbrTextureTransform normalUv;
+        ImportedPbrTextureTransform clearcoatUv;
+        ImportedPbrTextureTransform clearcoatRoughnessUv;
         ImportedPbrTextureTransform clearcoatNormalUv;
         ImportedPbrTextureTransform emissionUv;
         ImportedPbrTextureTransform occlusionUv;
@@ -206,6 +211,7 @@ public:
     [[nodiscard]] const std::vector<UniString>& sourceMeshEmissionTextures() const;
     [[nodiscard]] const std::vector<UniString>& sourceMeshOcclusionTextures() const;
     [[nodiscard]] const std::vector<UniString>& sourceMeshOpacityTextures() const;
+    [[nodiscard]] const std::vector<UniString>& sourceMeshClearcoatRoughnessTextures() const;
     [[nodiscard]] const std::vector<float>& sourceMeshMetallicFactors() const;
     [[nodiscard]] const std::vector<float>& sourceMeshRoughnessFactors() const;
     [[nodiscard]] bool hasSourceMeshMetallicFactor(int index) const;

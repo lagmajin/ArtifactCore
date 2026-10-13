@@ -155,7 +155,8 @@ public:
     void setDiffuseRoughness(float roughness);
     void setPrincipledFactors(float specular, float ior, float transmission,
                                float clearcoat, float clearcoatRoughness,
-                               float sheen = 0.0f, float clearcoatIor = 1.5f);
+                               float sheen = 0.0f, float clearcoatIor = 1.5f,
+                               bool thinWall = false);
     void setSpecularTint(const QColor& color);
     void setThinFilm(float thicknessNanometers, float ior);
     void setClearcoatTint(const QColor& color, float normalStrength = 1.0f);
@@ -195,6 +196,12 @@ public:
     void setClearcoatNormalUvTransform(float rotationDegrees, float scale,
                                        float offsetU = 0.0f,
                                        float offsetV = 0.0f);
+    void setClearcoatTexture(const QString& path, float scale,
+                             float rotationDegrees, float offsetU,
+                             float offsetV, int uvSet);
+    void setClearcoatRoughnessTexture(const QString& path, float scale,
+                                      float rotationDegrees, float offsetU,
+                                      float offsetV, int uvSet);
     // Per-material IBL intensity scale for indirect lighting.
     void setEnvironmentIntensity(float intensity);
     // Blender-style material graph splices (Artifact.ShaderNode.Core
@@ -340,7 +347,15 @@ public:
         std::array<float, 4> metallicTextureUvTransform{1.0f, 1.0f, 0.0f, 0.0f};
         std::array<float, 4> roughnessTextureUvTransform{1.0f, 1.0f, 0.0f, 0.0f};
         std::array<float, 4> independentPbrTextureUvRotation{};
+        std::array<float, 4> transmissionMode{};
+        // x: enabled, y: UV1 selector, z: uniform scale, w: rotation radians.
+        std::array<float, 4> clearcoatTextureFactors{};
+        std::array<float, 4> clearcoatTextureUvOffset{};
+        // x: has roughness map; y: UV1 selector; z: scale; w: rotation.
+        std::array<float, 4> clearcoatRoughnessTextureFactors{};
+        std::array<float, 4> clearcoatRoughnessTextureUvOffset{};
     };
+    static_assert(sizeof(MaterialState) == 37u * 4u * sizeof(float));
 
     // Multi-material draw. Each range names a contiguous index span and the
     // scalar material state and texture SRVs bound while that span is drawn.
@@ -358,6 +373,8 @@ public:
         QString roughnessTexturePath;
         QString normalTexturePath;
         QString clearcoatNormalTexturePath;
+        QString clearcoatTexturePath;
+        QString clearcoatRoughnessTexturePath;
         QString occlusionTexturePath;
         QString emissionTexturePath;
         QString opacityTexturePath;

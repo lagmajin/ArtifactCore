@@ -28,7 +28,21 @@ public:
  float thinFilmIOR_ = 1.33f;
  float ior_ = 1.5f;
  float transmission_ = 0.0f;
+  bool thinWall_ = false;
  float clearcoat_ = 0.0f;
+ UniString clearcoatTexture_;
+ UniString clearcoatRoughnessTexture_;
+ bool hasClearcoatTexture_ = false;
+ float clearcoatTextureUvScale_ = 1.0f;
+ float clearcoatTextureUvOffsetU_ = 0.0f;
+ float clearcoatTextureUvOffsetV_ = 0.0f;
+ float clearcoatTextureUvRotationDegrees_ = 0.0f;
+ int clearcoatTextureUvSet_ = 0;
+ float clearcoatRoughnessTextureUvScale_ = 1.0f;
+ float clearcoatRoughnessTextureUvOffsetU_ = 0.0f;
+ float clearcoatRoughnessTextureUvOffsetV_ = 0.0f;
+ float clearcoatRoughnessTextureUvRotationDegrees_ = 0.0f;
+ int clearcoatRoughnessTextureUvSet_ = 0;
  float clearcoatRoughness_ = 0.03f;
  float clearcoatIOR_ = 1.5f;
  QColor clearcoatTint_ = QColor(255, 255, 255);
@@ -280,10 +294,94 @@ void Material::setTransmission(float v) {
  impl_->transmission_ = std::isfinite(v) ? std::clamp(v, 0.0f, 1.0f) : 0.0f;
 }
 float Material::transmission() const { return impl_->transmission_; }
+void Material::setThinWall(bool enabled) { impl_->thinWall_ = enabled; }
+bool Material::thinWall() const { return impl_->thinWall_; }
 void Material::setClearcoat(float v) {
  impl_->clearcoat_ = std::isfinite(v) ? std::clamp(v, 0.0f, 1.0f) : 0.0f;
 }
 float Material::clearcoat() const { return impl_->clearcoat_; }
+void Material::setClearcoatTexture(const UniString& path) {
+ impl_->clearcoatTexture_ = path;
+ impl_->hasClearcoatTexture_ = !path.toQString().trimmed().isEmpty();
+}
+UniString Material::clearcoatTexture() const { return impl_->clearcoatTexture_; }
+bool Material::hasClearcoatTexture() const {
+ return impl_->hasClearcoatTexture_;
+}
+void Material::setClearcoatTextureUvScale(float value) {
+ impl_->clearcoatTextureUvScale_ = std::isfinite(value)
+     ? std::clamp(value, 0.01f, 10.0f) : 1.0f;
+}
+float Material::clearcoatTextureUvScale() const {
+ return impl_->clearcoatTextureUvScale_;
+}
+void Material::setClearcoatTextureUvOffsetU(float value) {
+ impl_->clearcoatTextureUvOffsetU_ = std::isfinite(value)
+     ? std::clamp(value, -10.0f, 10.0f) : 0.0f;
+}
+float Material::clearcoatTextureUvOffsetU() const {
+ return impl_->clearcoatTextureUvOffsetU_;
+}
+void Material::setClearcoatTextureUvOffsetV(float value) {
+ impl_->clearcoatTextureUvOffsetV_ = std::isfinite(value)
+     ? std::clamp(value, -10.0f, 10.0f) : 0.0f;
+}
+float Material::clearcoatTextureUvOffsetV() const {
+ return impl_->clearcoatTextureUvOffsetV_;
+}
+void Material::setClearcoatTextureUvRotationDegrees(float value) {
+ impl_->clearcoatTextureUvRotationDegrees_ = std::isfinite(value)
+     ? std::clamp(value, -360.0f, 360.0f) : 0.0f;
+}
+float Material::clearcoatTextureUvRotationDegrees() const {
+ return impl_->clearcoatTextureUvRotationDegrees_;
+}
+void Material::setClearcoatTextureUvSet(int value) {
+ impl_->clearcoatTextureUvSet_ = value == 1 ? 1 : 0;
+}
+int Material::clearcoatTextureUvSet() const {
+ return impl_->clearcoatTextureUvSet_;
+}
+void Material::setClearcoatRoughnessTexture(const UniString& path) {
+ impl_->clearcoatRoughnessTexture_ = path;
+}
+UniString Material::clearcoatRoughnessTexture() const {
+ return impl_->clearcoatRoughnessTexture_;
+}
+void Material::setClearcoatRoughnessTextureUvScale(float value) {
+ impl_->clearcoatRoughnessTextureUvScale_ = std::isfinite(value)
+     ? std::clamp(value, 0.01f, 10.0f) : 1.0f;
+}
+float Material::clearcoatRoughnessTextureUvScale() const {
+ return impl_->clearcoatRoughnessTextureUvScale_;
+}
+void Material::setClearcoatRoughnessTextureUvOffsetU(float value) {
+ impl_->clearcoatRoughnessTextureUvOffsetU_ = std::isfinite(value)
+     ? std::clamp(value, -10.0f, 10.0f) : 0.0f;
+}
+float Material::clearcoatRoughnessTextureUvOffsetU() const {
+ return impl_->clearcoatRoughnessTextureUvOffsetU_;
+}
+void Material::setClearcoatRoughnessTextureUvOffsetV(float value) {
+ impl_->clearcoatRoughnessTextureUvOffsetV_ = std::isfinite(value)
+     ? std::clamp(value, -10.0f, 10.0f) : 0.0f;
+}
+float Material::clearcoatRoughnessTextureUvOffsetV() const {
+ return impl_->clearcoatRoughnessTextureUvOffsetV_;
+}
+void Material::setClearcoatRoughnessTextureUvRotationDegrees(float value) {
+ impl_->clearcoatRoughnessTextureUvRotationDegrees_ = std::isfinite(value)
+     ? std::clamp(value, -360.0f, 360.0f) : 0.0f;
+}
+float Material::clearcoatRoughnessTextureUvRotationDegrees() const {
+ return impl_->clearcoatRoughnessTextureUvRotationDegrees_;
+}
+void Material::setClearcoatRoughnessTextureUvSet(int value) {
+ impl_->clearcoatRoughnessTextureUvSet_ = value == 1 ? 1 : 0;
+}
+int Material::clearcoatRoughnessTextureUvSet() const {
+ return impl_->clearcoatRoughnessTextureUvSet_;
+}
 void Material::setClearcoatRoughness(float v) {
  impl_->clearcoatRoughness_ = std::isfinite(v) ? std::clamp(v, 0.0f, 1.0f) : 0.03f;
 }

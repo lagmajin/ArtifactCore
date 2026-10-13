@@ -1384,6 +1384,11 @@ cbuffer MaterialParams : register(b1) {
     float4 MetallicTextureUvTransform;
     float4 RoughnessTextureUvTransform;
     float4 IndependentPbrTextureUvRotation;
+    float4 TransmissionMode;
+    float4 ClearcoatTextureFactors;
+    float4 ClearcoatTextureUvOffset;
+    float4 ClearcoatRoughnessTextureFactors;
+    float4 ClearcoatRoughnessTextureUvOffset;
 };
 
 float2 transformShadowUv(float2 uv) {
@@ -1483,6 +1488,8 @@ TextureCube g_SheenPrefilteredEnvironment : register(t18);
 Texture2D g_ClearcoatNormalTexture : register(t19);
 Texture2D g_MetallicTexture : register(t20);
 Texture2D g_RoughnessTexture : register(t21);
+Texture2D g_ClearcoatTexture : register(t22);
+Texture2D g_ClearcoatRoughnessTexture : register(t23);
 SamplerState g_BaseColorSampler : register(s0);
 SamplerComparisonState g_ShadowSampler : register(s1);
 SamplerState g_GoboSampler : register(s2);
@@ -1533,6 +1540,11 @@ cbuffer MaterialParams : register(b1) {
     float4 MetallicTextureUvTransform;
     float4 RoughnessTextureUvTransform;
     float4 IndependentPbrTextureUvRotation;
+    float4 TransmissionMode;
+    float4 ClearcoatTextureFactors;
+    float4 ClearcoatTextureUvOffset;
+    float4 ClearcoatRoughnessTextureFactors;
+    float4 ClearcoatRoughnessTextureUvOffset;
 };
 
 float2 transformMeshUv(float2 uv) {
@@ -1580,6 +1592,19 @@ float2 transformClearcoatNormalUv(float2 uv) {
     return float2(centered.x * cosine - centered.y * sine,
                   centered.x * sine + centered.y * cosine) + center +
            ClearcoatNormalUvTransform.zw;
+}
+
+float2 transformClearcoatTextureUv(float2 uv) {
+    const float scale = clamp(ClearcoatTextureFactors.z, 0.01, 10.0);
+    const float angle = ClearcoatTextureFactors.w;
+    float2 centered = (uv - 0.5) * scale;
+    if (abs(angle) > 1.0e-5) {
+        const float sine = sin(angle);
+        const float cosine = cos(angle);
+        centered = float2(centered.x * cosine - centered.y * sine,
+                          centered.x * sine + centered.y * cosine);
+    }
+    return centered + 0.5 + ClearcoatTextureUvOffset.xy;
 }
 
 float2 transformBaseColorUv(float2 uv) {
@@ -1748,18 +1773,76 @@ float3 sampleEnvironmentSpecular(float3 normal, float3 viewDirection,
         reflectionDirection.x * rotation.x - reflectionDirection.z * rotation.y,
         reflectionDirection.y,
         reflectionDirection.x * rotation.y + reflectionDirection.z * rotation.x);
+    float3 environmentTangent = float3(
+        tangent.x * rotation.x - tangent.z * rotation.y,
+        tangent.y,
+        tangent.x * rotation.y + tangent.z * rotation.x);
+    float3 environmentBitangent = float3(
+        bitangent.x * rotation.x - bitangent.z * rotation.y,
+        bitangent.y,
+        bitangent.x * rotation.y + bitangent.z * rotation.x);
     uint width = 1;
     uint height = 1;
     uint mipCount = 1;
     g_PrefilteredEnvironment.GetDimensions(0, width, height, mipCount);
     float lod = saturate(roughness) * max(0.0, float(mipCount) - 1.0);
-    float3 prefiltered = g_PrefilteredEnvironment.SampleLevel(
-        g_BaseColorSampler, reflectionDirection, lod).rgb;
-    float2 brdf = sampleBrdfLut(
-        float2(saturate(dot(N, V)), saturate(roughness))).rg;
+    float3 specularEnvironment;
+    float NdotV = saturate(dot(N, V));
+    const float anisotropyMagnitude = saturate(abs(anisotropy));
+    if (anisotropyMagnitude > 1.0e-4) {
+        // An isotropic prefilter cannot represent the elongated GGX lobe.
+        // Approximate it with two bounded taps along the material's broad
+        // tangent axis while narrowing the center tap along the other axis.
+        float3 broadAxis = anisotropy >= 0.0
+            ? environmentTangent : environmentBitangent;
+        broadAxis -= reflectionDirection * dot(broadAxis, reflectionDirection);
+        const float broadAxisLengthSquared = dot(broadAxis, broadAxis);
+        if (broadAxisLengthSquared > 1.0e-6) {
+            broadAxis *= rsqrt(broadAxisLengthSquared);
+            const float narrowRoughness = saturate(
+                roughness * sqrt(1.0 - anisotropyMagnitude));
+            const float broadRoughness = saturate(
+                roughness * sqrt(1.0 + anisotropyMagnitude));
+            const float narrowLod = narrowRoughness *
+                max(0.0, float(mipCount) - 1.0);
+            const float broadLod = broadRoughness *
+                max(0.0, float(mipCount) - 1.0);
+            const float angularOffset = roughness * anisotropyMagnitude * 0.35;
+            const float3 narrowTap = g_PrefilteredEnvironment.SampleLevel(
+                g_BaseColorSampler, reflectionDirection, narrowLod).rgb;
+            const float3 positiveTap = g_PrefilteredEnvironment.SampleLevel(
+                g_BaseColorSampler,
+                normalize(reflectionDirection + broadAxis * angularOffset),
+                broadLod).rgb;
+            const float3 negativeTap = g_PrefilteredEnvironment.SampleLevel(
+                g_BaseColorSampler,
+                normalize(reflectionDirection - broadAxis * angularOffset),
+                broadLod).rgb;
+            const float2 narrowBrdf = sampleBrdfLut(
+                float2(NdotV, narrowRoughness)).rg;
+            const float2 broadBrdf = sampleBrdfLut(
+                float2(NdotV, broadRoughness)).rg;
+            specularEnvironment = narrowTap *
+                    (F0 * narrowBrdf.x + narrowBrdf.y) * 0.5 +
+                (positiveTap + negativeTap) *
+                    (F0 * broadBrdf.x + broadBrdf.y) * 0.25;
+        } else {
+            float3 prefiltered = g_PrefilteredEnvironment.SampleLevel(
+                g_BaseColorSampler, reflectionDirection, lod).rgb;
+            float2 brdf = sampleBrdfLut(
+                float2(NdotV, saturate(roughness))).rg;
+            specularEnvironment = prefiltered * (F0 * brdf.x + brdf.y);
+        }
+    } else {
+        float3 prefiltered = g_PrefilteredEnvironment.SampleLevel(
+            g_BaseColorSampler, reflectionDirection, lod).rgb;
+        float2 brdf = sampleBrdfLut(
+            float2(NdotV, saturate(roughness))).rg;
+        specularEnvironment = prefiltered * (F0 * brdf.x + brdf.y);
+    }
     // The LUT integrates the Schlick split-sum terms A and B separately;
-    // apply the same F0 * A + B expression used by the RT shader.
-    return prefiltered * (F0 * brdf.x + brdf.y);
+    // each anisotropic tap uses coefficients for its own roughness mip.
+    return specularEnvironment;
 }
 
 float sampleSheenDirectionalAlbedo(float NdotV, float roughness) {
@@ -1768,8 +1851,9 @@ float sampleSheenDirectionalAlbedo(float NdotV, float roughness) {
 }
 
 float3 evaluateEmissionLayerEnergy(float3 baseNormal, float3 coatNormal,
-                                   float3 viewDirection, float metallic) {
-    float coatWeight = saturate(ClearcoatFactors.x);
+                                   float3 viewDirection, float metallic,
+                                   float clearcoatWeight) {
+    float coatWeight = saturate(clearcoatWeight);
     float sheenWeight = saturate(PrincipledFactors.w) *
         (1.0 - metallic) * (1.0 - saturate(PrincipledFactors.z));
     if (coatWeight <= 0.0 && sheenWeight <= 0.0) {
@@ -1852,13 +1936,13 @@ float3 sampleEnvironmentSheen(float3 normal, float3 viewDirection,
 }
 
 float3 sampleEnvironmentTransmission(float3 normal, float3 viewDirection,
-                                     float roughness, float ior,
+                                     float roughness, float ior, bool thinWall,
                                      float3 tint) {
     float3 N = normalize(normal);
     float3 V = normalize(viewDirection);
     float eta = 1.0 / max(ior, 1.001);
-    float3 refractionDirection = refract(-V, N, eta);
-    if (dot(refractionDirection, refractionDirection) <= 1e-5) {
+    float3 refractionDirection = thinWall ? -V : refract(-V, N, eta);
+    if (!thinWall && dot(refractionDirection, refractionDirection) <= 1e-5) {
         refractionDirection = reflect(-V, N);
     }
     float angle = EnvironmentSettings.z;
@@ -2080,6 +2164,28 @@ float4 PSMain(PSInput In) : SV_Target {
         NormalTextureUvOffset.w > 0.5 ? In.UV1 : In.UV);
     float2 clearcoatNormalUv = transformClearcoatNormalUv(
         clearcoatNormalMeshUv);
+    float2 clearcoatTextureMeshUv = transformMeshUv(
+        ClearcoatTextureFactors.y > 0.5 ? In.UV1 : In.UV);
+    float2 clearcoatTextureUv =
+        transformClearcoatTextureUv(clearcoatTextureMeshUv);
+    float2 clearcoatRoughnessMeshUv = transformMeshUv(
+        ClearcoatRoughnessTextureFactors.y > 0.5 ? In.UV1 : In.UV);
+    float2 clearcoatRoughnessCentered =
+        (clearcoatRoughnessMeshUv - 0.5) *
+        ClearcoatRoughnessTextureFactors.z;
+    if (abs(ClearcoatRoughnessTextureFactors.w) > 1.0e-5) {
+        float clearcoatRoughnessSine =
+            sin(ClearcoatRoughnessTextureFactors.w);
+        float clearcoatRoughnessCosine =
+            cos(ClearcoatRoughnessTextureFactors.w);
+        clearcoatRoughnessCentered = float2(
+            clearcoatRoughnessCentered.x * clearcoatRoughnessCosine -
+                clearcoatRoughnessCentered.y * clearcoatRoughnessSine,
+            clearcoatRoughnessCentered.x * clearcoatRoughnessSine +
+                clearcoatRoughnessCentered.y * clearcoatRoughnessCosine);
+    }
+    float2 clearcoatRoughnessTextureUv = clearcoatRoughnessCentered + 0.5 +
+        ClearcoatRoughnessTextureUvOffset.xy;
     float4 baseSample = g_BaseColorTexture.Sample(g_BaseColorSampler, baseColorUv);
     float2 opacityMeshUv = transformMeshUv(
         TextureUvSetSelectors.w > 0.5 ? In.UV1 : In.UV);
@@ -2098,6 +2204,11 @@ float4 PSMain(PSInput In) : SV_Target {
         g_MetallicTexture.Sample(g_BaseColorSampler, metallicTextureUv).r;
     float roughnessMapSample =
         g_RoughnessTexture.Sample(g_BaseColorSampler, roughnessTextureUv).r;
+    float clearcoatTextureSample = g_ClearcoatTexture.Sample(
+        g_BaseColorSampler, clearcoatTextureUv).r;
+    float clearcoatRoughnessTextureSample =
+        g_ClearcoatRoughnessTexture.Sample(
+            g_BaseColorSampler, clearcoatRoughnessTextureUv).g;
     float4 normalTextureSample =
         g_NormalTexture.Sample(g_BaseColorSampler, normalMapUv);
     float3 normalSample = normalTextureSample.xyz;
@@ -2143,6 +2254,8 @@ float4 PSMain(PSInput In) : SV_Target {
         lerp(packedRoughness, roughnessMapSample, PbrTextureFlags2.y);
     float metallic = saturate(PbrFactors.x * metallicTextureValue);
     float roughness = clamp(PbrFactors.y * roughnessTextureValue, 0.04, 1.0);
+    float clearcoatWeight = saturate(ClearcoatFactors.x * lerp(
+        1.0, clearcoatTextureSample, ClearcoatTextureFactors.x));
     float ao = lerp(1.0,
                     lerp(1.0, occlusionSample, saturate(PbrFactors.w)),
                     PbrTextureFlags.z);
@@ -2190,7 +2303,9 @@ float4 PSMain(PSInput In) : SV_Target {
     } else {
         clearcoatNormalMapAverageLength = normalMapAverageLength;
     }
-    float clearcoatRoughness = clamp(ClearcoatFactors.y, 0.04, 1.0);
+    float clearcoatRoughness = clamp(ClearcoatFactors.y * lerp(
+        1.0, clearcoatRoughnessTextureSample,
+        ClearcoatRoughnessTextureFactors.x), 0.04, 1.0);
     if ((ClearcoatFactors.w > 0.5 || PbrTextureFlags.y > 0.5) &&
         ClearcoatTintFactors.w > 0.0) {
         float coatNormalVariance =
@@ -2275,8 +2390,16 @@ float4 PSMain(PSInput In) : SV_Target {
         float dielectricF0 = pow((max(PrincipledFactors.y, 1.0) - 1.0) /
                                  (max(PrincipledFactors.y, 1.0) + 1.0), 2.0) *
                              (saturate(PrincipledFactors.x) / 0.5);
+        float transmissionWeight = saturate(PrincipledFactors.z) *
+            (1.0 - metallic);
+        bool thinWallEnabled = TransmissionMode.x > 0.5 &&
+                               transmissionWeight > 1e-4;
         float3 dielectricSpecularF0 = dielectricF0 *
             srgbToLinear(saturate(SpecularTintFactors.rgb));
+        if (thinWallEnabled) {
+            dielectricSpecularF0 = 2.0 * dielectricSpecularF0 /
+                                   (1.0 + dielectricSpecularF0);
+        }
         float3 F0 = lerp(dielectricSpecularF0, solidBase.rgb, metallic);
         const float specularScale = saturate(PrincipledFactors.x) / 0.5;
         if (ThinFilmFactors.x > 0.0) {
@@ -2284,10 +2407,11 @@ float4 PSMain(PSInput In) : SV_Target {
                 1.0, ThinFilmFactors.y, PrincipledFactors.y,
                 ThinFilmFactors.x) * specularScale *
                 srgbToLinear(saturate(SpecularTintFactors.rgb));
+            if (thinWallEnabled) {
+                filmF0 = 2.0 * filmF0 / (1.0 + filmF0);
+            }
             F0 = lerp(filmF0, solidBase.rgb, metallic);
         }
-        float transmissionWeight = saturate(PrincipledFactors.z) *
-            (1.0 - metallic);
         float transmissionIor = max(PrincipledFactors.y, 1.0);
         float transmissionF0 = pow((transmissionIor - 1.0) /
                                    (transmissionIor + 1.0), 2.0);
@@ -2302,9 +2426,15 @@ float4 PSMain(PSInput In) : SV_Target {
                 transmissionIor, ThinFilmFactors.x) * specularScale *
                 srgbToLinear(saturate(SpecularTintFactors.rgb));
         }
-        float3 transmissionDirection = refract(
-            -viewDirection, worldNormal, 1.0 / transmissionIor);
-        if (dot(transmissionDirection, transmissionDirection) <= 1e-5) {
+        if (thinWallEnabled) {
+            transmissionFresnelColor = 2.0 * transmissionFresnelColor /
+                                       (1.0 + transmissionFresnelColor);
+        }
+        float3 transmissionDirection = thinWallEnabled
+            ? -viewDirection
+            : refract(-viewDirection, worldNormal, 1.0 / transmissionIor);
+        if (!thinWallEnabled &&
+            dot(transmissionDirection, transmissionDirection) <= 1e-5) {
             transmissionFresnel = 1.0;
             transmissionFresnelColor = float3(1.0, 1.0, 1.0);
         }
@@ -2364,7 +2494,7 @@ float4 PSMain(PSInput In) : SV_Target {
                 worldNormal, viewDirection, SheenFactors.x) *
                 (sheenWeight * sheenTint * specularOcclusion(
                     dot(worldNormal, viewDirection), ao, SheenFactors.x));
-            float coatWeight = saturate(ClearcoatFactors.x);
+            float coatWeight = clearcoatWeight;
             float3 coatEnvironmentEnergy = float3(1.0, 1.0, 1.0);
             if (coatWeight > 0.0) {
                 float coatIor = max(ClearcoatFactors.z, 1.0);
@@ -2395,7 +2525,8 @@ float4 PSMain(PSInput In) : SV_Target {
             }
             float3 transmittedEnvironment = sampleEnvironmentTransmission(
                 worldNormal, viewDirection, roughness,
-                max(PrincipledFactors.y, 1.0), solidBase.rgb) * transmissionWeight;
+                max(PrincipledFactors.y, 1.0), thinWallEnabled,
+                solidBase.rgb) * transmissionWeight;
             transmittedEnvironment *= 1.0 - saturate(transmissionFresnelColor);
             indirectSpecular *= specularOcclusion(
                 dot(worldNormal, viewDirection), ao, roughness);
@@ -2487,7 +2618,7 @@ float4 PSMain(PSInput In) : SV_Target {
                 float backLight = saturate(dot(-worldNormal, lightDirection));
                 if (transmissionWeight > 0.0 && backLight > 0.0) {
                     float3 transmissionCoatEnergy = float3(1.0, 1.0, 1.0);
-                    float coatWeight = saturate(ClearcoatFactors.x);
+                    float coatWeight = clearcoatWeight;
                     if (coatWeight > 0.0) {
                         float coatIor = max(ClearcoatFactors.z, 1.0);
                         float coatIorRatio = (coatIor - 1.0) /
@@ -2548,7 +2679,7 @@ float4 PSMain(PSInput In) : SV_Target {
                 specular += evaluateMultipleScatterCompensation(
                     NdotV, NdotL, roughness, F0);
             }
-            float coatWeight = saturate(ClearcoatFactors.x);
+            float coatWeight = clearcoatWeight;
             float coatIor = max(ClearcoatFactors.z, 1.0);
             float coatIorRatio = (coatIor - 1.0) / (coatIor + 1.0);
             float coatF0 = coatIorRatio * coatIorRatio;
@@ -2723,7 +2854,8 @@ float4 PSMain(PSInput In) : SV_Target {
         float3 emissionColor = emissionSample.rgb * emissionTint *
                                emissionStrength;
         emissionColor *= evaluateEmissionLayerEnergy(
-            worldNormal, coatNormal, viewDirection, metallic);
+            worldNormal, coatNormal, viewDirection, metallic,
+            clearcoatWeight);
         return float4(sceneLinearToMeshOutput(
                           directColor + ambientColor + emissionColor),
                       outputAlpha);
@@ -2750,7 +2882,8 @@ float4 PSMain(PSInput In) : SV_Target {
         normalize(In.Normal), viewNormal,
         saturate(ClearcoatTintFactors.w)));
     studioEmission *= evaluateEmissionLayerEnergy(
-        viewNormal, studioCoatNormal, studioViewDirection, metallic);
+        viewNormal, studioCoatNormal, studioViewDirection, metallic,
+        clearcoatWeight);
     float3 studioHdr = (solidBase.rgb * studioLight * cavity +
                         rimColor * rim * 0.10 +
                         lerp(float3(1.0, 1.0, 1.0), solidBase.rgb,
@@ -2857,7 +2990,7 @@ struct MeshRenderer::Impl {
     static_assert(sizeof(SceneLightGpu) == sizeof(float) * 24);
     static_assert(sizeof(SceneLightingConstants) ==
                   sizeof(SceneLightGpu) * MaxSceneLights + sizeof(float) * 8);
-    static_assert(sizeof(MaterialConstants) == sizeof(float) * 124);
+    static_assert(sizeof(MaterialConstants) == sizeof(float) * 148);
     static_assert(sizeof(MeshletConstants) == sizeof(float) * 52);
 
     Diligent::RefCntAutoPtr<Diligent::IPipelineStateCache>    pPSOCache_;
@@ -2922,6 +3055,10 @@ struct MeshRenderer::Impl {
     Diligent::RefCntAutoPtr<Diligent::ITextureView>           pNormalTextureSRV_;
     Diligent::RefCntAutoPtr<Diligent::ITexture>               pClearcoatNormalTexture_;
     Diligent::RefCntAutoPtr<Diligent::ITextureView>           pClearcoatNormalTextureSRV_;
+    Diligent::RefCntAutoPtr<Diligent::ITexture>               pClearcoatTexture_;
+    Diligent::RefCntAutoPtr<Diligent::ITextureView>           pClearcoatTextureSRV_;
+    Diligent::RefCntAutoPtr<Diligent::ITexture>               pClearcoatRoughnessTexture_;
+    Diligent::RefCntAutoPtr<Diligent::ITextureView>           pClearcoatRoughnessTextureSRV_;
     Diligent::RefCntAutoPtr<Diligent::ITexture>               pOcclusionTexture_;
     Diligent::RefCntAutoPtr<Diligent::ITextureView>           pOcclusionTextureSRV_;
     Diligent::RefCntAutoPtr<Diligent::ISampler>               pBaseColorSampler_;
@@ -2991,6 +3128,8 @@ struct MeshRenderer::Impl {
         MaterialSlotTexture metallic;
         MaterialSlotTexture roughness;
         MaterialSlotTexture normal;
+        MaterialSlotTexture clearcoat;
+        MaterialSlotTexture clearcoatRoughness;
         MaterialSlotTexture clearcoatNormal;
         MaterialSlotTexture occlusion;
         MaterialSlotTexture emission;
@@ -3004,6 +3143,8 @@ struct MeshRenderer::Impl {
     QString metallicTexturePath_;
     QString roughnessTexturePath_;
     QString normalTexturePath_;
+    QString clearcoatTexturePath_;
+    QString clearcoatRoughnessTexturePath_;
     QString clearcoatNormalTexturePath_;
     QString occlusionTexturePath_;
     QString environmentMapPath_;
@@ -3470,6 +3611,12 @@ void MeshRenderer::createBuffers()
     if (!pImpl_->pClearcoatNormalTextureSRV_) {
         pImpl_->pClearcoatNormalTextureSRV_ = pImpl_->pLinearWhiteTextureSRV_;
     }
+    if (!pImpl_->pClearcoatTextureSRV_) {
+        pImpl_->pClearcoatTextureSRV_ = pImpl_->pLinearWhiteTextureSRV_;
+    }
+    if (!pImpl_->pClearcoatRoughnessTextureSRV_) {
+        pImpl_->pClearcoatRoughnessTextureSRV_ = pImpl_->pLinearWhiteTextureSRV_;
+    }
     if (!pImpl_->pOcclusionTextureSRV_) {
         pImpl_->pOcclusionTextureSRV_ = pImpl_->pLinearWhiteTextureSRV_;
     }
@@ -3695,7 +3842,7 @@ void MeshRenderer::createPSO()
     // Resource layout
     PSOCreateInfo.PSODesc.ResourceLayout.DefaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
     
-    static std::array<ShaderResourceVariableDesc, 25> Vars = {{
+    static std::array<ShaderResourceVariableDesc, 27> Vars = {{
         {SHADER_TYPE_VERTEX, "g_Instances", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "MaterialParams", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_BaseColorTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
@@ -3720,6 +3867,8 @@ void MeshRenderer::createPSO()
         {SHADER_TYPE_PIXEL, "g_ClearcoatNormalTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_MetallicTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_RoughnessTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "g_ClearcoatTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "g_ClearcoatRoughnessTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_BaseColorSampler", SHADER_RESOURCE_VARIABLE_TYPE_STATIC}
     }};
     PSOCreateInfo.PSODesc.ResourceLayout.Variables = Vars.data();
@@ -4400,6 +4549,14 @@ void MeshRenderer::prepare(IDeviceContext* pContext)
         if (auto* roughnessVar = activeSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_RoughnessTexture")) {
             roughnessVar->Set(pImpl_->pRoughnessTextureSRV_);
         }
+        if (auto* clearcoatVar = activeSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_ClearcoatTexture")) {
+            clearcoatVar->Set(pImpl_->pClearcoatTextureSRV_);
+        }
+        if (auto* clearcoatRoughnessVar = activeSRB->GetVariableByName(
+                SHADER_TYPE_PIXEL, "g_ClearcoatRoughnessTexture")) {
+            clearcoatRoughnessVar->Set(
+                pImpl_->pClearcoatRoughnessTextureSRV_);
+        }
         if (auto* normalVar = activeSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_NormalTexture")) {
             normalVar->Set(pImpl_->pNormalTextureSRV_);
         }
@@ -4538,6 +4695,10 @@ void MeshRenderer::setMaterialRanges(const MaterialRange* ranges, size_t count) 
             pathChanged(current.roughnessTexturePath,
                         incoming.roughnessTexturePath) ||
             pathChanged(current.normalTexturePath, incoming.normalTexturePath) ||
+            pathChanged(current.clearcoatTexturePath,
+                        incoming.clearcoatTexturePath) ||
+            pathChanged(current.clearcoatRoughnessTexturePath,
+                        incoming.clearcoatRoughnessTexturePath) ||
             pathChanged(current.clearcoatNormalTexturePath,
                         incoming.clearcoatNormalTexturePath) ||
             pathChanged(current.occlusionTexturePath,
@@ -4617,6 +4778,30 @@ void MeshRenderer::setMaterialRanges(const MaterialRange* ranges, size_t count) 
                                "MeshRenderer_MaterialSlotNormalTexture",
                                texture, srv, true);
                        });
+        resolveTexture(i, slotTextures.clearcoat,
+                       incoming.clearcoatTexturePath,
+                       pImpl_->pLinearWhiteTextureSRV_.RawPtr(),
+                       pImpl_->clearcoatTexturePath_,
+                       pImpl_->pClearcoatTextureSRV_,
+                       &Impl::MaterialSlotTextures::clearcoat,
+                       [&](const QString& path, auto& texture, auto& srv) {
+                           return loadLinearTexture(
+                               context_, path,
+                               "MeshRenderer_MaterialSlotClearcoatTexture",
+                               texture, srv);
+                       });
+        resolveTexture(i, slotTextures.clearcoatRoughness,
+                       incoming.clearcoatRoughnessTexturePath,
+                       pImpl_->pLinearWhiteTextureSRV_.RawPtr(),
+                       pImpl_->clearcoatRoughnessTexturePath_,
+                       pImpl_->pClearcoatRoughnessTextureSRV_,
+                       &Impl::MaterialSlotTextures::clearcoatRoughness,
+                       [&](const QString& path, auto& texture, auto& srv) {
+                           return loadLinearTexture(
+                               context_, path,
+                               "MeshRenderer_MaterialSlotClearcoatRoughnessTexture",
+                               texture, srv);
+                       });
         resolveTexture(i, slotTextures.clearcoatNormal,
                        incoming.clearcoatNormalTexturePath,
                        pImpl_->pLinearWhiteTextureSRV_.RawPtr(),
@@ -4660,6 +4845,10 @@ void MeshRenderer::setMaterialRanges(const MaterialRange* ranges, size_t count) 
                                texture, srv);
                        });
         MaterialState materialForGpu = incoming.material;
+        materialForGpu.clearcoatTextureFactors[0] =
+            slotTextures.clearcoat.texture ? 1.0f : 0.0f;
+        materialForGpu.clearcoatRoughnessTextureFactors[0] =
+            slotTextures.clearcoatRoughness.texture ? 1.0f : 0.0f;
         const auto loadedTexture = [](const Impl::MaterialSlotTexture& texture,
                                       const QString& path,
                                       const QString& primaryPath,
@@ -4755,6 +4944,10 @@ void MeshRenderer::drawMaterialSlots(IDeviceContext* pContext, size_t instanceCo
             SHADER_TYPE_PIXEL, "g_RoughnessTexture");
         auto* normalVariable = activeSRB->GetVariableByName(
             SHADER_TYPE_PIXEL, "g_NormalTexture");
+        auto* clearcoatVariable = activeSRB->GetVariableByName(
+            SHADER_TYPE_PIXEL, "g_ClearcoatTexture");
+        auto* clearcoatRoughnessVariable = activeSRB->GetVariableByName(
+            SHADER_TYPE_PIXEL, "g_ClearcoatRoughnessTexture");
         auto* clearcoatNormalVariable = activeSRB->GetVariableByName(
             SHADER_TYPE_PIXEL, "g_ClearcoatNormalTexture");
         auto* occlusionVariable = activeSRB->GetVariableByName(
@@ -4807,6 +5000,19 @@ void MeshRenderer::drawMaterialSlots(IDeviceContext* pContext, size_t instanceCo
                 normalVariable->Set(slotTexture.srv
                     ? slotTexture.srv : pImpl_->pNormalTextureSRV_);
             }
+            if (clearcoatVariable) {
+                const auto& slotTexture =
+                    pImpl_->materialSlotTextures[rangeIndex].clearcoat;
+                clearcoatVariable->Set(slotTexture.srv
+                    ? slotTexture.srv : pImpl_->pClearcoatTextureSRV_);
+            }
+            if (clearcoatRoughnessVariable) {
+                const auto& slotTexture = pImpl_->materialSlotTextures[
+                    rangeIndex].clearcoatRoughness;
+                clearcoatRoughnessVariable->Set(slotTexture.srv
+                    ? slotTexture.srv
+                    : pImpl_->pClearcoatRoughnessTextureSRV_);
+            }
             if (clearcoatNormalVariable) {
                 const auto& slotTexture =
                     pImpl_->materialSlotTextures[rangeIndex].clearcoatNormal;
@@ -4851,6 +5057,13 @@ void MeshRenderer::drawMaterialSlots(IDeviceContext* pContext, size_t instanceCo
         if (metallicVariable) metallicVariable->Set(pImpl_->pMetallicTextureSRV_);
         if (roughnessVariable) roughnessVariable->Set(pImpl_->pRoughnessTextureSRV_);
         if (normalVariable) normalVariable->Set(pImpl_->pNormalTextureSRV_);
+        if (clearcoatVariable) {
+            clearcoatVariable->Set(pImpl_->pClearcoatTextureSRV_);
+        }
+        if (clearcoatRoughnessVariable) {
+            clearcoatRoughnessVariable->Set(
+                pImpl_->pClearcoatRoughnessTextureSRV_);
+        }
         if (clearcoatNormalVariable) {
             clearcoatNormalVariable->Set(pImpl_->pClearcoatNormalTextureSRV_);
         }
@@ -5620,7 +5833,7 @@ void MeshRenderer::setDiffuseRoughness(float roughness)
 void MeshRenderer::setPrincipledFactors(float specular, float ior,
                                         float transmission, float clearcoat,
                                         float clearcoatRoughness, float sheen,
-                                        float clearcoatIor)
+                                        float clearcoatIor, bool thinWall)
 {
     prepared_ = false;
     pImpl_->materialConstants_.principledFactors[0] =
@@ -5631,6 +5844,7 @@ void MeshRenderer::setPrincipledFactors(float specular, float ior,
         clampFinite(transmission, 0.0f, 1.0f, 0.0f);
     pImpl_->materialConstants_.principledFactors[3] =
         clampFinite(sheen, 0.0f, 1.0f, 0.0f);
+    pImpl_->materialConstants_.transmissionMode[0] = thinWall ? 1.0f : 0.0f;
     pImpl_->materialConstants_.clearcoatFactors[0] =
         clampFinite(clearcoat, 0.0f, 1.0f, 0.0f);
     pImpl_->materialConstants_.clearcoatFactors[1] =
@@ -6108,6 +6322,98 @@ void MeshRenderer::setClearcoatNormalTexture(const QString& path)
     } else {
         pImpl_->pClearcoatNormalTextureSRV_ = pImpl_->pLinearWhiteTextureSRV_;
     }
+}
+
+void MeshRenderer::setClearcoatTexture(const QString& path, float scale,
+                                      float rotationDegrees, float offsetU,
+                                      float offsetV, int uvSet)
+{
+    const QString newPath = path.trimmed();
+    bool changed = false;
+    if (newPath != pImpl_->clearcoatTexturePath_) {
+        changed = true;
+        pImpl_->pClearcoatTexture_ = nullptr;
+        pImpl_->pClearcoatTextureSRV_ = pImpl_->pLinearWhiteTextureSRV_;
+        pImpl_->clearcoatTexturePath_.clear();
+        pImpl_->materialConstants_.clearcoatTextureFactors[0] = 0.0f;
+        if (!newPath.isEmpty()) {
+            pImpl_->clearcoatTexturePath_ = newPath;
+            if (loadLinearTexture(
+                    context_, newPath, "MeshRenderer_ClearcoatTexture",
+                    pImpl_->pClearcoatTexture_,
+                    pImpl_->pClearcoatTextureSRV_)) {
+                pImpl_->materialConstants_.clearcoatTextureFactors[0] = 1.0f;
+            } else {
+                pImpl_->pClearcoatTextureSRV_ =
+                    pImpl_->pLinearWhiteTextureSRV_;
+            }
+        }
+    }
+    const float safeScale = std::isfinite(scale)
+        ? std::clamp(scale, 0.01f, 10.0f) : 1.0f;
+    const float safeRotation = std::isfinite(rotationDegrees)
+        ? std::clamp(rotationDegrees, -360.0f, 360.0f) : 0.0f;
+    auto& factors = pImpl_->materialConstants_.clearcoatTextureFactors;
+    const std::array<float, 4> nextFactors = {
+        factors[0], uvSet == 1 ? 1.0f : 0.0f, safeScale,
+        safeRotation * std::numbers::pi_v<float> / 180.0f};
+    auto& offset = pImpl_->materialConstants_.clearcoatTextureUvOffset;
+    const std::array<float, 4> nextOffset = {
+        std::isfinite(offsetU) ? std::clamp(offsetU, -10.0f, 10.0f) : 0.0f,
+        std::isfinite(offsetV) ? std::clamp(offsetV, -10.0f, 10.0f) : 0.0f,
+        0.0f, 0.0f};
+    changed = changed || factors != nextFactors || offset != nextOffset;
+    factors = nextFactors;
+    offset = nextOffset;
+    if (changed) prepared_ = false;
+}
+
+void MeshRenderer::setClearcoatRoughnessTexture(
+    const QString& path, float scale, float rotationDegrees, float offsetU,
+    float offsetV, int uvSet)
+{
+    const QString newPath = path.trimmed();
+    bool changed = false;
+    if (newPath != pImpl_->clearcoatRoughnessTexturePath_) {
+        changed = true;
+        pImpl_->pClearcoatRoughnessTexture_ = nullptr;
+        pImpl_->pClearcoatRoughnessTextureSRV_ =
+            pImpl_->pLinearWhiteTextureSRV_;
+        pImpl_->clearcoatRoughnessTexturePath_.clear();
+        pImpl_->materialConstants_.clearcoatRoughnessTextureFactors[0] = 0.0f;
+        if (!newPath.isEmpty()) {
+            pImpl_->clearcoatRoughnessTexturePath_ = newPath;
+            if (loadLinearTexture(
+                    context_, newPath,
+                    "MeshRenderer_ClearcoatRoughnessTexture",
+                    pImpl_->pClearcoatRoughnessTexture_,
+                    pImpl_->pClearcoatRoughnessTextureSRV_)) {
+                pImpl_->materialConstants_.clearcoatRoughnessTextureFactors[0] = 1.0f;
+            } else {
+                pImpl_->pClearcoatRoughnessTextureSRV_ =
+                    pImpl_->pLinearWhiteTextureSRV_;
+            }
+        }
+    }
+    const float safeScale = std::isfinite(scale)
+        ? std::clamp(scale, 0.01f, 10.0f) : 1.0f;
+    const float safeRotation = std::isfinite(rotationDegrees)
+        ? std::clamp(rotationDegrees, -360.0f, 360.0f) : 0.0f;
+    auto& factors =
+        pImpl_->materialConstants_.clearcoatRoughnessTextureFactors;
+    const std::array<float, 4> nextFactors = {
+        factors[0], uvSet == 1 ? 1.0f : 0.0f, safeScale,
+        safeRotation * std::numbers::pi_v<float> / 180.0f};
+    auto& offset =
+        pImpl_->materialConstants_.clearcoatRoughnessTextureUvOffset;
+    const std::array<float, 4> nextOffset = {
+        std::isfinite(offsetU) ? std::clamp(offsetU, -10.0f, 10.0f) : 0.0f,
+        std::isfinite(offsetV) ? std::clamp(offsetV, -10.0f, 10.0f) : 0.0f,
+        0.0f, 0.0f};
+    changed = changed || factors != nextFactors || offset != nextOffset;
+    factors = nextFactors;
+    offset = nextOffset;
+    if (changed) prepared_ = false;
 }
 
 void MeshRenderer::setOcclusionTexture(const QString& path)

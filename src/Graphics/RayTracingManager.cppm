@@ -167,6 +167,15 @@ struct RTMaterial
     float4 emissionTextureUvRotation;
     float4 surfaceTextureUvRotation;
     float4 opacityTextureUvRotation;
+    float4 metallicTexture;
+    float4 roughnessTexture;
+    float4 metallicTextureUvOffset;
+    float4 roughnessTextureUvOffset;
+    float4 transmissionMode;
+    float4 clearcoatTexture;
+    float4 clearcoatTextureUvOffset;
+    float4 clearcoatRoughnessTexture;
+    float4 clearcoatRoughnessTextureUvOffset;
 };
 StructuredBuffer<float4> g_RenderVertices : register(t1);
 StructuredBuffer<RTPrimitive> g_RenderPrimitives : register(t2);
@@ -339,6 +348,21 @@ float2 transformBaseColorTextureUv(float2 uv, float scale, float angle,
     }
     return centered + 0.5f + offset;
 }
+float2 transformIndependentPbrTextureUv(float2 uv, float2 scale, float angle,
+                                        float2 offset)
+{
+    float2 safeScale = clamp(
+        scale, float2(0.01f, 0.01f), float2(10.0f, 10.0f));
+    float2 centered = (uv - 0.5f) * safeScale;
+    if (abs(angle) > 1.0e-5f) {
+        float sine;
+        float cosine;
+        sincos(angle, sine, cosine);
+        centered = float2(centered.x * cosine - centered.y * sine,
+                          centered.x * sine + centered.y * cosine);
+    }
+    return centered + 0.5f + offset;
+}
 float2 rotatePbrUv(float2 uv, float angle, float scale, float2 offset)
 {
     float sine;
@@ -435,6 +459,18 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
         ? g_RenderUvs1[primitive.i1] : uv1;
     const float2 surfaceSetUv2 = material.surfaceTextureUvRotation.y > 0.5f
         ? g_RenderUvs1[primitive.i2] : uv2;
+    const float2 metallicSetUv0 = material.metallicTextureUvOffset.z > 0.5f
+        ? g_RenderUvs1[primitive.i0] : uv0;
+    const float2 metallicSetUv1 = material.metallicTextureUvOffset.z > 0.5f
+        ? g_RenderUvs1[primitive.i1] : uv1;
+    const float2 metallicSetUv2 = material.metallicTextureUvOffset.z > 0.5f
+        ? g_RenderUvs1[primitive.i2] : uv2;
+    const float2 roughnessSetUv0 = material.roughnessTextureUvOffset.z > 0.5f
+        ? g_RenderUvs1[primitive.i0] : uv0;
+    const float2 roughnessSetUv1 = material.roughnessTextureUvOffset.z > 0.5f
+        ? g_RenderUvs1[primitive.i1] : uv1;
+    const float2 roughnessSetUv2 = material.roughnessTextureUvOffset.z > 0.5f
+        ? g_RenderUvs1[primitive.i2] : uv2;
     const float2 occlusionSetUv0 = material.occlusionTextureUvOffset.w > 0.5f
         ? g_RenderUvs1[primitive.i0] : uv0;
     const float2 occlusionSetUv1 = material.occlusionTextureUvOffset.w > 0.5f
@@ -453,6 +489,21 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
         ? g_RenderUvs1[primitive.i1] : uv1;
     const float2 coatNormalSetUv2 = material.clearcoatNormalUvOffset.z > 0.5f
         ? g_RenderUvs1[primitive.i2] : uv2;
+    const float2 clearcoatSetUv0 = material.clearcoatTexture.w > 0.5f
+        ? g_RenderUvs1[primitive.i0] : uv0;
+    const float2 clearcoatSetUv1 = material.clearcoatTexture.w > 0.5f
+        ? g_RenderUvs1[primitive.i1] : uv1;
+    const float2 clearcoatSetUv2 = material.clearcoatTexture.w > 0.5f
+        ? g_RenderUvs1[primitive.i2] : uv2;
+    const float2 clearcoatRoughnessSetUv0 =
+        material.clearcoatRoughnessTexture.w > 0.5f
+            ? g_RenderUvs1[primitive.i0] : uv0;
+    const float2 clearcoatRoughnessSetUv1 =
+        material.clearcoatRoughnessTexture.w > 0.5f
+            ? g_RenderUvs1[primitive.i1] : uv1;
+    const float2 clearcoatRoughnessSetUv2 =
+        material.clearcoatRoughnessTexture.w > 0.5f
+            ? g_RenderUvs1[primitive.i2] : uv2;
     const float2 normalTransformedUv0 = transformPbrUv(
         normalUv0, material.occlusionUv.xy, material.occlusionUv.z,
         material.occlusion.zw);
@@ -479,6 +530,24 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
         material.occlusion.zw);
     const float2 surfaceTransformedUv2 = transformPbrUv(
         surfaceSetUv2, material.occlusionUv.xy, material.occlusionUv.z,
+        material.occlusion.zw);
+    const float2 metallicTransformedUv0 = transformPbrUv(
+        metallicSetUv0, material.occlusionUv.xy, material.occlusionUv.z,
+        material.occlusion.zw);
+    const float2 metallicTransformedUv1 = transformPbrUv(
+        metallicSetUv1, material.occlusionUv.xy, material.occlusionUv.z,
+        material.occlusion.zw);
+    const float2 metallicTransformedUv2 = transformPbrUv(
+        metallicSetUv2, material.occlusionUv.xy, material.occlusionUv.z,
+        material.occlusion.zw);
+    const float2 roughnessTransformedUv0 = transformPbrUv(
+        roughnessSetUv0, material.occlusionUv.xy, material.occlusionUv.z,
+        material.occlusion.zw);
+    const float2 roughnessTransformedUv1 = transformPbrUv(
+        roughnessSetUv1, material.occlusionUv.xy, material.occlusionUv.z,
+        material.occlusion.zw);
+    const float2 roughnessTransformedUv2 = transformPbrUv(
+        roughnessSetUv2, material.occlusionUv.xy, material.occlusionUv.z,
         material.occlusion.zw);
     const float2 occlusionTransformedUv0 = transformPbrUv(
         occlusionSetUv0, material.occlusionUv.xy, material.occlusionUv.z,
@@ -507,6 +576,39 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
     const float2 coatNormalTransformedUv2 = transformPbrUv(
         coatNormalSetUv2, material.occlusionUv.xy, material.occlusionUv.z,
         material.occlusion.zw);
+    const float clearcoatUvRotation = material.clearcoatTexture.z;
+    const float2 clearcoatTransformedUv0 = transformPbrUv(
+        clearcoatSetUv0, material.clearcoatTexture.yy,
+        clearcoatUvRotation, material.clearcoatTextureUvOffset.xy);
+    const float2 clearcoatTransformedUv1 = transformPbrUv(
+        clearcoatSetUv1, material.clearcoatTexture.yy,
+        clearcoatUvRotation, material.clearcoatTextureUvOffset.xy);
+    const float2 clearcoatTransformedUv2 = transformPbrUv(
+        clearcoatSetUv2, material.clearcoatTexture.yy,
+        clearcoatUvRotation, material.clearcoatTextureUvOffset.xy);
+    const float2 clearcoatTextureUv0 = clearcoatTransformedUv0;
+    const float2 clearcoatTextureUv1 = clearcoatTransformedUv1;
+    const float2 clearcoatTextureUv2 = clearcoatTransformedUv2;
+    const float2 clearcoatTextureUvEdge1 =
+        clearcoatTextureUv1 - clearcoatTextureUv0;
+    const float2 clearcoatTextureUvEdge2 =
+        clearcoatTextureUv2 - clearcoatTextureUv0;
+    const float2 clearcoatRoughnessUv0 = transformPbrUv(
+        clearcoatRoughnessSetUv0, material.clearcoatRoughnessTexture.yy,
+        material.clearcoatRoughnessTexture.z,
+        material.clearcoatRoughnessTextureUvOffset.xy);
+    const float2 clearcoatRoughnessUv1 = transformPbrUv(
+        clearcoatRoughnessSetUv1, material.clearcoatRoughnessTexture.yy,
+        material.clearcoatRoughnessTexture.z,
+        material.clearcoatRoughnessTextureUvOffset.xy);
+    const float2 clearcoatRoughnessUv2 = transformPbrUv(
+        clearcoatRoughnessSetUv2, material.clearcoatRoughnessTexture.yy,
+        material.clearcoatRoughnessTexture.z,
+        material.clearcoatRoughnessTextureUvOffset.xy);
+    const float2 clearcoatRoughnessUvEdge1 =
+        clearcoatRoughnessUv1 - clearcoatRoughnessUv0;
+    const float2 clearcoatRoughnessUvEdge2 =
+        clearcoatRoughnessUv2 - clearcoatRoughnessUv0;
     const float baseColorUvRotation =
         material.baseColorTextureUvRotation.x;
     const float surfaceUvRotation = material.surfaceTextureUvRotation.x;
@@ -532,6 +634,28 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
         material.surfaceTexture.zw);
     const float2 surfaceUvEdge1 = surfaceUv1 - surfaceUv0;
     const float2 surfaceUvEdge2 = surfaceUv2 - surfaceUv0;
+    const float2 metallicUv0 = transformIndependentPbrTextureUv(
+        metallicTransformedUv0, material.metallicTexture.yz,
+        material.metallicTexture.w, material.metallicTextureUvOffset.xy);
+    const float2 metallicUv1 = transformIndependentPbrTextureUv(
+        metallicTransformedUv1, material.metallicTexture.yz,
+        material.metallicTexture.w, material.metallicTextureUvOffset.xy);
+    const float2 metallicUv2 = transformIndependentPbrTextureUv(
+        metallicTransformedUv2, material.metallicTexture.yz,
+        material.metallicTexture.w, material.metallicTextureUvOffset.xy);
+    const float2 metallicUvEdge1 = metallicUv1 - metallicUv0;
+    const float2 metallicUvEdge2 = metallicUv2 - metallicUv0;
+    const float2 roughnessUv0 = transformIndependentPbrTextureUv(
+        roughnessTransformedUv0, material.roughnessTexture.yz,
+        material.roughnessTexture.w, material.roughnessTextureUvOffset.xy);
+    const float2 roughnessUv1 = transformIndependentPbrTextureUv(
+        roughnessTransformedUv1, material.roughnessTexture.yz,
+        material.roughnessTexture.w, material.roughnessTextureUvOffset.xy);
+    const float2 roughnessUv2 = transformIndependentPbrTextureUv(
+        roughnessTransformedUv2, material.roughnessTexture.yz,
+        material.roughnessTexture.w, material.roughnessTextureUvOffset.xy);
+    const float2 roughnessUvEdge1 = roughnessUv1 - roughnessUv0;
+    const float2 roughnessUvEdge2 = roughnessUv2 - roughnessUv0;
     const float occlusionTextureUvRotation =
         material.occlusionTextureUvOffset.z;
     const float2 occlusionUv0 = transformBaseColorTextureUv(
@@ -581,6 +705,22 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
     const float2 surfaceTextureUv = transformBaseColorTextureUv(
         surfaceTransformedUv, material.surfaceTexture.y, surfaceUvRotation,
         material.surfaceTexture.zw);
+    const float2 metallicTransformedUv =
+        metallicTransformedUv0 * (1.0f - attributes.barycentrics.x -
+                                   attributes.barycentrics.y) +
+        metallicTransformedUv1 * attributes.barycentrics.x +
+        metallicTransformedUv2 * attributes.barycentrics.y;
+    const float2 metallicTextureUv = transformIndependentPbrTextureUv(
+        metallicTransformedUv, material.metallicTexture.yz,
+        material.metallicTexture.w, material.metallicTextureUvOffset.xy);
+    const float2 roughnessTransformedUv =
+        roughnessTransformedUv0 * (1.0f - attributes.barycentrics.x -
+                                    attributes.barycentrics.y) +
+        roughnessTransformedUv1 * attributes.barycentrics.x +
+        roughnessTransformedUv2 * attributes.barycentrics.y;
+    const float2 roughnessTextureUv = transformIndependentPbrTextureUv(
+        roughnessTransformedUv, material.roughnessTexture.yz,
+        material.roughnessTexture.w, material.roughnessTextureUvOffset.xy);
     const float2 occlusionTransformedUv =
         occlusionTransformedUv0 * (1.0f - attributes.barycentrics.x -
                                     attributes.barycentrics.y) +
@@ -818,7 +958,12 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
     float3 viewDirection = normalize(-WorldRayDirection());
     float metallic = saturate(material.surface.x);
     float roughness = clamp(material.surface.y, 0.04f, 1.0f);
-    if (material.surfaceTexture.x >= 0.0f) {
+    const bool hasIndependentMetallicTexture =
+        material.metallicTexture.x >= 0.0f;
+    const bool hasIndependentRoughnessTexture =
+        material.roughnessTexture.x >= 0.0f;
+    if (material.surfaceTexture.x >= 0.0f &&
+        !hasIndependentMetallicTexture && !hasIndependentRoughnessTexture) {
         const uint textureIndex = NonUniformResourceIndex(
             (uint)material.surfaceTexture.x);
         const float textureLod = calculatePbrTextureLod(
@@ -829,6 +974,26 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
             g_RTPbrSampler, surfaceTextureUv, textureLod);
         metallic = saturate(metallic * surfaceSample.b);
         roughness = clamp(roughness * surfaceSample.g, 0.04f, 1.0f);
+    }
+    if (hasIndependentMetallicTexture) {
+        const uint textureIndex = NonUniformResourceIndex(
+            (uint)material.metallicTexture.x);
+        const float textureLod = calculatePbrTextureLod(
+            textureIndex, worldEdge1, worldEdge2,
+            metallicUvEdge1, metallicUvEdge2, rayConeRadius);
+        const float metallicSample = g_RTPbrTextures[textureIndex].SampleLevel(
+            g_RTPbrSampler, metallicTextureUv, textureLod).r;
+        metallic = saturate(metallic * metallicSample);
+    }
+    if (hasIndependentRoughnessTexture) {
+        const uint textureIndex = NonUniformResourceIndex(
+            (uint)material.roughnessTexture.x);
+        const float textureLod = calculatePbrTextureLod(
+            textureIndex, worldEdge1, worldEdge2,
+            roughnessUvEdge1, roughnessUvEdge2, rayConeRadius);
+        const float roughnessSample = g_RTPbrTextures[textureIndex].SampleLevel(
+            g_RTPbrSampler, roughnessTextureUv, textureLod).r;
+        roughness = clamp(roughness * roughnessSample, 0.04f, 1.0f);
     }
     if (material.normalTexture.x >= 0.0f && material.normalTexture.y > 0.0f) {
         float normalVariance = max(1.0f - normalMapAverageLength, 0.0f) /
@@ -849,8 +1014,45 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
         SrgbChannelToLinear(material.specularTint.z));
     const float specularScale = saturate(material.surface.z) / 0.5f;
     float transmission = saturate(material.extras.x) * (1.0f - metallic);
+    const bool thinWallEnabled = material.transmissionMode.x > 0.5f &&
+                                 transmission > 1.0e-4f;
     float clearcoat = saturate(material.extras.y);
+    if (material.clearcoatTexture.x >= 0.0f) {
+        const uint textureIndex = NonUniformResourceIndex(
+            (uint)material.clearcoatTexture.x);
+        const float2 clearcoatTextureUv =
+            clearcoatTextureUv0 *
+                (1.0f - attributes.barycentrics.x -
+                 attributes.barycentrics.y) +
+            clearcoatTextureUv1 * attributes.barycentrics.x +
+            clearcoatTextureUv2 * attributes.barycentrics.y;
+        const float textureLod = calculatePbrTextureLod(
+            textureIndex, worldEdge1, worldEdge2,
+            clearcoatTextureUvEdge1, clearcoatTextureUvEdge2,
+            rayConeRadius);
+        clearcoat = saturate(clearcoat *
+            g_RTPbrTextures[textureIndex].SampleLevel(
+                g_RTPbrSampler, clearcoatTextureUv, textureLod).r);
+    }
     float clearcoatRoughness = clamp(material.extras.z, 0.04f, 1.0f);
+    if (material.clearcoatRoughnessTexture.x >= 0.0f) {
+        const uint textureIndex = NonUniformResourceIndex(
+            (uint)material.clearcoatRoughnessTexture.x);
+        const float2 clearcoatRoughnessUv =
+            clearcoatRoughnessUv0 *
+                (1.0f - attributes.barycentrics.x -
+                 attributes.barycentrics.y) +
+            clearcoatRoughnessUv1 * attributes.barycentrics.x +
+            clearcoatRoughnessUv2 * attributes.barycentrics.y;
+        const float textureLod = calculatePbrTextureLod(
+            textureIndex, worldEdge1, worldEdge2,
+            clearcoatRoughnessUvEdge1, clearcoatRoughnessUvEdge2,
+            rayConeRadius);
+        const float roughnessMap = g_RTPbrTextures[textureIndex].SampleLevel(
+            g_RTPbrSampler, clearcoatRoughnessUv, textureLod).g;
+        clearcoatRoughness = clamp(
+            clearcoatRoughness * roughnessMap, 0.04f, 1.0f);
+    }
     if ((material.clearcoatNormal.y >= 0.0f ||
          material.normalTexture.x >= 0.0f) &&
         material.clearcoatNormal.x > 0.0f) {
@@ -889,13 +1091,20 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
             g_RTPbrSampler, occlusionTextureUv, textureLod).r;
         ao = lerp(1.0f, saturate(aoSample), saturate(material.occlusion.y));
     }
-    float3 F0 = lerp(float3(dielectricF0, dielectricF0, dielectricF0) *
-                         specularTint,
-                     baseColor, metallic);
+    float3 dielectricSpecularF0 =
+        float3(dielectricF0, dielectricF0, dielectricF0) * specularTint;
+    if (thinWallEnabled) {
+        dielectricSpecularF0 = 2.0f * dielectricSpecularF0 /
+                               (1.0f + dielectricSpecularF0);
+    }
+    float3 F0 = lerp(dielectricSpecularF0, baseColor, metallic);
     if (material.thinFilm.x > 0.0f) {
-        const float3 filmF0 = ThinFilmReflectance(
+        float3 filmF0 = ThinFilmReflectance(
             1.0f, material.thinFilm.y, material.surface.w,
             material.thinFilm.x) * specularScale * specularTint;
+        if (thinWallEnabled) {
+            filmF0 = 2.0f * filmF0 / (1.0f + filmF0);
+        }
         F0 = lerp(filmF0, baseColor, metallic);
     }
     const float directTransmissionIor = max(material.surface.w, 1.0f);
@@ -909,11 +1118,16 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
             directTransmissionIor, material.thinFilm.x) * specularScale *
             specularTint;
     }
-    const float3 directTransmissionDirection = refract(
-        -viewDirection, worldNormal, rcp(directTransmissionIor));
-    const bool transmissionIsTir =
+    if (thinWallEnabled) {
+        directTransmissionFresnel = 2.0f * directTransmissionFresnel /
+                                    (1.0f + directTransmissionFresnel);
+    }
+    const float3 directTransmissionDirection = thinWallEnabled
+        ? -viewDirection
+        : refract(-viewDirection, worldNormal, rcp(directTransmissionIor));
+    const bool transmissionIsTir = !thinWallEnabled &&
         dot(directTransmissionDirection, directTransmissionDirection) <=
-        1.0e-6f;
+            1.0e-6f;
     if (transmissionIsTir) {
         directTransmissionFresnel = float3(1.0f, 1.0f, 1.0f);
     }
@@ -1377,6 +1591,15 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
             anisotropicReflectedDirection.y,
             -rotationSin * anisotropicReflectedDirection.x +
                 rotationCos * anisotropicReflectedDirection.z);
+        float3 environmentTangent = float3(
+            rotationCos * worldTangent.x + rotationSin * worldTangent.z,
+            worldTangent.y,
+            -rotationSin * worldTangent.x + rotationCos * worldTangent.z);
+        float3 environmentBitangent = float3(
+            rotationCos * worldBitangent.x + rotationSin * worldBitangent.z,
+            worldBitangent.y,
+            -rotationSin * worldBitangent.x +
+                rotationCos * worldBitangent.z);
         uint environmentWidth;
         uint environmentHeight;
         uint environmentMipCount;
@@ -1384,12 +1607,65 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
                                       environmentMipCount);
         const float environmentMip = roughness *
             max(float(environmentMipCount) - 1.0f, 0.0f);
-        const float3 prefiltered = g_RTEnvironment.SampleLevel(g_RTEnvironmentSampler,
-            anisotropicEnvironmentDirection, environmentMip).rgb *
+        float3 prefilteredSpecular;
+        const float anisotropyMagnitude = saturate(abs(material.anisotropy.x));
+        if (anisotropyMagnitude > 1.0e-4f) {
+            float3 broadAxis = material.anisotropy.x >= 0.0f
+                ? environmentTangent : environmentBitangent;
+            broadAxis -= anisotropicEnvironmentDirection *
+                dot(broadAxis, anisotropicEnvironmentDirection);
+            const float broadAxisLengthSquared = dot(broadAxis, broadAxis);
+            if (broadAxisLengthSquared > 1.0e-6f) {
+                broadAxis *= rsqrt(broadAxisLengthSquared);
+                const float narrowRoughness = saturate(
+                    roughness * sqrt(1.0f - anisotropyMagnitude));
+                const float broadRoughness = saturate(
+                    roughness * sqrt(1.0f + anisotropyMagnitude));
+                const float narrowMip = narrowRoughness *
+                    max(float(environmentMipCount) - 1.0f, 0.0f);
+                const float broadMip = broadRoughness *
+                    max(float(environmentMipCount) - 1.0f, 0.0f);
+                const float angularOffset =
+                    roughness * anisotropyMagnitude * 0.35f;
+                const float3 narrowTap = g_RTEnvironment.SampleLevel(
+                    g_RTEnvironmentSampler,
+                    anisotropicEnvironmentDirection, narrowMip).rgb;
+                const float3 positiveTap = g_RTEnvironment.SampleLevel(
+                    g_RTEnvironmentSampler,
+                    normalize(anisotropicEnvironmentDirection +
+                              broadAxis * angularOffset), broadMip).rgb;
+                const float3 negativeTap = g_RTEnvironment.SampleLevel(
+                    g_RTEnvironmentSampler,
+                    normalize(anisotropicEnvironmentDirection -
+                              broadAxis * angularOffset), broadMip).rgb;
+                const float2 narrowBrdf = sampleRTBrdfLut(
+                    float2(environmentNdotV, narrowRoughness)).rg;
+                const float2 broadBrdf = sampleRTBrdfLut(
+                    float2(environmentNdotV, broadRoughness)).rg;
+                prefilteredSpecular = narrowTap *
+                        (environmentF0 * narrowBrdf.x + narrowBrdf.y) * 0.5f +
+                    (positiveTap + negativeTap) *
+                        (environmentF0 * broadBrdf.x + broadBrdf.y) * 0.25f;
+            } else {
+                float3 prefiltered = g_RTEnvironment.SampleLevel(
+                    g_RTEnvironmentSampler, anisotropicEnvironmentDirection,
+                    environmentMip).rgb;
+                const float2 brdf = sampleRTBrdfLut(
+                    float2(environmentNdotV, roughness)).rg;
+                prefilteredSpecular = prefiltered *
+                    (environmentF0 * brdf.x + brdf.y);
+            }
+        } else {
+            float3 prefiltered = g_RTEnvironment.SampleLevel(
+                g_RTEnvironmentSampler, anisotropicEnvironmentDirection,
+                environmentMip).rgb;
+            const float2 brdf = sampleRTBrdfLut(
+                float2(environmentNdotV, roughness)).rg;
+            prefilteredSpecular = prefiltered *
+                (environmentF0 * brdf.x + brdf.y);
+        }
+        specularEnvironment = prefilteredSpecular *
             max(g_RTEnvironmentSettings.y, 0.0f);
-        const float2 brdf = sampleRTBrdfLut(
-            float2(environmentNdotV, roughness)).rg;
-        specularEnvironment = prefiltered * (environmentF0 * brdf.x + brdf.y);
         const float sheenMip = sheenRoughness *
             max(float(environmentMipCount) - 1.0f, 0.0f);
         const float3 sheenPrefiltered = g_RTSheenEnvironment.SampleLevel(
@@ -1454,6 +1730,10 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
             saturate(dot(worldNormal, viewDirection)), material.thinFilm.y,
             material.surface.w, material.thinFilm.x) * specularScale *
             specularTint;
+    }
+    if (thinWallEnabled) {
+        transmissionFresnel = 2.0f * transmissionFresnel /
+                              (1.0f + transmissionFresnel);
     }
     if (transmissionIsTir) {
         transmissionFresnel = float3(1.0f, 1.0f, 1.0f);
@@ -1598,6 +1878,15 @@ struct RTMaterial
     float4 emissionTextureUvRotation;
     float4 surfaceTextureUvRotation;
     float4 opacityTextureUvRotation;
+    float4 metallicTexture;
+    float4 roughnessTexture;
+    float4 metallicTextureUvOffset;
+    float4 roughnessTextureUvOffset;
+    float4 transmissionMode;
+    float4 clearcoatTexture;
+    float4 clearcoatTextureUvOffset;
+    float4 clearcoatRoughnessTexture;
+    float4 clearcoatRoughnessTextureUvOffset;
 };
 StructuredBuffer<float4> g_RenderVertices : register(t1);
 StructuredBuffer<RTPrimitive> g_RenderPrimitives : register(t2);
@@ -2167,6 +2456,8 @@ public:
                          1.0f)}};
         nextMaterial.baseColorTexture[1] =
             clampFinite(material.baseColorUvScale, 0.01f, 10.0f, 1.0f);
+        nextMaterial.transmissionMode[0] = clampFinite(
+            material.thinWall, 0.0f, 1.0f, 0.0f) > 0.5f ? 1.0f : 0.0f;
         nextMaterial.baseColorTexture[2] = clampFinite(
             material.baseColorUvOffsetU, -10.0f, 10.0f, 0.0f);
         nextMaterial.baseColorTexture[3] = clampFinite(
@@ -2187,6 +2478,32 @@ public:
             0.0f) * (3.14159265358979323846f / 180.0f);
         nextMaterial.surfaceTextureUvRotation[1] =
             material.metallicRoughnessUvSet == 1 ? 1.0f : 0.0f;
+        nextMaterial.metallicTexture[1] = clampFinite(
+            material.metallicTextureUvScaleU, 0.01f, 10.0f, 1.0f);
+        nextMaterial.metallicTexture[2] = clampFinite(
+            material.metallicTextureUvScaleV, 0.01f, 10.0f, 1.0f);
+        nextMaterial.metallicTexture[3] = clampFinite(
+            material.metallicTextureUvRotationDegrees, -360.0f, 360.0f,
+            0.0f) * (3.14159265358979323846f / 180.0f);
+        nextMaterial.metallicTextureUvOffset[0] = clampFinite(
+            material.metallicTextureUvOffsetU, -10.0f, 10.0f, 0.0f);
+        nextMaterial.metallicTextureUvOffset[1] = clampFinite(
+            material.metallicTextureUvOffsetV, -10.0f, 10.0f, 0.0f);
+        nextMaterial.metallicTextureUvOffset[2] =
+            material.metallicTextureUvSet == 1 ? 1.0f : 0.0f;
+        nextMaterial.roughnessTexture[1] = clampFinite(
+            material.roughnessTextureUvScaleU, 0.01f, 10.0f, 1.0f);
+        nextMaterial.roughnessTexture[2] = clampFinite(
+            material.roughnessTextureUvScaleV, 0.01f, 10.0f, 1.0f);
+        nextMaterial.roughnessTexture[3] = clampFinite(
+            material.roughnessTextureUvRotationDegrees, -360.0f, 360.0f,
+            0.0f) * (3.14159265358979323846f / 180.0f);
+        nextMaterial.roughnessTextureUvOffset[0] = clampFinite(
+            material.roughnessTextureUvOffsetU, -10.0f, 10.0f, 0.0f);
+        nextMaterial.roughnessTextureUvOffset[1] = clampFinite(
+            material.roughnessTextureUvOffsetV, -10.0f, 10.0f, 0.0f);
+        nextMaterial.roughnessTextureUvOffset[2] =
+            material.roughnessTextureUvSet == 1 ? 1.0f : 0.0f;
         nextMaterial.normalUvOffset[0] =
             clampFinite(material.normalUvOffsetU, -10.0f, 10.0f, 0.0f);
         nextMaterial.normalUvOffset[1] =
@@ -2231,6 +2548,28 @@ public:
             material.clearcoatNormalUvOffsetV, -10.0f, 10.0f, 0.0f);
         nextMaterial.clearcoatNormalUvOffset[2] =
             material.clearcoatNormalUvSet == 1 ? 1.0f : 0.0f;
+        nextMaterial.clearcoatTexture[1] = clampFinite(
+            material.clearcoatTextureUvScale, 0.01f, 10.0f, 1.0f);
+        nextMaterial.clearcoatTexture[2] = clampFinite(
+            material.clearcoatTextureUvRotationDegrees, -360.0f, 360.0f,
+            0.0f) * (3.14159265358979323846f / 180.0f);
+        nextMaterial.clearcoatTexture[3] =
+            material.clearcoatTextureUvSet == 1 ? 1.0f : 0.0f;
+        nextMaterial.clearcoatTextureUvOffset[0] = clampFinite(
+            material.clearcoatTextureUvOffsetU, -10.0f, 10.0f, 0.0f);
+        nextMaterial.clearcoatTextureUvOffset[1] = clampFinite(
+            material.clearcoatTextureUvOffsetV, -10.0f, 10.0f, 0.0f);
+        nextMaterial.clearcoatRoughnessTexture[1] = clampFinite(
+            material.clearcoatRoughnessTextureUvScale, 0.01f, 10.0f, 1.0f);
+        nextMaterial.clearcoatRoughnessTexture[2] = clampFinite(
+            material.clearcoatRoughnessTextureUvRotationDegrees, -360.0f,
+            360.0f, 0.0f) * (3.14159265358979323846f / 180.0f);
+        nextMaterial.clearcoatRoughnessTexture[3] =
+            material.clearcoatRoughnessTextureUvSet == 1 ? 1.0f : 0.0f;
+        nextMaterial.clearcoatRoughnessTextureUvOffset[0] = clampFinite(
+            material.clearcoatRoughnessTextureUvOffsetU, -10.0f, 10.0f, 0.0f);
+        nextMaterial.clearcoatRoughnessTextureUvOffset[1] = clampFinite(
+            material.clearcoatRoughnessTextureUvOffsetV, -10.0f, 10.0f, 0.0f);
         if (materialIndex >= node.pbrMaterials.size()) {
             node.pbrMaterials.resize(static_cast<size_t>(materialIndex) + 1u,
                                      node.pbrMaterials.front());
@@ -2238,7 +2577,15 @@ public:
                 static_cast<size_t>(materialIndex) + 1u);
             node.metallicRoughnessTexturePaths.resize(
                 static_cast<size_t>(materialIndex) + 1u);
+            node.metallicTexturePaths.resize(
+                static_cast<size_t>(materialIndex) + 1u);
+            node.roughnessTexturePaths.resize(
+                static_cast<size_t>(materialIndex) + 1u);
             node.normalTexturePaths.resize(
+                static_cast<size_t>(materialIndex) + 1u);
+            node.clearcoatTexturePaths.resize(
+                static_cast<size_t>(materialIndex) + 1u);
+            node.clearcoatRoughnessTexturePaths.resize(
                 static_cast<size_t>(materialIndex) + 1u);
             node.clearcoatNormalTexturePaths.resize(
                 static_cast<size_t>(materialIndex) + 1u);
@@ -2273,8 +2620,18 @@ public:
         updateTexturePath(node.metallicRoughnessTexturePaths,
                           material.metallicRoughnessTexture,
                           PbrTextureKind::MetallicRoughness);
+        updateTexturePath(node.metallicTexturePaths, material.metallicTexture,
+                          PbrTextureKind::Metallic);
+        updateTexturePath(node.roughnessTexturePaths, material.roughnessTexture,
+                          PbrTextureKind::Roughness);
         updateTexturePath(node.normalTexturePaths, material.normalTexture,
                           PbrTextureKind::Normal);
+        updateTexturePath(node.clearcoatTexturePaths,
+                          material.clearcoatTexture,
+                          PbrTextureKind::Clearcoat);
+        updateTexturePath(node.clearcoatRoughnessTexturePaths,
+                          material.clearcoatRoughnessTexture,
+                          PbrTextureKind::ClearcoatRoughness);
         updateTexturePath(node.clearcoatNormalTexturePaths,
                           material.clearcoatNormalTexture,
                           PbrTextureKind::ClearcoatNormal);
@@ -2878,14 +3235,25 @@ private:
         float emissionTextureUvRotation[4];
         float surfaceTextureUvRotation[4];
         float opacityTextureUvRotation[4];
+        float metallicTexture[4]{-1.0f, 1.0f, 1.0f, 0.0f};
+        float roughnessTexture[4]{-1.0f, 1.0f, 1.0f, 0.0f};
+        float metallicTextureUvOffset[4]{};
+        float roughnessTextureUvOffset[4]{};
+        float transmissionMode[4]{};
+        float clearcoatTexture[4]{-1.0f, 1.0f, 0.0f, 0.0f};
+        float clearcoatTextureUvOffset[4]{};
+        float clearcoatRoughnessTexture[4]{-1.0f, 1.0f, 0.0f, 0.0f};
+        float clearcoatRoughnessTextureUvOffset[4]{};
     };
+    static_assert(sizeof(RTMaterial) == 39u * 4u * sizeof(float));
     struct RTPbrTexture {
         RefCntAutoPtr<ITexture> texture;
         RefCntAutoPtr<ITextureView> view;
     };
     enum class PbrTextureKind : Uint8 {
-        BaseColor, MetallicRoughness, Normal, ClearcoatNormal, Occlusion,
-        Emission, Opacity
+        BaseColor, MetallicRoughness, Metallic, Roughness, Normal,
+        Clearcoat, ClearcoatNormal, Occlusion, Emission, Opacity,
+        ClearcoatRoughness
     };
     struct BLASNode {
         RefCntAutoPtr<IBottomLevelAS> pBLAS;
@@ -2924,7 +3292,11 @@ private:
                        {0.0f, -1.0f, 0.0f, 0.0f}}};
         std::vector<QString> baseColorTexturePaths{QString()};
         std::vector<QString> metallicRoughnessTexturePaths{QString()};
+        std::vector<QString> metallicTexturePaths{QString()};
+        std::vector<QString> roughnessTexturePaths{QString()};
         std::vector<QString> normalTexturePaths{QString()};
+        std::vector<QString> clearcoatTexturePaths{QString()};
+        std::vector<QString> clearcoatRoughnessTexturePaths{QString()};
         std::vector<QString> clearcoatNormalTexturePaths{QString()};
         std::vector<QString> occlusionTexturePaths{QString()};
         std::vector<QString> emissionTexturePaths{QString()};
@@ -3031,8 +3403,11 @@ private:
     QString pbrTextureCacheKey(const QString& path, PbrTextureKind kind) const {
         const QChar suffix = kind == PbrTextureKind::BaseColor ? QLatin1Char('c')
             : kind == PbrTextureKind::MetallicRoughness ? QLatin1Char('m')
+            : kind == PbrTextureKind::Metallic ||
+              kind == PbrTextureKind::Roughness ? QLatin1Char('d')
             : kind == PbrTextureKind::Normal ? QLatin1Char('n')
             : kind == PbrTextureKind::ClearcoatNormal ? QLatin1Char('q')
+            : kind == PbrTextureKind::ClearcoatRoughness ? QLatin1Char('k')
             : kind == PbrTextureKind::Occlusion ? QLatin1Char('o')
             : kind == PbrTextureKind::Emission ? QLatin1Char('e')
                                                : QLatin1Char('a');
@@ -3369,6 +3744,10 @@ private:
             ? "RayTracing Base Color Texture"
             : kind == PbrTextureKind::MetallicRoughness
                 ? "RayTracing Metallic Roughness Texture"
+                : kind == PbrTextureKind::Metallic ||
+                  kind == PbrTextureKind::Roughness ||
+                  kind == PbrTextureKind::ClearcoatRoughness
+                    ? "RayTracing Metallic or Roughness Texture"
                 : kind == PbrTextureKind::Emission
                     ? "RayTracing Emission Texture"
                     : kind == PbrTextureKind::Opacity
@@ -3631,10 +4010,31 @@ private:
                         node.metallicRoughnessTexturePaths[materialIndex],
                         PbrTextureKind::MetallicRoughness);
                 }
+                if (materialIndex < node.metallicTexturePaths.size()) {
+                    gpuMaterial.metallicTexture[0] = resolveTextureIndex(
+                        node.metallicTexturePaths[materialIndex],
+                        PbrTextureKind::Metallic);
+                }
+                if (materialIndex < node.roughnessTexturePaths.size()) {
+                    gpuMaterial.roughnessTexture[0] = resolveTextureIndex(
+                        node.roughnessTexturePaths[materialIndex],
+                        PbrTextureKind::Roughness);
+                }
                 if (materialIndex < node.normalTexturePaths.size()) {
                     gpuMaterial.normalTexture[0] = resolveTextureIndex(
                         node.normalTexturePaths[materialIndex],
                         PbrTextureKind::Normal);
+                }
+                if (materialIndex < node.clearcoatTexturePaths.size()) {
+                    gpuMaterial.clearcoatTexture[0] = resolveTextureIndex(
+                        node.clearcoatTexturePaths[materialIndex],
+                        PbrTextureKind::Clearcoat);
+                }
+                if (materialIndex < node.clearcoatRoughnessTexturePaths.size()) {
+                    gpuMaterial.clearcoatRoughnessTexture[0] =
+                        resolveTextureIndex(
+                            node.clearcoatRoughnessTexturePaths[materialIndex],
+                            PbrTextureKind::ClearcoatRoughness);
                 }
                 if (materialIndex < node.clearcoatNormalTexturePaths.size()) {
                     gpuMaterial.clearcoatNormal[1] = resolveTextureIndex(
