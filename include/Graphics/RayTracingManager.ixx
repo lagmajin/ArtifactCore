@@ -20,14 +20,16 @@ struct RayTracingCapabilities {
     RENDER_DEVICE_TYPE deviceType = RENDER_DEVICE_TYPE_UNDEFINED;
     DEVICE_FEATURE_STATE featureState = DEVICE_FEATURE_STATE_DISABLED;
     bool supported = false;
-    bool unitQuadBLASCreated = false;
-    bool unitQuadBLASBuilt = false;
     bool tlasCreated = false;
     bool tlasBuilt = false;
     Uint32 blasBuildCount = 0;
+    Uint32 blasUpdateCount = 0;
+    Uint32 blasRebuildCount = 0;
     Uint32 registeredBLASCount = 0;
     Uint32 activeInstanceCount = 0;
     Uint32 tlasBuildCount = 0;
+    Uint32 tlasUpdateCount = 0;
+    Uint32 tlasRebuildCount = 0;
     bool lastBuildSucceeded = false;
     bool pipelineCreated = false;
     bool sbtCreated = false;
@@ -53,6 +55,10 @@ struct RTGeometryData {
     IBuffer* pIndexBuffer = nullptr;
     Uint32 indexCount = 0;
     Diligent::float4x4 transform = Diligent::float4x4::Identity();
+    // Increment or replace when vertex/index contents change in-place.
+    Uint64 geometryRevision = 0;
+    // Change when indices/topology change; position-only edits can refit the BLAS.
+    Uint64 topologyRevision = 0;
 };
 
 class IRayTracingManager {

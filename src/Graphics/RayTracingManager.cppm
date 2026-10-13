@@ -117,7 +117,6 @@ public:
         rtSupported_ = caps_.supported;
 
         if (rtSupported_) {
-            createUnitQuadBLAS();
             createTLAS();
         }
 
@@ -133,7 +132,6 @@ public:
         pWarmupRayGen_.Release();
         pWarmupMiss_.Release();
         pWarmupClosestHit_.Release();
-        pUnitQuadBLAS_.Release();
         pTLAS_.Release();
         pBLASScratchBuffer_.Release();
         pTLASScratchBuffer_.Release();
@@ -146,8 +144,29 @@ public:
     }
 
     bool createOrUpdateBLAS(const UniString& id, const RTGeometryData& data) override {
-        if (!rtSupported_ || !pDevice_ || !data.pVertexBuffer || data.vertexCount < 3 ||
-            (data.pIndexBuffer && data.indexCount < 3)) return false;
+        if (!rtSupported_ || !pDevice_ || id.toQString().isEmpty() ||
+            !data.pVertexBuffer || data.vertexCount < 3) return false;
+        const auto& vertexDesc = data.pVertexBuffer->GetDesc();
+        const Uint64 minimumVertexStride = sizeof(float) * 3u;
+        if (vertexDesc.ElementByteStride < minimumVertexStride ||
+            (vertexDesc.ElementByteStride % sizeof(float)) != 0 ||
+            static_cast<Uint64>(data.vertexCount) * vertexDesc.ElementByteStride >
+                vertexDesc.Size) {
+            return false;
+        }
+        const Uint32 primitiveCount = data.pIndexBuffer
+            ? data.indexCount / 3u
+            : data.vertexCount / 3u;
+        if ((data.pIndexBuffer &&
+             (data.indexCount < 3 || (data.indexCount % 3u) != 0 ||
+              static_cast<Uint64>(data.indexCount) * sizeof(Uint32) >
+                  data.pIndexBuffer->GetDesc().Size)) ||
+            (!data.pIndexBuffer && data.indexCount != 0) ||
+            primitiveCount == 0 ||
+            (caps_.maxPrimitivesPerBLAS > 0 &&
+             primitiveCount > caps_.maxPrimitivesPerBLAS)) {
+            return false;
+        }
         if ((data.pVertexBuffer->GetDesc().BindFlags & BIND_RAY_TRACING) == 0) {
             return false;
         }
@@ -163,31 +182,53 @@ public:
             node.data.pIndexBuffer != data.pIndexBuffer ||
             node.data.vertexCount != data.vertexCount ||
             node.data.indexCount != data.indexCount;
-        if (geometryLayoutChanged) node.pBLAS.Release();
-        node.data = data;
-        node.dirty = geometryLayoutChanged || !node.pBLAS;
-        node.active = true;
-        if (!node.pBLAS) {
+        const bool geometryContentChanged =
+            geometryLayoutChanged || !node.pBLAS ||
+            node.data.geometryRevision != data.geometryRevision ||
+            node.data.topologyRevision != data.topologyRevision;
+        const bool topologyChanged =
+            geometryLayoutChanged || !node.pBLAS ||
+            node.data.topologyRevision != data.topologyRevision;
+        const bool transformChanged =
+            !node.pBLAS ||
+            std::memcmp(node.transform.Data(), data.transform.Data(),
+                        sizeof(float) * 16) != 0;
+        const bool wasInactive = !node.active;
+        const bool hadPendingGeometryWork = node.dirty || node.requiresRebuild;
+        RefCntAutoPtr<IBottomLevelAS> replacementBLAS;
+        if (topologyChanged) {
             BLASTriangleDesc triangles;
             triangles.GeometryName = keyUtf8.c_str();
             triangles.VertexValueType = VT_FLOAT32;
             triangles.VertexComponentCount = 3;
             triangles.MaxVertexCount = data.vertexCount;
             triangles.IndexType = data.pIndexBuffer ? VT_UINT32 : VT_UNDEFINED;
-            triangles.MaxPrimitiveCount = data.pIndexBuffer ? data.indexCount / 3 : data.vertexCount / 3;
+            triangles.MaxPrimitiveCount = primitiveCount;
             BottomLevelASDesc desc;
             desc.Name = keyUtf8.c_str();
-            desc.Flags = RAYTRACING_BUILD_AS_PREFER_FAST_TRACE;
+            desc.Flags = RAYTRACING_BUILD_AS_ALLOW_UPDATE |
+                         RAYTRACING_BUILD_AS_PREFER_FAST_TRACE;
             desc.pTriangles = &triangles;
             desc.TriangleCount = 1;
-            pDevice_->CreateBLAS(desc, &node.pBLAS);
+            pDevice_->CreateBLAS(desc, &replacementBLAS);
+            if (!replacementBLAS) return false;
+        }
+        node.data = data;
+        node.dirty = geometryContentChanged || hadPendingGeometryWork;
+        node.requiresRebuild = topologyChanged || node.requiresRebuild;
+        node.active = true;
+        if (topologyChanged) {
+            node.pBLAS = std::move(replacementBLAS);
+            node.built = false;
         }
         node.transform = data.transform;
         caps_.registeredBLASCount = 0;
         for (const auto& [name, registered] : blasMap_) {
             if (registered.pBLAS) ++caps_.registeredBLASCount;
         }
-        return node.pBLAS != nullptr;
+        return node.pBLAS != nullptr &&
+               (geometryContentChanged || hadPendingGeometryWork ||
+                transformChanged || wasInactive);
     }
 
     bool buildBLAS(IDeviceContext* pContext) override {
@@ -212,12 +253,16 @@ public:
             attribs.pBLAS = node.pBLAS;
             attribs.pTriangleData = &triangle;
             attribs.TriangleDataCount = 1;
-            if (!pBLASScratchBuffer_ || pBLASScratchBuffer_->GetDesc().Size < node.pBLAS->GetScratchBufferSizes().Build) {
+            attribs.Update = node.built && !node.requiresRebuild;
+            const auto scratchSize = attribs.Update
+                ? node.pBLAS->GetScratchBufferSizes().Update
+                : node.pBLAS->GetScratchBufferSizes().Build;
+            if (!pBLASScratchBuffer_ || pBLASScratchBuffer_->GetDesc().Size < scratchSize) {
                 BufferDesc scratchDesc;
                 scratchDesc.Name = "RayTracing BLAS Scratch";
                 scratchDesc.Usage = USAGE_DEFAULT;
                 scratchDesc.BindFlags = BIND_RAY_TRACING;
-            scratchDesc.Size = node.pBLAS->GetScratchBufferSizes().Build;
+                scratchDesc.Size = scratchSize;
                 pBLASScratchBuffer_.Release();
                 pDevice_->CreateBuffer(scratchDesc, nullptr, &pBLASScratchBuffer_);
             }
@@ -228,7 +273,14 @@ public:
             attribs.ScratchBufferTransitionMode = RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
             pContext->BuildBLAS(attribs);
             ++caps_.blasBuildCount;
+            if (attribs.Update) {
+                ++caps_.blasUpdateCount;
+            } else {
+                ++caps_.blasRebuildCount;
+            }
             node.dirty = false;
+            node.built = true;
+            node.requiresRebuild = false;
         }
         return true;
     }
@@ -320,6 +372,11 @@ public:
         attribs.pInstanceBuffer = pTLASInstanceBuffer_;
         const auto instanceCount = static_cast<Uint32>(instances.size());
         attribs.Update = caps_.tlasBuilt && tlasInstanceCount_ == instanceCount;
+        if (attribs.Update) {
+            ++caps_.tlasUpdateCount;
+        } else {
+            ++caps_.tlasRebuildCount;
+        }
         attribs.ScratchBufferTransitionMode = RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
         attribs.InstanceBufferTransitionMode = RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
         attribs.TLASTransitionMode = RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
@@ -500,25 +557,6 @@ public:
     bool isSupported() const override { return rtSupported_; }
 
 private:
-    void createUnitQuadBLAS() {
-        BLASTriangleDesc triangleDesc;
-        triangleDesc.GeometryName = "Unit Quad Geometry";
-        triangleDesc.VertexValueType = VT_FLOAT32;
-        triangleDesc.VertexComponentCount = 3;
-        triangleDesc.MaxVertexCount = 4;
-        triangleDesc.IndexType = VT_UINT32;
-        triangleDesc.MaxPrimitiveCount = 2; 
-
-        BottomLevelASDesc blasDesc;
-        blasDesc.Name = "Unit Quad BLAS";
-        blasDesc.TriangleCount = 1;
-        blasDesc.pTriangles = &triangleDesc;
-        
-        pDevice_->CreateBLAS(blasDesc, &pUnitQuadBLAS_);
-        caps_.unitQuadBLASCreated = pUnitQuadBLAS_ != nullptr;
-        caps_.unitQuadBLASBuilt = false;
-    }
-
     void createTLAS() {
         TopLevelASDesc tlasDesc;
         tlasDesc.Name = "Main Scene TLAS";
@@ -530,7 +568,6 @@ private:
     }
 
     RefCntAutoPtr<IRenderDevice> pDevice_;
-    RefCntAutoPtr<IBottomLevelAS> pUnitQuadBLAS_;
     RefCntAutoPtr<ITopLevelAS> pTLAS_;
     RefCntAutoPtr<IBuffer> pBLASScratchBuffer_;
     RefCntAutoPtr<IBuffer> pTLASScratchBuffer_;
@@ -549,6 +586,8 @@ private:
         Diligent::float4x4 transform;
         RTGeometryData data;
         bool dirty = false;
+        bool built = false;
+        bool requiresRebuild = false;
         bool active = true;
     };
     std::map<std::wstring, BLASNode> blasMap_;
