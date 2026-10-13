@@ -105,6 +105,15 @@ public:
 
     // PBR values and texture paths indexed by the ufbx material table. Mesh
     // material slots refer to these indices after import.
+    struct ImportedPbrTextureTransform {
+        float scaleU = 1.0f;
+        float scaleV = 1.0f;
+        float rotationDegrees = 0.0f;
+        float offsetU = 0.0f;
+        float offsetV = 0.0f;
+        int uvSet = 0;
+        bool hasTransform = false;
+    };
     struct ImportedPbrMaterial {
         UniString name;
         UniString baseColorTexture;
@@ -114,6 +123,13 @@ public:
         UniString emissionTexture;
         UniString occlusionTexture;
         UniString opacityTexture;
+        ImportedPbrTextureTransform baseColorUv;
+        ImportedPbrTextureTransform metallicRoughnessUv;
+        ImportedPbrTextureTransform normalUv;
+        ImportedPbrTextureTransform clearcoatNormalUv;
+        ImportedPbrTextureTransform emissionUv;
+        ImportedPbrTextureTransform occlusionUv;
+        ImportedPbrTextureTransform opacityUv;
         float baseColor[4] = {1.0f, 1.0f, 1.0f, 1.0f};
         float specularTint[3] = {1.0f, 1.0f, 1.0f};
         float sheenTint[3] = {1.0f, 1.0f, 1.0f};

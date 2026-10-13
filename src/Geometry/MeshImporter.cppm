@@ -326,6 +326,32 @@ public:
           *destination = UniString::fromQString(resolved);
         }
       };
+      const auto captureUvTransform = [&](const ufbx_texture* texture,
+          MeshImporter::ImportedPbrTextureTransform* destination) {
+        if (!texture) return;
+        if (texture->has_uv_transform) {
+          destination->scaleU = static_cast<float>(texture->uv_transform.scale.x);
+          destination->scaleV = static_cast<float>(texture->uv_transform.scale.y);
+          destination->offsetU = static_cast<float>(texture->uv_transform.translation.x);
+          destination->offsetV = static_cast<float>(texture->uv_transform.translation.y);
+          const ufbx_vec3 euler = ufbx_quat_to_euler(
+              texture->uv_transform.rotation, UFBX_ROTATION_ORDER_XYZ);
+          destination->rotationDegrees = static_cast<float>(euler.z);
+          destination->hasTransform = true;
+        }
+        const QString uvName = ufbxStringToQString(texture->uv_set);
+        if (uvName.isEmpty()) return;
+        for (size_t meshIndex = 0; meshIndex < scene->meshes.count; ++meshIndex) {
+          const ufbx_mesh* sourceMesh = scene->meshes[meshIndex];
+          if (!sourceMesh) continue;
+          for (size_t uvIndex = 0; uvIndex < sourceMesh->uv_sets.count; ++uvIndex) {
+            if (ufbxStringToQString(sourceMesh->uv_sets[uvIndex].name) == uvName) {
+              destination->uvSet = uvIndex == 1 ? 1 : 0;
+              return;
+            }
+          }
+        }
+      };
       const auto captureMaterialScalar = [](
           const ufbx_material_map& map, float minimum, float maximum,
           float fallback, float* value, bool* hasValue) {
@@ -416,6 +442,17 @@ public:
                          &imported.occlusionTexture);
       setImportedTexture(material->pbr.opacity.texture,
                          &imported.opacityTexture);
+      captureUvTransform(material->pbr.base_color.texture, &imported.baseColorUv);
+      captureUvTransform(material->pbr.base_factor.texture,
+                         &imported.metallicRoughnessUv);
+      captureUvTransform(material->pbr.normal_map.texture, &imported.normalUv);
+      captureUvTransform(material->pbr.coat_normal.texture,
+                         &imported.clearcoatNormalUv);
+      captureUvTransform(material->pbr.emission_color.texture,
+                         &imported.emissionUv);
+      captureUvTransform(material->pbr.ambient_occlusion.texture,
+                         &imported.occlusionUv);
+      captureUvTransform(material->pbr.opacity.texture, &imported.opacityUv);
       importedPbrMaterials_.push_back(std::move(imported));
 
       assignTexture(material->pbr.base_color.texture, [&](const QString& p) { setLastBaseColorTexture(p); }, "base color texture");
