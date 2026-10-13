@@ -86,6 +86,8 @@ export enum class MaterialPresetKind { Matte, Metal, Plastic, Glass };
   float clearcoatNormalUvOffsetU() const;
   void setClearcoatNormalUvOffsetV(float value);
   float clearcoatNormalUvOffsetV() const;
+  void setClearcoatNormalUvSet(int value);
+  int clearcoatNormalUvSet() const;
   void setSheen(float value);
   float sheen() const;
   void setSheenRoughness(float value);
@@ -119,6 +121,8 @@ export enum class MaterialPresetKind { Matte, Metal, Plastic, Glass };
   float emissionTextureUvOffsetV() const;
   void setEmissionTextureUvRotationDegrees(float value);
   float emissionTextureUvRotationDegrees() const;
+  void setEmissionTextureUvSet(int value);
+  int emissionTextureUvSet() const;
 
   // --- Opacity ---
   void setOpacity(float value);
@@ -131,6 +135,8 @@ export enum class MaterialPresetKind { Matte, Metal, Plastic, Glass };
   float opacityTextureUvOffsetV() const;
   void setOpacityTextureUvRotationDegrees(float value);
   float opacityTextureUvRotationDegrees() const;
+  void setOpacityTextureUvSet(int value);
+  int opacityTextureUvSet() const;
   void setAlphaMode(MaterialAlphaMode mode);
   MaterialAlphaMode alphaMode() const;
   void setAlphaCutoff(float value);
@@ -147,7 +153,7 @@ export enum class MaterialPresetKind { Matte, Metal, Plastic, Glass };
   float normalUvOffsetU() const;
   void setNormalUvOffsetV(float value);
   float normalUvOffsetV() const;
-  // Selects UV0 (0) or UV1 (1) for Normal and Coat Normal maps.
+  // Selects UV0 (0) or UV1 (1) for the Normal map.
   void setNormalUvSet(int value);
   int normalUvSet() const;
 
@@ -162,6 +168,8 @@ export enum class MaterialPresetKind { Matte, Metal, Plastic, Glass };
   float occlusionTextureUvOffsetV() const;
   void setOcclusionTextureUvRotationDegrees(float value);
   float occlusionTextureUvRotationDegrees() const;
+  void setOcclusionTextureUvSet(int value);
+  int occlusionTextureUvSet() const;
 
   // --- Texture Paths ---
   void setBaseColorTexture(const UniString& path);
@@ -185,6 +193,8 @@ export enum class MaterialPresetKind { Matte, Metal, Plastic, Glass };
   float metallicRoughnessUvOffsetV() const;
   void setMetallicRoughnessUvRotationDegrees(float value);
   float metallicRoughnessUvRotationDegrees() const;
+  void setMetallicRoughnessUvSet(int value);
+  int metallicRoughnessUvSet() const;
   void setMetallicRoughnessTexture(const UniString& path);
   UniString metallicRoughnessTexture() const;
   bool hasMetallicRoughnessTexture() const;

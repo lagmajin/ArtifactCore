@@ -412,8 +412,6 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
     float2 uv0 = g_RenderUvs[primitive.i0];
     float2 uv1 = g_RenderUvs[primitive.i1];
     float2 uv2 = g_RenderUvs[primitive.i2];
-    float2 meshUv = uv0 * (1.0f - attributes.barycentrics.x - attributes.barycentrics.y) +
-                    uv1 * attributes.barycentrics.x + uv2 * attributes.barycentrics.y;
     float4 vertexColor = g_RenderColors[primitive.i0] *
                          (1.0f - attributes.barycentrics.x - attributes.barycentrics.y) +
                          g_RenderColors[primitive.i1] * attributes.barycentrics.x +
@@ -431,15 +429,30 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
         ? g_RenderUvs1[primitive.i1] : uv1;
     const float2 normalUv2 = material.normalUvOffset.z > 0.5f
         ? g_RenderUvs1[primitive.i2] : uv2;
-    const float2 transformedUv0 = transformPbrUv(
-        uv0, material.occlusionUv.xy, material.occlusionUv.z,
-        material.occlusion.zw);
-    const float2 transformedUv1 = transformPbrUv(
-        uv1, material.occlusionUv.xy, material.occlusionUv.z,
-        material.occlusion.zw);
-    const float2 transformedUv2 = transformPbrUv(
-        uv2, material.occlusionUv.xy, material.occlusionUv.z,
-        material.occlusion.zw);
+    const float2 surfaceSetUv0 = material.surfaceTextureUvRotation.y > 0.5f
+        ? g_RenderUvs1[primitive.i0] : uv0;
+    const float2 surfaceSetUv1 = material.surfaceTextureUvRotation.y > 0.5f
+        ? g_RenderUvs1[primitive.i1] : uv1;
+    const float2 surfaceSetUv2 = material.surfaceTextureUvRotation.y > 0.5f
+        ? g_RenderUvs1[primitive.i2] : uv2;
+    const float2 occlusionSetUv0 = material.occlusionTextureUvOffset.w > 0.5f
+        ? g_RenderUvs1[primitive.i0] : uv0;
+    const float2 occlusionSetUv1 = material.occlusionTextureUvOffset.w > 0.5f
+        ? g_RenderUvs1[primitive.i1] : uv1;
+    const float2 occlusionSetUv2 = material.occlusionTextureUvOffset.w > 0.5f
+        ? g_RenderUvs1[primitive.i2] : uv2;
+    const float2 emissionSetUv0 = material.emissionTextureUvRotation.y > 0.5f
+        ? g_RenderUvs1[primitive.i0] : uv0;
+    const float2 emissionSetUv1 = material.emissionTextureUvRotation.y > 0.5f
+        ? g_RenderUvs1[primitive.i1] : uv1;
+    const float2 emissionSetUv2 = material.emissionTextureUvRotation.y > 0.5f
+        ? g_RenderUvs1[primitive.i2] : uv2;
+    const float2 coatNormalSetUv0 = material.clearcoatNormalUvOffset.z > 0.5f
+        ? g_RenderUvs1[primitive.i0] : uv0;
+    const float2 coatNormalSetUv1 = material.clearcoatNormalUvOffset.z > 0.5f
+        ? g_RenderUvs1[primitive.i1] : uv1;
+    const float2 coatNormalSetUv2 = material.clearcoatNormalUvOffset.z > 0.5f
+        ? g_RenderUvs1[primitive.i2] : uv2;
     const float2 normalTransformedUv0 = transformPbrUv(
         normalUv0, material.occlusionUv.xy, material.occlusionUv.z,
         material.occlusion.zw);
@@ -458,6 +471,42 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
     const float2 baseColorTransformedUv2 = transformPbrUv(
         baseColorSetUv2, material.occlusionUv.xy, material.occlusionUv.z,
         material.occlusion.zw);
+    const float2 surfaceTransformedUv0 = transformPbrUv(
+        surfaceSetUv0, material.occlusionUv.xy, material.occlusionUv.z,
+        material.occlusion.zw);
+    const float2 surfaceTransformedUv1 = transformPbrUv(
+        surfaceSetUv1, material.occlusionUv.xy, material.occlusionUv.z,
+        material.occlusion.zw);
+    const float2 surfaceTransformedUv2 = transformPbrUv(
+        surfaceSetUv2, material.occlusionUv.xy, material.occlusionUv.z,
+        material.occlusion.zw);
+    const float2 occlusionTransformedUv0 = transformPbrUv(
+        occlusionSetUv0, material.occlusionUv.xy, material.occlusionUv.z,
+        material.occlusion.zw);
+    const float2 occlusionTransformedUv1 = transformPbrUv(
+        occlusionSetUv1, material.occlusionUv.xy, material.occlusionUv.z,
+        material.occlusion.zw);
+    const float2 occlusionTransformedUv2 = transformPbrUv(
+        occlusionSetUv2, material.occlusionUv.xy, material.occlusionUv.z,
+        material.occlusion.zw);
+    const float2 emissionTransformedUv0 = transformPbrUv(
+        emissionSetUv0, material.occlusionUv.xy, material.occlusionUv.z,
+        material.occlusion.zw);
+    const float2 emissionTransformedUv1 = transformPbrUv(
+        emissionSetUv1, material.occlusionUv.xy, material.occlusionUv.z,
+        material.occlusion.zw);
+    const float2 emissionTransformedUv2 = transformPbrUv(
+        emissionSetUv2, material.occlusionUv.xy, material.occlusionUv.z,
+        material.occlusion.zw);
+    const float2 coatNormalTransformedUv0 = transformPbrUv(
+        coatNormalSetUv0, material.occlusionUv.xy, material.occlusionUv.z,
+        material.occlusion.zw);
+    const float2 coatNormalTransformedUv1 = transformPbrUv(
+        coatNormalSetUv1, material.occlusionUv.xy, material.occlusionUv.z,
+        material.occlusion.zw);
+    const float2 coatNormalTransformedUv2 = transformPbrUv(
+        coatNormalSetUv2, material.occlusionUv.xy, material.occlusionUv.z,
+        material.occlusion.zw);
     const float baseColorUvRotation =
         material.baseColorTextureUvRotation.x;
     const float surfaceUvRotation = material.surfaceTextureUvRotation.x;
@@ -473,38 +522,38 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
     const float2 baseColorUvEdge1 = baseColorUv1 - baseColorUv0;
     const float2 baseColorUvEdge2 = baseColorUv2 - baseColorUv0;
     const float2 surfaceUv0 = transformBaseColorTextureUv(
-        transformedUv0, material.surfaceTexture.y, surfaceUvRotation,
+        surfaceTransformedUv0, material.surfaceTexture.y, surfaceUvRotation,
         material.surfaceTexture.zw);
     const float2 surfaceUv1 = transformBaseColorTextureUv(
-        transformedUv1, material.surfaceTexture.y, surfaceUvRotation,
+        surfaceTransformedUv1, material.surfaceTexture.y, surfaceUvRotation,
         material.surfaceTexture.zw);
     const float2 surfaceUv2 = transformBaseColorTextureUv(
-        transformedUv2, material.surfaceTexture.y, surfaceUvRotation,
+        surfaceTransformedUv2, material.surfaceTexture.y, surfaceUvRotation,
         material.surfaceTexture.zw);
     const float2 surfaceUvEdge1 = surfaceUv1 - surfaceUv0;
     const float2 surfaceUvEdge2 = surfaceUv2 - surfaceUv0;
     const float occlusionTextureUvRotation =
         material.occlusionTextureUvOffset.z;
     const float2 occlusionUv0 = transformBaseColorTextureUv(
-        transformedUv0, material.occlusionUv.w, occlusionTextureUvRotation,
+        occlusionTransformedUv0, material.occlusionUv.w, occlusionTextureUvRotation,
         material.occlusionTextureUvOffset.xy);
     const float2 occlusionUv1 = transformBaseColorTextureUv(
-        transformedUv1, material.occlusionUv.w, occlusionTextureUvRotation,
+        occlusionTransformedUv1, material.occlusionUv.w, occlusionTextureUvRotation,
         material.occlusionTextureUvOffset.xy);
     const float2 occlusionUv2 = transformBaseColorTextureUv(
-        transformedUv2, material.occlusionUv.w, occlusionTextureUvRotation,
+        occlusionTransformedUv2, material.occlusionUv.w, occlusionTextureUvRotation,
         material.occlusionTextureUvOffset.xy);
     const float2 occlusionUvEdge1 = occlusionUv1 - occlusionUv0;
     const float2 occlusionUvEdge2 = occlusionUv2 - occlusionUv0;
     const float emissionUvRotation = material.emissionTextureUvRotation.x;
     const float2 emissionUv0 = transformBaseColorTextureUv(
-        transformedUv0, material.emissionTexture.y, emissionUvRotation,
+        emissionTransformedUv0, material.emissionTexture.y, emissionUvRotation,
         material.emissionTexture.zw);
     const float2 emissionUv1 = transformBaseColorTextureUv(
-        transformedUv1, material.emissionTexture.y, emissionUvRotation,
+        emissionTransformedUv1, material.emissionTexture.y, emissionUvRotation,
         material.emissionTexture.zw);
     const float2 emissionUv2 = transformBaseColorTextureUv(
-        transformedUv2, material.emissionTexture.y, emissionUvRotation,
+        emissionTransformedUv2, material.emissionTexture.y, emissionUvRotation,
         material.emissionTexture.zw);
     const float2 emissionUvEdge1 = emissionUv1 - emissionUv0;
     const float2 emissionUvEdge2 = emissionUv2 - emissionUv0;
@@ -516,9 +565,6 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
     const float3 worldEdge1 = worldP1 - worldP0;
     const float3 worldEdge2 = worldP2 - worldP0;
     const float rayConeRadius = max(payload.rayConeWidth * RayTCurrent(), 0.0f);
-    const float angle = material.occlusionUv.z;
-    const float2 transformedUv = transformPbrUv(
-        meshUv, material.occlusionUv.xy, angle, material.occlusion.zw);
     const float2 baseColorTransformedUv =
         baseColorTransformedUv0 * (1.0f - attributes.barycentrics.x -
                                    attributes.barycentrics.y) +
@@ -527,14 +573,30 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
     const float2 baseColorUv = transformBaseColorTextureUv(
         baseColorTransformedUv, material.baseColorTexture.y, baseColorUvRotation,
         material.baseColorTexture.zw);
+    const float2 surfaceTransformedUv =
+        surfaceTransformedUv0 * (1.0f - attributes.barycentrics.x -
+                                  attributes.barycentrics.y) +
+        surfaceTransformedUv1 * attributes.barycentrics.x +
+        surfaceTransformedUv2 * attributes.barycentrics.y;
     const float2 surfaceTextureUv = transformBaseColorTextureUv(
-        transformedUv, material.surfaceTexture.y, surfaceUvRotation,
+        surfaceTransformedUv, material.surfaceTexture.y, surfaceUvRotation,
         material.surfaceTexture.zw);
+    const float2 occlusionTransformedUv =
+        occlusionTransformedUv0 * (1.0f - attributes.barycentrics.x -
+                                    attributes.barycentrics.y) +
+        occlusionTransformedUv1 * attributes.barycentrics.x +
+        occlusionTransformedUv2 * attributes.barycentrics.y;
     const float2 occlusionTextureUv = transformBaseColorTextureUv(
-        transformedUv, material.occlusionUv.w, occlusionTextureUvRotation,
+        occlusionTransformedUv, material.occlusionUv.w,
+        occlusionTextureUvRotation,
         material.occlusionTextureUvOffset.xy);
+    const float2 emissionTransformedUv =
+        emissionTransformedUv0 * (1.0f - attributes.barycentrics.x -
+                                   attributes.barycentrics.y) +
+        emissionTransformedUv1 * attributes.barycentrics.x +
+        emissionTransformedUv2 * attributes.barycentrics.y;
     const float2 emissionTextureUv = transformBaseColorTextureUv(
-        transformedUv, material.emissionTexture.y, emissionUvRotation,
+        emissionTransformedUv, material.emissionTexture.y, emissionUvRotation,
         material.emissionTexture.zw);
     float3 worldNormal = normalize(mul(transpose((float3x3)WorldToObject3x4()), normal));
     if (dot(worldNormal, WorldRayDirection()) > 0.0f) worldNormal = -worldNormal;
@@ -568,8 +630,6 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
                                      : float3(1.0f, 0.0f, 0.0f), worldNormal));
         worldBitangent = normalize(cross(worldNormal, worldTangent));
     }
-    const float3 geometricWorldTangent = worldTangent;
-    const float3 geometricWorldBitangent = worldBitangent;
     const float normalUvRotation = material.normalTexture.z;
     const float normalUvScale = clamp(material.normalTexture.w, 0.01f, 10.0f);
     const float2 normalTransformedUv =
@@ -618,40 +678,71 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
     float3 coatNormal = normalize(lerp(
         geometricWorldNormal, worldNormal,
         saturate(material.clearcoatNormal.x)));
-    if (material.clearcoatNormal.y >= 0.0f &&
-        abs(uvDeterminant) > 1.0e-6f) {
+    if (material.clearcoatNormal.y >= 0.0f) {
         const float coatNormalUvRotation = material.clearcoatNormal.z;
         const float coatNormalUvScale =
             clamp(material.clearcoatNormal.w, 0.01f, 10.0f);
-        const float2 coatNormalUv = rotatePbrUv(normalTransformedUv,
+        const float2 coatNormalTransformedUv =
+            coatNormalTransformedUv0 * (1.0f - attributes.barycentrics.x -
+                                         attributes.barycentrics.y) +
+            coatNormalTransformedUv1 * attributes.barycentrics.x +
+            coatNormalTransformedUv2 * attributes.barycentrics.y;
+        const float2 coatNormalUv = rotatePbrUv(coatNormalTransformedUv,
             coatNormalUvRotation, coatNormalUvScale, material.occlusion.zw) +
             material.clearcoatNormalUvOffset.xy;
-        const float2 coatNormalUvEdge1 = uvEdge1 * coatNormalUvScale;
-        const float2 coatNormalUvEdge2 = uvEdge2 * coatNormalUvScale;
-        float coatUvSine;
-        float coatUvCosine;
-        sincos(coatNormalUvRotation, coatUvSine, coatUvCosine);
-        const float3 coatNormalTangent = normalize(
-            geometricWorldTangent * coatUvCosine +
-            geometricWorldBitangent * coatUvSine);
-        const float3 coatNormalBitangent = normalize(
-            -geometricWorldTangent * coatUvSine +
-            geometricWorldBitangent * coatUvCosine);
-        const uint textureIndex = NonUniformResourceIndex(
-            (uint)material.clearcoatNormal.y);
-        const float textureLod = calculatePbrTextureLod(
-            textureIndex, worldEdge1, worldEdge2, coatNormalUvEdge1,
-            coatNormalUvEdge2,
-            rayConeRadius);
-        const float4 coatNormalSample = g_RTPbrTextures[textureIndex].SampleLevel(
-            g_RTPbrSampler, coatNormalUv, textureLod);
-        coatNormalMapAverageLength = saturate(coatNormalSample.a);
-        float3 tangentCoatNormal = coatNormalSample.xyz * 2.0f - 1.0f;
-        tangentCoatNormal.xy *= saturate(material.clearcoatNormal.x);
-        tangentCoatNormal = normalize(tangentCoatNormal);
-        coatNormal = normalize(tangentCoatNormal.x * coatNormalTangent +
-            tangentCoatNormal.y * coatNormalBitangent +
-            tangentCoatNormal.z * geometricWorldNormal);
+        const float2 coatNormalUv0 = rotatePbrUv(coatNormalTransformedUv0,
+            coatNormalUvRotation, coatNormalUvScale, material.occlusion.zw);
+        const float2 coatNormalUv1 = rotatePbrUv(coatNormalTransformedUv1,
+            coatNormalUvRotation, coatNormalUvScale, material.occlusion.zw);
+        const float2 coatNormalUv2 = rotatePbrUv(coatNormalTransformedUv2,
+            coatNormalUvRotation, coatNormalUvScale, material.occlusion.zw);
+        const float2 coatNormalUvEdge1 = coatNormalUv1 - coatNormalUv0;
+        const float2 coatNormalUvEdge2 = coatNormalUv2 - coatNormalUv0;
+        const float coatUvDeterminant =
+            coatNormalUvEdge1.x * coatNormalUvEdge2.y -
+            coatNormalUvEdge1.y * coatNormalUvEdge2.x;
+        if (abs(coatUvDeterminant) <= 1.0e-6f) {
+            coatNormalMapAverageLength = normalMapAverageLength;
+        } else {
+            const float inverseCoatUvDeterminant = rcp(coatUvDeterminant);
+            const float3 coatLocalTangent = normalize(
+                ((p1 - p0) * coatNormalUvEdge2.y -
+                 (p2 - p0) * coatNormalUvEdge1.y) *
+                inverseCoatUvDeterminant);
+            const float3 coatLocalBitangent = normalize(
+                (-(p1 - p0) * coatNormalUvEdge2.x +
+                 (p2 - p0) * coatNormalUvEdge1.x) *
+                inverseCoatUvDeterminant);
+            const float3 coatTransformedTangent = mul(
+                (float3x3)ObjectToWorld3x4(), coatLocalTangent);
+            const float3 coatTransformedBitangent = mul(
+                (float3x3)ObjectToWorld3x4(), coatLocalBitangent);
+            const float3 coatNormalTangent = normalize(
+                coatTransformedTangent - geometricWorldNormal *
+                    dot(coatTransformedTangent, geometricWorldNormal));
+            const float coatHandedness =
+                dot(cross(geometricWorldNormal, coatNormalTangent),
+                    coatTransformedBitangent) < 0.0f ? -1.0f : 1.0f;
+            const float3 coatNormalBitangent = normalize(
+                cross(geometricWorldNormal, coatNormalTangent)) *
+                coatHandedness;
+            const uint textureIndex = NonUniformResourceIndex(
+                (uint)material.clearcoatNormal.y);
+            const float textureLod = calculatePbrTextureLod(
+                textureIndex, worldEdge1, worldEdge2, coatNormalUvEdge1,
+                coatNormalUvEdge2,
+                rayConeRadius);
+            const float4 coatNormalSample =
+                g_RTPbrTextures[textureIndex].SampleLevel(
+                    g_RTPbrSampler, coatNormalUv, textureLod);
+            coatNormalMapAverageLength = saturate(coatNormalSample.a);
+            float3 tangentCoatNormal = coatNormalSample.xyz * 2.0f - 1.0f;
+            tangentCoatNormal.xy *= saturate(material.clearcoatNormal.x);
+            tangentCoatNormal = normalize(tangentCoatNormal);
+            coatNormal = normalize(tangentCoatNormal.x * coatNormalTangent +
+                tangentCoatNormal.y * coatNormalBitangent +
+                tangentCoatNormal.z * geometricWorldNormal);
+        }
     }
     float anisotropyRotationSin;
     float anisotropyRotationCos;
@@ -1598,23 +1689,29 @@ void RTWarmup_AnyHit(inout Payload payload,
         ? g_RenderUvs1[primitive.i1] : uv1;
     const float2 baseColorSetUv2 = material.baseColorTextureUvRotation.y > 0.5f
         ? g_RenderUvs1[primitive.i2] : uv2;
+    const float2 opacitySetUv0 = material.opacityTextureUvRotation.y > 0.5f
+        ? g_RenderUvs1[primitive.i0] : uv0;
+    const float2 opacitySetUv1 = material.opacityTextureUvRotation.y > 0.5f
+        ? g_RenderUvs1[primitive.i1] : uv1;
+    const float2 opacitySetUv2 = material.opacityTextureUvRotation.y > 0.5f
+        ? g_RenderUvs1[primitive.i2] : uv2;
     const float4 color0 = g_RenderColors[primitive.i0];
     const float4 color1 = g_RenderColors[primitive.i1];
     const float4 color2 = g_RenderColors[primitive.i2];
     const float vertexAlpha = color0.a * barycentric0 +
                               color1.a * attributes.barycentrics.x +
                               color2.a * attributes.barycentrics.y;
-    const float2 uv = uv0 * barycentric0 + uv1 * attributes.barycentrics.x +
-                      uv2 * attributes.barycentrics.y;
     const float angle = material.occlusionUv.z;
     const float2 transformedUv = transformOpacityUv(
-        uv, material.occlusionUv.xy, angle, material.occlusion.zw);
+        opacitySetUv0 * barycentric0 + opacitySetUv1 * attributes.barycentrics.x +
+            opacitySetUv2 * attributes.barycentrics.y,
+        material.occlusionUv.xy, angle, material.occlusion.zw);
     const float2 transformedUv0 = transformOpacityUv(
-        uv0, material.occlusionUv.xy, angle, material.occlusion.zw);
+        opacitySetUv0, material.occlusionUv.xy, angle, material.occlusion.zw);
     const float2 transformedUv1 = transformOpacityUv(
-        uv1, material.occlusionUv.xy, angle, material.occlusion.zw);
+        opacitySetUv1, material.occlusionUv.xy, angle, material.occlusion.zw);
     const float2 transformedUv2 = transformOpacityUv(
-        uv2, material.occlusionUv.xy, angle, material.occlusion.zw);
+        opacitySetUv2, material.occlusionUv.xy, angle, material.occlusion.zw);
     const float2 baseColorTransformedUv0 = transformOpacityUv(
         baseColorSetUv0, material.occlusionUv.xy, angle, material.occlusion.zw);
     const float2 baseColorTransformedUv1 = transformOpacityUv(
@@ -2088,6 +2185,8 @@ public:
         nextMaterial.surfaceTextureUvRotation[0] = clampFinite(
             material.metallicRoughnessUvRotationDegrees, -360.0f, 360.0f,
             0.0f) * (3.14159265358979323846f / 180.0f);
+        nextMaterial.surfaceTextureUvRotation[1] =
+            material.metallicRoughnessUvSet == 1 ? 1.0f : 0.0f;
         nextMaterial.normalUvOffset[0] =
             clampFinite(material.normalUvOffsetU, -10.0f, 10.0f, 0.0f);
         nextMaterial.normalUvOffset[1] =
@@ -2102,6 +2201,8 @@ public:
         nextMaterial.occlusionTextureUvOffset[2] = clampFinite(
             material.occlusionTextureUvRotationDegrees, -360.0f, 360.0f,
             0.0f) * (3.14159265358979323846f / 180.0f);
+        nextMaterial.occlusionTextureUvOffset[3] =
+            material.occlusionTextureUvSet == 1 ? 1.0f : 0.0f;
         nextMaterial.emissionTexture[1] = clampFinite(
             material.emissionTextureUvScale, 0.01f, 10.0f, 1.0f);
         nextMaterial.emissionTexture[2] = clampFinite(
@@ -2111,6 +2212,8 @@ public:
         nextMaterial.emissionTextureUvRotation[0] = clampFinite(
             material.emissionTextureUvRotationDegrees, -360.0f, 360.0f,
             0.0f) * (3.14159265358979323846f / 180.0f);
+        nextMaterial.emissionTextureUvRotation[1] =
+            material.emissionTextureUvSet == 1 ? 1.0f : 0.0f;
         nextMaterial.opacityTexture[1] = clampFinite(
             material.opacityTextureUvScale, 0.01f, 10.0f, 1.0f);
         nextMaterial.opacityTexture[2] = clampFinite(
@@ -2120,10 +2223,14 @@ public:
         nextMaterial.opacityTextureUvRotation[0] = clampFinite(
             material.opacityTextureUvRotationDegrees, -360.0f, 360.0f,
             0.0f) * (3.14159265358979323846f / 180.0f);
+        nextMaterial.opacityTextureUvRotation[1] =
+            material.opacityTextureUvSet == 1 ? 1.0f : 0.0f;
         nextMaterial.clearcoatNormalUvOffset[0] = clampFinite(
             material.clearcoatNormalUvOffsetU, -10.0f, 10.0f, 0.0f);
         nextMaterial.clearcoatNormalUvOffset[1] = clampFinite(
             material.clearcoatNormalUvOffsetV, -10.0f, 10.0f, 0.0f);
+        nextMaterial.clearcoatNormalUvOffset[2] =
+            material.clearcoatNormalUvSet == 1 ? 1.0f : 0.0f;
         if (materialIndex >= node.pbrMaterials.size()) {
             node.pbrMaterials.resize(static_cast<size_t>(materialIndex) + 1u,
                                      node.pbrMaterials.front());

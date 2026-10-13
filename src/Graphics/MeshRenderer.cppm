@@ -1379,6 +1379,7 @@ cbuffer MaterialParams : register(b1) {
     float4 BaseColorTextureUvTransform;
     float4 OpacityTextureUvOffset;
     float4 EmissionTextureUvRotation;
+    float4 TextureUvSetSelectors;
 };
 
 float2 transformShadowUv(float2 uv) {
@@ -1425,8 +1426,10 @@ void PSMain(PSInput In) {
         float2 baseColorMeshUv = BaseColorTextureUvTransform.w > 0.5
             ? In.uv1 : In.uv;
         float2 uv = transformBaseColorUv(transformShadowUv(baseColorMeshUv));
+        float2 opacityMeshUv = TextureUvSetSelectors.w > 0.5
+            ? In.uv1 : In.uv;
         float2 opacityUv = transformOpacityTextureUv(
-            transformShadowUv(In.uv));
+            transformShadowUv(opacityMeshUv));
         float baseAlpha = g_BaseColorTexture.Sample(
             g_ShadowMaskSampler, uv).a;
         float opacityAlpha = g_OpacityTexture.Sample(
@@ -1519,6 +1522,7 @@ cbuffer MaterialParams : register(b1) {
     float4 BaseColorTextureUvTransform;
     float4 OpacityTextureUvOffset;
     float4 EmissionTextureUvRotation;
+    float4 TextureUvSetSelectors;
 };
 
 float2 transformMeshUv(float2 uv) {
@@ -2028,16 +2032,25 @@ float4 PSMain(PSInput In) : SV_Target {
     float2 baseColorMeshUv = transformMeshUv(
         BaseColorTextureUvTransform.w > 0.5 ? In.UV1 : In.UV);
     float2 baseColorUv = transformBaseColorUv(baseColorMeshUv);
-    float2 surfaceTextureUv = transformSurfaceTextureUv(meshUv);
+    float2 surfaceMeshUv = transformMeshUv(
+        TextureUvSetSelectors.x > 0.5 ? In.UV1 : In.UV);
+    float2 surfaceTextureUv = transformSurfaceTextureUv(surfaceMeshUv);
     float2 normalMeshUv = transformMeshUv(
         NormalTextureUvOffset.z > 0.5 ? In.UV1 : In.UV);
     float2 normalMapUv = rotateNormalMapUv(normalMeshUv);
-    float2 clearcoatNormalUv = transformClearcoatNormalUv(normalMeshUv);
+    float2 clearcoatNormalMeshUv = transformMeshUv(
+        NormalTextureUvOffset.w > 0.5 ? In.UV1 : In.UV);
+    float2 clearcoatNormalUv = transformClearcoatNormalUv(
+        clearcoatNormalMeshUv);
     float4 baseSample = g_BaseColorTexture.Sample(g_BaseColorSampler, baseColorUv);
-    float2 opacityTextureUv = transformOpacityTextureUv(meshUv);
+    float2 opacityMeshUv = transformMeshUv(
+        TextureUvSetSelectors.w > 0.5 ? In.UV1 : In.UV);
+    float2 opacityTextureUv = transformOpacityTextureUv(opacityMeshUv);
     float4 opacitySample = g_OpacityTexture.Sample(
         g_BaseColorSampler, opacityTextureUv);
-    float2 emissionTextureUv = transformEmissionTextureUv(meshUv);
+    float2 emissionMeshUv = transformMeshUv(
+        TextureUvSetSelectors.z > 0.5 ? In.UV1 : In.UV);
+    float2 emissionTextureUv = transformEmissionTextureUv(emissionMeshUv);
     float4 emissionSample = g_EmissionTexture.Sample(
         g_BaseColorSampler, emissionTextureUv);
     float4 metallicRoughnessSample =
@@ -2056,7 +2069,9 @@ float4 PSMain(PSInput In) : SV_Target {
         clearcoatNormalMapAverageLength =
             saturate(clearcoatNormalTextureSample.a);
     }
-    float2 occlusionTextureUv = transformOcclusionTextureUv(meshUv);
+    float2 occlusionMeshUv = transformMeshUv(
+        TextureUvSetSelectors.y > 0.5 ? In.UV1 : In.UV);
+    float2 occlusionTextureUv = transformOcclusionTextureUv(occlusionMeshUv);
     float occlusionSample = g_OcclusionTexture.Sample(
         g_BaseColorSampler, occlusionTextureUv).r;
     // __ARTIFACT_MATERIAL_GRAPH_SAMPLES__
@@ -5313,6 +5328,22 @@ void MeshRenderer::setBaseColorUvSet(int uvSet)
     prepared_ = false;
     pImpl_->materialConstants_.baseColorTextureUvTransform[3] =
         uvSet == 1 ? 1.0f : 0.0f;
+}
+
+void MeshRenderer::setPbrMapUvSets(int metallicRoughnessUvSet,
+                                   int occlusionUvSet,
+                                   int emissionUvSet,
+                                   int opacityUvSet,
+                                   int clearcoatNormalUvSet)
+{
+    prepared_ = false;
+    auto& selectors = pImpl_->materialConstants_.textureUvSetSelectors;
+    selectors[0] = metallicRoughnessUvSet == 1 ? 1.0f : 0.0f;
+    selectors[1] = occlusionUvSet == 1 ? 1.0f : 0.0f;
+    selectors[2] = emissionUvSet == 1 ? 1.0f : 0.0f;
+    selectors[3] = opacityUvSet == 1 ? 1.0f : 0.0f;
+    pImpl_->materialConstants_.normalTextureUvOffset[3] =
+        clearcoatNormalUvSet == 1 ? 1.0f : 0.0f;
 }
 
 void MeshRenderer::clearBaseColorTexture()

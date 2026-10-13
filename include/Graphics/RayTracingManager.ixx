@@ -73,6 +73,7 @@ struct RTPbrMaterial {
     float metallicRoughnessUvOffsetU = 0.0f;
     float metallicRoughnessUvOffsetV = 0.0f;
     float metallicRoughnessUvRotationDegrees = 0.0f;
+    int metallicRoughnessUvSet = 0;
     float metallic = 0.0f;
     float roughness = 0.5f;
     float diffuseRoughness = 0.0f;
@@ -92,6 +93,7 @@ struct RTPbrMaterial {
     float clearcoatNormalUvScale = 1.0f;
     float clearcoatNormalUvOffsetU = 0.0f;
     float clearcoatNormalUvOffsetV = 0.0f;
+    int clearcoatNormalUvSet = 0;
     float sheen = 0.0f;
     float sheenRoughness = 0.5f;
     float sheenTint[3] = {1.0f, 1.0f, 1.0f};
@@ -121,6 +123,7 @@ struct RTPbrMaterial {
     float occlusionTextureUvOffsetU = 0.0f;
     float occlusionTextureUvOffsetV = 0.0f;
     float occlusionTextureUvRotationDegrees = 0.0f;
+    int occlusionTextureUvSet = 0;
     float uvOffsetU = 0.0f;
     float uvOffsetV = 0.0f;
     float uvScaleU = 1.0f;
@@ -131,11 +134,13 @@ struct RTPbrMaterial {
     float emissionTextureUvOffsetU = 0.0f;
     float emissionTextureUvOffsetV = 0.0f;
     float emissionTextureUvRotationDegrees = 0.0f;
+    int emissionTextureUvSet = 0;
     UniString opacityTexture;
     float opacityTextureUvScale = 1.0f;
     float opacityTextureUvOffsetU = 0.0f;
     float opacityTextureUvOffsetV = 0.0f;
     float opacityTextureUvRotationDegrees = 0.0f;
+    int opacityTextureUvSet = 0;
 };
 
 struct RTRayCamera {

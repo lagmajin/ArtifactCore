@@ -38,6 +38,7 @@ public:
  float clearcoatNormalUvScale_ = 1.0f;
  float clearcoatNormalUvOffsetU_ = 0.0f;
  float clearcoatNormalUvOffsetV_ = 0.0f;
+ int clearcoatNormalUvSet_ = 0;
  float sheen_ = 0.0f;
  float sheenRoughness_ = 0.5f;
  QColor sheenTint_ = QColor(255, 255, 255);
@@ -72,6 +73,7 @@ public:
  float occlusionTextureUvOffsetU_ = 0.0f;
  float occlusionTextureUvOffsetV_ = 0.0f;
  float occlusionTextureUvRotationDegrees_ = 0.0f;
+ int occlusionTextureUvSet_ = 0;
 
  // Texture paths
  UniString baseColorTexture_;
@@ -80,6 +82,7 @@ public:
  float metallicRoughnessUvOffsetU_ = 0.0f;
  float metallicRoughnessUvOffsetV_ = 0.0f;
  float metallicRoughnessUvRotationDegrees_ = 0.0f;
+ int metallicRoughnessUvSet_ = 0;
  float baseColorUvScale_ = 1.0f;
  float baseColorUvRotationDegrees_ = 0.0f;
  float baseColorUvOffsetU_ = 0.0f;
@@ -95,6 +98,7 @@ public:
  float emissionTextureUvOffsetU_ = 0.0f;
  float emissionTextureUvOffsetV_ = 0.0f;
  float emissionTextureUvRotationDegrees_ = 0.0f;
+ int emissionTextureUvSet_ = 0;
  UniString occlusionTexture_;
  bool hasOcclusionTexture_ = false;
  UniString opacityTexture_;
@@ -103,6 +107,7 @@ public:
  float opacityTextureUvOffsetU_ = 0.0f;
  float opacityTextureUvOffsetV_ = 0.0f;
  float opacityTextureUvRotationDegrees_ = 0.0f;
+ int opacityTextureUvSet_ = 0;
 
   // Texture transform (shared UV offset/scale/rotation)
   float uvOffsetU_ = 0.0f;
@@ -206,6 +211,12 @@ void Material::setMetallicRoughnessUvRotationDegrees(float v) {
 }
 float Material::metallicRoughnessUvRotationDegrees() const {
   return impl_->metallicRoughnessUvRotationDegrees_;
+}
+void Material::setMetallicRoughnessUvSet(int value) {
+  impl_->metallicRoughnessUvSet_ = value == 1 ? 1 : 0;
+}
+int Material::metallicRoughnessUvSet() const {
+  return impl_->metallicRoughnessUvSet_;
 }
 
 // Environment
@@ -320,6 +331,12 @@ void Material::setClearcoatNormalUvOffsetV(float v) {
 float Material::clearcoatNormalUvOffsetV() const {
  return impl_->clearcoatNormalUvOffsetV_;
 }
+void Material::setClearcoatNormalUvSet(int value) {
+ impl_->clearcoatNormalUvSet_ = value == 1 ? 1 : 0;
+}
+int Material::clearcoatNormalUvSet() const {
+ return impl_->clearcoatNormalUvSet_;
+}
 void Material::setSheen(float v) {
  impl_->sheen_ = std::isfinite(v) ? std::clamp(v, 0.0f, 1.0f) : 0.0f;
 }
@@ -405,6 +422,12 @@ void Material::setEmissionTextureUvRotationDegrees(float v) {
 float Material::emissionTextureUvRotationDegrees() const {
   return impl_->emissionTextureUvRotationDegrees_;
 }
+void Material::setEmissionTextureUvSet(int value) {
+  impl_->emissionTextureUvSet_ = value == 1 ? 1 : 0;
+}
+int Material::emissionTextureUvSet() const {
+  return impl_->emissionTextureUvSet_;
+}
 
 // Opacity
 void Material::setOpacity(float v) {
@@ -438,6 +461,12 @@ void Material::setOpacityTextureUvRotationDegrees(float v) {
 }
 float Material::opacityTextureUvRotationDegrees() const {
   return impl_->opacityTextureUvRotationDegrees_;
+}
+void Material::setOpacityTextureUvSet(int value) {
+  impl_->opacityTextureUvSet_ = value == 1 ? 1 : 0;
+}
+int Material::opacityTextureUvSet() const {
+  return impl_->opacityTextureUvSet_;
 }
 void Material::setAlphaMode(MaterialAlphaMode mode) { impl_->alphaMode_ = mode; }
 MaterialAlphaMode Material::alphaMode() const { return impl_->alphaMode_; }
@@ -508,6 +537,12 @@ void Material::setOcclusionTextureUvRotationDegrees(float v) {
 }
 float Material::occlusionTextureUvRotationDegrees() const {
   return impl_->occlusionTextureUvRotationDegrees_;
+}
+void Material::setOcclusionTextureUvSet(int value) {
+  impl_->occlusionTextureUvSet_ = value == 1 ? 1 : 0;
+}
+int Material::occlusionTextureUvSet() const {
+  return impl_->occlusionTextureUvSet_;
 }
 
 // Texture paths

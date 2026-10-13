@@ -141,6 +141,11 @@ public:
      */
     void setBaseColorTexture(const QString& path);
     void setBaseColorUvSet(int uvSet);
+    void setPbrMapUvSets(int metallicRoughnessUvSet,
+                         int occlusionUvSet,
+                         int emissionUvSet,
+                         int opacityUvSet,
+                         int clearcoatNormalUvSet);
     void clearBaseColorTexture();
     void setEmissionTexture(const QString& path);
     void clearEmissionTexture();
@@ -322,6 +327,8 @@ public:
         std::array<float, 4> baseColorTextureUvTransform{};
         std::array<float, 4> opacityTextureUvOffset{};
         std::array<float, 4> emissionTextureUvRotation{};
+        // x/y/z/w select Metallic-Roughness/Occlusion/Emission/Opacity UV sets.
+        std::array<float, 4> textureUvSetSelectors{};
     };
 
     // Multi-material draw. Each range names a contiguous index span and the
