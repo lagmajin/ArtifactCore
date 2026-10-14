@@ -1276,7 +1276,7 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
             textureIndex, worldEdge1, worldEdge2,
             anisotropyUvEdge1, anisotropyUvEdge2, rayConeRadius);
         const float anisotropySample = g_RTPbrTextures[textureIndex].SampleLevel(
-            g_RTPbrSampler, anisotropyUv, textureLod).r;
+            g_RTPbrSampler, anisotropyUv, textureLod).b;
         anisotropyAmount *= saturate(anisotropySample);
     }
     [loop]

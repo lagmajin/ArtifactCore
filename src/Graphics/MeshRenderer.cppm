@@ -2274,7 +2274,7 @@ float4 PSMain(PSInput In) : SV_Target {
     float sheenRoughness = saturate(SheenFactors.x *
         sheenRoughnessTextureSample);
     float anisotropyTextureSample = g_AnisotropyTexture.Sample(
-        g_BaseColorSampler, anisotropyTextureUv).r;
+        g_BaseColorSampler, anisotropyTextureUv).b;
     float anisotropyAmount = clamp(AnisotropyFactors.x, -1.0, 1.0) *
         lerp(1.0, saturate(anisotropyTextureSample),
              AnisotropyTextureFactors.x);
@@ -2353,7 +2353,7 @@ float4 PSMain(PSInput In) : SV_Target {
     float3 worldBitangent = normalize(cross(worldNormal, worldTangent)) *
         (uvDeterminant < 0.0 ? -1.0 : 1.0);
     // __ARTIFACT_MATERIAL_GRAPH_OVERRIDE__
-    if (PbrTextureFlags.y > 0.5) {
+    if (PbrTextureFlags.y > 0.5 && PbrFactors.z > 0.0) {
         float normalVariance = max(1.0 - normalMapAverageLength, 0.0) /
                               max(normalMapAverageLength, 1e-4);
         normalVariance *= PbrFactors.z * PbrFactors.z;
