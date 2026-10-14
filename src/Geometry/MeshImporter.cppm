@@ -4,6 +4,7 @@ module;
 #include <cmath>
 #include <cstdint>
 #include <numeric>
+#include <numbers>
 #include <unordered_map>
 #include <utility>
 #include <cstring>
@@ -18,10 +19,17 @@ module;
 #include <QIODevice>
 #include <QHash>
 #include <QByteArray>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonParseError>
+#include <QJsonValue>
 #include <QMatrix4x4>
 #include <QRegularExpression>
 #include <QString>
 #include <QStringView>
+#include <QtEndian>
+#include <QUrl>
 #include <QVector2D>
 #include <QVector3D>
 #include <QVector4D>
@@ -612,6 +620,207 @@ public:
     }
   }
 
+  void detectGltfAnisotropy(const QString& modelPath)
+  {
+    const bool isGlb = modelPath.endsWith(QStringLiteral(".glb"),
+                                          Qt::CaseInsensitive);
+    if (!isGlb && !modelPath.endsWith(QStringLiteral(".gltf"),
+                                      Qt::CaseInsensitive)) {
+      return;
+    }
+    QFile file(modelPath);
+    if (!file.open(QIODevice::ReadOnly)) {
+      return;
+    }
+    QByteArray jsonData = file.readAll();
+    if (isGlb) {
+      const auto readU32 = [&jsonData](qsizetype offset) -> quint32 {
+        return qFromLittleEndian<quint32>(
+            reinterpret_cast<const uchar*>(jsonData.constData() + offset));
+      };
+      constexpr quint32 glbMagic = 0x46546c67u;
+      constexpr quint32 jsonChunkType = 0x4e4f534au;
+      if (jsonData.size() < 20 || readU32(0) != glbMagic ||
+          readU32(4) != 2u || readU32(8) >
+              static_cast<quint32>(jsonData.size()) || readU32(8) < 20u) {
+        return;
+      }
+      const qsizetype declaredLength = static_cast<qsizetype>(readU32(8));
+      qsizetype chunkOffset = 12;
+      QByteArray extractedJson;
+      while (chunkOffset <= declaredLength - 8) {
+        const quint32 chunkLength = readU32(chunkOffset);
+        const quint32 chunkType = readU32(chunkOffset + 4);
+        const qsizetype chunkDataOffset = chunkOffset + 8;
+        if (static_cast<qsizetype>(chunkLength) >
+            declaredLength - chunkDataOffset) {
+          return;
+        }
+        if (chunkType == jsonChunkType) {
+          extractedJson = jsonData.mid(chunkDataOffset,
+                                       static_cast<qsizetype>(chunkLength));
+          break;
+        }
+        chunkOffset = chunkDataOffset + static_cast<qsizetype>(chunkLength);
+      }
+      if (extractedJson.isEmpty()) return;
+      jsonData = std::move(extractedJson);
+    }
+    QJsonParseError parseError;
+    const QJsonDocument document = QJsonDocument::fromJson(jsonData,
+                                                            &parseError);
+    if (parseError.error != QJsonParseError::NoError ||
+        !document.isObject()) {
+      return;
+    }
+    const QJsonObject root = document.object();
+    const QJsonArray materials = root.value(QStringLiteral("materials"))
+                                     .toArray();
+    const QJsonArray textures = root.value(QStringLiteral("textures"))
+                                    .toArray();
+    const QJsonArray images = root.value(QStringLiteral("images"))
+                                  .toArray();
+    const float radiansToDegrees = 180.0f / std::numbers::pi_v<float>;
+    const auto readPair = [](const QJsonValue& value, float* first,
+                             float* second) {
+      if (!value.isArray()) return false;
+      const QJsonArray array = value.toArray();
+      if (array.size() < 2 || !array[0].isDouble() ||
+          !array[1].isDouble()) return false;
+      const double x = array[0].toDouble();
+      const double y = array[1].toDouble();
+      if (!std::isfinite(x) || !std::isfinite(y)) return false;
+      *first = static_cast<float>(x);
+      *second = static_cast<float>(y);
+      return true;
+    };
+
+    const size_t materialCount = std::min(
+        static_cast<size_t>(materials.size()), importedPbrMaterials_.size());
+    for (size_t materialIndex = 0; materialIndex < materialCount;
+         ++materialIndex) {
+      const QJsonObject material = materials[static_cast<qsizetype>(materialIndex)]
+                                       .toObject();
+      qsizetype importedIndex = static_cast<qsizetype>(materialIndex);
+      const QString materialName = material.value(
+          QStringLiteral("name")).toString();
+      if (!materialName.isEmpty() &&
+          importedPbrMaterials_[importedIndex].name.toQString() != materialName) {
+        qsizetype matchingIndex = -1;
+        bool ambiguousName = false;
+        for (qsizetype candidate = 0;
+             candidate < static_cast<qsizetype>(importedPbrMaterials_.size());
+             ++candidate) {
+          if (importedPbrMaterials_[candidate].name.toQString() == materialName) {
+            if (matchingIndex >= 0) {
+              ambiguousName = true;
+              break;
+            }
+            matchingIndex = candidate;
+          }
+        }
+        if (matchingIndex >= 0 && !ambiguousName) {
+          importedIndex = matchingIndex;
+        }
+      }
+      const QJsonObject extensions =
+          material.value(QStringLiteral("extensions")).toObject();
+      const QJsonObject anisotropy = extensions.value(
+          QStringLiteral("KHR_materials_anisotropy")).toObject();
+      if (anisotropy.isEmpty()) continue;
+
+      auto& imported = importedPbrMaterials_[importedIndex];
+      const double strength = anisotropy.value(
+          QStringLiteral("anisotropyStrength")).toDouble(0.0);
+      const double rotation = anisotropy.value(
+          QStringLiteral("anisotropyRotation")).toDouble(0.0);
+      if (std::isfinite(strength)) {
+        imported.anisotropy = std::clamp(static_cast<float>(strength),
+                                         0.0f, 1.0f);
+        imported.hasAnisotropy = true;
+      }
+      if (std::isfinite(rotation)) {
+        const double normalizedRotation = std::remainder(
+            rotation, 2.0 * std::numbers::pi_v<double>);
+        imported.anisotropyRotationDegrees =
+            static_cast<float>(normalizedRotation * radiansToDegrees);
+        imported.hasAnisotropyRotation = true;
+      }
+
+      const QJsonObject textureInfo = anisotropy.value(
+          QStringLiteral("anisotropyTexture")).toObject();
+      const int textureIndex = textureInfo.value(
+          QStringLiteral("index")).toInt(-1);
+      if (textureIndex < 0 || textureIndex >= textures.size()) continue;
+      const QJsonObject texture = textures[textureIndex].toObject();
+      const int imageIndex = texture.value(QStringLiteral("source")).toInt(-1);
+      if (imageIndex < 0 || imageIndex >= images.size()) continue;
+      const QString uri = images[imageIndex].toObject().value(
+          QStringLiteral("uri")).toString();
+      if (uri.isEmpty() || uri.startsWith(QStringLiteral("data:"),
+                                            Qt::CaseInsensitive) ||
+          uri.contains(QStringLiteral("://"))) {
+        continue;
+      }
+      const QString imagePath = resolveTexturePath(
+          modelPath, QUrl::fromPercentEncoding(uri.toUtf8()));
+      if (imagePath.isEmpty() || !QFileInfo(imagePath).isFile()) continue;
+      imported.anisotropyTexture = UniString::fromQString(imagePath);
+
+      auto& uv = imported.anisotropyUv;
+      uv.uvSet = std::clamp(textureInfo.value(
+          QStringLiteral("texCoord")).toInt(0), 0, 1);
+      uv.hasTransform = textureInfo.contains(QStringLiteral("texCoord"));
+      const QJsonObject textureExtensions = textureInfo.value(
+          QStringLiteral("extensions")).toObject();
+      const QJsonObject textureTransform = textureExtensions.value(
+          QStringLiteral("KHR_texture_transform")).toObject();
+      if (!textureTransform.isEmpty()) {
+        float gltfOffsetU = 0.0f;
+        float gltfOffsetV = 0.0f;
+        float scaleU = 1.0f;
+        float scaleV = 1.0f;
+        const bool hasOffset = readPair(textureTransform.value(
+            QStringLiteral("offset")), &gltfOffsetU, &gltfOffsetV);
+        const bool hasScale = readPair(textureTransform.value(
+            QStringLiteral("scale")), &scaleU, &scaleV);
+        gltfOffsetU = std::clamp(gltfOffsetU, -1000000.0f, 1000000.0f);
+        gltfOffsetV = std::clamp(gltfOffsetV, -1000000.0f, 1000000.0f);
+        scaleU = std::clamp(scaleU, 0.0001f, 10000.0f);
+        scaleV = std::clamp(scaleV, 0.0001f, 10000.0f);
+        uv.scaleU = scaleU;
+        uv.scaleV = scaleV;
+        const QJsonValue textureRotation = textureTransform.value(
+            QStringLiteral("rotation"));
+        float rotationRadians = 0.0f;
+        if (textureRotation.isDouble() &&
+            std::isfinite(textureRotation.toDouble())) {
+          const double normalizedRotation = std::remainder(
+              textureRotation.toDouble(),
+              2.0 * std::numbers::pi_v<double>);
+          rotationRadians = static_cast<float>(normalizedRotation);
+          uv.rotationDegrees = static_cast<float>(
+              normalizedRotation * radiansToDegrees);
+          uv.hasTransform = true;
+        }
+        const float cosine = std::cos(rotationRadians);
+        const float sine = std::sin(rotationRadians);
+        // Material texture transforms rotate around UV center. Convert the
+        // glTF origin-based T*R*S transform into that representation.
+        uv.offsetU = gltfOffsetU +
+            0.5f * (cosine * scaleU - sine * scaleV) - 0.5f;
+        uv.offsetV = gltfOffsetV +
+            0.5f * (sine * scaleU + cosine * scaleV) - 0.5f;
+        uv.hasTransform = uv.hasTransform || hasOffset || hasScale;
+        if (textureTransform.value(QStringLiteral("texCoord")).isDouble()) {
+          uv.uvSet = std::clamp(textureTransform.value(
+              QStringLiteral("texCoord")).toInt(0), 0, 1);
+          uv.hasTransform = true;
+        }
+      }
+    }
+  }
+
   void detectTexturesFromTinyObj(const QString& modelPath,
                                  const tinyobj::ObjReader& reader)
   {
@@ -933,6 +1142,7 @@ public:
     }
 
     detectTexturesFromUfbx(path, scene);
+    detectGltfAnisotropy(path);
     QHash<const ufbx_material*, int> importedMaterialIndices;
     for (size_t materialIndex = 0;
          materialIndex < scene->materials.count &&
