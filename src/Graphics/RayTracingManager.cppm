@@ -686,6 +686,8 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
         material.anisotropyTextureUvOffset.xy);
     const float2 anisotropyUvEdge1 = anisotropyUv1 - anisotropyUv0;
     const float2 anisotropyUvEdge2 = anisotropyUv2 - anisotropyUv0;
+    const float2 anisotropySetUvEdge1 = anisotropySetUv1 - anisotropySetUv0;
+    const float2 anisotropySetUvEdge2 = anisotropySetUv2 - anisotropySetUv0;
     const float baseColorUvRotation =
         material.baseColorTextureUvRotation.x;
     const float surfaceUvRotation = material.surfaceTextureUvRotation.x;
@@ -1275,6 +1277,28 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
         if (mappedDirectionLengthSquared > 1.0e-6f) {
             anisotropyDirection = mappedDirection *
                 rsqrt(mappedDirectionLengthSquared);
+        }
+        const float anisotropyUvDeterminant =
+            anisotropySetUvEdge1.x * anisotropySetUvEdge2.y -
+            anisotropySetUvEdge1.y * anisotropySetUvEdge2.x;
+        if (abs(anisotropyUvDeterminant) > 1.0e-6f) {
+            const float inverseAnisotropyUvDeterminant =
+                rcp(anisotropyUvDeterminant);
+            const float3 rawAnisotropyTangent =
+                (worldEdge1 * anisotropySetUvEdge2.y -
+                 worldEdge2 * anisotropySetUvEdge1.y) *
+                inverseAnisotropyUvDeterminant;
+            const float3 rawAnisotropyBitangent =
+                (-worldEdge1 * anisotropySetUvEdge2.x +
+                 worldEdge2 * anisotropySetUvEdge1.x) *
+                inverseAnisotropyUvDeterminant;
+            worldTangent = normalize(rawAnisotropyTangent - worldNormal *
+                dot(rawAnisotropyTangent, worldNormal));
+            const float anisotropyHandedness = dot(
+                cross(worldNormal, worldTangent), rawAnisotropyBitangent) < 0.0f
+                    ? -1.0f : 1.0f;
+            worldBitangent = normalize(cross(worldNormal, worldTangent)) *
+                             anisotropyHandedness;
         }
     }
     float anisotropyMapRotationSin;
