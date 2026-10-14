@@ -2348,36 +2348,20 @@ float4 PSMain(PSInput In) : SV_Target {
         PbrFactors.z, PbrTextureFlags.y);
     float3 dpdx = ddx(In.WorldPosition);
     float3 dpdy = ddy(In.WorldPosition);
-    // Anisotropy direction is expressed in the selected mesh UV tangent frame;
-    // its texture transform only changes where the direction map is sampled.
+    // Keep the shading frame independent from anisotropy map UV and transform;
+    // RG stores a direction in tangent space, it does not define that space.
     float2 duvdx = ddx(normalMapUv);
     float2 duvdy = ddy(normalMapUv);
     float uvDeterminant = duvdx.x * duvdy.y - duvdx.y * duvdy.x;
-    float2 anisotropyDuvdx = ddx(anisotropyMeshUv);
-    float2 anisotropyDuvdy = ddy(anisotropyMeshUv);
-    float anisotropyUvDeterminant =
-        anisotropyDuvdx.x * anisotropyDuvdy.y -
-        anisotropyDuvdx.y * anisotropyDuvdy.x;
     float3 tangentCandidate = abs(uvDeterminant) > 1.0e-6
         ? (dpdx * duvdy.y - dpdy * duvdx.y) / uvDeterminant
         : cross(abs(worldNormal.y) < 0.9 ? float3(0.0, 1.0, 0.0)
                                          : float3(1.0, 0.0, 0.0), worldNormal);
-    if (AnisotropyTextureFactors.x > 0.5 &&
-        abs(anisotropyUvDeterminant) > 1.0e-6) {
-        tangentCandidate =
-            (dpdx * anisotropyDuvdy.y - dpdy * anisotropyDuvdx.y) /
-            anisotropyUvDeterminant;
-        uvDeterminant = anisotropyUvDeterminant;
-    }
     float3 worldTangent = normalize(tangentCandidate);
     worldTangent = normalize(worldTangent - worldNormal * dot(worldTangent, worldNormal));
-    float3 bitangentCandidate = abs(anisotropyUvDeterminant) > 1.0e-6 &&
-                                AnisotropyTextureFactors.x > 0.5
-        ? (-dpdx * anisotropyDuvdy.x + dpdy * anisotropyDuvdx.x) /
-              anisotropyUvDeterminant
-        : abs(uvDeterminant) > 1.0e-6
-            ? (-dpdx * duvdy.x + dpdy * duvdx.x) / uvDeterminant
-            : cross(worldNormal, worldTangent);
+    float3 bitangentCandidate = abs(uvDeterminant) > 1.0e-6
+        ? (-dpdx * duvdy.x + dpdy * duvdx.x) / uvDeterminant
+        : cross(worldNormal, worldTangent);
     float handedness = dot(cross(worldNormal, worldTangent),
                            bitangentCandidate) < 0.0 ? -1.0 : 1.0;
     float3 worldBitangent = normalize(cross(worldNormal, worldTangent)) *
