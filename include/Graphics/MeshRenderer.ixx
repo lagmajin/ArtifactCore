@@ -121,7 +121,8 @@ public:
      */
     void updateMeshGeometry(const float* positions, const float* normals, const float* uvs,
                             const uint32_t* indices, const float* colors = nullptr,
-                            const float* uvs1 = nullptr);
+                            const float* uvs1 = nullptr,
+                            const float* tangents = nullptr);
 
     // Upload the packed resources consumed by the future mesh-shader path.
     // The indexed renderer remains the fallback until a mesh-shader PSO is active.

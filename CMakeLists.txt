@@ -682,7 +682,13 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
                 "/reference;Graphics.Effect.Creative.Pixelate=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.Pixelate.ifc"
                 "/reference;Graphics.Effect.Creative.Posterize=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.Posterize.ifc"
                 "/reference;Graphics.Effect.Creative.SurfaceMemory=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.SurfaceMemory.ifc"
-                "/reference;Graphics.Effect.Creative.TemporalFossil=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.TemporalFossil.ifc")
+                "/reference;Graphics.Effect.Creative.TemporalFossil=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.TemporalFossil.ifc"
+                "/reference;IO.ImageImporter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/IO.ImageImporter.ifc"
+                "/reference;Image.Raw=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.Raw.ifc")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            OBJECT_DEPENDS
+                "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/IO/Image/ImageImporter.ixx.obj"
+                "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Image/RawImage.ixx.obj")
     elseif(_artifact_impl_relative STREQUAL "src/Graphics/GPUTextureCacheManager.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS

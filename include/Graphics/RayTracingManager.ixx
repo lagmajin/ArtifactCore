@@ -127,6 +127,7 @@ struct RTPbrMaterial {
     float subsurfaceIOR = 1.4f;
     float subsurfaceAnisotropy = 0.0f;
     float subsurfaceRadius[3] = {1.0f, 0.2f, 0.1f};
+    float subsurfaceColor[3] = {1.0f, 1.0f, 1.0f};
     float anisotropy = 0.0f;
     float anisotropyRotationDegrees = 0.0f;
     UniString anisotropyTexture;

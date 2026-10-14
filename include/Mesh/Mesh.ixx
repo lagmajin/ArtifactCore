@@ -241,6 +241,7 @@ export namespace ArtifactCore {
         struct RenderData {
             QVector<QVector3D> positions;
             QVector<QVector3D> normals;
+            QVector<QVector4D> tangents;
             QVector<QVector2D> uvs;
             QVector<QVector2D> uvs1;
             QVector<QVector4D> colors;

@@ -1210,6 +1210,7 @@ struct VSInput {
     float2 uv     : ATTRIB2;
     float4 color  : ATTRIB3;
     float2 uv1    : ATTRIB4;
+    float4 tangent : ATTRIB5;
 };
 
 struct PSInput {
@@ -1225,6 +1226,7 @@ struct PSInput {
     float4 VertexColor : TEXCOORD7;
     float4 ShadowPosition : TEXCOORD6;
     float2 UV1 : TEXCOORD8;
+    float4 Tangent : TEXCOORD9;
 };
 
 struct InstanceData {
@@ -1281,6 +1283,11 @@ PSInput VSMain(VSInput In, uint InstanceID : SV_InstanceID) {
     }
     Out.WorldNormal = mul(In.normal, normalMatrix);
     Out.Normal = mul(Out.WorldNormal, (float3x3)ViewMatrix);
+    float3 worldTangent = mul(In.tangent.xyz, transformMatrix);
+    worldTangent = normalize(worldTangent - Out.WorldNormal *
+                             dot(worldTangent, Out.WorldNormal));
+    Out.Tangent = float4(worldTangent,
+        In.tangent.w * (determinant < 0.0 ? -1.0 : 1.0));
     
     Out.UV = In.uv;
     Out.UV1 = In.uv1;
@@ -1470,6 +1477,7 @@ struct PSInput {
     float4 VertexColor : TEXCOORD7;
     float4 ShadowPosition : TEXCOORD6;
     float2 UV1 : TEXCOORD8;
+    float4 Tangent : TEXCOORD9;
 };
 
 Texture2D g_BaseColorTexture : register(t0);
@@ -2353,15 +2361,21 @@ float4 PSMain(PSInput In) : SV_Target {
     float2 duvdx = ddx(normalMapUv);
     float2 duvdy = ddy(normalMapUv);
     float uvDeterminant = duvdx.x * duvdy.y - duvdx.y * duvdy.x;
-    float3 tangentCandidate = abs(uvDeterminant) > 1.0e-6
-        ? (dpdx * duvdy.y - dpdy * duvdx.y) / uvDeterminant
-        : cross(abs(worldNormal.y) < 0.9 ? float3(0.0, 1.0, 0.0)
-                                         : float3(1.0, 0.0, 0.0), worldNormal);
+    bool hasAuthoredTangent = dot(In.Tangent.xyz, In.Tangent.xyz) > 1.0e-8;
+    float3 tangentCandidate = hasAuthoredTangent
+        ? In.Tangent.xyz
+        : abs(uvDeterminant) > 1.0e-6
+            ? (dpdx * duvdy.y - dpdy * duvdx.y) / uvDeterminant
+            : cross(abs(worldNormal.y) < 0.9 ? float3(0.0, 1.0, 0.0)
+                                             : float3(1.0, 0.0, 0.0), worldNormal);
     float3 worldTangent = normalize(tangentCandidate);
     worldTangent = normalize(worldTangent - worldNormal * dot(worldTangent, worldNormal));
-    float3 bitangentCandidate = abs(uvDeterminant) > 1.0e-6
-        ? (-dpdx * duvdy.x + dpdy * duvdx.x) / uvDeterminant
-        : cross(worldNormal, worldTangent);
+    float3 bitangentCandidate = hasAuthoredTangent
+        ? cross(worldNormal, worldTangent) *
+              (In.Tangent.w < 0.0 ? -1.0 : 1.0)
+        : abs(uvDeterminant) > 1.0e-6
+            ? (-dpdx * duvdy.x + dpdy * duvdx.x) / uvDeterminant
+            : cross(worldNormal, worldTangent);
     float handedness = dot(cross(worldNormal, worldTangent),
                            bitangentCandidate) < 0.0 ? -1.0 : 1.0;
     float3 worldBitangent = normalize(cross(worldNormal, worldTangent)) *
@@ -3114,6 +3128,7 @@ struct MeshRenderer::Impl {
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pNormalBuffer_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pUVBuffer_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pUV1Buffer_;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer>                pTangentBuffer_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pColorBuffer_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pIndexBuffer_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pMeshletBuffer_;
@@ -3335,6 +3350,7 @@ void MeshRenderer::createBuffers()
     pImpl_->pNormalBuffer_.Release();
     pImpl_->pUVBuffer_.Release();
     pImpl_->pUV1Buffer_.Release();
+    pImpl_->pTangentBuffer_.Release();
     pImpl_->pColorBuffer_.Release();
     pImpl_->pIndexBuffer_.Release();
     pImpl_->pMeshletBuffer_.Release();
@@ -3422,6 +3438,16 @@ void MeshRenderer::createBuffers()
         pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pUVBuffer_);
         BuffDesc.Name = "Mesh UV1 Buffer";
         pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pUV1Buffer_);
+    }
+    if (vertexCount_ > 0) {
+        BufferDesc BuffDesc;
+        BuffDesc.Name = "Mesh Tangent Buffer";
+        BuffDesc.Usage = USAGE_DYNAMIC;
+        BuffDesc.Size = sizeof(float) * 4 * vertexCount_;
+        BuffDesc.BindFlags = vertexBindFlags;
+        BuffDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
+        BuffDesc.Mode = BUFFER_MODE_UNDEFINED;
+        pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pTangentBuffer_);
     }
     // 3b. Vertex color buffer (float4; white = identity when no source colors)
     if (vertexCount_ > 0) {
@@ -3832,8 +3858,8 @@ void MeshRenderer::createPSO()
     PSOCreateInfo.GraphicsPipeline.RasterizerDesc.FrontCounterClockwise = true;
     
     // Vertex layout
-    PSOCreateInfo.GraphicsPipeline.InputLayout.NumElements = 5;
-    std::array<LayoutElement, 5> layoutElements;
+    PSOCreateInfo.GraphicsPipeline.InputLayout.NumElements = 6;
+    std::array<LayoutElement, 6> layoutElements;
     // Position
     // D3D input layouts keep the semantic name and semantic index separate.
     // The shader's ATTRIB0/1/2 declarations compile to name "ATTRIB" with
@@ -3872,6 +3898,12 @@ void MeshRenderer::createPSO()
     layoutElements[4].NumComponents = 2;
     layoutElements[4].ValueType = VT_FLOAT32;
     layoutElements[4].IsNormalized = false;
+    layoutElements[5].HLSLSemantic = "ATTRIB";
+    layoutElements[5].InputIndex = 5;
+    layoutElements[5].BufferSlot = 5;
+    layoutElements[5].NumComponents = 4;
+    layoutElements[5].ValueType = VT_FLOAT32;
+    layoutElements[5].IsNormalized = false;
     PSOCreateInfo.GraphicsPipeline.InputLayout.LayoutElements = layoutElements.data();
     
     // Compile Shaders
@@ -4166,7 +4198,7 @@ void MeshRenderer::createPSO()
     static ImmutableSamplerDesc shadowMaskSampler = [] {
         ImmutableSamplerDesc desc;
         desc.ShaderStages = SHADER_TYPE_PIXEL;
-        desc.TextureName = "g_ShadowMaskSampler";
+        desc.SamplerOrTextureName = "g_ShadowMaskSampler";
         desc.Desc.MinFilter = FILTER_TYPE_LINEAR;
         desc.Desc.MagFilter = FILTER_TYPE_LINEAR;
         desc.Desc.MipFilter = FILTER_TYPE_LINEAR;
@@ -4215,7 +4247,7 @@ void MeshRenderer::createPSO()
 
 void MeshRenderer::updateMeshGeometry(const float* positions, const float* normals, const float* uvs,
                                       const uint32_t* indices, const float* colors,
-                                      const float* uvs1)
+                                      const float* uvs1, const float* tangents)
 {
     auto pContext = context_.DeviceContext();
     if (!pContext) {
@@ -4280,6 +4312,9 @@ void MeshRenderer::updateMeshGeometry(const float* positions, const float* norma
     }
     if (uvs1 && pImpl_->pUV1Buffer_) {
         uploadFloats(pImpl_->pUV1Buffer_, uvs1, vertexCount_, 2);
+    }
+    if (tangents && pImpl_->pTangentBuffer_) {
+        uploadFloats(pImpl_->pTangentBuffer_, tangents, vertexCount_, 4);
     }
 
     if (pImpl_->pColorBuffer_) {
@@ -4732,8 +4767,8 @@ void MeshRenderer::prepare(IDeviceContext* pContext)
     
     // Set vertex buffers
     if (pImpl_->pPositionBuffer_) {
-        IBuffer* pVBs[] = {pImpl_->pPositionBuffer_, pImpl_->pNormalBuffer_, pImpl_->pUVBuffer_, pImpl_->pColorBuffer_, pImpl_->pUV1Buffer_};
-        pContext->SetVertexBuffers(0, 5, pVBs, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+        IBuffer* pVBs[] = {pImpl_->pPositionBuffer_, pImpl_->pNormalBuffer_, pImpl_->pUVBuffer_, pImpl_->pColorBuffer_, pImpl_->pUV1Buffer_, pImpl_->pTangentBuffer_};
+        pContext->SetVertexBuffers(0, 6, pVBs, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
                                   SET_VERTEX_BUFFERS_FLAG_RESET);
     }
     
@@ -5103,7 +5138,7 @@ void MeshRenderer::drawMaterialSlots(IDeviceContext* pContext, size_t instanceCo
 
     instanceCount = std::min(instanceCount, maxInstances_);
     const auto drawPass = [&](bool transparentPass) {
-        const IPipelineState* activePSO = transparentPass && pImpl_->pTransparentPSO_
+        IPipelineState* activePSO = transparentPass && pImpl_->pTransparentPSO_
             ? pImpl_->pTransparentPSO_.RawPtr() : pImpl_->pPSO_.RawPtr();
         IShaderResourceBinding* activeSRB = transparentPass && pImpl_->pTransparentSRB_
             ? pImpl_->pTransparentSRB_.RawPtr() : pImpl_->pSRB_.RawPtr();
@@ -5478,8 +5513,9 @@ void MeshRenderer::prepareShadow(IDeviceContext* pContext,
                                     RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     IBuffer* vertexBuffers[] = {
         pImpl_->pPositionBuffer_, pImpl_->pNormalBuffer_,
-        pImpl_->pUVBuffer_, pImpl_->pColorBuffer_, pImpl_->pUV1Buffer_};
-    pContext->SetVertexBuffers(0, 5, vertexBuffers, nullptr,
+        pImpl_->pUVBuffer_, pImpl_->pColorBuffer_, pImpl_->pUV1Buffer_,
+        pImpl_->pTangentBuffer_};
+    pContext->SetVertexBuffers(0, 6, vertexBuffers, nullptr,
                                RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
                                SET_VERTEX_BUFFERS_FLAG_RESET);
     if (pImpl_->pIndexBuffer_) {
