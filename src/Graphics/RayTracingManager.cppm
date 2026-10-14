@@ -1263,6 +1263,22 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
     const bool useFallbackLights = g_RTSceneLightCount.x == 0;
     const uint lightCount = useFallbackLights ? 2 : min(g_RTSceneLightCount.x, 8);
     float3 hitPosition = WorldRayOrigin() + WorldRayDirection() * RayTCurrent();
+    float anisotropyAmount = clamp(material.anisotropy.x, -1.0f, 1.0f);
+    if (material.anisotropyTexture.x >= 0.0f) {
+        const uint textureIndex = NonUniformResourceIndex(
+            (uint)material.anisotropyTexture.x);
+        const float2 anisotropyUv =
+            anisotropyUv0 * (1.0f - attributes.barycentrics.x -
+                             attributes.barycentrics.y) +
+            anisotropyUv1 * attributes.barycentrics.x +
+            anisotropyUv2 * attributes.barycentrics.y;
+        const float textureLod = calculatePbrTextureLod(
+            textureIndex, worldEdge1, worldEdge2,
+            anisotropyUvEdge1, anisotropyUvEdge2, rayConeRadius);
+        const float anisotropySample = g_RTPbrTextures[textureIndex].SampleLevel(
+            g_RTPbrSampler, anisotropyUv, textureLod).r;
+        anisotropyAmount *= saturate(anisotropySample);
+    }
     [loop]
     for (uint lightIndex = 0; lightIndex < lightCount; ++lightIndex) {
         RTSceneLight sceneLight = (RTSceneLight)0;
@@ -1422,24 +1438,7 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
             const float NdotV = max(saturate(dot(worldNormal, viewDirection)), 1.0e-4f);
             const float NdotH = max(saturate(dot(worldNormal, halfVector)), 1.0e-4f);
             const float VdotH = max(saturate(dot(viewDirection, halfVector)), 1.0e-4f);
-            float anisotropy = clamp(material.anisotropy.x, -1.0f, 1.0f);
-            if (material.anisotropyTexture.x >= 0.0f) {
-                const uint textureIndex = NonUniformResourceIndex(
-                    (uint)material.anisotropyTexture.x);
-                const float2 anisotropyUv =
-                    anisotropyUv0 *
-                        (1.0f - attributes.barycentrics.x -
-                         attributes.barycentrics.y) +
-                    anisotropyUv1 * attributes.barycentrics.x +
-                    anisotropyUv2 * attributes.barycentrics.y;
-                const float textureLod = calculatePbrTextureLod(
-                    textureIndex, worldEdge1, worldEdge2,
-                    anisotropyUvEdge1, anisotropyUvEdge2, rayConeRadius);
-                const float anisotropySample =
-                    g_RTPbrTextures[textureIndex].SampleLevel(
-                        g_RTPbrSampler, anisotropyUv, textureLod).r;
-                anisotropy *= saturate(anisotropySample);
-            }
+            const float anisotropy = anisotropyAmount;
             const float alpha = roughness * roughness;
             const float alphaT = max(alpha * (1.0f + anisotropy), 1.0e-3f);
             const float alphaB = max(alpha * (1.0f - anisotropy), 1.0e-3f);
@@ -1656,7 +1655,7 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
     }
     float3 reflectedDirection = reflect(-viewDirection, worldNormal);
     float3 coatReflectedDirection = reflect(-viewDirection, coatNormal);
-    const float3 anisotropyDirection = material.anisotropy.x >= 0.0f
+    const float3 anisotropyDirection = anisotropyAmount >= 0.0f
         ? worldBitangent : worldTangent;
     const float3 anisotropyTangent = cross(anisotropyDirection, viewDirection);
     float3 bentNormal = worldNormal;
@@ -1664,7 +1663,7 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
         const float3 anisotropicNormal = normalize(
             cross(anisotropyTangent, anisotropyDirection));
         bentNormal = normalize(lerp(worldNormal, anisotropicNormal,
-                                    material.anisotropy.x));
+                                    anisotropyAmount));
     }
     const float3 anisotropicReflectedDirection =
         reflect(-viewDirection, bentNormal);
@@ -1741,9 +1740,9 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
         const float environmentMip = roughness *
             max(float(environmentMipCount) - 1.0f, 0.0f);
         float3 prefilteredSpecular;
-        const float anisotropyMagnitude = saturate(abs(material.anisotropy.x));
+        const float anisotropyMagnitude = saturate(abs(anisotropyAmount));
         if (anisotropyMagnitude > 1.0e-4f) {
-            float3 broadAxis = material.anisotropy.x >= 0.0f
+            float3 broadAxis = anisotropyAmount >= 0.0f
                 ? environmentTangent : environmentBitangent;
             broadAxis -= anisotropicEnvironmentDirection *
                 dot(broadAxis, anisotropicEnvironmentDirection);
