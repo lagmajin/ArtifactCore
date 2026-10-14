@@ -1773,7 +1773,7 @@ float3 sampleEnvironmentSpecular(float3 normal, float3 viewDirection,
                                  float3 bitangent, float anisotropy) {
     float3 N = normalize(normal);
     float3 V = normalize(viewDirection);
-    float3 anisotropyDirection = anisotropy >= 0.0 ? bitangent : tangent;
+    float3 anisotropyDirection = anisotropy >= 0.0 ? tangent : bitangent;
     float3 anisotropicTangent = cross(anisotropyDirection, V);
     float3 bentNormal = N;
     if (dot(anisotropicTangent, anisotropicTangent) > 1.0e-6) {
@@ -2274,10 +2274,19 @@ float4 PSMain(PSInput In) : SV_Target {
     float sheenRoughness = saturate(SheenFactors.x *
         sheenRoughnessTextureSample);
     float anisotropyTextureSample = g_AnisotropyTexture.Sample(
-        g_BaseColorSampler, anisotropyTextureUv).b;
+        g_BaseColorSampler, anisotropyTextureUv);
     float anisotropyAmount = clamp(AnisotropyFactors.x, -1.0, 1.0) *
-        lerp(1.0, saturate(anisotropyTextureSample),
+        lerp(1.0, saturate(anisotropyTextureSample.b),
              AnisotropyTextureFactors.x);
+    float2 anisotropyDirection = float2(1.0, 0.0);
+    if (AnisotropyTextureFactors.x > 0.5) {
+        float2 mappedDirection = anisotropyTextureSample.rg * 2.0 - 1.0;
+        float mappedDirectionLengthSquared = dot(mappedDirection, mappedDirection);
+        if (mappedDirectionLengthSquared > 1.0e-6) {
+            anisotropyDirection = mappedDirection *
+                rsqrt(mappedDirectionLengthSquared);
+        }
+    }
     float3 materialSheenTint = srgbToLinear(saturate(SheenFactors.yzw)) *
         saturate(sheenColorTextureSample);
     float4 normalTextureSample =
@@ -2393,12 +2402,17 @@ float4 PSMain(PSInput In) : SV_Target {
     float anisotropyRotationCos;
     sincos(AnisotropyFactors.y, anisotropyRotationSin,
           anisotropyRotationCos);
+    float2 rotatedAnisotropyDirection = float2(
+        anisotropyDirection.x * anisotropyRotationCos -
+            anisotropyDirection.y * anisotropyRotationSin,
+        anisotropyDirection.x * anisotropyRotationSin +
+            anisotropyDirection.y * anisotropyRotationCos);
     float3 unrotatedTangent = worldTangent;
     float3 unrotatedBitangent = worldBitangent;
-    worldTangent = unrotatedTangent * anisotropyRotationCos +
-                   unrotatedBitangent * anisotropyRotationSin;
-    worldBitangent = -unrotatedTangent * anisotropyRotationSin +
-                     unrotatedBitangent * anisotropyRotationCos;
+    worldTangent = unrotatedTangent * rotatedAnisotropyDirection.x +
+                   unrotatedBitangent * rotatedAnisotropyDirection.y;
+    worldBitangent = -unrotatedTangent * rotatedAnisotropyDirection.y +
+                     unrotatedBitangent * rotatedAnisotropyDirection.x;
     // Clip the final alpha after an optional material-graph override. Surviving
     // Masked samples are opaque even when their source alpha was fractional.
     if (PbrTextureFlags.w > 0.5) {
