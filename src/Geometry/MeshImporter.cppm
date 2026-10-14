@@ -28,6 +28,7 @@ module;
 #include <QRegularExpression>
 #include <QString>
 #include <QStringView>
+#include <QTemporaryDir>
 #include <QtEndian>
 #include <QUrl>
 #include <QVector2D>
@@ -77,6 +78,8 @@ public:
       ufbx_free_scene(cachedUfbxScene_);
       cachedUfbxScene_ = nullptr;
     }
+    delete embeddedTextureDirectory_;
+    embeddedTextureDirectory_ = nullptr;
   }
   MeshImporter::Backend lastBackend_ = MeshImporter::Backend::None;
   QString lastError_;
@@ -105,6 +108,7 @@ public:
   bool hasLastSheenRoughnessFactor_ = false;
   float lastSheenRoughnessFactor_ = 0.5f;
   std::vector<MeshImporter::ImportedPbrMaterial> importedPbrMaterials_;
+  QTemporaryDir* embeddedTextureDirectory_ = nullptr;
 
   // Per-source-mesh data produced by importers that concatenate several
   // primitives (USD stages).  Empty for the single-mesh import paths; the
@@ -296,29 +300,6 @@ public:
       imported.name = UniString::fromQString(
           ufbxStringToQString(material->name));
 
-      const auto assignTexture = [&](const ufbx_texture* texture, auto&& setter,
-                                     const char* label) {
-        if (!texture || texture->type != UFBX_TEXTURE_FILE) {
-          return;
-        }
-        QString candidate = ufbxStringToQString(texture->absolute_filename);
-        if (candidate.isEmpty()) {
-          candidate = ufbxStringToQString(texture->relative_filename);
-        }
-        if (candidate.isEmpty()) {
-          candidate = ufbxStringToQString(texture->filename);
-        }
-        if (candidate.isEmpty()) {
-          return;
-        }
-        const QString resolved = resolveTexturePath(modelPath, candidate);
-        if (resolved.isEmpty()) {
-          return;
-        }
-        setter(resolved);
-        qDebug() << "[MeshImporter] ufbx" << label << ":" << resolved;
-      };
-
       const auto texturePath = [&](const ufbx_texture* texture) {
         if (!texture || texture->type != UFBX_TEXTURE_FILE) return QString();
         QString candidate = ufbxStringToQString(texture->absolute_filename);
@@ -328,7 +309,58 @@ public:
         if (candidate.isEmpty()) {
           candidate = ufbxStringToQString(texture->filename);
         }
-        return resolveTexturePath(modelPath, candidate);
+        if (candidate.isEmpty()) {
+          candidate = ufbxStringToQString(texture->filename);
+        }
+        const QString resolved = resolveTexturePath(modelPath, candidate);
+        if (!resolved.isEmpty() && QFileInfo::exists(resolved)) {
+          return resolved;
+        }
+        ufbx_blob embedded = texture->content;
+        if ((!embedded.data || embedded.size == 0) && texture->has_file &&
+            texture->file_index < scene->texture_files.count) {
+          embedded = scene->texture_files[texture->file_index].content;
+        }
+        if (!embedded.data || embedded.size == 0 ||
+            embedded.size > static_cast<size_t>(std::numeric_limits<qint64>::max())) {
+          return resolved;
+        }
+        if (!embeddedTextureDirectory_) {
+          embeddedTextureDirectory_ = new QTemporaryDir(
+              QDir::tempPath() + QStringLiteral("/ArtifactFbxTextures-XXXXXX"));
+          if (!embeddedTextureDirectory_->isValid()) {
+            delete embeddedTextureDirectory_;
+            embeddedTextureDirectory_ = nullptr;
+            return resolved;
+          }
+        }
+        QString suffix = QFileInfo(candidate).suffix().toLower();
+        if (suffix != QStringLiteral("png") &&
+            suffix != QStringLiteral("jpg") &&
+            suffix != QStringLiteral("jpeg") &&
+            suffix != QStringLiteral("tga") &&
+            suffix != QStringLiteral("bmp")) {
+          suffix = QStringLiteral("bin");
+        }
+        const QString embeddedPath = embeddedTextureDirectory_->filePath(
+            QStringLiteral("%1.%2").arg(texture->element_id).arg(suffix));
+        if (!QFileInfo::exists(embeddedPath)) {
+          QFile output(embeddedPath);
+          if (!output.open(QIODevice::WriteOnly) ||
+              output.write(static_cast<const char*>(embedded.data),
+                           static_cast<qint64>(embedded.size)) !=
+                  static_cast<qint64>(embedded.size)) {
+            return resolved;
+          }
+        }
+        return embeddedPath;
+      };
+      const auto assignTexture = [&](const ufbx_texture* texture, auto&& setter,
+                                     const char* label) {
+        const QString resolved = texturePath(texture);
+        if (resolved.isEmpty()) return;
+        setter(resolved);
+        qDebug() << "[MeshImporter] ufbx" << label << ":" << resolved;
       };
       const auto setImportedTexture = [&](const ufbx_texture* texture,
                                           UniString* destination) {
@@ -1047,6 +1079,7 @@ public:
 
     ufbx_load_opts opts = {};
     opts.generate_missing_normals = true;
+    opts.retain_vertex_attrib_w = true;
     opts.target_axes = ufbx_axes_right_handed_y_up;
     opts.space_conversion = UFBX_SPACE_CONVERSION_MODIFY_GEOMETRY;
 
@@ -1158,9 +1191,12 @@ public:
     auto posAttr = mesh->vertexAttributes().add<QVector3D>("position");
     auto normAttr = mesh->vertexAttributes().add<QVector3D>("normal");
     auto uvAttr = mesh->vertexAttributes().add<QVector2D>("uv");
+    bool hasAnyTangents = false;
     bool hasAnyUv1 = false;
     for (size_t meshIndex = 0; meshIndex < scene->meshes.count; ++meshIndex) {
       const ufbx_mesh* sourceMesh = scene->meshes[meshIndex];
+      hasAnyTangents = hasAnyTangents || (sourceMesh &&
+          sourceMesh->vertex_tangent.exists);
       hasAnyUv1 = hasAnyUv1 || (sourceMesh &&
           sourceMesh->uv_sets.count > 1 &&
           sourceMesh->uv_sets[1].vertex_uv.exists);
@@ -1168,6 +1204,9 @@ public:
     auto uv1Attr = hasAnyUv1
         ? mesh->vertexAttributes().add<QVector2D>("uv1")
         : SharedPtr<MeshAttribute<QVector2D>>{};
+    auto tangentAttr = hasAnyTangents
+        ? mesh->vertexAttributes().add<QVector4D>("tangent")
+        : SharedPtr<MeshAttribute<QVector4D>>{};
     auto colorAttr = mesh->vertexAttributes().add<QVector4D>("color");
 
     // ufbx exposes skinning weights per logical source vertex. Keep the
@@ -1683,6 +1722,58 @@ public:
             normal = QVector3D(0, 1, 0);
           }
           (*normAttr)[outIdx] = normal;
+
+          if (tangentAttr) {
+            QVector3D tangent = QVector3D::crossProduct(
+                QVector3D(0.0f, 1.0f, 0.0f), normal);
+            if (tangent.lengthSquared() <= 1.0e-12f) {
+              tangent = QVector3D::crossProduct(
+                  QVector3D(1.0f, 0.0f, 0.0f), normal);
+            }
+            tangent.normalize();
+            float handedness = 1.0f;
+            if (srcMesh->vertex_tangent.exists) {
+              const ufbx_vec3 sourceTangent = ufbx_get_vertex_vec3(
+                  &srcMesh->vertex_tangent, idx);
+              tangent = QVector3D(sourceTangent.x, sourceTangent.y,
+                                  sourceTangent.z);
+              if (srcMesh->vertex_bitangent.exists) {
+                const ufbx_vec3 sourceBitangent = ufbx_get_vertex_vec3(
+                    &srcMesh->vertex_bitangent, idx);
+                const QVector3D bitangent(sourceBitangent.x,
+                                          sourceBitangent.y,
+                                          sourceBitangent.z);
+                handedness = QVector3D::dotProduct(
+                    QVector3D::crossProduct(normal, tangent), bitangent) < 0.0f
+                    ? -1.0f : 1.0f;
+              } else if (srcMesh->vertex_tangent.values_w.count > 0) {
+                const uint32_t tangentIndex =
+                    srcMesh->vertex_tangent.indices.data[idx];
+                if (tangentIndex <
+                    srcMesh->vertex_tangent.values_w.count) {
+                  handedness = srcMesh->vertex_tangent.values_w.data[
+                      tangentIndex] < 0.0 ? -1.0f : 1.0f;
+                }
+              }
+              if (!std::isfinite(tangent.x()) ||
+                  !std::isfinite(tangent.y()) ||
+                  !std::isfinite(tangent.z()) ||
+                  tangent.lengthSquared() <= 1.0e-12f) {
+                tangent = QVector3D::crossProduct(
+                    QVector3D(0.0f, 1.0f, 0.0f), normal);
+                if (tangent.lengthSquared() <= 1.0e-12f) {
+                  tangent = QVector3D::crossProduct(
+                      QVector3D(1.0f, 0.0f, 0.0f), normal);
+                }
+                tangent.normalize();
+              } else {
+                tangent = (tangent - normal *
+                    QVector3D::dotProduct(normal, tangent)).normalized();
+              }
+            }
+            (*tangentAttr)[outIdx] = QVector4D(
+                tangent, handedness);
+          }
 
           if (srcMesh->vertex_uv.exists) {
             ufbx_vec2 uv = ufbx_get_vertex_vec2(&srcMesh->vertex_uv, idx);
