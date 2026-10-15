@@ -16,6 +16,10 @@ inline OIIO::ImageSpec makeSpec(int width, int height, const ImageExportOptions&
     using namespace OIIO;
     int nchannels = 4; // Standard RGBA output
     ImageSpec spec(width, height, nchannels, opt.dataType);
+
+    if (opt.bitsPerSample > 0) {
+        spec.attribute("oiio:BitsPerSample", opt.bitsPerSample);
+    }
     
     if (!opt.compression.isEmpty()) {
         spec.attribute("compression", opt.compression.toUtf8().constData());
