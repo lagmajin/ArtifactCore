@@ -8,6 +8,7 @@ module;
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
+#include <libavutil/audio_fifo.h>
 #include <libavutil/opt.h>
 #include <libavutil/channel_layout.h>
 #include <libavutil/samplefmt.h>
@@ -90,7 +91,10 @@ FFmpegAudioEncoder::AudioInfo FFmpegAudioEncoder::probeAudioFile(const QString& 
     info.sampleRate = par->sample_rate;
     info.channels = par->ch_layout.nb_channels;
     info.bitrate = static_cast<int>(par->bit_rate);
-    if (fmtCtx->duration != AV_NOPTS_VALUE) {
+    if (stream->duration != AV_NOPTS_VALUE && stream->time_base.den > 0) {
+        info.durationMs = av_rescale_q(
+            stream->duration, stream->time_base, AVRational{1, 1000});
+    } else if (fmtCtx->duration != AV_NOPTS_VALUE) {
         info.durationMs = fmtCtx->duration / 1000;
     }
     avformat_close_input(&fmtCtx);
@@ -349,85 +353,300 @@ bool FFmpegAudioEncoder::muxAudioWithVideo(
         av_packet_unref(pkt);
     }
 
-    // 音声デコード → リサンプル → エンコード → 書き込み
+    // 音声デコード → リサンプル → FIFO → 固定長encoder frame → 書き込み
     AVFrame* decodedFrame = av_frame_alloc();
     AVFrame* resampledFrame = av_frame_alloc();
+    AVFrame* encoderFrame = av_frame_alloc();
     AVPacket* encPkt = av_packet_alloc();
+    const int encoderFrameSize = aEncoderCtx->frame_size > 0
+        ? aEncoderCtx->frame_size : 1024;
+    const int encoderChannels = aEncoderCtx->ch_layout.nb_channels;
+    const bool supportsSmallLastFrame =
+        (aEncoder->capabilities & AV_CODEC_CAP_SMALL_LAST_FRAME) != 0;
+    AVAudioFifo* audioFifo = av_audio_fifo_alloc(
+        aEncoderCtx->sample_fmt, encoderChannels, encoderFrameSize * 2);
+    if (!decodedFrame || !resampledFrame || !encoderFrame || !encPkt ||
+        !audioFifo || encoderChannels <= 0) {
+        g_lastAudioError = QStringLiteral("Failed to allocate audio mux buffers");
+    } else {
+        encoderFrame->format = aEncoderCtx->sample_fmt;
+        encoderFrame->sample_rate = aEncoderCtx->sample_rate;
+        encoderFrame->nb_samples = encoderFrameSize;
+        if (av_channel_layout_copy(&encoderFrame->ch_layout,
+                                   &aEncoderCtx->ch_layout) < 0 ||
+            av_frame_get_buffer(encoderFrame, 0) < 0) {
+            g_lastAudioError = QStringLiteral(
+                "Failed to allocate audio encoder frame buffer");
+        }
+    }
 
-    resampledFrame->format = aEncoderCtx->sample_fmt;
-    av_channel_layout_copy(&resampledFrame->ch_layout, &aEncoderCtx->ch_layout);
-    resampledFrame->sample_rate = aEncoderCtx->sample_rate;
-    resampledFrame->nb_samples = aEncoderCtx->frame_size > 0 ? aEncoderCtx->frame_size : 1024;
-    av_frame_get_buffer(resampledFrame, 0);
-
+    int resampledFrameCapacity = 0;
     int64_t audioPts = 0;
-    av_seek_frame(audioFmtCtx, audioStreamIdx, 0, AVSEEK_FLAG_BACKWARD);
-    while (av_read_frame(audioFmtCtx, pkt) >= 0) {
+    bool audioSuccess = g_lastAudioError.isEmpty();
+    const auto drainEncoderPackets = [&]() {
+        while (true) {
+            const int receiveRet = avcodec_receive_packet(aEncoderCtx, encPkt);
+            if (receiveRet == AVERROR(EAGAIN) || receiveRet == AVERROR_EOF) {
+                return true;
+            }
+            if (receiveRet < 0) {
+                g_lastAudioError = QStringLiteral(
+                    "Failed to receive encoded audio packet: %1")
+                    .arg(audioFfmpegErrorString(receiveRet));
+                return false;
+            }
+            encPkt->stream_index = outAudioStream->index;
+            av_packet_rescale_ts(encPkt, aEncoderCtx->time_base,
+                                 outAudioStream->time_base);
+            const int writeRet = av_interleaved_write_frame(outFmtCtx, encPkt);
+            av_packet_unref(encPkt);
+            if (writeRet < 0) {
+                g_lastAudioError = QStringLiteral(
+                    "Failed to write encoded audio packet: %1")
+                    .arg(audioFfmpegErrorString(writeRet));
+                return false;
+            }
+        }
+    };
+    const auto encodeAvailableAudio = [&](bool flushPartial) {
+        while (audioSuccess) {
+            const int queuedSamples = av_audio_fifo_size(audioFifo);
+            if (queuedSamples < encoderFrameSize &&
+                (!flushPartial || queuedSamples == 0)) {
+                return true;
+            }
+            const int samplesToRead = std::min(queuedSamples, encoderFrameSize);
+            const int samplesToEncode =
+                samplesToRead < encoderFrameSize && !supportsSmallLastFrame
+                    ? encoderFrameSize : samplesToRead;
+            encoderFrame->nb_samples = samplesToEncode;
+            if (av_frame_make_writable(encoderFrame) < 0) {
+                g_lastAudioError = QStringLiteral(
+                    "Audio encoder frame buffer is not writable");
+                audioSuccess = false;
+                return false;
+            }
+            const int readRet = av_audio_fifo_read(
+                audioFifo,
+                reinterpret_cast<void**>(encoderFrame->extended_data),
+                samplesToRead);
+            if (readRet != samplesToRead) {
+                g_lastAudioError = QStringLiteral(
+                    "Failed to read resampled samples from audio FIFO");
+                audioSuccess = false;
+                return false;
+            }
+            if (samplesToEncode > samplesToRead) {
+                av_samples_set_silence(
+                    encoderFrame->extended_data, samplesToRead,
+                    samplesToEncode - samplesToRead, encoderChannels,
+                    aEncoderCtx->sample_fmt);
+            }
+            encoderFrame->pts = audioPts;
+            audioPts += samplesToEncode;
+            int sendRet = avcodec_send_frame(aEncoderCtx, encoderFrame);
+            if (sendRet == AVERROR(EAGAIN)) {
+                if (!drainEncoderPackets()) {
+                    audioSuccess = false;
+                    return false;
+                }
+                sendRet = avcodec_send_frame(aEncoderCtx, encoderFrame);
+            }
+            if (sendRet < 0) {
+                g_lastAudioError = QStringLiteral(
+                    "Failed to send audio frame to encoder: %1")
+                    .arg(audioFfmpegErrorString(sendRet));
+                audioSuccess = false;
+                return false;
+            }
+            if (!drainEncoderPackets()) {
+                audioSuccess = false;
+                return false;
+            }
+        }
+        return false;
+    };
+    const auto queueResampledSamples = [&](const AVFrame* sourceFrame) {
+        const int outputBound = swr_get_out_samples(
+            swrCtx, sourceFrame->nb_samples);
+        if (outputBound < 0) {
+            g_lastAudioError = QStringLiteral(
+                "Failed to size resampled audio frame: %1")
+                .arg(audioFfmpegErrorString(outputBound));
+            audioSuccess = false;
+            return false;
+        }
+        const int requiredCapacity = std::max(1, outputBound);
+        if (requiredCapacity > resampledFrameCapacity) {
+            av_frame_unref(resampledFrame);
+            resampledFrame->format = aEncoderCtx->sample_fmt;
+            resampledFrame->sample_rate = aEncoderCtx->sample_rate;
+            resampledFrame->nb_samples = requiredCapacity;
+            if (av_channel_layout_copy(&resampledFrame->ch_layout,
+                                       &aEncoderCtx->ch_layout) < 0 ||
+                av_frame_get_buffer(resampledFrame, 0) < 0) {
+                g_lastAudioError = QStringLiteral(
+                    "Failed to allocate resampled audio frame buffer");
+                audioSuccess = false;
+                return false;
+            }
+            resampledFrameCapacity = requiredCapacity;
+        }
+        resampledFrame->nb_samples = std::max(1, requiredCapacity);
+        const int convertedSamples = swr_convert(
+            swrCtx, resampledFrame->extended_data,
+            resampledFrame->nb_samples,
+            const_cast<const uint8_t**>(sourceFrame->extended_data),
+            sourceFrame->nb_samples);
+        if (convertedSamples < 0) {
+            g_lastAudioError = QStringLiteral(
+                "Failed to resample audio frame: %1")
+                .arg(audioFfmpegErrorString(convertedSamples));
+            audioSuccess = false;
+            return false;
+        }
+        if (convertedSamples == 0) {
+            return true;
+        }
+        const int fifoSamples = av_audio_fifo_size(audioFifo);
+        if (av_audio_fifo_realloc(audioFifo,
+                                  fifoSamples + convertedSamples) < 0 ||
+            av_audio_fifo_write(
+                audioFifo,
+                reinterpret_cast<void**>(resampledFrame->extended_data),
+                convertedSamples) != convertedSamples) {
+            g_lastAudioError = QStringLiteral(
+                "Failed to queue resampled audio samples");
+            audioSuccess = false;
+            return false;
+        }
+        return encodeAvailableAudio(false);
+    };
+
+    if (audioSuccess && av_seek_frame(audioFmtCtx, audioStreamIdx, 0,
+                                      AVSEEK_FLAG_BACKWARD) < 0) {
+        g_lastAudioError = QStringLiteral("Failed to seek audio input to start");
+        audioSuccess = false;
+    }
+    while (audioSuccess && av_read_frame(audioFmtCtx, pkt) >= 0) {
         if (pkt->stream_index != audioStreamIdx) {
             av_packet_unref(pkt);
             continue;
         }
         ret = avcodec_send_packet(aDecoderCtx, pkt);
         av_packet_unref(pkt);
-        if (ret < 0) continue;
+        if (ret < 0 && ret != AVERROR(EAGAIN)) {
+            g_lastAudioError = QStringLiteral(
+                "Failed to send audio packet to decoder: %1")
+                .arg(audioFfmpegErrorString(ret));
+            audioSuccess = false;
+            break;
+        }
 
-        while (avcodec_receive_frame(aDecoderCtx, decodedFrame) >= 0) {
-            ret = swr_convert(swrCtx,
-                resampledFrame->data, resampledFrame->nb_samples,
-                (const uint8_t**)decodedFrame->data, decodedFrame->nb_samples);
-            if (ret > 0) {
-                resampledFrame->nb_samples = ret;
-                resampledFrame->pts = audioPts;
-                audioPts += ret;
-
-                ret = avcodec_send_frame(aEncoderCtx, resampledFrame);
-                if (ret >= 0) {
-                    while (avcodec_receive_packet(aEncoderCtx, encPkt) >= 0) {
-                        encPkt->stream_index = outAudioStream->index;
-                        av_packet_rescale_ts(encPkt, aEncoderCtx->time_base, outAudioStream->time_base);
-                        av_interleaved_write_frame(outFmtCtx, encPkt);
-                        av_packet_unref(encPkt);
-                    }
-                }
+        while (audioSuccess && avcodec_receive_frame(aDecoderCtx,
+                                                      decodedFrame) >= 0) {
+            if (!queueResampledSamples(decodedFrame)) {
+                break;
             }
             av_frame_unref(decodedFrame);
         }
     }
 
-    // フラッシュデコーダー
-    avcodec_send_packet(aDecoderCtx, nullptr);
-    while (avcodec_receive_frame(aDecoderCtx, decodedFrame) >= 0) {
-        ret = swr_convert(swrCtx,
-            resampledFrame->data, resampledFrame->nb_samples,
-            (const uint8_t**)decodedFrame->data, decodedFrame->nb_samples);
-        if (ret > 0) {
-            resampledFrame->nb_samples = ret;
-            resampledFrame->pts = audioPts;
-            audioPts += ret;
-            avcodec_send_frame(aEncoderCtx, resampledFrame);
-            while (avcodec_receive_packet(aEncoderCtx, encPkt) >= 0) {
-                encPkt->stream_index = outAudioStream->index;
-                av_packet_rescale_ts(encPkt, aEncoderCtx->time_base, outAudioStream->time_base);
-                av_interleaved_write_frame(outFmtCtx, encPkt);
-                av_packet_unref(encPkt);
-            }
+    if (audioSuccess) {
+        ret = avcodec_send_packet(aDecoderCtx, nullptr);
+        if (ret < 0 && ret != AVERROR_EOF) {
+            g_lastAudioError = QStringLiteral(
+                "Failed to flush audio decoder: %1")
+                .arg(audioFfmpegErrorString(ret));
+            audioSuccess = false;
+        }
+    }
+    while (audioSuccess && avcodec_receive_frame(aDecoderCtx,
+                                                  decodedFrame) >= 0) {
+        if (!queueResampledSamples(decodedFrame)) {
+            break;
         }
         av_frame_unref(decodedFrame);
     }
 
-    // フラッシュエンコーダー
-    avcodec_send_frame(aEncoderCtx, nullptr);
-    while (avcodec_receive_packet(aEncoderCtx, encPkt) >= 0) {
-        encPkt->stream_index = outAudioStream->index;
-        av_packet_rescale_ts(encPkt, aEncoderCtx->time_base, outAudioStream->time_base);
-        av_interleaved_write_frame(outFmtCtx, encPkt);
-        av_packet_unref(encPkt);
+    if (audioSuccess) {
+        while (true) {
+            const int flushCapacity = swr_get_out_samples(swrCtx, 0);
+            if (flushCapacity <= 0) {
+                break;
+            }
+            const int previousCapacity = resampledFrameCapacity;
+            if (flushCapacity > resampledFrameCapacity) {
+                av_frame_unref(resampledFrame);
+                resampledFrame->format = aEncoderCtx->sample_fmt;
+                resampledFrame->sample_rate = aEncoderCtx->sample_rate;
+                resampledFrame->nb_samples = flushCapacity;
+                if (av_channel_layout_copy(&resampledFrame->ch_layout,
+                                           &aEncoderCtx->ch_layout) < 0 ||
+                    av_frame_get_buffer(resampledFrame, 0) < 0) {
+                    g_lastAudioError = QStringLiteral(
+                        "Failed to allocate resampler drain buffer");
+                    audioSuccess = false;
+                    break;
+                }
+                resampledFrameCapacity = flushCapacity;
+            }
+            resampledFrame->nb_samples = resampledFrameCapacity;
+            const int convertedSamples = swr_convert(
+                swrCtx, resampledFrame->extended_data,
+                resampledFrame->nb_samples, nullptr, 0);
+            if (convertedSamples < 0) {
+                g_lastAudioError = QStringLiteral(
+                    "Failed to drain audio resampler: %1")
+                    .arg(audioFfmpegErrorString(convertedSamples));
+                audioSuccess = false;
+                break;
+            }
+            if (convertedSamples == 0) {
+                break;
+            }
+            const int fifoSamples = av_audio_fifo_size(audioFifo);
+            if (av_audio_fifo_realloc(audioFifo,
+                                      fifoSamples + convertedSamples) < 0 ||
+                av_audio_fifo_write(
+                    audioFifo,
+                    reinterpret_cast<void**>(resampledFrame->extended_data),
+                    convertedSamples) != convertedSamples ||
+                !encodeAvailableAudio(false)) {
+                g_lastAudioError = QStringLiteral(
+                    "Failed to queue drained audio samples");
+                audioSuccess = false;
+                break;
+            }
+            if (resampledFrameCapacity == previousCapacity &&
+                convertedSamples < resampledFrameCapacity) {
+                break;
+            }
+        }
+    }
+    if (audioSuccess) {
+        audioSuccess = encodeAvailableAudio(true);
+    }
+    if (audioSuccess) {
+        ret = avcodec_send_frame(aEncoderCtx, nullptr);
+        if (ret < 0 && ret != AVERROR_EOF) {
+            g_lastAudioError = QStringLiteral(
+                "Failed to flush audio encoder: %1")
+                .arg(audioFfmpegErrorString(ret));
+            audioSuccess = false;
+        }
+    }
+    if (audioSuccess) {
+        audioSuccess = drainEncoderPackets();
     }
 
     av_write_trailer(outFmtCtx);
 
     // クリーンアップ
+    av_packet_free(&pkt);
     av_packet_free(&encPkt);
+    av_audio_fifo_free(audioFifo);
+    av_frame_free(&encoderFrame);
     av_frame_free(&resampledFrame);
     av_frame_free(&decodedFrame);
     swr_free(&swrCtx);
@@ -438,8 +657,10 @@ bool FFmpegAudioEncoder::muxAudioWithVideo(
     avformat_close_input(&audioFmtCtx);
     avformat_close_input(&videoFmtCtx);
 
-    g_lastAudioError.clear();
-    return true;
+    if (audioSuccess) {
+        g_lastAudioError.clear();
+    }
+    return audioSuccess;
 }
 
 bool FFmpegAudioEncoder::encodeAudio(

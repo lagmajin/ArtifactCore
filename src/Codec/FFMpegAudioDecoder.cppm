@@ -52,14 +52,6 @@ import Audio.BufferQueue;
 namespace ArtifactCore
 {
  namespace {
-  AVDictionary* makeSingleThreadStreamInfoOptions()
-  {
-   AVDictionary* opts = nullptr;
-   av_dict_set(&opts, "threads", "1", 0);
-   av_dict_set(&opts, "thread_type", "0", 0);
-   return opts;
-  }
-
   AVDictionary* makeSingleThreadCodecOpenOptions()
   {
    AVDictionary* opts = nullptr;
@@ -145,19 +137,17 @@ namespace ArtifactCore
   closeFile();
   if (avformat_open_input(&fmtCtx_, path.toUtf8().constData(), nullptr, nullptr) != 0)
   {
-   return false;
-  }
-  AVDictionary* streamInfoOpts = makeSingleThreadStreamInfoOptions();
-  if (avformat_find_stream_info(fmtCtx_, &streamInfoOpts) < 0)
-  {
-   av_dict_free(&streamInfoOpts);
    closeFile();
    return false;
   }
-  av_dict_free(&streamInfoOpts);
+  if (avformat_find_stream_info(fmtCtx_, nullptr) < 0)
+  {
+   closeFile();
+   return false;
+  }
   const AVCodec* codec = nullptr;
   audioStreamIndex_ = av_find_best_stream(fmtCtx_, AVMEDIA_TYPE_AUDIO, -1, -1, &codec, 0);
-  if (audioStreamIndex_ < 0) {
+  if (audioStreamIndex_ < 0 || !codec) {
    closeFile();
    return false;
   }
