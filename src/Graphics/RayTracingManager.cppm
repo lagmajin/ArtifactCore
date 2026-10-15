@@ -766,9 +766,6 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
     const float3 worldEdge1 = worldP1 - worldP0;
     const float3 worldEdge2 = worldP2 - worldP0;
     const float rayConeRadius = max(payload.rayConeWidth * RayTCurrent(), 0.0f);
-    const float3 worldEdge1 = worldP1 - worldP0;
-    const float3 worldEdge2 = worldP2 - worldP0;
-    const float rayConeRadius = max(payload.rayConeWidth * RayTCurrent(), 0.0f);
     const float2 baseColorTransformedUv =
         baseColorTransformedUv0 * (1.0f - attributes.barycentrics.x -
                                    attributes.barycentrics.y) +
@@ -1469,7 +1466,8 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
                                                          alphaB * BoV, NdotV));
             const float lambdaL = NdotV * length(float3(alphaT * ToL,
                                                          alphaB * BoL, NdotL));
-            const float visibility = 0.5f / max(lambdaV + lambdaL, 1.0e-6f);
+            const float smithVisibility =
+                0.5f / max(lambdaV + lambdaL, 1.0e-6f);
             float3 fresnel = F0 + (1.0f - F0) * pow(1.0f - VdotH, 5.0f);
             if (material.thinFilm.x > 0.0f) {
                 const float3 filmFresnel = ThinFilmReflectance(
@@ -1498,7 +1496,7 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
                                             coatPathLength);
             const float3 coatEnergy = (1.0f - clearcoat * coatFresnel) *
                 lerp(float3(1.0f, 1.0f, 1.0f), coatTintPath, clearcoat);
-            float3 specular = distribution * visibility * fresnel;
+            float3 specular = distribution * smithVisibility * fresnel;
             if (transmission <= 1.0e-4f) {
                 const float4 viewLut = sampleRTBrdfLut(float2(NdotV, roughness));
                 const float4 lightLut = sampleRTBrdfLut(float2(NdotL, roughness));
@@ -1668,13 +1666,13 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
     }
     float3 reflectedDirection = reflect(-viewDirection, worldNormal);
     float3 coatReflectedDirection = reflect(-viewDirection, coatNormal);
-    const float3 anisotropyDirection = anisotropyAmount >= 0.0f
+    const float3 worldAnisotropyDirection = anisotropyAmount >= 0.0f
         ? worldTangent : worldBitangent;
-    const float3 anisotropyTangent = cross(anisotropyDirection, viewDirection);
+    const float3 anisotropyTangent = cross(worldAnisotropyDirection, viewDirection);
     float3 bentNormal = worldNormal;
     if (dot(anisotropyTangent, anisotropyTangent) > 1.0e-6f) {
         const float3 anisotropicNormal = normalize(
-            cross(anisotropyTangent, anisotropyDirection));
+            cross(anisotropyTangent, worldAnisotropyDirection));
         bentNormal = normalize(lerp(worldNormal, anisotropicNormal,
                                     anisotropyAmount));
     }
@@ -3287,7 +3285,8 @@ public:
                 {SHADER_TYPE_RAY_ANY_HIT, "g_RTPbrSampler",
                  pbrTextureSamplerDesc}};
             psoCI.PSODesc.ResourceLayout.Variables    = Vars;
-            psoCI.PSODesc.ResourceLayout.NumVariables = 25;
+            psoCI.PSODesc.ResourceLayout.NumVariables =
+                static_cast<Uint32>(sizeof(Vars) / sizeof(Vars[0]));
             psoCI.PSODesc.ResourceLayout.ImmutableSamplers = environmentSamplers;
             psoCI.PSODesc.ResourceLayout.NumImmutableSamplers = 5;
 

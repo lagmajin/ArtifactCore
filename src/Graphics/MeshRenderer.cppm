@@ -2,7 +2,9 @@ module;
 #include <utility>
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 #include <exception>
 #include <numbers>
@@ -38,6 +40,19 @@ import Image.Raw;
 import Artifact.ShaderNode.Core;
 
 namespace ArtifactCore {
+
+namespace {
+
+std::atomic<std::uint64_t> nextMeshPipelineCacheName{1};
+
+std::string makeMeshPipelineCacheName(const char* family)
+{
+    const auto serial = nextMeshPipelineCacheName.fetch_add(
+        1, std::memory_order_relaxed);
+    return std::string(family) + " #" + std::to_string(serial);
+}
+
+} // namespace
 
 struct MeshCullConstants {
     float viewMatrix[16] = {};
@@ -130,19 +145,23 @@ QVector<quint8> expandTextureToRgba8(const ArtifactCore::RawImage& rawImage,
     rgba8.resize(pixelCount * 4);
     const quint8* srcBytes = rawImage.data.constData();
     const int srcStride = rawImage.channels * srcPixelSize;
+    const bool isUint8 = rawImage.pixelType == QStringLiteral("uint8");
+    const bool isUint16 = rawImage.pixelType == QStringLiteral("uint16");
+    const bool isFloat = rawImage.pixelType == QStringLiteral("float");
+    quint8* outputBytes = rgba8.data();
 
     auto sampleChannel = [&](int pixelIndex, int channelIndex) -> quint8 {
         const int srcIndex = pixelIndex * srcStride + channelIndex * srcPixelSize;
-        if (rawImage.pixelType == QStringLiteral("uint8")) {
+        if (isUint8) {
             if (srcIndex < 0 || srcIndex >= rawImage.data.size()) return 0;
-            return rawImage.data[static_cast<size_t>(srcIndex)];
+            return srcBytes[srcIndex];
         }
-        if (rawImage.pixelType == QStringLiteral("uint16")) {
+        if (isUint16) {
             quint16 value = 0;
             std::memcpy(&value, srcBytes + srcIndex, sizeof(quint16));
             return static_cast<quint8>(value / 257u);
         }
-        if (rawImage.pixelType == QStringLiteral("float")) {
+        if (isFloat) {
             float value = 0.0f;
             std::memcpy(&value, srcBytes + srcIndex, sizeof(float));
             value = std::clamp(value, 0.0f, 1.0f);
@@ -159,10 +178,10 @@ QVector<quint8> expandTextureToRgba8(const ArtifactCore::RawImage& rawImage,
         const quint8 alpha = alphaFromLuminance
                                  ? static_cast<quint8>((static_cast<int>(c0) + static_cast<int>(c1) + static_cast<int>(c2)) / 3)
                                  : c3;
-        rgba8[i * 4 + 0] = c0;
-        rgba8[i * 4 + 1] = c1;
-        rgba8[i * 4 + 2] = c2;
-        rgba8[i * 4 + 3] = alpha;
+        outputBytes[i * 4 + 0] = c0;
+        outputBytes[i * 4 + 1] = c1;
+        outputBytes[i * 4 + 2] = c2;
+        outputBytes[i * 4 + 3] = alpha;
     }
 
     return rgba8;
@@ -191,10 +210,14 @@ QVector<QVector<quint8>> buildRgba8MipChain(const QVector<quint8>& base,
     }
     int mipWidth = width;
     int mipHeight = height;
-    const auto decodeSrgb = [](float value) {
-        return value <= 0.04045f ? value / 12.92f
-                                 : std::pow((value + 0.055f) / 1.055f, 2.4f);
-    };
+    // Texture preparation is a cold path, but large FBX atlases still must
+    // not perform hundreds of millions of repeated 8-bit sRGB decodes.
+    std::array<float, 256> linearFromByte{};
+    for (size_t index = 0; index < linearFromByte.size(); ++index) {
+        const float value = static_cast<float>(index) / 255.0f;
+        linearFromByte[index] = value <= 0.04045f ? value / 12.92f
+            : std::pow((value + 0.055f) / 1.055f, 2.4f);
+    }
     const auto encodeSrgb = [](float value) {
         return value <= 0.0031308f ? value * 12.92f
                                    : 1.055f * std::pow(value, 1.0f / 2.4f) - 0.055f;
@@ -246,7 +269,7 @@ QVector<QVector<quint8>> buildRgba8MipChain(const QVector<quint8>& base,
                                 const float value =
                                     previous[source + channel] / 255.0f;
                                 sum[channel] +=
-                                    (srgb ? decodeSrgb(value) : value) *
+                                    (srgb ? linearFromByte[previous[source + channel]] : value) *
                                     (alphaWeighted ? alpha : 1.0f) * weight;
                             }
                         }
@@ -1873,6 +1896,8 @@ float sampleSheenDirectionalAlbedo(float NdotV, float roughness) {
         float2(saturate(NdotV), saturate(roughness))).b);
 }
 
+float3 srgbToLinear(float3 value);
+
 float3 evaluateEmissionLayerEnergy(float3 baseNormal, float3 coatNormal,
                                    float3 viewDirection, float metallic,
                                    float clearcoatWeight,
@@ -2281,7 +2306,7 @@ float4 PSMain(PSInput In) : SV_Target {
         g_BaseColorSampler, sheenRoughnessTextureUv).r;
     float sheenRoughness = saturate(SheenFactors.x *
         sheenRoughnessTextureSample);
-    float anisotropyTextureSample = g_AnisotropyTexture.Sample(
+    float4 anisotropyTextureSample = g_AnisotropyTexture.Sample(
         g_BaseColorSampler, anisotropyTextureUv);
     float anisotropyAmount = clamp(AnisotropyFactors.x, -1.0, 1.0) *
         lerp(1.0, saturate(anisotropyTextureSample.b),
@@ -3130,6 +3155,7 @@ struct MeshRenderer::Impl {
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pUV1Buffer_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pTangentBuffer_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pColorBuffer_;
+    std::vector<float> whiteColorUpload_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pIndexBuffer_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pMeshletBuffer_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pMeshletIndexBuffer_;
@@ -3352,6 +3378,7 @@ void MeshRenderer::createBuffers()
     pImpl_->pUV1Buffer_.Release();
     pImpl_->pTangentBuffer_.Release();
     pImpl_->pColorBuffer_.Release();
+    pImpl_->whiteColorUpload_.clear();
     pImpl_->pIndexBuffer_.Release();
     pImpl_->pMeshletBuffer_.Release();
     pImpl_->pMeshletIndexBuffer_.Release();
@@ -3399,17 +3426,16 @@ void MeshRenderer::createBuffers()
         (rayTracingSupported ? BIND_RAY_TRACING : BIND_NONE);
     
     // 1. Position buffer (always needed)
-    // position/normal/uv/color are rewritten every frame for animated meshes,
-    // so they are dynamic+CPU-writable and uploaded through MapBuffer. The
-    // index buffer is never rewritten for an unchanged topology and stays
-    // default+CPU_ACCESS_NONE.
+    // Vertex data is persistent device-local data. updateMeshGeometry uses
+    // UpdateBuffer only when geometry content changes, avoiding frame-boundary
+    // discard/reupload of unchanged meshes.
     if (vertexCount_ > 0) {
         BufferDesc BuffDesc;
         BuffDesc.Name              = "Mesh Position Buffer";
-        BuffDesc.Usage             = USAGE_DYNAMIC;
+        BuffDesc.Usage             = USAGE_DEFAULT;
         BuffDesc.Size              = sizeof(float) * 3 * vertexCount_;
         BuffDesc.BindFlags         = positionBindFlags;
-        BuffDesc.CPUAccessFlags    = CPU_ACCESS_WRITE;
+        BuffDesc.CPUAccessFlags    = CPU_ACCESS_NONE;
         BuffDesc.Mode              = BUFFER_MODE_STRUCTURED;
         BuffDesc.ElementByteStride = sizeof(float) * 3;
         pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pPositionBuffer_);
@@ -3419,10 +3445,10 @@ void MeshRenderer::createBuffers()
     if (vertexCount_ > 0) {
         BufferDesc BuffDesc;
         BuffDesc.Name              = "Mesh Normal Buffer";
-        BuffDesc.Usage             = USAGE_DYNAMIC;
+        BuffDesc.Usage             = USAGE_DEFAULT;
         BuffDesc.Size              = sizeof(float) * 3 * vertexCount_;
         BuffDesc.BindFlags         = vertexBindFlags;
-        BuffDesc.CPUAccessFlags    = CPU_ACCESS_WRITE;
+        BuffDesc.CPUAccessFlags    = CPU_ACCESS_NONE;
         BuffDesc.Mode              = BUFFER_MODE_UNDEFINED;
         pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pNormalBuffer_);
     }
@@ -3430,10 +3456,10 @@ void MeshRenderer::createBuffers()
     if (vertexCount_ > 0) {
         BufferDesc BuffDesc;
         BuffDesc.Name              = "Mesh UV Buffer";
-        BuffDesc.Usage             = USAGE_DYNAMIC;
+        BuffDesc.Usage             = USAGE_DEFAULT;
         BuffDesc.Size              = sizeof(float) * 2 * vertexCount_;
         BuffDesc.BindFlags         = vertexBindFlags;
-        BuffDesc.CPUAccessFlags    = CPU_ACCESS_WRITE;
+        BuffDesc.CPUAccessFlags    = CPU_ACCESS_NONE;
         BuffDesc.Mode              = BUFFER_MODE_UNDEFINED;
         pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pUVBuffer_);
         BuffDesc.Name = "Mesh UV1 Buffer";
@@ -3442,10 +3468,10 @@ void MeshRenderer::createBuffers()
     if (vertexCount_ > 0) {
         BufferDesc BuffDesc;
         BuffDesc.Name = "Mesh Tangent Buffer";
-        BuffDesc.Usage = USAGE_DYNAMIC;
+        BuffDesc.Usage = USAGE_DEFAULT;
         BuffDesc.Size = sizeof(float) * 4 * vertexCount_;
         BuffDesc.BindFlags = vertexBindFlags;
-        BuffDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
+        BuffDesc.CPUAccessFlags = CPU_ACCESS_NONE;
         BuffDesc.Mode = BUFFER_MODE_UNDEFINED;
         pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pTangentBuffer_);
     }
@@ -3453,12 +3479,23 @@ void MeshRenderer::createBuffers()
     if (vertexCount_ > 0) {
         BufferDesc BuffDesc;
         BuffDesc.Name              = "Mesh Vertex Color Buffer";
-        BuffDesc.Usage             = USAGE_DYNAMIC;
+        BuffDesc.Usage             = USAGE_DEFAULT;
         BuffDesc.Size              = sizeof(float) * 4 * vertexCount_;
         BuffDesc.BindFlags         = vertexBindFlags;
-        BuffDesc.CPUAccessFlags    = CPU_ACCESS_WRITE;
+        BuffDesc.CPUAccessFlags    = CPU_ACCESS_NONE;
         BuffDesc.Mode              = BUFFER_MODE_UNDEFINED;
         pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pColorBuffer_);
+        if (pImpl_->pColorBuffer_) {
+            pImpl_->whiteColorUpload_.assign(vertexCount_ * 4u, 1.0f);
+            auto* context = context_.DeviceContext();
+            if (context) {
+                context->UpdateBuffer(
+                    pImpl_->pColorBuffer_, 0,
+                    sizeof(float) * pImpl_->whiteColorUpload_.size(),
+                    pImpl_->whiteColorUpload_.data(),
+                    RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            }
+        }
     }
     
     // 4. Index buffer (if indexed rendering)
@@ -3827,7 +3864,9 @@ void MeshRenderer::createPSO()
 
     GraphicsPipelineStateCreateInfo PSOCreateInfo;
     
-    PSOCreateInfo.PSODesc.Name = "Mesh Instancing PSO";
+    const std::string opaquePsoName =
+        makeMeshPipelineCacheName("Mesh Instancing PSO");
+    PSOCreateInfo.PSODesc.Name = opaquePsoName.c_str();
     PSOCreateInfo.PSODesc.PipelineType = PIPELINE_TYPE_GRAPHICS;
     PSOCreateInfo.pPSOCache = pImpl_->pPSOCache_.RawPtr();
     
@@ -4013,7 +4052,9 @@ void MeshRenderer::createPSO()
     
     pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &pImpl_->pPSO_);
 
-    PSOCreateInfo.PSODesc.Name = "Mesh Transparent Instancing PSO";
+    const std::string transparentPsoName =
+        makeMeshPipelineCacheName("Mesh Transparent Instancing PSO");
+    PSOCreateInfo.PSODesc.Name = transparentPsoName.c_str();
     PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = false;
     RT0.BlendEnable = true;
     RT0.SrcBlend = BLEND_FACTOR_SRC_ALPHA;
@@ -4035,7 +4076,9 @@ void MeshRenderer::createPSO()
     // Mesh-shader PSO. This is deliberately a separate pipeline: mesh
     // pipelines cannot have a vertex input layout or a vertex shader.
     GraphicsPipelineStateCreateInfo meshPSOInfo;
-    meshPSOInfo.PSODesc.Name = "Meshlet LOD Mesh Shader PSO";
+    const std::string meshletPsoName =
+        makeMeshPipelineCacheName("Meshlet LOD Mesh Shader PSO");
+    meshPSOInfo.PSODesc.Name = meshletPsoName.c_str();
     meshPSOInfo.PSODesc.PipelineType = PIPELINE_TYPE_MESH;
     meshPSOInfo.pPSOCache = pImpl_->pPSOCache_.RawPtr();
     meshPSOInfo.GraphicsPipeline.NumRenderTargets = 1;
@@ -4052,8 +4095,12 @@ void MeshRenderer::createPSO()
     meshRT.BlendOp = BLEND_OPERATION_ADD;
 
     const auto& deviceInfo = pDevice->GetDeviceInfo();
+    // This Diligent D3D12 build reports mesh-shader feature support, but its
+    // mesh pipeline state stream currently fails CreatePipelineState. Keep the
+    // indexed raster path selected until that backend pipeline is validated.
     const bool meshShadersSupported =
-        deviceInfo.Features.MeshShaders == DEVICE_FEATURE_STATE_ENABLED;
+        deviceInfo.Features.MeshShaders == DEVICE_FEATURE_STATE_ENABLED &&
+        deviceInfo.Type != RENDER_DEVICE_TYPE_D3D12;
     if (meshShadersSupported) {
         RefCntAutoPtr<IShader> meshShader;
         RefCntAutoPtr<IShader> meshPixelShader;
@@ -4140,7 +4187,9 @@ void MeshRenderer::createPSO()
     pImpl_->pShadowPSO_.Release();
     pImpl_->pShadowSRB_.Release();
     GraphicsPipelineStateCreateInfo shadowPSOInfo;
-    shadowPSOInfo.PSODesc.Name = "Mesh Shadow Depth PSO";
+    const std::string shadowPsoName =
+        makeMeshPipelineCacheName("Mesh Shadow Depth PSO");
+    shadowPSOInfo.PSODesc.Name = shadowPsoName.c_str();
     shadowPSOInfo.PSODesc.PipelineType = PIPELINE_TYPE_GRAPHICS;
     shadowPSOInfo.pPSOCache = pImpl_->pPSOCache_.RawPtr();
     shadowPSOInfo.GraphicsPipeline.PrimitiveTopology =
@@ -4255,43 +4304,31 @@ void MeshRenderer::updateMeshGeometry(const float* positions, const float* norma
         return;
     }
 
-    // position/normal/uv/color are USAGE_DYNAMIC + CPU_ACCESS_WRITE, so they are
-    // filled through MapBuffer instead of a staging UpdateBuffer copy. MAP_WRITE
-    // with MAP_FLAG_DISCARD lets the driver orphan the previous contents, which
-    // is the same contract the constant buffers below already rely on.
-    const auto uploadFloat3 = [&](IBuffer* buffer, const float* source,
-                                  size_t elementCount) {
-        if (!buffer || !source) {
-            return;
-        }
-        void* mapped = nullptr;
-        pContext->MapBuffer(buffer, MAP_WRITE, MAP_FLAG_DISCARD, mapped);
-        if (!mapped) {
-            qWarning("[MeshRenderer] vertex buffer mapping failed");
-            return;
-        }
-        std::memcpy(mapped, source, sizeof(float) * 3 * elementCount);
-        pContext->UnmapBuffer(buffer, MAP_WRITE);
+    const auto updateBuffer = [pContext, this](IBuffer* buffer, const void* data,
+                                                size_t byteCount) {
+        if (!buffer || !data || byteCount == 0) return;
+        pContext->UpdateBuffer(buffer, 0, byteCount, data,
+                               RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         if (frameCostStats_) ++frameCostStats_->bufferUpdates;
     };
-    const auto uploadFloats = [&](IBuffer* buffer, const float* source,
-                                  size_t elementCount, size_t floatsPerElement) {
-        if (!buffer || !source) {
-            return;
-        }
-        void* mapped = nullptr;
-        pContext->MapBuffer(buffer, MAP_WRITE, MAP_FLAG_DISCARD, mapped);
-        if (!mapped) {
-            qWarning("[MeshRenderer] vertex buffer mapping failed");
-            return;
-        }
-        std::memcpy(mapped, source, sizeof(float) * floatsPerElement * elementCount);
-        pContext->UnmapBuffer(buffer, MAP_WRITE);
-        if (frameCostStats_) ++frameCostStats_->bufferUpdates;
-    };
-
+    updateBuffer(pImpl_->pPositionBuffer_, positions,
+                 sizeof(float) * 3u * vertexCount_);
+    updateBuffer(pImpl_->pNormalBuffer_, normals,
+                 sizeof(float) * 3u * vertexCount_);
+    updateBuffer(pImpl_->pUVBuffer_, uvs,
+                 sizeof(float) * 2u * vertexCount_);
+    updateBuffer(pImpl_->pUV1Buffer_, uvs1,
+                 sizeof(float) * 2u * vertexCount_);
+    updateBuffer(pImpl_->pTangentBuffer_, tangents,
+                 sizeof(float) * 4u * vertexCount_);
+    if (colors) {
+        updateBuffer(pImpl_->pColorBuffer_, colors,
+                     sizeof(float) * 4u * vertexCount_);
+    } else if (!pImpl_->whiteColorUpload_.empty()) {
+        updateBuffer(pImpl_->pColorBuffer_, pImpl_->whiteColorUpload_.data(),
+                     sizeof(float) * pImpl_->whiteColorUpload_.size());
+    }
     if (positions && pImpl_->pPositionBuffer_) {
-        uploadFloat3(pImpl_->pPositionBuffer_, positions, vertexCount_);
         float maxRadiusSquared = 0.0f;
         for (size_t i = 0; i < vertexCount_; ++i) {
             const float x = positions[i * 3u + 0u];
@@ -4302,32 +4339,6 @@ void MeshRenderer::updateMeshGeometry(const float* positions, const float* norma
         }
         pImpl_->geometryBoundsRadius_ = std::sqrt(maxRadiusSquared);
     }
-
-    if (normals && pImpl_->pNormalBuffer_) {
-        uploadFloat3(pImpl_->pNormalBuffer_, normals, vertexCount_);
-    }
-
-    if (uvs && pImpl_->pUVBuffer_) {
-        uploadFloats(pImpl_->pUVBuffer_, uvs, vertexCount_, 2);
-    }
-    if (uvs1 && pImpl_->pUV1Buffer_) {
-        uploadFloats(pImpl_->pUV1Buffer_, uvs1, vertexCount_, 2);
-    }
-    if (tangents && pImpl_->pTangentBuffer_) {
-        uploadFloats(pImpl_->pTangentBuffer_, tangents, vertexCount_, 4);
-    }
-
-    if (pImpl_->pColorBuffer_) {
-        if (colors) {
-            uploadFloats(pImpl_->pColorBuffer_, colors, vertexCount_, 4);
-        } else {
-            // Keep the vertex-color channel identity (white) when the caller
-            // has no source colors so existing assets render unchanged.
-            std::vector<float> whiteColors(vertexCount_ * 4u, 1.0f);
-            uploadFloats(pImpl_->pColorBuffer_, whiteColors.data(), vertexCount_, 4);
-        }
-    }
-
     // The index buffer stays CPU_ACCESS_NONE, so it keeps the UpdateBuffer path.
     if (indices && pImpl_->pIndexBuffer_) {
         pContext->UpdateBuffer(pImpl_->pIndexBuffer_, 0, sizeof(uint32_t) * indexCount_,
@@ -4392,6 +4403,7 @@ void MeshRenderer::prepareMeshShader(IDeviceContext* pContext, size_t lodIndex)
         !pImpl_->pPositionBuffer_ || pImpl_->meshletCount_ == 0) {
         return;
     }
+    IBuffer* meshShaderPositionBuffer = pImpl_->pPositionBuffer_.RawPtr();
     if (lodIndex >= pImpl_->meshletLods_.size()) {
         lodIndex = 0;
     }
@@ -4412,7 +4424,8 @@ void MeshRenderer::prepareMeshShader(IDeviceContext* pContext, size_t lodIndex)
     }
     meshVar->Set(pImpl_->pMeshletBuffer_->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE));
     indexVar->Set(pImpl_->pMeshletIndexBuffer_->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE));
-    positionVar->Set(pImpl_->pPositionBuffer_->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE));
+    positionVar->Set(meshShaderPositionBuffer->GetDefaultView(
+        BUFFER_VIEW_SHADER_RESOURCE));
     MeshRenderer::Impl::MeshletConstants constants;
     std::memcpy(constants.view, pImpl_->meshletView_, sizeof(constants.view));
     std::memcpy(constants.projection, pImpl_->meshletProjection_, sizeof(constants.projection));
@@ -4492,7 +4505,8 @@ size_t MeshRenderer::chooseMeshletLOD(float projectedRadiusPixels) const noexcep
 
 IBuffer* MeshRenderer::positionBuffer() const noexcept
 {
-    return pImpl_ ? pImpl_->pPositionBuffer_ : nullptr;
+    if (!pImpl_) return nullptr;
+    return pImpl_->pPositionBuffer_.RawPtr();
 }
 
 IBuffer* MeshRenderer::indexBuffer() const noexcept
@@ -4550,7 +4564,7 @@ void MeshRenderer::prepare(IDeviceContext* pContext)
         return;
     }
     pImpl_->missingPipelineWarningIssued_ = false;
-    
+
     // Update constants
     void* pData = nullptr;
     pContext->MapBuffer(pImpl_->pConstantBuffer_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
