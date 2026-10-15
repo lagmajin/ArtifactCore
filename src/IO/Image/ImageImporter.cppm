@@ -62,8 +62,17 @@ void populateProfessionalMetadata(const OIIO::ImageSpec& spec, RawImage& image)
     image.colorSpace = findStringAttribute(spec, "oiio:ColorSpace");
     if (image.colorSpace.isEmpty()) image.colorSpace = findStringAttribute(spec, "Colorspace");
     image.transferFunction = findStringAttribute(spec, "TransferFunction");
+    const QString dpxTransfer = findStringAttribute(spec, "dpx:Transfer");
+    if (image.transferFunction.isEmpty() &&
+        image.colorSpace.compare(QStringLiteral("KodakLog"), Qt::CaseInsensitive) == 0 &&
+        dpxTransfer.compare(QStringLiteral("Logarithmic"), Qt::CaseInsensitive) == 0) {
+        image.transferFunction = QStringLiteral("cineon");
+    }
     image.primaries = findStringAttribute(spec, "chromaticities");
-    image.bitsPerChannel = spec.format == OIIO::TypeDesc::FLOAT ? 32 : spec.format.size() * 8;
+    const int bitsPerSample = spec.get_int_attribute("oiio:BitsPerSample", 0);
+    image.bitsPerChannel = bitsPerSample > 0
+        ? bitsPerSample
+        : (spec.format == OIIO::TypeDesc::FLOAT ? 32 : spec.format.size() * 8);
 
     const QString combined = (image.colorSpace + QLatin1Char(' ') + image.transferFunction).toLower();
     image.isLogEncoded = combined.contains(QStringLiteral("log")) ||
@@ -97,7 +106,11 @@ RawImage loadRawImageViaOIIO(const QString& filePath)
     }
 
     const QByteArray utf8Path = filePath.toUtf8();
-    OIIO::ImageBuf source(utf8Path.constData());
+    OIIO::ImageSpec config;
+    // RawImage retains file pixel values. Do not premultiply PNG RGB by alpha
+    // as an implicit side effect of the OIIO input plugin.
+    config.attribute("oiio:UnassociatedAlpha", 1);
+    OIIO::ImageBuf source(utf8Path.constData(), 0, 0, {}, &config);
     const OIIO::TypeDesc readType = chooseReadType(filePath);
     if (!source.read(0, 0, true, readType)) {
         return image;

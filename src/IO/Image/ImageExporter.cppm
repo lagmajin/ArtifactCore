@@ -27,6 +27,7 @@ import Image.Utils;
 import Image.MultiChannelImage;
 import Memory.SharedPtr;
 import Core.Parallel;
+import Color.TransferFunction;
 
 namespace ArtifactCore {
 
@@ -39,6 +40,102 @@ ImageExportResult makeError(const QString& stage, const QString& message)
     result.errorStage = stage;
     result.errorMessage = message;
     return result;
+}
+
+bool transferFunctionFromName(QString name, TransferFunction& transfer)
+{
+    name = name.trimmed().toLower();
+    if (name == QLatin1String("linear")) transfer = TransferFunction::Linear;
+    else if (name == QLatin1String("srgb")) transfer = TransferFunction::sRGB;
+    else if (name == QLatin1String("gamma22")) transfer = TransferFunction::Gamma22;
+    else if (name == QLatin1String("gamma24")) transfer = TransferFunction::Gamma24;
+    else if (name == QLatin1String("gamma26")) transfer = TransferFunction::Gamma26;
+    else if (name == QLatin1String("rec709")) transfer = TransferFunction::Rec709;
+    else if (name == QLatin1String("rec2020") ||
+             name == QLatin1String("rec2020_10")) {
+        transfer = TransferFunction::Rec2020_10;
+    }
+    else if (name == QLatin1String("pq") || name == QLatin1String("st2084")) {
+        transfer = TransferFunction::Rec2084_PQ;
+    }
+    else if (name == QLatin1String("hlg")) transfer = TransferFunction::HLG;
+    else if (name == QLatin1String("acescc")) transfer = TransferFunction::ACEScc;
+    else if (name == QLatin1String("acescct")) transfer = TransferFunction::ACEScct;
+    else if (name == QLatin1String("davinciintermediate") ||
+             name == QLatin1String("davinci_intermediate")) {
+        transfer = TransferFunction::DaVinciIntermediate;
+    }
+    else if (name == QLatin1String("slog3") ||
+             name == QLatin1String("sony_slog3")) {
+        transfer = TransferFunction::SonySLog3;
+    }
+    else if (name == QLatin1String("cineon") ||
+             name == QLatin1String("kodaklog") ||
+             name == QLatin1String("cineonlog")) {
+        transfer = TransferFunction::Cineon;
+    }
+    else if (name == QLatin1String("canonlog2") ||
+             name == QLatin1String("canon_log2")) {
+        transfer = TransferFunction::CanonLog2;
+    }
+    else if (name == QLatin1String("canonlog3") ||
+             name == QLatin1String("canon_log3")) {
+        transfer = TransferFunction::CanonLog3;
+    }
+    else return false;
+    return true;
+}
+
+ImageExportResult resolveTransferFunctions(const ImageExportOptions& options,
+                                           TransferFunction& input,
+                                           TransferFunction& output)
+{
+    if (options.outputTransferFunction.trimmed().isEmpty()) {
+        input = TransferFunction::Linear;
+        output = TransferFunction::Linear;
+        return {true, {}, {}};
+    }
+    if (options.inputTransferFunction.trimmed().isEmpty()) {
+        return makeError("color.transfer", "An input transfer function is required when output transfer encoding is enabled.");
+    }
+    if (!transferFunctionFromName(options.inputTransferFunction, input)) {
+        return makeError("color.transfer", "Unknown input transfer function: " + options.inputTransferFunction);
+    }
+    if (!transferFunctionFromName(options.outputTransferFunction, output)) {
+        return makeError("color.transfer", "Unknown output transfer function: " + options.outputTransferFunction);
+    }
+    return {true, {}, {}};
+}
+
+void convertRgbTransfer(float* pixels, std::size_t pixelCount, int channels,
+                        TransferFunction input, TransferFunction output)
+{
+    for (std::size_t pixel = 0; pixel < pixelCount; ++pixel) {
+        float* rgba = pixels + pixel * static_cast<std::size_t>(channels);
+        for (int channel = 0; channel < 3; ++channel) {
+            rgba[channel] = ColorTransferFunction::encode(
+                ColorTransferFunction::decode(rgba[channel], input), output);
+        }
+    }
+}
+
+void setTransferMetadata(OIIO::ImageSpec& spec,
+                         const ImageExportOptions& options,
+                         const QString& filePath,
+                         TransferFunction outputTransfer)
+{
+    if (!options.outputTransferFunction.trimmed().isEmpty()) {
+        spec.attribute("TransferFunction",
+                       options.outputTransferFunction.trimmed().toUtf8().constData());
+    }
+    if (QFileInfo(filePath).suffix().compare(QStringLiteral("dpx"),
+                                             Qt::CaseInsensitive) == 0 &&
+        outputTransfer == TransferFunction::Cineon) {
+        // DPX stores its transfer characteristic in a standard header field;
+        // arbitrary OIIO string attributes are not preserved by the DPX writer.
+        spec.set_colorspace("KodakLog");
+        spec.attribute("dpx:Transfer", "Logarithmic");
+    }
 }
 
 bool applyICCProfile(OIIO::ImageSpec& spec, const ImageExportOptions& options,
@@ -144,8 +241,17 @@ ImageExportResult encodeImageToPath(const QImage& imageRGBA8,
     ImageSpec spec = makeSpec(imageRGBA8.width(), imageRGBA8.height(), options);
     spec.nchannels = 4;
     spec.channelnames = {"R", "G", "B", "A"};
+    // QImage::Format_RGBA8888 stores unassociated (straight) alpha. Tell OIIO
+    // not to divide RGB by alpha again when writing formats such as PNG.
+    spec.attribute("oiio:UnassociatedAlpha", 1);
     const TypeDesc writeType = resolveWriteType(filePath, options);
     spec.format = writeType;
+    TransferFunction inputTransfer = TransferFunction::Linear;
+    TransferFunction outputTransfer = TransferFunction::Linear;
+    const ImageExportResult transferResult =
+        resolveTransferFunctions(options, inputTransfer, outputTransfer);
+    if (!transferResult.success) return transferResult;
+    setTransferMetadata(spec, options, filePath, outputTransfer);
     QString iccError;
     if (!applyICCProfile(spec, options, &iccError)) {
         return makeError("encode.metadata", iccError);
@@ -158,7 +264,8 @@ ImageExportResult encodeImageToPath(const QImage& imageRGBA8,
     std::vector<float> pixelsF32;
     const void* writeData = nullptr;
 
-    if (writeType != TypeDesc::UINT8) {
+    if (writeType != TypeDesc::UINT8 ||
+        !options.outputTransferFunction.trimmed().isEmpty()) {
         pixelsF32.resize(static_cast<std::size_t>(imageRGBA8.width()) * static_cast<std::size_t>(imageRGBA8.height()) * 4);
 
         const auto* src = imageRGBA8.constBits();
@@ -177,12 +284,19 @@ ImageExportResult encodeImageToPath(const QImage& imageRGBA8,
                 pixelsF32[di + 3] = static_cast<float>(src[si + 3]) / 255.0f;
             }
         });
+        if (!options.outputTransferFunction.trimmed().isEmpty()) {
+            convertRgbTransfer(pixelsF32.data(), pixelCount, 4,
+                               inputTransfer, outputTransfer);
+        }
         writeData = pixelsF32.data();
     } else {
         writeData = imageRGBA8.constBits();
     }
 
-    if (!out->write_image(writeType, writeData)) {
+    const bool floatInput = writeType != TypeDesc::UINT8 ||
+        !options.outputTransferFunction.trimmed().isEmpty();
+    const TypeDesc inputType = floatInput ? TypeDesc::FLOAT : TypeDesc::UINT8;
+    if (!out->write_image(inputType, writeData)) {
         const QString err = QString::fromUtf8(out->geterror());
         out->close();
         return makeError("encode.write", "Could not write image: " + err);
@@ -220,8 +334,19 @@ ImageExportResult encodeImageBufToPath(const OIIO::ImageBuf& imageBuf,
     spec.channelnames = (spec.nchannels == 4)
         ? std::vector<std::string>{"R", "G", "B", "A"}
         : std::vector<std::string>{"R", "G", "B"};
+    // ImageBuf pixels are exported as supplied; preserve their raw channel
+    // values for formats whose writer otherwise assumes premultiplied input.
+    if (spec.nchannels == 4) {
+        spec.attribute("oiio:UnassociatedAlpha", 1);
+    }
     const TypeDesc writeType = resolveWriteType(filePath, options);
     spec.format = writeType;
+    TransferFunction inputTransfer = TransferFunction::Linear;
+    TransferFunction outputTransfer = TransferFunction::Linear;
+    const ImageExportResult transferResult =
+        resolveTransferFunctions(options, inputTransfer, outputTransfer);
+    if (!transferResult.success) return transferResult;
+    setTransferMetadata(spec, options, filePath, outputTransfer);
     QString iccError;
     if (!applyICCProfile(spec, options, &iccError)) {
         return makeError("encode.metadata", iccError);
@@ -234,16 +359,28 @@ ImageExportResult encodeImageBufToPath(const OIIO::ImageBuf& imageBuf,
     const std::size_t pixelCount = static_cast<std::size_t>(spec.width) * static_cast<std::size_t>(spec.height);
     const int channels = spec.nchannels;
 
-    const std::size_t bytesPerPixel = static_cast<std::size_t>(channels) * static_cast<std::size_t>(spec.format.size());
-    std::vector<unsigned char> packed;
-    packed.resize(pixelCount * bytesPerPixel);
+    const bool convertTransfer = !options.outputTransferFunction.trimmed().isEmpty();
+    const TypeDesc readType = convertTransfer ? TypeDesc::FLOAT : spec.format;
+    const std::size_t bytesPerPixel = static_cast<std::size_t>(channels) * static_cast<std::size_t>(readType.size());
+    std::vector<unsigned char> packed(pixelCount * bytesPerPixel);
+    std::vector<float> floatPixels;
+    void* pixelData = packed.data();
+    if (convertTransfer) {
+        floatPixels.resize(pixelCount * static_cast<std::size_t>(channels));
+        pixelData = floatPixels.data();
+    }
 
-    if (!imageBuf.get_pixels(ROI::All(), spec.format, packed.data())) {
+    if (!imageBuf.get_pixels(ROI::All(), readType, pixelData)) {
         out->close();
         return makeError("encode.readpixels", "Failed to read pixels from ImageBuf.");
     }
 
-    if (!out->write_image(writeType, packed.data())) {
+    if (convertTransfer) {
+        convertRgbTransfer(floatPixels.data(), pixelCount, channels,
+                           inputTransfer, outputTransfer);
+    }
+
+    if (!out->write_image(readType, pixelData)) {
         const QString err = QString::fromUtf8(out->geterror());
         out->close();
         return makeError("encode.write", "Could not write image: " + err);
