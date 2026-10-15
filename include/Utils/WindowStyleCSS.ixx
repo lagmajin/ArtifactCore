@@ -256,15 +256,25 @@ DccStyleTheme LIBRARY_DLL_API getDCCTheme(DccStylePreset preset) {
     theme.buttonPressedColor = "#353535";
     break;
   case DccStylePreset::ModoStyle:
-    theme.accentColor = "#F5933C";
-    theme.textColor = "#E0E0E0";
-    theme.backgroundColor = "#2E2E2E";
-    theme.secondaryBackgroundColor = "#3A3A3A";
-    theme.selectionColor = "#5C3E20";
-    theme.borderColor = "#454545";
-    theme.buttonColor = "#404040";
-    theme.buttonHoverColor = "#4A4A4A";
-    theme.buttonPressedColor = "#3A3A3A";
+    // Warm graphite surfaces with amber reserved for interaction emphasis.
+    theme.accentColor = "#D99A4C";
+    theme.textColor = "#E6E2DA";
+    theme.textMutedColor = "#A59F95";
+    theme.textSecondaryColor = "#C1BBB1";
+    theme.backgroundColor = "#383633";
+    theme.secondaryBackgroundColor = "#48443F";
+    theme.trackBackgroundColor = "#292724";
+    theme.placeholderBackgroundColor = "#20201F";
+    theme.inputBackgroundColor = "#292724";
+    theme.selectionColor = "#62492E";
+    theme.borderColor = "#625C53";
+    theme.borderSubtleColor = "#49453F";
+    theme.buttonColor = "#48443F";
+    theme.buttonHoverColor = "#575149";
+    theme.buttonPressedColor = "#302D29";
+    theme.sliderHandleColor = "#D99A4C";
+    theme.focusRingColor = "#E8B979";
+    theme.disabledTextColor = "#827C73";
     break;
   case DccStylePreset::StudioStyle:
     theme.accentColor = "#E4B76C";
@@ -661,7 +671,7 @@ QString LIBRARY_DLL_API buildDCCStyleSheet(const DccStyleTheme &theme) {
 }
 
 DccStyleTheme& LIBRARY_DLL_API currentDCCTheme() {
-  static DccStyleTheme theme = getDCCTheme(DccStylePreset::MayaStyle);
+  static DccStyleTheme theme = getDCCTheme(DccStylePreset::ModoStyle);
   return theme;
 }
 

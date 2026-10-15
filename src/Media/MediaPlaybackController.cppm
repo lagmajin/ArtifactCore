@@ -1452,6 +1452,13 @@ QImage MediaPlaybackController::getNextVideoFrame() {
   return QByteArray();
  }
 
+ bool MediaPlaybackController::isAudioStreamFinished() const {
+  if (!impl_ || impl_->backend_ != DecoderBackend::FFmpeg || !impl_->mediaReader_) {
+   return true;
+  }
+  return impl_->mediaReader_->isStreamFinished(StreamType::Audio);
+ }
+
  bool MediaPlaybackController::setAudioOutputSampleRate(int sampleRate) {
   if (!impl_ || !impl_->audioDecoder_ || sampleRate <= 0) {
    return false;

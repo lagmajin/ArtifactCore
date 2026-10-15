@@ -108,6 +108,8 @@ public:
   bool hasLastSheenRoughnessFactor_ = false;
   float lastSheenRoughnessFactor_ = 0.5f;
   std::vector<MeshImporter::ImportedPbrMaterial> importedPbrMaterials_;
+  std::vector<MeshImporter::ImportedCamera> importedCameras_;
+  std::vector<MeshImporter::ImportedLight> importedLights_;
   QTemporaryDir* embeddedTextureDirectory_ = nullptr;
 
   // Per-source-mesh data produced by importers that concatenate several
@@ -485,14 +487,31 @@ public:
             ? value * 12.92f
             : 1.055f * std::pow(value, 1.0f / 2.4f) - 0.055f;
       };
+      // pbr.base_factor carries the scalar weight of the diffuse/base color
+      // (FBX DiffuseFactor, 3ds Max and OpenPBR base_weight). glTF's
+      // baseColorFactor is already folded into pbr.base_color, so the map is
+      // absent there. The weight belongs to linear space, hence the multiply
+      // happens before the sRGB encode instead of scaling the encoded color.
+      float baseColorWeight = 1.0f;
+      if (material->pbr.base_factor.has_value &&
+          std::isfinite(material->pbr.base_factor.value_real)) {
+        baseColorWeight = std::clamp(
+            static_cast<float>(material->pbr.base_factor.value_real),
+            0.0f, 1.0f);
+        imported.baseColorFactor = baseColorWeight;
+        imported.hasBaseColorFactor = true;
+      }
       if (material->pbr.base_color.has_value &&
           material->pbr.base_color.value_components >= 3) {
         imported.baseColor[0] = linearToSrgb(
-            static_cast<float>(material->pbr.base_color.value_vec4.x));
+            static_cast<float>(material->pbr.base_color.value_vec4.x) *
+            baseColorWeight);
         imported.baseColor[1] = linearToSrgb(
-            static_cast<float>(material->pbr.base_color.value_vec4.y));
+            static_cast<float>(material->pbr.base_color.value_vec4.y) *
+            baseColorWeight);
         imported.baseColor[2] = linearToSrgb(
-            static_cast<float>(material->pbr.base_color.value_vec4.z));
+            static_cast<float>(material->pbr.base_color.value_vec4.z) *
+            baseColorWeight);
         imported.baseColor[3] = std::clamp(static_cast<float>(
             material->pbr.base_color.value_vec4.w), 0.0f, 1.0f);
         imported.hasBaseColor = true;
@@ -1130,6 +1149,8 @@ public:
     lastOpacityTexture_.clear();
     lastClearcoatRoughnessTexture_.clear();
     importedPbrMaterials_.clear();
+    importedCameras_.clear();
+    importedLights_.clear();
     hasLastMetallicFactor_ = false;
     lastMetallicFactor_ = 0.0f;
     hasLastRoughnessFactor_ = false;
@@ -1344,6 +1365,81 @@ public:
       result.setColumn(3, QVector4D(source.m03, source.m13, source.m23, 1.0f));
       return result;
     };
+
+    const auto toRowMajorTransform = [](const QMatrix4x4& matrix, float* out) {
+      const float* data = matrix.constData();
+      for (int row = 0; row < 4; ++row) {
+        for (int column = 0; column < 4; ++column) {
+          out[row * 4 + column] = data[column * 4 + row];
+        }
+      }
+    };
+
+    // Cameras and lights ride on their node, so walk the nodes instead of the
+    // attribute tables: the node carries the name used for the layer and the
+    // world matrix that places it. The scene here is the evaluated one when a
+    // sample time was requested, so the reported placement follows the clip.
+    for (size_t nodeIndex = 0; nodeIndex < scene->nodes.count; ++nodeIndex) {
+      const ufbx_node* node = scene->nodes[nodeIndex];
+      if (!node) continue;
+      if (node->camera) {
+        MeshImporter::ImportedCamera imported;
+        imported.name = UniString::fromQString(
+            ufbxStringToQString(node->name));
+        toRowMajorTransform(toQMatrix(node->geometry_to_world),
+                            imported.transform);
+        imported.projection =
+            node->camera->projection_mode == UFBX_PROJECTION_MODE_ORTHOGRAPHIC
+                ? MeshImporter::ImportedCameraProjection::Orthographic
+                : MeshImporter::ImportedCameraProjection::Perspective;
+        imported.horizontalFovDegrees =
+            static_cast<float>(node->camera->field_of_view_deg.x);
+        imported.verticalFovDegrees =
+            static_cast<float>(node->camera->field_of_view_deg.y);
+        imported.orthographicWidth =
+            static_cast<float>(node->camera->orthographic_size.x);
+        imported.orthographicHeight =
+            static_cast<float>(node->camera->orthographic_size.y);
+        imported.nearPlane = static_cast<float>(node->camera->near_plane);
+        imported.farPlane = static_cast<float>(node->camera->far_plane);
+        importedCameras_.push_back(std::move(imported));
+      }
+      if (node->light) {
+        MeshImporter::ImportedLight imported;
+        imported.name = UniString::fromQString(
+            ufbxStringToQString(node->name));
+        toRowMajorTransform(toQMatrix(node->geometry_to_world),
+                            imported.transform);
+        switch (node->light->type) {
+          case UFBX_LIGHT_DIRECTIONAL:
+            imported.type = MeshImporter::ImportedLightType::Directional;
+            break;
+          case UFBX_LIGHT_SPOT:
+            imported.type = MeshImporter::ImportedLightType::Spot;
+            break;
+          case UFBX_LIGHT_AREA:
+            imported.type = MeshImporter::ImportedLightType::Area;
+            break;
+          case UFBX_LIGHT_VOLUME:
+            imported.type = MeshImporter::ImportedLightType::Volume;
+            break;
+          case UFBX_LIGHT_POINT:
+          default:
+            imported.type = MeshImporter::ImportedLightType::Point;
+            break;
+        }
+        imported.color[0] = static_cast<float>(node->light->color.x);
+        imported.color[1] = static_cast<float>(node->light->color.y);
+        imported.color[2] = static_cast<float>(node->light->color.z);
+        imported.intensity = static_cast<float>(node->light->intensity);
+        imported.innerConeDegrees =
+            static_cast<float>(node->light->inner_angle);
+        imported.outerConeDegrees =
+            static_cast<float>(node->light->outer_angle);
+        imported.castsShadows = node->light->cast_shadows;
+        importedLights_.push_back(std::move(imported));
+      }
+    }
 
     QVector<Mesh::SkinBone> skinBones;
     QHash<const ufbx_skin_cluster*, int> boneClusterIndices;
@@ -3820,6 +3916,18 @@ const std::vector<MeshImporter::ImportedPbrMaterial>&
 MeshImporter::importedPbrMaterials() const {
   static const std::vector<ImportedPbrMaterial> empty;
   return impl_ ? impl_->importedPbrMaterials_ : empty;
+}
+
+const std::vector<MeshImporter::ImportedCamera>&
+MeshImporter::importedCameras() const {
+  static const std::vector<ImportedCamera> empty;
+  return impl_ ? impl_->importedCameras_ : empty;
+}
+
+const std::vector<MeshImporter::ImportedLight>&
+MeshImporter::importedLights() const {
+  static const std::vector<ImportedLight> empty;
+  return impl_ ? impl_->importedLights_ : empty;
 }
 
 int MeshImporter::sourceMeshCount() const {

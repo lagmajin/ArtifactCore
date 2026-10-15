@@ -211,6 +211,8 @@ export namespace ArtifactCore {
   
   // ̃I[fBIt[擾
   QByteArray getNextAudioFrame();
+  // True only when the reader has ended and its audio packet queue is empty.
+  bool isAudioStreamFinished() const;
 
   // Set the PCM format returned by getNextAudioFrame().
   bool setAudioOutputSampleRate(int sampleRate);

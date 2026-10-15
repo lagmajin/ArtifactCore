@@ -28,8 +28,8 @@ void registerBuiltInConfigSchema() {
     schema.registerProperty({"General/DefaultFontFamily", "Default application font family", QVariant::String, QStringLiteral("Segoe UI")});
     schema.registerProperty({"General/LoadLastProject", "Load the last project on startup", QVariant::Bool, true});
     schema.registerProperty({"General/LanguageCode", "UI language code (empty follows the system locale)", QVariant::String, QString()});
-    schema.registerProperty({"UI/ThemeName", "Application theme preset", QVariant::String, QStringLiteral("Maya"), {}, {},
-                             {QStringLiteral("Default"), QStringLiteral("Maya"), QStringLiteral("Modo"), QStringLiteral("Studio"),
+    schema.registerProperty({"UI/ThemeName", "Application theme preset", QVariant::String, QStringLiteral("Modo"), {}, {},
+                             {QStringLiteral("Modo"), QStringLiteral("Default"), QStringLiteral("Maya"), QStringLiteral("Studio"),
                               QStringLiteral("Blender"), QStringLiteral("DaVinci"), QStringLiteral("3ds Max"),
                               QStringLiteral("Nuke"), QStringLiteral("After Effects"), QStringLiteral("High Contrast")}, true, false});
     schema.registerProperty({"UI/AccentColor", "Application accent color", QVariant::String, QString()});
@@ -891,7 +891,7 @@ void ArtifactAppSettings::setAccessibilityViewportMagnifierFollowCursor(bool fol
 }
 
 QString ArtifactAppSettings::themeName() const {
-    return impl_->store.valueString("UI/ThemeName", "Maya");
+    return impl_->store.valueString("UI/ThemeName", "Modo");
 }
 
 void ArtifactAppSettings::setThemeName(const QString& theme) {

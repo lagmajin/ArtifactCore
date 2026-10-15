@@ -149,6 +149,7 @@ public:
         float specularTint[3] = {1.0f, 1.0f, 1.0f};
         float sheenTint[3] = {1.0f, 1.0f, 1.0f};
         bool hasBaseColor = false;
+        bool hasBaseColorFactor = false;
         bool hasMetallic = false;
         bool hasRoughness = false;
         bool hasDiffuseRoughness = false;
@@ -174,6 +175,7 @@ public:
         bool hasOpacity = false;
         bool hasEmissionColor = false;
         bool hasEmissionStrength = false;
+        float baseColorFactor = 1.0f;
         float metallic = 0.0f;
         float roughness = 0.5f;
         float diffuseRoughness = 0.0f;
@@ -200,6 +202,51 @@ public:
     };
     [[nodiscard]] const std::vector<ImportedPbrMaterial>&
     importedPbrMaterials() const;
+
+    // Cameras and lights attached to the imported nodes, in scene order.  Both
+    // carry the attribute's world transform in the same row-major 4x4 layout
+    // as SourceMeshTransform so a consumer can reuse that conversion.  The
+    // node hierarchy is flattened: a child camera is reported with its world
+    // placement rather than with a parent chain.  The camera/light forward axis
+    // stays as authored in the file (ufbx only rebases it when
+    // `target_camera_axes` / `target_light_axes` are requested).
+    enum class ImportedCameraProjection {
+        Perspective = 0,
+        Orthographic = 1
+    };
+    enum class ImportedLightType {
+        Point = 0,
+        Directional = 1,
+        Spot = 2,
+        Area = 3,
+        Volume = 4
+    };
+    struct ImportedCamera {
+        UniString name;
+        float transform[16] = {};
+        ImportedCameraProjection projection =
+            ImportedCameraProjection::Perspective;
+        float horizontalFovDegrees = 0.0f;
+        float verticalFovDegrees = 0.0f;
+        float orthographicWidth = 0.0f;
+        float orthographicHeight = 0.0f;
+        float nearPlane = 0.0f;
+        float farPlane = 0.0f;
+    };
+    struct ImportedLight {
+        UniString name;
+        float transform[16] = {};
+        ImportedLightType type = ImportedLightType::Point;
+        float color[3] = {1.0f, 1.0f, 1.0f};
+        // ufbx divides the FBX `Intensity` property by 100, matching the value
+        // the authoring tool showed.
+        float intensity = 1.0f;
+        float innerConeDegrees = 0.0f;
+        float outerConeDegrees = 0.0f;
+        bool castsShadows = false;
+    };
+    [[nodiscard]] const std::vector<ImportedCamera>& importedCameras() const;
+    [[nodiscard]] const std::vector<ImportedLight>& importedLights() const;
 
     // Per-source-mesh data for importers that concatenate several primitives
     // into one mesh (a USD stage with multiple UsdGeomMesh prims).  Each entry

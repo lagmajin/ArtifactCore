@@ -29,7 +29,7 @@ private:
     std::deque<AVPacket*> videoQueue_;
     std::deque<AVPacket*> audioQueue_;
     std::thread workerThread_;
-    QMutex mutex_;
+    mutable QMutex mutex_;
     QWaitCondition condition_;
     bool isRunning_ = false;
     bool isPaused_ = false;
@@ -48,6 +48,8 @@ public:
     void stop();
 
     AVPacket* getNextPacket(StreamType type);
+    // An empty queue is final only after the reader worker has finished.
+    bool isStreamFinished(StreamType type) const;
 
 private:
     void readLoop();

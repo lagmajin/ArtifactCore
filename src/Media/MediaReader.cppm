@@ -134,12 +134,35 @@ AVPacket* MediaReader::getNextPacket(StreamType type) {
     return pkt;
 }
 
+bool MediaReader::isStreamFinished(StreamType type) const {
+    QMutexLocker locker(&mutex_);
+    const std::deque<AVPacket*>* queue = nullptr;
+    if (type == StreamType::Video) {
+        queue = &videoQueue_;
+    } else if (type == StreamType::Audio) {
+        queue = &audioQueue_;
+    }
+    return queue && !isRunning_ && queue->empty();
+}
+
 void MediaReader::readLoop() {
-    if (!mediaSource_ || !mediaSource_->getFormatContext()) return;
+    auto markFinished = [this]() {
+        QMutexLocker locker(&mutex_);
+        isRunning_ = false;
+        condition_.wakeAll();
+    };
+
+    if (!mediaSource_ || !mediaSource_->getFormatContext()) {
+        markFinished();
+        return;
+    }
 
     AVFormatContext* ctx = mediaSource_->getFormatContext();
     AVPacket* packet = av_packet_alloc();
-    if (!packet) return;
+    if (!packet) {
+        markFinished();
+        return;
+    }
 
     while (true) {
         {
@@ -171,11 +194,7 @@ void MediaReader::readLoop() {
     }
 
     av_packet_free(&packet);
-    {
-        QMutexLocker locker(&mutex_);
-        isRunning_ = false;
-        condition_.wakeAll();
-    }
+    markFinished();
 }
 
 } // namespace ArtifactCore
