@@ -654,7 +654,13 @@ bool BuildParticleGraphicsPipeline(
     PSOCreateInfo.GraphicsPipeline.PrimitiveTopology = PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
     PSOCreateInfo.GraphicsPipeline.NumRenderTargets = 1;
     PSOCreateInfo.GraphicsPipeline.RTVFormats[0] = DefaultParticleRTVFormat;
-    PSOCreateInfo.GraphicsPipeline.DSVFormat = TEX_FORMAT_D32_FLOAT;
+    // A color-only pass has no depth attachment. Declaring D32 in that PSO
+    // makes Diligent reject the RTV/DSV combination even though depth testing
+    // is disabled, which silently drops production 2D particle draws.
+    PSOCreateInfo.GraphicsPipeline.DSVFormat =
+        options.depthTest || options.depthWrite
+            ? TEX_FORMAT_D32_FLOAT
+            : TEX_FORMAT_UNKNOWN;
     PSOCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode = CULL_MODE_NONE;
     PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = options.depthTest;
     PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = options.depthWrite;
