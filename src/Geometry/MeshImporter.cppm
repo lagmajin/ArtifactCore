@@ -288,6 +288,8 @@ public:
     if (!scene) {
       return;
     }
+    const bool normalizeFbxUvOrigin = modelPath.endsWith(
+        QStringLiteral(".fbx"), Qt::CaseInsensitive);
 
     for (size_t i = 0; i < scene->materials.count; ++i) {
       const ufbx_material* material = scene->materials[i];
@@ -302,20 +304,76 @@ public:
 
       const auto texturePath = [&](const ufbx_texture* texture) {
         if (!texture || texture->type != UFBX_TEXTURE_FILE) return QString();
-        QString candidate = ufbxStringToQString(texture->absolute_filename);
-        if (candidate.isEmpty()) {
-          candidate = ufbxStringToQString(texture->relative_filename);
+        const QString absoluteFilename =
+            ufbxStringToQString(texture->absolute_filename);
+        const QString relativeFilename =
+            ufbxStringToQString(texture->relative_filename);
+        const QString filename = ufbxStringToQString(texture->filename);
+        QString unresolvedPath;
+        const auto tryCandidate = [&](const QString& candidate) {
+          if (candidate.isEmpty()) return QString();
+          const QString resolved = resolveTexturePath(modelPath, candidate);
+          if (unresolvedPath.isEmpty()) unresolvedPath = resolved;
+          return QFileInfo(resolved).isFile() ? resolved : QString();
+        };
+        QString resolved = tryCandidate(absoluteFilename);
+        if (resolved.isEmpty()) resolved = tryCandidate(relativeFilename);
+        if (resolved.isEmpty()) resolved = tryCandidate(filename);
+
+        // Exported FBX files often retain an absolute path from the authoring
+        // machine while the delivered image sits in a nearby Textures folder.
+        // Search a bounded number of adjacent asset folders without an
+        // unbounded recursive scan or ambiguous project-wide basename match.
+        if (resolved.isEmpty()) {
+          QString textureBasename = QFileInfo(filename).fileName();
+          if (textureBasename.isEmpty()) {
+            textureBasename = QFileInfo(relativeFilename).fileName();
+          }
+          if (textureBasename.isEmpty()) {
+            textureBasename = QFileInfo(absoluteFilename).fileName();
+          }
+          if (!textureBasename.isEmpty()) {
+            QString textureSubdirectory = QFileInfo(absoluteFilename)
+                                             .dir().dirName();
+            if (textureSubdirectory.isEmpty() ||
+                textureSubdirectory == QStringLiteral(".")) {
+              textureSubdirectory = QFileInfo(relativeFilename)
+                                        .dir().dirName();
+            }
+            if (textureSubdirectory == QStringLiteral(".")) {
+              textureSubdirectory.clear();
+            }
+            QDir searchDirectory(QFileInfo(modelPath).absolutePath());
+            for (int depth = 0; depth < 4 && resolved.isEmpty(); ++depth) {
+              const QString directPath =
+                  searchDirectory.filePath(textureBasename);
+              if (QFileInfo(directPath).isFile()) {
+                resolved = QDir::cleanPath(directPath);
+                break;
+              }
+              for (const QString& folder : {QStringLiteral("Textures"),
+                                            QStringLiteral("textures"),
+                                            QStringLiteral("Texture"),
+                                            QStringLiteral("texture")}) {
+                QString textureDirectory =
+                    searchDirectory.filePath(folder);
+                if (!textureSubdirectory.isEmpty()) {
+                  textureDirectory = QDir(textureDirectory).filePath(
+                      textureSubdirectory);
+                }
+                const QString nearbyPath =
+                    QDir(textureDirectory).filePath(textureBasename);
+                if (QFileInfo(nearbyPath).isFile()) {
+                  resolved = QDir::cleanPath(nearbyPath);
+                  break;
+                }
+              }
+              if (resolved.isEmpty() && !searchDirectory.cdUp()) break;
+            }
+          }
         }
-        if (candidate.isEmpty()) {
-          candidate = ufbxStringToQString(texture->filename);
-        }
-        if (candidate.isEmpty()) {
-          candidate = ufbxStringToQString(texture->filename);
-        }
-        const QString resolved = resolveTexturePath(modelPath, candidate);
-        if (!resolved.isEmpty() && QFileInfo::exists(resolved)) {
-          return resolved;
-        }
+        if (!resolved.isEmpty()) return resolved;
+
         ufbx_blob embedded = texture->content;
         if ((!embedded.data || embedded.size == 0) && texture->has_file &&
             texture->file_index < scene->texture_files.count) {
@@ -323,7 +381,7 @@ public:
         }
         if (!embedded.data || embedded.size == 0 ||
             embedded.size > static_cast<size_t>(std::numeric_limits<qint64>::max())) {
-          return resolved;
+          return unresolvedPath;
         }
         if (!embeddedTextureDirectory_) {
           embeddedTextureDirectory_ = new QTemporaryDir(
@@ -331,10 +389,13 @@ public:
           if (!embeddedTextureDirectory_->isValid()) {
             delete embeddedTextureDirectory_;
             embeddedTextureDirectory_ = nullptr;
-            return resolved;
+            return unresolvedPath;
           }
         }
-        QString suffix = QFileInfo(candidate).suffix().toLower();
+        QString suffixSource = filename;
+        if (suffixSource.isEmpty()) suffixSource = relativeFilename;
+        if (suffixSource.isEmpty()) suffixSource = absoluteFilename;
+        QString suffix = QFileInfo(suffixSource).suffix().toLower();
         if (suffix != QStringLiteral("png") &&
             suffix != QStringLiteral("jpg") &&
             suffix != QStringLiteral("jpeg") &&
@@ -350,7 +411,7 @@ public:
               output.write(static_cast<const char*>(embedded.data),
                            static_cast<qint64>(embedded.size)) !=
                   static_cast<qint64>(embedded.size)) {
-            return resolved;
+            return unresolvedPath;
           }
         }
         return embeddedPath;
@@ -369,6 +430,10 @@ public:
           *destination = UniString::fromQString(resolved);
         }
       };
+      const auto preferredPbrTexture = [](const ufbx_material_map& pbrMap,
+                                          const ufbx_material_map& fbxMap) {
+        return pbrMap.texture ? pbrMap.texture : fbxMap.texture;
+      };
       const auto captureUvTransform = [&](const ufbx_texture* texture,
           MeshImporter::ImportedPbrTextureTransform* destination) {
         if (!texture) return;
@@ -381,6 +446,16 @@ public:
               texture->uv_transform.rotation, UFBX_ROTATION_ORDER_XYZ);
           destination->rotationDegrees = static_cast<float>(euler.z);
           destination->hasTransform = true;
+          if (normalizeFbxUvOrigin) {
+            // Imported FBX mesh UVs use image-row (top-left) coordinates.
+            // Conjugate the source transform by F(u,v)=(u,1-v), so the
+            // texture transform keeps the same placement after that change.
+            const double radians = euler.z * std::numbers::pi / 180.0;
+            destination->offsetU -= destination->scaleV * std::sin(radians);
+            destination->offsetV = 1.0f - destination->offsetV -
+                destination->scaleV * std::cos(radians);
+            destination->rotationDegrees = -destination->rotationDegrees;
+          }
         }
         const QString uvName = ufbxStringToQString(texture->uv_set);
         if (uvName.isEmpty()) return;
@@ -539,11 +614,21 @@ public:
             material->pbr.subsurface_radius.value_vec3.z), 0.0f, 10.0f);
         imported.hasSubsurfaceRadius = true;
       }
-      setImportedTexture(material->pbr.base_color.texture,
+      const ufbx_texture* baseColorTexture = preferredPbrTexture(
+          material->pbr.base_color, material->fbx.diffuse_color);
+      const ufbx_texture* normalTexture = preferredPbrTexture(
+          material->pbr.normal_map, material->fbx.normal_map);
+      setImportedTexture(baseColorTexture,
                          &imported.baseColorTexture);
-      setImportedTexture(material->pbr.base_factor.texture,
-                         &imported.metallicRoughnessTexture);
-      setImportedTexture(material->pbr.normal_map.texture,
+      // base_factor is the diffuse/base weight, never a packed B/G MR map.
+      // Explicit PBR shaders provide independent scalar maps instead.
+      if (material->features.pbr.enabled) {
+        setImportedTexture(material->pbr.metalness.texture, &imported.metallicTexture);
+        setImportedTexture(material->pbr.roughness.texture, &imported.roughnessTexture);
+        captureUvTransform(material->pbr.metalness.texture, &imported.metallicUv);
+        captureUvTransform(material->pbr.roughness.texture, &imported.roughnessUv);
+      }
+      setImportedTexture(normalTexture,
                          &imported.normalTexture);
       setImportedTexture(material->pbr.coat_factor.texture,
                          &imported.clearcoatTexture);
@@ -563,10 +648,8 @@ public:
                          &imported.sheenRoughnessTexture);
       setImportedTexture(material->pbr.specular_anisotropy.texture,
                          &imported.anisotropyTexture);
-      captureUvTransform(material->pbr.base_color.texture, &imported.baseColorUv);
-      captureUvTransform(material->pbr.base_factor.texture,
-                         &imported.metallicRoughnessUv);
-      captureUvTransform(material->pbr.normal_map.texture, &imported.normalUv);
+      captureUvTransform(baseColorTexture, &imported.baseColorUv);
+      captureUvTransform(normalTexture, &imported.normalUv);
       captureUvTransform(material->pbr.coat_factor.texture,
                          &imported.clearcoatUv);
       captureUvTransform(material->pbr.coat_roughness.texture,
@@ -586,10 +669,7 @@ public:
                          &imported.anisotropyUv);
       importedPbrMaterials_.push_back(std::move(imported));
 
-      assignTexture(material->pbr.base_color.texture, [&](const QString& p) { setLastBaseColorTexture(p); }, "base color texture");
-      if (lastMetallicRoughnessTexture_.isEmpty()) {
-        assignTexture(material->pbr.base_factor.texture, [&](const QString& p) { setLastMetallicRoughnessTexture(p); }, "metallic-roughness texture");
-      }
+      assignTexture(baseColorTexture, [&](const QString& p) { setLastBaseColorTexture(p); }, "base color texture");
       // PBR scalar factors: first material wins. has_value guards files that
       // leave the factor unspecified (ufbx fills defaults otherwise).
       if (!hasLastMetallicFactor_ && material->pbr.metalness.has_value) {
@@ -637,7 +717,7 @@ public:
                     &hasLastSheenRoughnessFactor_,
                     &lastSheenRoughnessFactor_, 0.0f, 1.0f, 0.5f);
       if (lastNormalTexture_.isEmpty()) {
-        assignTexture(material->pbr.normal_map.texture, [&](const QString& p) { setLastNormalTexture(p); }, "normal texture");
+        assignTexture(normalTexture, [&](const QString& p) { setLastNormalTexture(p); }, "normal texture");
       }
       if (lastEmissionTexture_.isEmpty()) {
         assignTexture(material->pbr.emission_color.texture, [&](const QString& p) { setLastEmissionTexture(p); }, "emission texture");
@@ -1071,6 +1151,7 @@ public:
     const QString lowerPath = path.toLower();
     const bool isGltf =
         lowerPath.endsWith(".gltf") || lowerPath.endsWith(".glb");
+    const bool normalizeFbxUvOrigin = lowerPath.endsWith(".fbx");
     const QString backendLabel =
         isGltf ? QStringLiteral("glTF via ufbx") : QStringLiteral("ufbx");
     if (isGltf) {
@@ -1777,7 +1858,11 @@ public:
 
           if (srcMesh->vertex_uv.exists) {
             ufbx_vec2 uv = ufbx_get_vertex_vec2(&srcMesh->vertex_uv, idx);
-            (*uvAttr)[outIdx] = QVector2D(uv.x, uv.y);
+            // FBX uses bottom-left UVs, while decoded image rows and our
+            // Diligent texture consumers address the image from the top.
+            // Normalize here once for the viewer, raster and RT paths.
+            (*uvAttr)[outIdx] = QVector2D(
+                uv.x, normalizeFbxUvOrigin ? 1.0 - uv.y : uv.y);
           }
           if (uv1Attr) {
             if (srcMesh->uv_sets.count > 1 &&
@@ -1785,11 +1870,13 @@ public:
               const ufbx_vertex_vec2& sourceUv1 =
                   srcMesh->uv_sets[1].vertex_uv;
               const ufbx_vec2 uv1 = ufbx_get_vertex_vec2(&sourceUv1, idx);
-              (*uv1Attr)[outIdx] = QVector2D(uv1.x, uv1.y);
+              (*uv1Attr)[outIdx] = QVector2D(
+                  uv1.x, normalizeFbxUvOrigin ? 1.0 - uv1.y : uv1.y);
             } else if (srcMesh->vertex_uv.exists) {
               const ufbx_vec2 uv0 =
                   ufbx_get_vertex_vec2(&srcMesh->vertex_uv, idx);
-              (*uv1Attr)[outIdx] = QVector2D(uv0.x, uv0.y);
+              (*uv1Attr)[outIdx] = QVector2D(
+                  uv0.x, normalizeFbxUvOrigin ? 1.0 - uv0.y : uv0.y);
             } else {
               (*uv1Attr)[outIdx] = QVector2D(0.0f, 0.0f);
             }
