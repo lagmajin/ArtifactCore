@@ -221,31 +221,19 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
         # The target's module dependency metadata supplies the current IFC
         # paths for this implementation and its imports.
     elseif(_artifact_impl_relative STREQUAL "src/Codec/EncoderSetting.cppm")
-        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
-            COMPILE_OPTIONS
-                "/reference;Codec.Encoder.Setting=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreVideo.dir/Codec.Encoder.Setting.ifc"
-                "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc")
+        # This implementation is owned by ArtifactCoreVideo alongside its
+        # primary interface; use that target's module dependency metadata.
     elseif(_artifact_impl_relative STREQUAL "src/Codec/GStreamerDecoder.cppm")
-        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
-            COMPILE_OPTIONS
-                "/reference;Video.GStreamerDecoder=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreVideo.dir/Video.GStreamerDecoder.ifc")
+        # This implementation is owned by ArtifactCoreVideo alongside its
+        # primary interface; use that target's module dependency metadata.
     elseif(_artifact_impl_relative STREQUAL "src/Codec/MFEncoder.cppm")
-        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
-            COMPILE_OPTIONS
-                "/reference;Codec.MFEncoder=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Codec.MFEncoder.ifc")
+        # Use the generated module dependency metadata for the current IFC path.
     elseif(_artifact_impl_relative STREQUAL "src/Animation/AnimationDynamics.cppm")
         # Use generated module dependency metadata for the current IFC paths.
     elseif(_artifact_impl_relative STREQUAL "src/Channel/Channel.cppm")
         # Use generated module dependency metadata for the current IFC paths.
     elseif(_artifact_impl_relative STREQUAL "src/Codec/MFFrameExtractor.cppm")
-        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
-            COMPILE_OPTIONS
-                "/reference;Codec.MFFrameExtractor=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Codec.MFFrameExtractor.ifc"
-                "/reference;Memory.TrackedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.TrackedPtr.ifc"
-                "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc"
-                "/reference;Container.Debug=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.ifc"
-                "/reference;Container.Debug.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.Registry.ifc"
-                "/reference;Container.NamedVector=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.NamedVector.ifc")
+        # Use generated module dependency metadata for current IFC paths.
     elseif(_artifact_impl_relative STREQUAL "src/Color/ColorBlendMode.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
@@ -2946,11 +2934,13 @@ set(ARTIFACTCORE_VIDEO_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/FFmpegEncoder.Helpers.cppm"
 )
 set(ARTIFACTCORE_VIDEO_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Codec/EncoderSetting.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/FFmpegEncoder.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/AbstractEncoder.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/PlaybackManager.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Stabilizer.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/TransitionFactory.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Codec/GStreamerDecoder.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Transitions/BlockDissolveTransition.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Transitions/CrossfadeTransition.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Transitions/CubeTransition.cppm"
