@@ -2494,6 +2494,16 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
                 "/reference;Container.NamedVector=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.NamedVector.ifc"
                 "/reference;Container.Debug.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.Registry.ifc"
                 "/reference;ArtifactCore.ImageProcessing.OpenCV.RotoBrushEngine=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ArtifactCore.ImageProcessing.OpenCV.RotoBrushEngine.ifc")
+    elseif(_artifact_impl_relative MATCHES "^src/Graphics/GPU(Algorithms|AppendConsume|Capabilities|ThreadPool)\\.cppm$")
+        if(CMAKE_GENERATOR MATCHES "Ninja")
+            set(_artifact_gpu_interface_ifc
+                "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/${_artifact_interface_relative}.ifc")
+        else()
+            set(_artifact_gpu_interface_ifc
+                "${CMAKE_CURRENT_BINARY_DIR}/ArtifactCore.dir/$<CONFIG>/${_artifact_interface_relative}.ifc")
+        endif()
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;${_artifact_module_name}=${_artifact_gpu_interface_ifc}")
     elseif(_artifact_impl_relative STREQUAL "src/EnvironmentVariable/EnvironmentVariable.cppm")
         # CMake already wires this implementation unit to the primary
         # interface in the same split target.  A second explicit /reference
