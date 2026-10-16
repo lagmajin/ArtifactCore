@@ -2494,6 +2494,11 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
                 "/reference;Container.NamedVector=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.NamedVector.ifc"
                 "/reference;Container.Debug.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.Registry.ifc"
                 "/reference;ArtifactCore.ImageProcessing.OpenCV.RotoBrushEngine=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ArtifactCore.ImageProcessing.OpenCV.RotoBrushEngine.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/EnvironmentVariable/EnvironmentVariable.cppm")
+        # CMake already wires this implementation unit to the primary
+        # interface in the same split target.  A second explicit /reference
+        # resolves the same logical module through the aggregate target path
+        # and makes MSVC report an ambiguous IFC.
     elseif(NOT _artifact_impl_relative STREQUAL "src/AI/APIKeyManager.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
@@ -5215,9 +5220,6 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Light/IESProfile.cppm"
     APPEND PROPERTY OBJECT_DEPENDS
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreLight.dir/include/Light/IESProfile.ixx.obj"
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/NamedVector.ixx.obj")
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/EnvironmentVariable/EnvironmentVariable.cppm"
-    PROPERTY COMPILE_OPTIONS
-        "/reference;EnvironmentVariable=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreEnvironment.dir/EnvironmentVariable.ifc")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/EnvironmentVariable/EnvironmentVariable.cppm"
     APPEND PROPERTY OBJECT_DEPENDS
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreEnvironment.dir/include/EnvironmentVariable/EnvironmentVariable.ixx.obj")
