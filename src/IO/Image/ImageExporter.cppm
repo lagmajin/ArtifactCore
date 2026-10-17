@@ -13,6 +13,8 @@ module;
 #include <wobjectimpl.h>
 #include <OpenImageIO/imageio.h>
 #include <OpenImageIO/imagebuf.h>
+#include <OpenImageIO/imagebufalgo.h>
+#include <array>
 #include <future>
 #include <memory>
 #include <cmath>
@@ -331,11 +333,45 @@ ImageExportResult encodeImageBufToPath(const OIIO::ImageBuf& imageBuf,
 
     ImageSpec spec = makeSpec(inSpec.width, inSpec.height, options);
     spec.nchannels = std::min(4, std::max(3, inSpec.nchannels));
+    const int channels = spec.nchannels;
     spec.channelnames = (spec.nchannels == 4)
         ? std::vector<std::string>{"R", "G", "B", "A"}
         : std::vector<std::string>{"R", "G", "B"};
-    // ImageBuf pixels are exported as supplied; preserve their raw channel
-    // values for formats whose writer otherwise assumes premultiplied input.
+    std::array<int, 4> channelOrder{-1, -1, -1, -1};
+    const char* canonicalNames[] = {"r", "g", "b", "a"};
+    for (int channel = 0; channel < channels; ++channel) {
+        for (int candidate = 0;
+             candidate < inSpec.nchannels &&
+             candidate < static_cast<int>(inSpec.channelnames.size());
+             ++candidate) {
+            const QString name = QString::fromStdString(
+                inSpec.channelnames[static_cast<std::size_t>(candidate)])
+                                     .toLower();
+            if (name == QLatin1String(canonicalNames[channel]) ||
+                (channel == 0 && name.endsWith(QLatin1String(".r"))) ||
+                (channel == 1 && name.endsWith(QLatin1String(".g"))) ||
+                (channel == 2 && name.endsWith(QLatin1String(".b"))) ||
+                (channel == 3 && name.endsWith(QLatin1String(".a")))) {
+                channelOrder[static_cast<std::size_t>(channel)] = candidate;
+                break;
+            }
+        }
+    }
+    if (channelOrder[0] < 0 || channelOrder[1] < 0 || channelOrder[2] < 0) {
+        channelOrder[0] = 0;
+        channelOrder[1] = 1;
+        channelOrder[2] = 2;
+    }
+    if (channels == 4 && channelOrder[3] < 0 && inSpec.nchannels >= 4)
+        channelOrder[3] = 3;
+    const std::array<float, 4> channelValues{0.0f, 0.0f, 0.0f, 1.0f};
+    const ImageBuf orderedImage = ImageBufAlgo::channels(
+        imageBuf, channels, channelOrder, channelValues);
+    if (orderedImage.has_error()) {
+        return makeError("encode.channels", QString::fromUtf8(orderedImage.geterror()));
+    }
+
+    // Preserve unassociated alpha for formats whose writer assumes premultiplied input.
     if (spec.nchannels == 4) {
         spec.attribute("oiio:UnassociatedAlpha", 1);
     }
@@ -357,7 +393,6 @@ ImageExportResult encodeImageBufToPath(const OIIO::ImageBuf& imageBuf,
     }
 
     const std::size_t pixelCount = static_cast<std::size_t>(spec.width) * static_cast<std::size_t>(spec.height);
-    const int channels = spec.nchannels;
 
     const bool convertTransfer = !options.outputTransferFunction.trimmed().isEmpty();
     const TypeDesc readType = convertTransfer ? TypeDesc::FLOAT : spec.format;
@@ -370,7 +405,7 @@ ImageExportResult encodeImageBufToPath(const OIIO::ImageBuf& imageBuf,
         pixelData = floatPixels.data();
     }
 
-    if (!imageBuf.get_pixels(ROI::All(), readType, pixelData)) {
+    if (!orderedImage.get_pixels(ROI::All(), readType, pixelData)) {
         out->close();
         return makeError("encode.readpixels", "Failed to read pixels from ImageBuf.");
     }

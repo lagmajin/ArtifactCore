@@ -5,6 +5,7 @@ export module ImageProcessing:LumaKey;
 
 import Particle;
 import Image.ImageF32x4_RGBA;
+import Graphics.SurfaceColorContract;
 
 export namespace ArtifactCore::Keying {
 
@@ -25,10 +26,11 @@ struct LumaKeyBuffers {
     float* dst = nullptr;
     int width = 0;
     int height = 0;
+    SurfaceChannelOrder channelOrder = SurfaceChannelOrder::RGBA;
 };
 
-// src and dst must be distinct buffers. Returns false for invalid
-// dimensions, missing buffers, or (viewMode aside) nothing to do.
+// src and dst must be distinct tightly packed RGBA/BGRA buffers in channelOrder.
+// Returns false for invalid order, dimensions, or missing buffers.
 bool processLumaKey(const LumaKeyBuffers& buffers,
                     const LumaKeyParams& params = {});
 

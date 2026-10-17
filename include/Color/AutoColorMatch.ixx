@@ -40,6 +40,8 @@ export namespace ArtifactCore {
 
 class LIBRARY_DLL_API AutoColorMatcher {
 public:
+    // Raw float pixel buffers use the Artifact image contract: BGRA channel
+    // order with alpha in component 3. MatchResult fields remain logical RGB.
     enum class Method {
         Reinhard,
         MeanStddev,

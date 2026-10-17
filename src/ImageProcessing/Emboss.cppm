@@ -22,9 +22,9 @@ void Emboss::process(float4* buffer, int width, int height, const EmbossSettings
                 for (int dx = -1; dx <= 1; ++dx) {
                     int cx = std::clamp(x + dx, 0, width - 1);
                     int cy = std::clamp(y + dy, 0, height - 1);
-                    float l = tmp[cy * width + cx].x * 0.299f
+                    float l = tmp[cy * width + cx].z * 0.299f
                             + tmp[cy * width + cx].y * 0.587f
-                            + tmp[cy * width + cx].z * 0.114f;
+                            + tmp[cy * width + cx].x * 0.114f;
                     gx += l * k[dy + 1][dx + 1];
                     gy += l * t[dy + 1][dx + 1];
                 }

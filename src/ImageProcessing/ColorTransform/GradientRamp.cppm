@@ -162,6 +162,11 @@ void GradientRampProcessor::apply(float* pixels, int width, int height) const {
     });
 }
 
+void GradientRampProcessor::applyPixel(float x, float y, int width, int height,
+                                       float& r, float& g, float& b, float& a) const {
+    applyGradientPixel(settings_, x, y, width, height, r, g, b, a);
+}
+
 void GradientRampProcessor::applyRow(float* pixels, int width, int height, int y) const {
     if (!pixels || width <= 0 || height <= 0 || y < 0 || y >= height) {
         return;
@@ -169,8 +174,9 @@ void GradientRampProcessor::applyRow(float* pixels, int width, int height, int y
     for (int x = 0; x < width; ++x) {
         float* pixel = pixels + (static_cast<size_t>(y) * static_cast<size_t>(width) +
                                  static_cast<size_t>(x)) * 4u;
-        applyGradientPixel(settings_, static_cast<float>(x), static_cast<float>(y),
-                           width, height, pixel[0], pixel[1], pixel[2], pixel[3]);
+        // Raw image storage is BGRA; applyPixel operates on logical RGBA refs.
+        applyPixel(static_cast<float>(x), static_cast<float>(y), width, height,
+                   pixel[2], pixel[1], pixel[0], pixel[3]);
     }
 }
 

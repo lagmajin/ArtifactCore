@@ -11,7 +11,7 @@ export namespace ArtifactCore {
 struct StrobeLightSettings {
     float frequency = 1.0f;
     float duration = 0.5f;
-    float4 color = float4{1.0f, 1.0f, 1.0f, 1.0f};
+    float4 color = float4{1.0f, 1.0f, 1.0f, 1.0f}; // Logical RGBA color.
     float blendWithOriginal = 0.0f;
 };
 

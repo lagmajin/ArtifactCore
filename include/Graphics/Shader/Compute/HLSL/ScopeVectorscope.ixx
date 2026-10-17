@@ -40,7 +40,7 @@ void VectorscopeCS(uint3 groupId : SV_GroupID, uint3 threadId : SV_GroupThreadID
         uint2 pos = uint2(sx * g_Step, sy * g_Step);
         if (pos.x >= textureSize.x || pos.y >= textureSize.y) continue;
 
-        float4 color = g_InputTexture.Load(int3(pos, 0));
+        float4 color = g_InputTexture.Load(int3(pos, 0)).bgra;
 
         float cb = -0.1146f * color.r - 0.3854f * color.g + 0.5f * color.b;
         float cr =  0.5f * color.r - 0.4542f * color.g - 0.0458f * color.b;

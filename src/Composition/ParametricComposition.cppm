@@ -83,7 +83,7 @@ QJsonObject imageToJson(const ImageF32x4_RGBA& image)
         static_cast<qsizetype>(image.height()) * 4 * static_cast<qsizetype>(sizeof(float));
     object.insert(QStringLiteral("width"), image.width());
     object.insert(QStringLiteral("height"), image.height());
-    object.insert(QStringLiteral("rgba32f"), QString::fromLatin1(
+    object.insert(QStringLiteral("bgra32f"), QString::fromLatin1(
         QByteArray(reinterpret_cast<const char*>(image.rgba32fData()),
                    static_cast<int>(byteCount)).toBase64()));
     return object;
@@ -93,15 +93,26 @@ ImageF32x4_RGBA imageFromJson(const QJsonObject& object)
 {
     const int width = object.value(QStringLiteral("width")).toInt();
     const int height = object.value(QStringLiteral("height")).toInt();
+    const bool hasBgraPayload = object.contains(QStringLiteral("bgra32f"));
+    const QString payloadKey = hasBgraPayload
+        ? QStringLiteral("bgra32f")
+        : QStringLiteral("rgba32f");
     const QByteArray bytes = QByteArray::fromBase64(
-        object.value(QStringLiteral("rgba32f")).toString().toLatin1());
+        object.value(payloadKey).toString().toLatin1());
     const qsizetype expectedSize = static_cast<qsizetype>(width) *
         static_cast<qsizetype>(height) * 4 * static_cast<qsizetype>(sizeof(float));
     ImageF32x4_RGBA image;
     if (width <= 0 || height <= 0 || bytes.size() != expectedSize) {
         return image;
     }
-    image.setFromRGBA32F(reinterpret_cast<const float*>(bytes.constData()), width, height);
+    if (hasBgraPayload) {
+        image.setFromBGRA32F(reinterpret_cast<const float*>(bytes.constData()),
+                             width, height);
+    } else {
+        // Legacy serialized payloads are logical RGBA, as named by their key.
+        image.setFromRGBA32F(reinterpret_cast<const float*>(bytes.constData()),
+                             width, height);
+    }
     return image;
 }
 

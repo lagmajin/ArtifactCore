@@ -78,7 +78,7 @@ void MatteTrackCS(uint3 id : SV_DispatchThreadID)
         : 1.0f;
 
     [branch] if (g_MatteCount > 0) {
-        float4 matteColor = g_MatteSrc0.Load(int3(id.xy, 0));
+        float4 matteColor = g_MatteSrc0.Load(int3(id.xy, 0)).bgra;
         float mask = extractMask(matteColor, g_MatteMode0, lumaCoeffs) * g_MatteOpacity0;
         combinedMask = hasPriorMask
             ? combineMasks(combinedMask, mask, g_MatteBlendMode0)
@@ -86,13 +86,13 @@ void MatteTrackCS(uint3 id : SV_DispatchThreadID)
     }
 
     [branch] if (g_MatteCount > 1) {
-        float4 matteColor = g_MatteSrc1.Load(int3(id.xy, 0));
+        float4 matteColor = g_MatteSrc1.Load(int3(id.xy, 0)).bgra;
         float mask = extractMask(matteColor, g_MatteMode1, lumaCoeffs) * g_MatteOpacity1;
         combinedMask = combineMasks(combinedMask, mask, g_MatteBlendMode1);
     }
 
     [branch] if (g_MatteCount > 2) {
-        float4 matteColor = g_MatteSrc2.Load(int3(id.xy, 0));
+        float4 matteColor = g_MatteSrc2.Load(int3(id.xy, 0)).bgra;
         float mask = extractMask(matteColor, g_MatteMode2, lumaCoeffs) * g_MatteOpacity2;
         combinedMask = combineMasks(combinedMask, mask, g_MatteBlendMode2);
     }

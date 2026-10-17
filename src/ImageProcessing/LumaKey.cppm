@@ -8,6 +8,7 @@ module;
 module ImageProcessing;
 import :LumaKey;
 import Core.Parallel;
+import Graphics.SurfaceColorContract;
 
 import Particle;
 import Image.ImageF32x4_RGBA;
@@ -25,6 +26,12 @@ bool processLumaKey(const LumaKeyBuffers& buffers, const LumaKeyParams& inputPar
     if (!buffers.src || !buffers.dst || buffers.src == buffers.dst ||
         buffers.width <= 0 || buffers.height <= 0)
         return false;
+    if (buffers.channelOrder != SurfaceChannelOrder::RGBA &&
+        buffers.channelOrder != SurfaceChannelOrder::BGRA)
+        return false;
+    const int rIndex = buffers.channelOrder == SurfaceChannelOrder::RGBA ? 0 : 2;
+    constexpr int gIndex = 1;
+    const int bIndex = buffers.channelOrder == SurfaceChannelOrder::RGBA ? 2 : 0;
     const auto width = static_cast<std::size_t>(buffers.width);
     const auto height = static_cast<std::size_t>(buffers.height);
     if (height != 0 && width > std::numeric_limits<std::size_t>::max() / height)
@@ -51,7 +58,8 @@ bool processLumaKey(const LumaKeyBuffers& buffers, const LumaKeyParams& inputPar
                 const std::size_t i = static_cast<std::size_t>(y) * width +
                     static_cast<std::size_t>(x);
                 const float* s = buffers.src + i * 4;
-                const float luma = s[0] * 0.2126f + s[1] * 0.7152f + s[2] * 0.0722f;
+                const float luma = s[rIndex] * 0.2126f + s[gIndex] * 0.7152f +
+                                   s[bIndex] * 0.0722f;
                 if (!std::isfinite(luma) || !std::isfinite(s[3])) {
                     matte[i] = 0.0f;
                     continue;
@@ -122,12 +130,12 @@ bool processLumaKey(const LumaKeyBuffers& buffers, const LumaKeyParams& inputPar
                 float* d = buffers.dst + i * 4;
                 const float alpha = std::clamp(matte[i], 0.0f, 1.0f);
                 if (p.viewMode == 1) {
-                    d[0] = d[1] = d[2] = alpha;
+                    d[rIndex] = d[gIndex] = d[bIndex] = alpha;
                     d[3] = 1.0f;
                 } else {
-                    d[0] = s[0];
-                    d[1] = s[1];
-                    d[2] = s[2];
+                    d[rIndex] = s[rIndex];
+                    d[gIndex] = s[gIndex];
+                    d[bIndex] = s[bIndex];
                     d[3] = std::clamp(s[3] * alpha, 0.0f, 1.0f);
                 }
             }
@@ -153,7 +161,7 @@ void LumaKey::process(float4* buffer, int width, int height, const LumaKeySettin
             for (int x = x0; x < x1; ++x) {
                 const size_t i = rowStart + static_cast<size_t>(x);
                 float4 c = buffer[i];
-            const float luma = c.x * 0.299f + c.y * 0.587f + c.z * 0.114f;
+            const float luma = c.z * 0.299f + c.y * 0.587f + c.x * 0.114f;
 
             float alpha = 1.0f;
             if (luma < lo)

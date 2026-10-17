@@ -69,7 +69,7 @@ void HalftoneCS(uint3 id : SV_DispatchThreadID)
     g_OutputTexture.GetDimensions(dims.x, dims.y);
     if (id.x >= dims.x || id.y >= dims.y) return;
 
-    float4 color = g_InputTexture.Load(int3(id.xy, 0));
+    float4 color = g_InputTexture.Load(int3(id.xy, 0)).bgra;
     float px = (float)id.x + 0.5f;
     float py = (float)id.y + 0.5f;
     float cosA = cos(g_DotParams.y);
@@ -83,7 +83,7 @@ void HalftoneCS(uint3 id : SV_DispatchThreadID)
         float intensity = clamp(lum * g_DotParams.z, 0.0f, 1.0f);
         float ink = 1.0f - channelCoverage(rx, ry, g_DotParams.x, halfDot,
                                            intensity, g_ModeParams.y, g_DotParams.w);
-        g_OutputTexture[id.xy] = float4(ink, ink, ink, color.a);
+        g_OutputTexture[id.xy] = float4(ink, ink, ink, color.a).bgra;
         return;
     }
 
@@ -94,7 +94,7 @@ void HalftoneCS(uint3 id : SV_DispatchThreadID)
         float cr = 1.0f - channelCoverage(rx, ry, g_DotParams.x, halfDot, r, g_ModeParams.y, g_DotParams.w);
         float cg = 1.0f - channelCoverage(rx, ry, g_DotParams.x, halfDot, g, g_ModeParams.y, g_DotParams.w);
         float cb = 1.0f - channelCoverage(rx, ry, g_DotParams.x, halfDot, b, g_ModeParams.y, g_DotParams.w);
-        g_OutputTexture[id.xy] = float4(cr, cg, cb, color.a);
+        g_OutputTexture[id.xy] = float4(cr, cg, cb, color.a).bgra;
         return;
     }
 
@@ -116,7 +116,7 @@ void HalftoneCS(uint3 id : SV_DispatchThreadID)
                                     intensity, g_ModeParams.y, g_DotParams.w);
         result *= ink;
     }
-    g_OutputTexture[id.xy] = float4(result, color.a);
+    g_OutputTexture[id.xy] = float4(result, color.a).bgra;
 }
 )";
 

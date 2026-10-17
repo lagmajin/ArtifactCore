@@ -64,8 +64,8 @@ void HistogramLumaCS(uint3 groupId : SV_GroupID, uint3 threadId : SV_GroupThread
         if (pixelIndex >= totalPixels) continue;
         uint2 pos = uint2(pixelIndex % textureSize.x, pixelIndex / textureSize.x);
         if (g_RegionSize.x != 0u && g_RegionSize.y != 0u && !inRegion(pos)) continue;
-        float4 color = g_InputTexture.Load(int3(pos, 0));
-        uint bin = (uint)clamp(luminance(color.rgb) * 255.0f, 0.0f, 255.0f);
+        float4 colorBgra = g_InputTexture.Load(int3(pos, 0));
+        uint bin = (uint)clamp(luminance(colorBgra.bgra.rgb) * 255.0f, 0.0f, 255.0f);
         InterlockedAdd(gs_Histogram[bin], 1);
     }
 
@@ -95,10 +95,10 @@ void HistogramRGBCS(uint3 groupId : SV_GroupID, uint3 threadId : SV_GroupThreadI
         if (pixelIndex >= totalPixels) continue;
         uint2 pos = uint2(pixelIndex % textureSize.x, pixelIndex / textureSize.x);
         if (g_RegionSize.x != 0u && g_RegionSize.y != 0u && !inRegion(pos)) continue;
-        float4 color = g_InputTexture.Load(int3(pos, 0));
-        InterlockedAdd(gs_HistogramR[(uint)clamp(color.r * 255.0f, 0.0f, 255.0f)], 1);
-        InterlockedAdd(gs_HistogramG[(uint)clamp(color.g * 255.0f, 0.0f, 255.0f)], 1);
-        InterlockedAdd(gs_HistogramB[(uint)clamp(color.b * 255.0f, 0.0f, 255.0f)], 1);
+        float3 rgb = g_InputTexture.Load(int3(pos, 0)).bgra.rgb;
+        InterlockedAdd(gs_HistogramR[(uint)clamp(rgb.r * 255.0f, 0.0f, 255.0f)], 1);
+        InterlockedAdd(gs_HistogramG[(uint)clamp(rgb.g * 255.0f, 0.0f, 255.0f)], 1);
+        InterlockedAdd(gs_HistogramB[(uint)clamp(rgb.b * 255.0f, 0.0f, 255.0f)], 1);
     }
 
     GroupMemoryBarrierWithGroupSync();
@@ -127,13 +127,13 @@ void StatisticsCS(uint3 id : SV_DispatchThreadID, uint3 groupThreadId : SV_Group
     if (validPixel && regionEnabled && any(id.xy >= g_RegionSize)) validPixel = false;
 
     if (validPixel) {
-        float4 c = g_InputTexture.Load(int3(pixelPos, 0));
-        float l = luminance(c.rgb);
+        float3 rgb = g_InputTexture.Load(int3(pixelPos, 0)).bgra.rgb;
+        float l = luminance(rgb);
 
         // Detect range loss before the histogram bin clamps the source value.
         // Counts are accumulated once per thread group to limit atomics.
-        bool highClipped = any(c.rgb > 1.0f.xxx);
-        bool lowClipped = any(c.rgb < 0.0f.xxx);
+        bool highClipped = any(rgb > 1.0f.xxx);
+        bool lowClipped = any(rgb < 0.0f.xxx);
         bool channelClipped = highClipped || lowClipped;
 
         uint bin = (uint)clamp(l * 255.0f, 0.0f, 255.0f);

@@ -33,7 +33,7 @@ void AnamorphicFlare::process(float4* buffer, int width, int height, const Anamo
         for (int x = x0; x < x1; ++x) {
             const size_t i = static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(x);
                 float4 pixel = original[i];
-                float luminance = pixel.x * 0.299f + pixel.y * 0.587f + pixel.z * 0.114f;
+                float luminance = pixel.z * 0.299f + pixel.y * 0.587f + pixel.x * 0.114f;
                 if (luminance > threshold) {
                     // High luminance generates a streak
                     float scale = (luminance - threshold) / (1.0f - threshold + 0.001f);
@@ -90,14 +90,14 @@ void AnamorphicFlare::process(float4* buffer, int width, int height, const Anamo
                 float4 streak_pixel = streaks[i];
 
                 // Apply tint and intensity to the horizontal flare
-                float r_flare = streak_pixel.x * tint.x * intensity;
+                float r_flare = streak_pixel.z * tint.x * intensity;
                 float g_flare = streak_pixel.y * tint.y * intensity;
-                float b_flare = streak_pixel.z * tint.z * intensity;
+                float b_flare = streak_pixel.x * tint.z * intensity;
 
                 // Additive blend with clamping to prevent HDR blow-outs
-                buffer[i].x = std::clamp(orig_pixel.x + r_flare, 0.0f, 1.0f);
+                buffer[i].x = std::clamp(orig_pixel.x + b_flare, 0.0f, 1.0f);
                 buffer[i].y = std::clamp(orig_pixel.y + g_flare, 0.0f, 1.0f);
-                buffer[i].z = std::clamp(orig_pixel.z + b_flare, 0.0f, 1.0f);
+                buffer[i].z = std::clamp(orig_pixel.z + r_flare, 0.0f, 1.0f);
                 buffer[i].w = orig_pixel.w; // Preserve original alpha
         }
         }

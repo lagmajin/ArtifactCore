@@ -22,9 +22,9 @@ void StrobeLight::process(float4* buffer, int width, int height, const StrobeLig
                 const size_t rowStart = static_cast<size_t>(y) * static_cast<size_t>(width);
                 for (int x = x0; x < x1; ++x) {
                     auto& px = buffer[rowStart + static_cast<size_t>(x)];
-                    px.x = px.x * s.blendWithOriginal + s.color.x * (1.0f - s.blendWithOriginal);
+                    px.x = px.x * s.blendWithOriginal + s.color.z * (1.0f - s.blendWithOriginal);
                     px.y = px.y * s.blendWithOriginal + s.color.y * (1.0f - s.blendWithOriginal);
-                    px.z = px.z * s.blendWithOriginal + s.color.z * (1.0f - s.blendWithOriginal);
+                    px.z = px.z * s.blendWithOriginal + s.color.x * (1.0f - s.blendWithOriginal);
                     px.w = px.w * s.blendWithOriginal + s.color.w * (1.0f - s.blendWithOriginal);
                 }
             }

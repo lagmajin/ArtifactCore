@@ -38,6 +38,7 @@ module;
 module Image.ImageYUV420;
 
 import Core.Parallel;
+import Graphics.SurfaceColorContract;
 import Image.ImageF32x4_RGBA;
 import FloatRGBA;
 
@@ -145,6 +146,12 @@ ImageYUV420 ImageYUV420::fromImage32xRGBA(const ImageF32x4_RGBA& rgba) {
     ImageYUV420 out;
     int w = rgba.width();
     int h = rgba.height();
+    const float* sourcePixels = rgba.rgba32fData();
+    const auto channelOrder = rgba.colorDescriptor().channelOrder;
+    if (!sourcePixels || (channelOrder != SurfaceChannelOrder::RGBA &&
+                          channelOrder != SurfaceChannelOrder::BGRA)) {
+        return out;
+    }
     out.impl_->width_ = w;
     out.impl_->height_ = h;
     out.impl_->y_plane_.assign(w * h, 0);
@@ -152,15 +159,17 @@ ImageYUV420 ImageYUV420::fromImage32xRGBA(const ImageF32x4_RGBA& rgba) {
     int uh = (h + 1) / 2;
     out.impl_->u_plane_.assign(uw * uh, 128);
     out.impl_->v_plane_.assign(uw * uh, 128);
-    const float* sourcePixels = rgba.rgba32fData();
+    const bool sourceIsRgba = channelOrder == SurfaceChannelOrder::RGBA;
+    const std::size_t redIndex = sourceIsRgba ? 0u : 2u;
+    const std::size_t blueIndex = sourceIsRgba ? 2u : 0u;
 
     Parallel::ForPixels(0, h, w, h, [&](int y) {
         for (int x=0;x<w;++x) {
             const float* p = sourcePixels +
                 (static_cast<size_t>(y) * w + x) * 4u;
-            int r = static_cast<int>(p[0] * 255.0f + 0.5f);
+            int r = static_cast<int>(p[redIndex] * 255.0f + 0.5f);
             int g = static_cast<int>(p[1] * 255.0f + 0.5f);
-            int b = static_cast<int>(p[2] * 255.0f + 0.5f);
+            int b = static_cast<int>(p[blueIndex] * 255.0f + 0.5f);
             int Y = static_cast<int>(0.299 * r + 0.587 * g + 0.114 * b + 0.5);
             out.impl_->y_plane_[y * w + x] = static_cast<uint8_t>(std::clamp(Y,0,255));
         }
@@ -174,9 +183,9 @@ ImageYUV420 ImageYUV420::fromImage32xRGBA(const ImageF32x4_RGBA& rgba) {
                 if (sx >= w || sy >= h) continue;
                 const float* p = sourcePixels +
                     (static_cast<size_t>(sy) * w + sx) * 4u;
-                int r = static_cast<int>(p[0] * 255.0f + 0.5f);
+                int r = static_cast<int>(p[redIndex] * 255.0f + 0.5f);
                 int g = static_cast<int>(p[1] * 255.0f + 0.5f);
-                int b = static_cast<int>(p[2] * 255.0f + 0.5f);
+                int b = static_cast<int>(p[blueIndex] * 255.0f + 0.5f);
                 int U = static_cast<int>(-0.169 * r - 0.331 * g + 0.5 * b + 128.5);
                 int V = static_cast<int>(0.5 * r - 0.419 * g - 0.081 * b + 128.5);
                 sumU += U; sumV += V; ++cnt;
@@ -211,9 +220,9 @@ ImageF32x4_RGBA ImageYUV420::toImage32xRGBA() const {
         int B = static_cast<int>(C + 1.772 * (U - 128));
         auto clampf = [](int v)->float { if (v<0) v=0; if (v>255) v=255; return v/255.0f; };
         float* pixel = outRow + static_cast<std::size_t>(x) * 4u;
-        pixel[0] = clampf(R);
+        pixel[0] = clampf(B);
         pixel[1] = clampf(G);
-        pixel[2] = clampf(B);
+        pixel[2] = clampf(R);
         pixel[3] = 1.0f;
     }});
     return out;

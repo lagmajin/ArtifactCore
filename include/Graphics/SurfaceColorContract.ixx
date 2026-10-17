@@ -71,6 +71,13 @@ struct SurfaceColorDescriptor {
     return descriptor;
   }
 
+  static constexpr SurfaceColorDescriptor unknownBgra32Float() noexcept {
+    SurfaceColorDescriptor descriptor;
+    descriptor.storage = SurfacePixelStorage::RGBA32Float;
+    descriptor.channelOrder = SurfaceChannelOrder::BGRA;
+    return descriptor;
+  }
+
   static constexpr SurfaceColorDescriptor canonicalLinearPremultiplied(
       SurfaceColorPrimaries workingPrimaries =
           SurfaceColorPrimaries::SRGB_Rec709_D65) noexcept {
@@ -82,6 +89,14 @@ struct SurfaceColorDescriptor {
     descriptor.alphaMode = SurfaceAlphaMode::Premultiplied;
     descriptor.range = SurfaceColorRange::SceneReferred;
     descriptor.transferKnown = true;
+    return descriptor;
+  }
+
+  static constexpr SurfaceColorDescriptor canonicalLinearPremultipliedBgra(
+      SurfaceColorPrimaries workingPrimaries =
+          SurfaceColorPrimaries::SRGB_Rec709_D65) noexcept {
+    auto descriptor = canonicalLinearPremultiplied(workingPrimaries);
+    descriptor.channelOrder = SurfaceChannelOrder::BGRA;
     return descriptor;
   }
 
@@ -104,6 +119,19 @@ struct SurfaceColorDescriptor {
     return descriptor;
   }
 
+  static constexpr SurfaceColorDescriptor encodedSrgbBgra8Premultiplied()
+      noexcept {
+    auto descriptor = encodedSrgbRgba8Premultiplied();
+    descriptor.channelOrder = SurfaceChannelOrder::BGRA;
+    return descriptor;
+  }
+
+  static constexpr SurfaceColorDescriptor encodedSrgbBgra8Straight() noexcept {
+    auto descriptor = encodedSrgbBgra8Premultiplied();
+    descriptor.alphaMode = SurfaceAlphaMode::Straight;
+    return descriptor;
+  }
+
   static constexpr SurfaceColorDescriptor linearStraightRgba32Float(
       SurfaceColorPrimaries workingPrimaries =
           SurfaceColorPrimaries::SRGB_Rec709_D65) noexcept {
@@ -117,6 +145,22 @@ struct SurfaceColorDescriptor {
       SurfaceColorPrimaries workingPrimaries =
           SurfaceColorPrimaries::SRGB_Rec709_D65) noexcept {
     auto descriptor = linearStraightRgba32Float(workingPrimaries);
+    descriptor.storage = SurfacePixelStorage::RGBA16Float;
+    return descriptor;
+  }
+
+  static constexpr SurfaceColorDescriptor linearStraightBgra32Float(
+      SurfaceColorPrimaries workingPrimaries =
+          SurfaceColorPrimaries::SRGB_Rec709_D65) noexcept {
+    auto descriptor = linearStraightRgba32Float(workingPrimaries);
+    descriptor.channelOrder = SurfaceChannelOrder::BGRA;
+    return descriptor;
+  }
+
+  static constexpr SurfaceColorDescriptor linearStraightBgra16Float(
+      SurfaceColorPrimaries workingPrimaries =
+          SurfaceColorPrimaries::SRGB_Rec709_D65) noexcept {
+    auto descriptor = linearStraightBgra32Float(workingPrimaries);
     descriptor.storage = SurfacePixelStorage::RGBA16Float;
     return descriptor;
   }
@@ -150,6 +194,12 @@ struct SurfaceColorDescriptor {
            transfer == TransferFunction::Linear &&
            alphaMode == SurfaceAlphaMode::Premultiplied &&
            range == SurfaceColorRange::SceneReferred;
+  }
+
+  constexpr bool isCanonicalCpuImage() const noexcept {
+    return (storage == SurfacePixelStorage::RGBA32Float ||
+            storage == SurfacePixelStorage::RGBA16Float) &&
+           channelOrder == SurfaceChannelOrder::BGRA;
   }
 
   friend constexpr bool operator==(const SurfaceColorDescriptor &,

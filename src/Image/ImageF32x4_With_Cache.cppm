@@ -41,6 +41,7 @@ module;
 module Image.ImageF32x4RGBAWithCache;
 
 import Image.ImageF32x4_RGBA;
+import Image.GpuImageUpload;
 
 namespace Diligent {}//dummy
 
@@ -58,6 +59,7 @@ namespace ArtifactCore
   void ResetDirtyBox(Diligent::Box& box);
  public:
   ImageF32x4_RGBA m_cpuImage;
+  GpuImageUploadBuffer m_gpuUploadScratch;
   Diligent::RefCntAutoPtr<ITexture> m_pGpuTexture;
   Diligent::RefCntAutoPtr<IRenderDevice> m_pDevice;
   Diligent::RefCntAutoPtr<IDeviceContext> m_pContext;
@@ -80,7 +82,10 @@ namespace ArtifactCore
 
  void ImageF32x4RGBAWithCache::Impl::CreateGpuTextureInternal(RefCntAutoPtr<IRenderDevice> pDevice, uint32_t width, uint32_t height)
  {
-  if (!pDevice || width == 0 || height == 0 || !m_cpuImage.rgba32fData()) return;
+  if (!pDevice || width == 0 || height == 0 ||
+      !makeGpuImageUploadBuffer(m_cpuImage.surfaceView(),
+                                GpuImageChannelOrder::Bgra,
+                                m_gpuUploadScratch)) return;
   TextureDesc desc;
   desc.Name = "ImageF32x4RGBAWithCache";
   desc.Type = RESOURCE_DIM_TEX_2D;
@@ -92,8 +97,8 @@ namespace ArtifactCore
   desc.Usage = USAGE_DEFAULT;
   desc.BindFlags = BIND_SHADER_RESOURCE | BIND_UNORDERED_ACCESS;
   TextureSubResData subresource;
-  subresource.pData = m_cpuImage.rgba32fData();
-  subresource.Stride = static_cast<Uint64>(width) * 4u * sizeof(float);
+  subresource.pData = m_gpuUploadScratch.data();
+  subresource.Stride = static_cast<Uint64>(m_gpuUploadScratch.rowStride);
   TextureData initialData;
   initialData.pSubResources = &subresource;
   initialData.NumSubresources = 1;
@@ -161,7 +166,10 @@ namespace ArtifactCore
  void ImageF32x4RGBAWithCache::Impl::UpdateGpuTextureFromCpuData()
  {
   if (!m_pDevice || !m_pContext || m_cpuImage.width() <= 0 || m_cpuImage.height() <= 0 ||
-      !m_cpuImage.rgba32fData()) return;
+      !m_cpuImage.rgba32fData() ||
+      !makeGpuImageUploadBuffer(m_cpuImage.surfaceView(),
+                                GpuImageChannelOrder::Bgra,
+                                m_gpuUploadScratch)) return;
   if (!m_pGpuTexture || m_pGpuTexture->GetDesc().Width != static_cast<Uint32>(m_cpuImage.width()) ||
       m_pGpuTexture->GetDesc().Height != static_cast<Uint32>(m_cpuImage.height())) {
    CreateGpuTextureInternal(m_pDevice, static_cast<uint32_t>(m_cpuImage.width()),
@@ -169,8 +177,8 @@ namespace ArtifactCore
    return;
   }
   TextureSubResData subresource;
-  subresource.pData = m_cpuImage.rgba32fData();
-  subresource.Stride = static_cast<Uint64>(m_cpuImage.width()) * 4u * sizeof(float);
+  subresource.pData = m_gpuUploadScratch.data();
+  subresource.Stride = static_cast<Uint64>(m_gpuUploadScratch.rowStride);
   if (m_cpuDirtyBox.MaxX <= m_cpuDirtyBox.MinX ||
       m_cpuDirtyBox.MaxY <= m_cpuDirtyBox.MinY)
    ResetDirtyBox(m_cpuDirtyBox);
@@ -207,17 +215,12 @@ namespace ArtifactCore
   m_pContext->MapTextureSubresource(stagingTexture, 0, 0, MAP_READ,
                                     MAP_FLAG_NONE, nullptr, mapped);
   if (!mapped.pData || mapped.Stride == 0) return;
-  const std::size_t rowFloats = static_cast<std::size_t>(textureDesc.Width) * 4u;
-  std::vector<float> packed(rowFloats * textureDesc.Height);
-  for (Uint32 row = 0; row < textureDesc.Height; ++row) {
-   std::memcpy(packed.data() + static_cast<std::size_t>(row) * rowFloats,
-               static_cast<const char*>(mapped.pData) +
-                   static_cast<std::size_t>(row) * mapped.Stride,
-               rowFloats * sizeof(float));
-  }
+  const bool copied = m_cpuImage.setFromGpuBGRA32F(
+      static_cast<const float*>(mapped.pData),
+      static_cast<int>(textureDesc.Width), static_cast<int>(textureDesc.Height),
+      static_cast<std::size_t>(mapped.Stride), m_cpuImage.colorDescriptor());
   m_pContext->UnmapTextureSubresource(stagingTexture, 0, 0);
-  m_cpuImage.setFromRGBA32F(packed.data(), static_cast<int>(textureDesc.Width),
-                            static_cast<int>(textureDesc.Height));
+  if (!copied) return;
   m_bGpuDataDirty = false;
   m_bCpuDataDirty = false;
   ResetDirtyBox(m_cpuDirtyBox);

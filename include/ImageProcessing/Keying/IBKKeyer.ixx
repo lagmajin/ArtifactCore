@@ -8,6 +8,7 @@ module;
 export module ImageProcessing:IBKKeyer;
 
 import Image.ImageF32x4_RGBA;
+import Graphics.SurfaceColorContract;
 
 export namespace ArtifactCore::Keying {
 
@@ -66,10 +67,13 @@ struct IBKBuffers {
     float* outputRGBA = nullptr;
     int width = 0;
     int height = 0;
+    SurfaceChannelOrder foregroundOrder = SurfaceChannelOrder::RGBA;
+    SurfaceChannelOrder cleanPlateOrder = SurfaceChannelOrder::RGBA;
 };
 
-// Processes tightly packed RGBA float32 buffers. Returns false for invalid
-// dimensions or missing buffers; otherwise outputRGBA is fully written.
+// Processes tightly packed RGBA/BGRA float32 buffers. Each input order is
+// explicit; output storage follows foregroundOrder. Returns false for invalid
+// orders, dimensions, or missing buffers.
 bool processIBK(const IBKBuffers& buffers, const IBKParams& params = {});
 
 // Builds a clean plate by taking the per-channel temporal median. All input

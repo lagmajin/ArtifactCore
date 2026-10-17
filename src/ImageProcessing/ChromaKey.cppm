@@ -9,6 +9,7 @@ module;
 module ImageProcessing;
 import :ChromaKey;
 import Core.Parallel;
+import Graphics.SurfaceColorContract;
 
 namespace ArtifactCore::Keying {
 namespace {
@@ -118,6 +119,12 @@ ChromaKeyGpuParams ChromaKeyGpuParams::fromParams(const ChromaKeyParams& source)
 bool processChromaKey(const ChromaKeyBuffers& buffers, const ChromaKeyParams& inputParams) {
     if (!buffers.src || !buffers.dst || buffers.width <= 0 || buffers.height <= 0)
         return false;
+    if (buffers.channelOrder != SurfaceChannelOrder::RGBA &&
+        buffers.channelOrder != SurfaceChannelOrder::BGRA)
+        return false;
+    const int rIndex = buffers.channelOrder == SurfaceChannelOrder::RGBA ? 0 : 2;
+    constexpr int gIndex = 1;
+    const int bIndex = buffers.channelOrder == SurfaceChannelOrder::RGBA ? 2 : 0;
     const auto width = static_cast<std::size_t>(buffers.width);
     const auto height = static_cast<std::size_t>(buffers.height);
     if (height != 0 && width > std::numeric_limits<std::size_t>::max() / height)
@@ -158,7 +165,7 @@ bool processChromaKey(const ChromaKeyBuffers& buffers, const ChromaKeyParams& in
                 const std::size_t i = static_cast<std::size_t>(y) * width + static_cast<std::size_t>(x);
                 const float* s = buffers.src + i * 4;
                 float* d = buffers.dst + i * 4;
-                float r = s[0], g = s[1], b = s[2];
+                float r = s[rIndex], g = s[gIndex], b = s[bIndex];
                 const float srcA = std::clamp(std::isfinite(s[3]) ? s[3] : 0.0f, 0.0f, 1.0f);
                 if (!std::isfinite(r) || !std::isfinite(g) || !std::isfinite(b)) {
                     d[0] = d[1] = d[2] = d[3] = 0.0f;
@@ -175,23 +182,23 @@ bool processChromaKey(const ChromaKeyBuffers& buffers, const ChromaKeyParams& in
                              alpha, p.despillStrength, p.despillMode);
                 const float outA = std::clamp(srcA * alpha, 0.0f, 1.0f);
                 if (p.viewMode == 1) {
-                    d[0] = d[1] = d[2] = alpha;
+                    d[rIndex] = d[gIndex] = d[bIndex] = alpha;
                     d[3] = 1.0f;
                 } else if (p.viewMode == 2) {
-                    d[0] = r;
-                    d[1] = g;
-                    d[2] = b;
+                    d[rIndex] = r;
+                    d[gIndex] = g;
+                    d[bIndex] = b;
                     d[3] = 1.0f;
                 } else if (p.viewMode == 3) {
                     // Status: red=culled, green=opaque, blend in between.
-                    d[0] = 1.0f - alpha;
-                    d[1] = alpha;
-                    d[2] = 0.15f * (1.0f - std::abs(alpha * 2.0f - 1.0f));
+                    d[rIndex] = 1.0f - alpha;
+                    d[gIndex] = alpha;
+                    d[bIndex] = 0.15f * (1.0f - std::abs(alpha * 2.0f - 1.0f));
                     d[3] = 1.0f;
                 } else {
-                    d[0] = r;
-                    d[1] = g;
-                    d[2] = b;
+                    d[rIndex] = r;
+                    d[gIndex] = g;
+                    d[bIndex] = b;
                     d[3] = outA;
                 }
             }
@@ -282,17 +289,17 @@ bool processChromaKey(const ChromaKeyBuffers& buffers, const ChromaKeyParams& in
                             const int sx = std::clamp(x + dx, 0, w - 1);
                             const int sy = std::clamp(y + dy, 0, h - 1);
                             const std::size_t sidx = static_cast<std::size_t>(sy) * width + static_cast<std::size_t>(sx);
-                            ambR += buffers.dst[sidx * 4 + 0];
-                            ambG += buffers.dst[sidx * 4 + 1];
-                            ambB += buffers.dst[sidx * 4 + 2];
+                            ambR += buffers.dst[sidx * 4 + rIndex];
+                            ambG += buffers.dst[sidx * 4 + gIndex];
+                            ambB += buffers.dst[sidx * 4 + bIndex];
                             ++count;
                         }
                     }
                     if (count > 0) {
                         ambR /= count; ambG /= count; ambB /= count;
-                        d[0] = std::max(0.0f, d[0] + (ambR - d[0]) * edgeWeight);
-                        d[1] = std::max(0.0f, d[1] + (ambG - d[1]) * edgeWeight);
-                        d[2] = std::max(0.0f, d[2] + (ambB - d[2]) * edgeWeight);
+                        d[rIndex] = std::max(0.0f, d[rIndex] + (ambR - d[rIndex]) * edgeWeight);
+                        d[gIndex] = std::max(0.0f, d[gIndex] + (ambG - d[gIndex]) * edgeWeight);
+                        d[bIndex] = std::max(0.0f, d[bIndex] + (ambB - d[bIndex]) * edgeWeight);
                     }
                 }
             }
@@ -332,9 +339,24 @@ void ChromaKey::process(float4* buffer, int width, int height, const ChromaKeySe
 }
 
 void ChromaKey::process(ImageF32x4_RGBA& image, const ChromaKeySettings& settings) {
-    process(reinterpret_cast<float4*>(image.rgba32fData()),
-            static_cast<int>(image.width()),
-            static_cast<int>(image.height()), settings);
+    float* data = image.rgba32fData();
+    const int width = static_cast<int>(image.width());
+    const int height = static_cast<int>(image.height());
+    if (!data || width <= 0 || height <= 0) return;
+    Keying::ChromaKeyParams params;
+    params.keyColor = float4{settings.keyColor.x, settings.keyColor.y,
+                             settings.keyColor.z, 1.0f};
+    params.hueTolerance = std::clamp(settings.tolerance * 0.9f, 0.0f, 1.0f);
+    params.edgeSoftness = std::max(1.0e-4f, settings.softness);
+    params.despillMode = 2;
+    Keying::ChromaKeyBuffers buffers{
+        data, data, width, height, image.colorDescriptor().channelOrder};
+    const std::size_t count = static_cast<std::size_t>(width) *
+                              static_cast<std::size_t>(height) * 4;
+    std::vector<float> snapshot(count);
+    std::copy_n(data, count, snapshot.data());
+    buffers.src = snapshot.data();
+    Keying::processChromaKey(buffers, params);
 }
 
 }

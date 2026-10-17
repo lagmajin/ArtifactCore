@@ -23,7 +23,7 @@ void LUT3DCS(uint3 id : SV_DispatchThreadID)
     g_OutputTexture.GetDimensions(dims.x, dims.y);
     if (id.x >= dims.x || id.y >= dims.y) return;
 
-    float4 color = g_InputTexture.Load(int3(id.xy, 0));
+    float4 color = g_InputTexture.Load(int3(id.xy, 0)).bgra;
 
     uint width, height, depth;
     g_LUT.GetDimensions(width, height, depth);
@@ -53,7 +53,7 @@ void LUT3DCS(uint3 id : SV_DispatchThreadID)
     float4 c1  = lerp(c01, c11, d.y);
     float4 result = lerp(c0, c1, d.z);
 
-    g_OutputTexture[id.xy] = float4(result.rgb, color.a);
+    g_OutputTexture[id.xy] = float4(result.rgb, color.a).bgra;
 }
 )";
 

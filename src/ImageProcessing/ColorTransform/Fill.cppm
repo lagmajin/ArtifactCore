@@ -106,6 +106,10 @@ void SolidFillProcessor::apply(float* pixels, int width, int height) const {
     });
 }
 
+void SolidFillProcessor::applyPixel(float& r, float& g, float& b, float& a) const {
+    applyFillPixel(settings_, r, g, b, a);
+}
+
 void SolidFillProcessor::applyRow(float* pixels, int width, int height, int y) const {
     if (!pixels || width <= 0 || height <= 0 || y < 0 || y >= height) {
         return;
@@ -113,7 +117,8 @@ void SolidFillProcessor::applyRow(float* pixels, int width, int height, int y) c
     for (int x = 0; x < width; ++x) {
         float* pixel = pixels + (static_cast<size_t>(y) * static_cast<size_t>(width) +
                                  static_cast<size_t>(x)) * 4u;
-        applyFillPixel(settings_, pixel[0], pixel[1], pixel[2], pixel[3]);
+        // Raw image storage is BGRA; applyPixel operates on logical RGBA refs.
+        applyPixel(pixel[2], pixel[1], pixel[0], pixel[3]);
     }
 }
 

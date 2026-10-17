@@ -9,6 +9,7 @@ import Image.ImageF32x4_RGBA;
 export namespace ArtifactCore {
 
 struct LeaveColorSettings {
+    // Color controls remain logical RGBA even though image buffers are BGRA.
     float4 keyColor = float4{0, 1, 0, 1};
     float tolerance = 0.2f;
     float softness = 0.1f;

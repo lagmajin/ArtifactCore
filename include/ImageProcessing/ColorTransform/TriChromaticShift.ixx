@@ -58,7 +58,7 @@ public:
     /// ImageF32x4_RGBA に適用（インプレース）
     void apply(ImageF32x4_RGBA& image) const;
 
-    /// float4 生バッファに適用
+    /// BGRA順のfloat4生バッファに適用
     void apply(float4* buffer, int width, int height) const;
 
     /// 単一ピクセルに適用

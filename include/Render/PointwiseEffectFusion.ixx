@@ -433,7 +433,7 @@ public:
         hlsl << "  uint width, height; OutputTexture.GetDimensions(width, height);\n";
         hlsl << "  if (dispatchId.x >= width || dispatchId.y >= height) return;\n";
         hlsl << "  uint2 pixel = dispatchId.xy;\n";
-        hlsl << "  float4 color = SourceTexture.Load(int3(pixel, 0));\n";
+        hlsl << "  float4 color = SourceTexture.Load(int3(pixel, 0)).bgra;\n";
         PointwiseAlphaMode alpha = segment.inputAlpha;
         const std::size_t end = segment.firstNode + segment.nodeCount;
         for (std::size_t i = segment.firstNode; i < end; ++i) {
@@ -457,10 +457,10 @@ public:
             // it must never scale or grade the result.  Working in premultiplied
             // space keeps the lerp correct for semi-transparent pixels.
             hlsl << "  float maskValue = saturate(MaskTexture.Load(int3(pixel, 0)).a * Parameters[63].x);\n";
-            hlsl << "  float4 original = OriginalTexture.Load(int3(pixel, 0));\n";
+            hlsl << "  float4 original = OriginalTexture.Load(int3(pixel, 0)).bgra;\n";
             hlsl << "  color = lerp(original, color, maskValue);\n";
         }
-        hlsl << "  OutputTexture[pixel] = color;\n}\n";
+        hlsl << "  OutputTexture[pixel] = color.bgra;\n}\n";
         result.source = hlsl.str();
         return result;
     }
@@ -661,7 +661,7 @@ private:
             hlsl << "  color.rgb = lerp(color.rgb, LutTexture.SampleLevel(LinearSampler, saturate(color.rgb), 0).rgb, " << p << ".x);\n";
             break;
         case PointwiseNodeKind::Blend:
-            hlsl << "  { float4 background = BackgroundTexture.Load(int3(pixel, 0));\n";
+            hlsl << "  { float4 background = BackgroundTexture.Load(int3(pixel, 0)).bgra;\n";
             switch (node.blendMode) {
             case PointwiseBlendMode::Add:
                 hlsl << "    color.rgb += background.rgb;\n";

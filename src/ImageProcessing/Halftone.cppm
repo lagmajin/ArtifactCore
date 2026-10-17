@@ -117,7 +117,7 @@ void Halftone::process(float4* buffer, int width, int height, const HalftoneSett
                 const auto& src = original[idx];
 
                 if (settings.colorMode == HalftoneColorMode::Monochrome) {
-                    const float lum = src.x * 0.299f + src.y * 0.587f + src.z * 0.114f;
+                    const float lum = src.z * 0.299f + src.y * 0.587f + src.x * 0.114f;
                     const float intensity = std::clamp(lum * settings.contrast, 0.0f, 1.0f);
                     const float ink = 1.0f - channelCoverage(rx, ry, dotSize, halfDot, intensity,
                                                              settings.dotShape, settings.ellipseAspect);
@@ -150,10 +150,13 @@ void Halftone::process(float4* buffer, int width, int height, const HalftoneSett
             for (int x = x0; x < x1; ++x) {
                 const int i = y * width + x;
                 const auto& s = original[i];
-                const float k = 1.0f - std::max({s.x, s.y, s.z});
-                const float c = k < 1.0f ? (1.0f - s.x - k) / (1.0f - k) : 0.0f;
+                const float r = s.z;
+                const float g = s.y;
+                const float b = s.x;
+                const float k = 1.0f - std::max({r, g, b});
+                const float c = k < 1.0f ? (1.0f - r - k) / (1.0f - k) : 0.0f;
                 const float m = k < 1.0f ? (1.0f - s.y - k) / (1.0f - k) : 0.0f;
-                const float y_ = k < 1.0f ? (1.0f - s.z - k) / (1.0f - k) : 0.0f;
+                const float y_ = k < 1.0f ? (1.0f - b - k) / (1.0f - k) : 0.0f;
                 cmyk[i] = {c, m, y_, k};
             }
         }

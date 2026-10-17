@@ -4,6 +4,7 @@ module;
 #include <algorithm>
 #include <functional>
 #include <cstdint>
+#include <cstddef>
 #include <vector>
 
 module ImageProcessing.Distortion;
@@ -11,10 +12,42 @@ module ImageProcessing.Distortion;
 
 import FloatRGBA;
 import Image.ImageF32x4_RGBA;
+import Graphics.SurfaceColorContract;
 import Core.Parallel;
 
 namespace ArtifactCore
 {
+
+namespace {
+struct ChannelIndices {
+    std::size_t red;
+    std::size_t green;
+    std::size_t blue;
+    std::size_t alpha;
+};
+
+ChannelIndices channelIndices(const ImageF32x4_RGBA& image)
+{
+    if (image.colorDescriptor().channelOrder == SurfaceChannelOrder::RGBA)
+        return {0u, 1u, 2u, 3u};
+    return {2u, 1u, 0u, 3u};
+}
+
+FloatRGBA readLogicalColor(const float* pixel, ChannelIndices channels)
+{
+    return FloatRGBA(pixel[channels.red], pixel[channels.green],
+                     pixel[channels.blue], pixel[channels.alpha]);
+}
+
+void writeLogicalColor(float* pixel, ChannelIndices channels,
+                       const FloatRGBA& color)
+{
+    pixel[channels.red] = color.r();
+    pixel[channels.green] = color.g();
+    pixel[channels.blue] = color.b();
+    pixel[channels.alpha] = color.a();
+}
+}
 
 void morphImages(const ImageF32x4_RGBA& source,
                  const ImageF32x4_RGBA& target,
@@ -31,8 +64,10 @@ void morphImages(const ImageF32x4_RGBA& source,
     }
 
     const float t = std::clamp(amount, 0.0f, 1.0f);
+    output.setColorDescriptor(source.colorDescriptor());
     output.resize(width, height);
     float* dst = output.rgba32fData();
+    const ChannelIndices outputChannels = channelIndices(output);
 
     auto sample = [bilinear](const ImageF32x4_RGBA& image, float x, float y) {
         return bilinear ? sampleBilinear(image, x, y)
@@ -81,10 +116,11 @@ void morphImages(const ImageF32x4_RGBA& source,
             const FloatRGBA a = sample(source, sourceX, sourceY);
             const FloatRGBA b = sample(target, targetX, targetY);
             float* pixel = dst + (static_cast<size_t>(y) * width + x) * 4u;
-            pixel[0] = a.r() * (1.0f - t) + b.r() * t;
-            pixel[1] = a.g() * (1.0f - t) + b.g() * t;
-            pixel[2] = a.b() * (1.0f - t) + b.b() * t;
-            pixel[3] = a.a() * (1.0f - t) + b.a() * t;
+            writeLogicalColor(pixel, outputChannels, FloatRGBA(
+                a.r() * (1.0f - t) + b.r() * t,
+                a.g() * (1.0f - t) + b.g() * t,
+                a.b() * (1.0f - t) + b.b() * t,
+                a.a() * (1.0f - t) + b.a() * t));
         }
         }
     });
@@ -131,17 +167,22 @@ FloatRGBA sampleBilinear(const ImageF32x4_RGBA& src, float sx, float sy)
  float fy = sy - y0;
 
  const float* pixels = src.rgba32fData();
+ if (!pixels) return FloatRGBA{0, 0, 0, 0};
+ const ChannelIndices channels = channelIndices(src);
  const float* c00 = pixels + (static_cast<size_t>(y0) * w + x0) * 4u;
  const float* c10 = pixels + (static_cast<size_t>(y0) * w + x1) * 4u;
  const float* c01 = pixels + (static_cast<size_t>(y1) * w + x0) * 4u;
  const float* c11 = pixels + (static_cast<size_t>(y1) * w + x1) * 4u;
 
- float r = lerpF(lerpF(c00[0], c10[0], fx), lerpF(c01[0], c11[0], fx), fy);
- float g = lerpF(lerpF(c00[1], c10[1], fx), lerpF(c01[1], c11[1], fx), fy);
- float b = lerpF(lerpF(c00[2], c10[2], fx), lerpF(c01[2], c11[2], fx), fy);
- float a = lerpF(lerpF(c00[3], c10[3], fx), lerpF(c01[3], c11[3], fx), fy);
-
- return FloatRGBA{ r, g, b, a };
+ return FloatRGBA{
+     lerpF(lerpF(c00[channels.red], c10[channels.red], fx),
+           lerpF(c01[channels.red], c11[channels.red], fx), fy),
+     lerpF(lerpF(c00[channels.green], c10[channels.green], fx),
+           lerpF(c01[channels.green], c11[channels.green], fx), fy),
+     lerpF(lerpF(c00[channels.blue], c10[channels.blue], fx),
+           lerpF(c01[channels.blue], c11[channels.blue], fx), fy),
+     lerpF(lerpF(c00[channels.alpha], c10[channels.alpha], fx),
+           lerpF(c01[channels.alpha], c11[channels.alpha], fx), fy)};
 }
 
 FloatRGBA sampleNearest(const ImageF32x4_RGBA& src, float sx, float sy)
@@ -155,9 +196,10 @@ FloatRGBA sampleNearest(const ImageF32x4_RGBA& src, float sx, float sy)
  if (x < 0) x += w;
  if (y < 0) y += h;
 
- const float* pixel = src.rgba32fData() +
-     (static_cast<size_t>(y) * w + x) * 4u;
- return FloatRGBA(pixel[0], pixel[1], pixel[2], pixel[3]);
+ const float* pixels = src.rgba32fData();
+ if (!pixels) return FloatRGBA{0, 0, 0, 0};
+ const float* pixel = pixels + (static_cast<size_t>(y) * w + x) * 4u;
+ return readLogicalColor(pixel, channelIndices(src));
 }
 
 // === Apply displacement ===
@@ -172,9 +214,15 @@ void applyDisplacement(const ImageF32x4_RGBA& src,
  if (w <= 0 || h <= 0) return;
 
  dst.resize(w, h);
+ dst.setColorDescriptor(src.colorDescriptor());
+ const ChannelIndices outputChannels = channelIndices(dst);
 
  const float* sourcePixels = src.rgba32fData();
  float* destinationPixels = dst.rgba32fData();
+ if (!sourcePixels || !destinationPixels) {
+     dst = src.DeepCopy();
+     return;
+ }
  auto sampleRaw = [&](float sx, float sy) {
     if (bilinear) {
         sx = std::fmod(sx, static_cast<float>(w));
@@ -196,11 +244,16 @@ void applyDisplacement(const ImageF32x4_RGBA& src,
             (static_cast<size_t>(y1) * w + x0) * 4u;
         const float* c11 = sourcePixels +
             (static_cast<size_t>(y1) * w + x1) * 4u;
+        const ChannelIndices inputChannels = channelIndices(src);
         return FloatRGBA(
-            lerpF(lerpF(c00[0], c10[0], fx), lerpF(c01[0], c11[0], fx), fy),
-            lerpF(lerpF(c00[1], c10[1], fx), lerpF(c01[1], c11[1], fx), fy),
-            lerpF(lerpF(c00[2], c10[2], fx), lerpF(c01[2], c11[2], fx), fy),
-            lerpF(lerpF(c00[3], c10[3], fx), lerpF(c01[3], c11[3], fx), fy));
+            lerpF(lerpF(c00[inputChannels.red], c10[inputChannels.red], fx),
+                  lerpF(c01[inputChannels.red], c11[inputChannels.red], fx), fy),
+            lerpF(lerpF(c00[inputChannels.green], c10[inputChannels.green], fx),
+                  lerpF(c01[inputChannels.green], c11[inputChannels.green], fx), fy),
+            lerpF(lerpF(c00[inputChannels.blue], c10[inputChannels.blue], fx),
+                  lerpF(c01[inputChannels.blue], c11[inputChannels.blue], fx), fy),
+            lerpF(lerpF(c00[inputChannels.alpha], c10[inputChannels.alpha], fx),
+                  lerpF(c01[inputChannels.alpha], c11[inputChannels.alpha], fx), fy));
     }
 
     int x = static_cast<int>(sx + 0.5f) % w;
@@ -209,7 +262,7 @@ void applyDisplacement(const ImageF32x4_RGBA& src,
     if (y < 0) y += h;
     const float* pixel = sourcePixels +
         (static_cast<size_t>(y) * w + x) * 4u;
-    return FloatRGBA(pixel[0], pixel[1], pixel[2], pixel[3]);
+    return readLogicalColor(pixel, channelIndices(src));
  };
 
  Parallel::ForTiles(w, h, 32, 32, [&](int x0, int y0, int x1, int y1) {
@@ -222,10 +275,7 @@ void applyDisplacement(const ImageF32x4_RGBA& src,
      const FloatRGBA pixel = sampleRaw(outSX, outSY);
      float* destination = destinationPixels +
          (static_cast<size_t>(y) * w + x) * 4u;
-     destination[0] = pixel.r();
-     destination[1] = pixel.g();
-     destination[2] = pixel.b();
-     destination[3] = pixel.a();
+     writeLogicalColor(destination, outputChannels, pixel);
     }
   }
  });

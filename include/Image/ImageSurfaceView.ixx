@@ -145,6 +145,19 @@ static_assert(!std::is_convertible_v<Rgba32FView, MutableRgba32FView>);
 // Dispatch once outside the pixel loop. Unknown/mismatched layouts are rejected;
 // this function never relabels, converts, copies or allocates a pixel buffer.
 template <typename Function>
+[[nodiscard]] bool withColorFloat4View(const ImageSurfaceView& surface, Function&& function) {
+    if (auto rgba = Rgba32FView::tryCreate(surface)) {
+        function(*rgba);
+        return true;
+    }
+    if (auto bgra = Bgra32FView::tryCreate(surface)) {
+        function(*bgra);
+        return true;
+    }
+    return false;
+}
+
+template <typename Function>
 [[nodiscard]] bool withMutableColorFloat4View(
     const ImageSurfaceView& surface, float* writableData, Function&& function) {
     if (auto rgba = MutableRgba32FView::tryCreate(surface, writableData)) {

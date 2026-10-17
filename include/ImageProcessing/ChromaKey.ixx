@@ -6,6 +6,7 @@ export module ImageProcessing:ChromaKey;
 
 import Particle;
 import Image.ImageF32x4_RGBA;
+import Graphics.SurfaceColorContract;
 
 export namespace ArtifactCore::Keying {
 
@@ -58,10 +59,11 @@ struct ChromaKeyBuffers {
     float* dst = nullptr;
     int width = 0;
     int height = 0;
+    SurfaceChannelOrder channelOrder = SurfaceChannelOrder::RGBA;
 };
 
-// Processes tightly packed RGBA float32 buffers. Returns false for invalid
-// dimensions or missing buffers; otherwise dst is fully written.
+// Processes tightly packed RGBA/BGRA float32 buffers as specified by
+// channelOrder. Returns false for invalid order, dimensions, or missing buffers.
 bool processChromaKey(const ChromaKeyBuffers& buffers, const ChromaKeyParams& params = {});
 
 } // namespace ArtifactCore::Keying

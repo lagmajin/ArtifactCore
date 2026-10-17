@@ -150,9 +150,11 @@ ImageF32x4_RGBA MatteEvaluator::apply(const ImageF32x4_RGBA& source,
             float* outputRow = outputPixels +
                 static_cast<std::size_t>(y) * width * 4u;
             for (int x = x0; x < x1; ++x) {
+                // rgba32fData() exposes the canonical BGRA backing order;
+                // MatteEvaluator::sample(FloatRGBA) expects logical RGBA.
                 const FloatRGBA mattePixel(
-                    matteRow[x * 4 + 0], matteRow[x * 4 + 1],
-                    matteRow[x * 4 + 2], matteRow[x * 4 + 3]);
+                    matteRow[x * 4 + 2], matteRow[x * 4 + 1],
+                    matteRow[x * 4 + 0], matteRow[x * 4 + 3]);
                 const float matteFactor =
                     sample(mattePixel, settings.mode,
                            settings.luminanceStandard);

@@ -120,6 +120,29 @@ bool LayerBlendPipeline::createExecutors()
   layerToFloatExecutor_.reset();
  }
 
+ static ShaderResourceVariableDesc bgraAccumulatorToStraightRgbaVars[] = {
+  {SHADER_TYPE_COMPUTE, "SrcTex", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+  {SHADER_TYPE_COMPUTE, "OutTex", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
+ };
+ bgraAccumulatorToStraightRgbaExecutor_ =
+     std::make_unique<ComputeExecutor>(*context_);
+ ComputePipelineDesc bgraAccumulatorToStraightRgbaDesc;
+ bgraAccumulatorToStraightRgbaDesc.name = "BGRA Accumulator Presentation PSO";
+ bgraAccumulatorToStraightRgbaDesc.shaderSource =
+     bgraAccumulatorToStraightRgbaShaderText.constData();
+ bgraAccumulatorToStraightRgbaDesc.entryPoint = "main";
+ bgraAccumulatorToStraightRgbaDesc.sourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
+ bgraAccumulatorToStraightRgbaDesc.variables = bgraAccumulatorToStraightRgbaVars;
+ bgraAccumulatorToStraightRgbaDesc.variableCount = 2;
+ bgraAccumulatorToStraightRgbaDesc.defaultVariableType =
+     SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
+ if (!bgraAccumulatorToStraightRgbaExecutor_->build(
+         bgraAccumulatorToStraightRgbaDesc) ||
+     !bgraAccumulatorToStraightRgbaExecutor_->createShaderResourceBinding(true)) {
+  qWarning() << "[LayerBlendPipeline] BGRA accumulator presentation PSO build failed";
+  bgraAccumulatorToStraightRgbaExecutor_.reset();
+ }
+
  static ShaderResourceVariableDesc clearRegionVars[] = {
   {SHADER_TYPE_COMPUTE, "BlendParams", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
   {SHADER_TYPE_COMPUTE, "OutTex", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
@@ -558,6 +581,40 @@ bool LayerBlendPipeline::ready() const
 {
  return !executors_.empty() && pImpl_->pBlendCB_ && layerToFloatExecutor_ &&
         layerToFloatExecutor_->ready();
+}
+
+bool LayerBlendPipeline::convertBgraAccumulatorToStraightRgba(
+ IDeviceContext* ctx,
+ ITextureView* srcSRV,
+ ITextureView* outUAV,
+ Uint32 width,
+ Uint32 height
+)
+{
+ if (!ctx || !srcSRV || !outUAV || !bgraAccumulatorToStraightRgbaExecutor_ ||
+     !bgraAccumulatorToStraightRgbaExecutor_->ready() || width == 0 || height == 0) {
+  return false;
+ }
+ const auto* srcTexture = srcSRV->GetTexture();
+ const auto* outTexture = outUAV->GetTexture();
+ if (!srcTexture || !outTexture || srcTexture == outTexture ||
+     srcTexture->GetDesc().Width != width || srcTexture->GetDesc().Height != height ||
+     outTexture->GetDesc().Width != width || outTexture->GetDesc().Height != height ||
+     (outTexture->GetDesc().Format != TEX_FORMAT_RGBA32_FLOAT &&
+      outTexture->GetDesc().Format != TEX_FORMAT_RGBA16_FLOAT)) {
+  return false;
+ }
+ if (!bgraAccumulatorToStraightRgbaExecutor_->setTextureView("SrcTex", srcSRV) ||
+     !bgraAccumulatorToStraightRgbaExecutor_->setTextureView("OutTex", outUAV)) {
+  return false;
+ }
+ DispatchComputeAttribs attribs;
+ attribs.ThreadGroupCountX = (width - 1) / 8 + 1;
+ attribs.ThreadGroupCountY = (height - 1) / 8 + 1;
+ attribs.ThreadGroupCountZ = 1;
+ bgraAccumulatorToStraightRgbaExecutor_->dispatch(
+     ctx, attribs, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+ return true;
 }
 
 bool LayerBlendPipeline::convertLayerToFloat(

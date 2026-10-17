@@ -15,7 +15,7 @@ struct EdgeEchoSettings {
     float waveFreq = 8.0f;       // Horizontal wave distortion frequency
     float waveAmp = 5.0f;        // Wave distortion amplitude in pixels
     float timeEvolution = 0.0f;   // Time/evolution parameter to animate wave
-    float4 echoColor{0.0f, 1.0f, 0.4f, 1.0f}; // Neon echo outline color (default: electric green)
+    float4 echoColor{0.0f, 1.0f, 0.4f, 1.0f}; // Logical RGBA outline color.
 };
 
 class LIBRARY_DLL_API EdgeEcho {
@@ -23,7 +23,7 @@ public:
     EdgeEcho();
     ~EdgeEcho();
 
-    // Process a raw float4 (RGBA) buffer
+    // Process a raw float4 buffer in Artifact BGRA backing order.
     void process(float4* buffer, int width, int height, const EdgeEchoSettings& settings);
 
     // Process an ImageF32x4_RGBA reference

@@ -1,43 +1,63 @@
 module;
-#include <cstring>
 #include <cstdint>
+#include <limits>
 
 module Image.GpuImageUpload;
 
-import Core.Parallel;
-
 namespace ArtifactCore {
-namespace {
-
-void swapRgbaBgra(std::uint8_t* dst, const std::uint8_t* src,
-                  std::size_t pixelCount, std::size_t channelBytes) {
-    for (std::size_t i = 0; i < pixelCount; ++i) {
-        const auto* in = src + i * channelBytes * 4u;
-        auto* out = dst + i * channelBytes * 4u;
-        std::memcpy(out + channelBytes * 0u, in + channelBytes * 2u, channelBytes);
-        std::memcpy(out + channelBytes * 1u, in + channelBytes * 1u, channelBytes);
-        std::memcpy(out + channelBytes * 2u, in + channelBytes * 0u, channelBytes);
-        std::memcpy(out + channelBytes * 3u, in + channelBytes * 3u, channelBytes);
-    }
-}
-
-}
 
 GpuImageUploadBuffer makeGpuImageUploadBuffer(const ImageSurfaceView& view) {
+    return makeGpuImageUploadBuffer(view, GpuImageChannelOrder::Bgra);
+}
+
+GpuImageUploadBuffer makeGpuImageUploadBuffer(
+    const ImageSurfaceView& view, GpuImageChannelOrder targetOrder) {
     GpuImageUploadBuffer result;
+    makeGpuImageUploadBuffer(view, targetOrder, result);
+    return result;
+}
+
+bool makeGpuImageUploadBuffer(const ImageSurfaceView& view,
+                              GpuImageUploadBuffer& result) {
+    return makeGpuImageUploadBuffer(view, GpuImageChannelOrder::Bgra, result);
+}
+
+bool makeGpuImageUploadBuffer(const ImageSurfaceView& view,
+                              GpuImageChannelOrder targetOrder,
+                              GpuImageUploadBuffer& result) {
+    result.bytes.clear();
+    result.sourceData = nullptr;
+    result.width = 0;
+    result.height = 0;
+    result.rowStride = 0;
+    result.descriptor = SurfaceColorDescriptor::unknown();
+    if (!view.isValid()) {
+        return false;
+    }
+
     const auto minimumRowStride = view.precision == SurfacePrecision::Float16
         ? static_cast<std::size_t>(view.width) * 8u
         : static_cast<std::size_t>(view.width) * 16u;
-    if (!view.isValid() || view.rowStride < minimumRowStride) {
-        return result;
+    const auto expectedStorage = view.precision == SurfacePrecision::Float16
+        ? SurfacePixelStorage::RGBA16Float
+        : SurfacePixelStorage::RGBA32Float;
+    if (view.rowStride < minimumRowStride ||
+        view.descriptor.storage != expectedStorage ||
+        view.descriptor.channelOrder != SurfaceChannelOrder::BGRA ||
+        targetOrder != GpuImageChannelOrder::Bgra) {
+        return false;
     }
 
-    const std::size_t channelBytes =
-        view.precision == SurfacePrecision::Float16 ? sizeof(std::uint16_t)
-                                                    : sizeof(float);
-    const std::size_t rowBytes = static_cast<std::size_t>(view.width) * 4u * channelBytes;
-    const std::size_t pixelCount = static_cast<std::size_t>(view.width) *
-                                   static_cast<std::size_t>(view.height);
+    const std::size_t rowBytes = minimumRowStride;
+    if (static_cast<std::size_t>(view.height) >
+        (std::numeric_limits<std::size_t>::max)() / rowBytes) {
+        return false;
+    }
+    const auto maxSize = (std::numeric_limits<std::size_t>::max)();
+    if (static_cast<std::size_t>(view.height - 1) >
+        (maxSize - rowBytes) / view.rowStride) {
+        return false;
+    }
     result.width = view.width;
     result.height = view.height;
     result.rowStride = rowBytes;
@@ -45,24 +65,10 @@ GpuImageUploadBuffer makeGpuImageUploadBuffer(const ImageSurfaceView& view) {
                         ? GpuImageFormat::Rgba16Float
                         : GpuImageFormat::Rgba32Float;
     result.descriptor = view.descriptor;
-    result.descriptor.channelOrder = SurfaceChannelOrder::RGBA;
-    result.bytes.resize(rowBytes * static_cast<std::size_t>(view.height));
-
-    const auto* source = static_cast<const std::uint8_t*>(view.data);
-    if (view.descriptor.channelOrder == SurfaceChannelOrder::BGRA) {
-        Parallel::ForPixels(0, view.height, view.width, view.height, [&](int y) {
-            swapRgbaBgra(result.bytes.data() + static_cast<std::size_t>(y) * rowBytes,
-                         source + static_cast<std::size_t>(y) * view.rowStride,
-                         static_cast<std::size_t>(view.width), channelBytes);
-        });
-    } else {
-        Parallel::ForPixels(0, view.height, view.width, view.height, [&](int y) {
-            std::memcpy(result.bytes.data() + static_cast<std::size_t>(y) * rowBytes,
-                        source + static_cast<std::size_t>(y) * view.rowStride,
-                        rowBytes);
-        });
-    }
-    return result;
+    result.descriptor.channelOrder = SurfaceChannelOrder::BGRA;
+    result.sourceData = view.data;
+    result.rowStride = view.rowStride;
+    return result.isValid();
 }
 
 }

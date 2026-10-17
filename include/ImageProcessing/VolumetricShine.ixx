@@ -25,7 +25,7 @@ public:
         float intensity = 1.0f;       // Brightness
         float decay = 0.95f;          // Falloff (0..1)
         int samples = 32;             // Number of radial samples
-        float4 tint{1.0f, 0.9f, 0.7f, 1.0f}; // Ray color
+        float4 tint{1.0f, 0.9f, 0.7f, 1.0f}; // Ray tint in BGRA order
     };
 
     /**
@@ -65,7 +65,7 @@ public:
                     float4 sample = original[sampleIndex];
                     
                     // Add luminance to shine (High luminosity produces more rays)
-                    float lum = sample.x * 0.299f + sample.y * 0.587f + sample.z * 0.114f;
+                    float lum = sample.x * 0.114f + sample.y * 0.587f + sample.z * 0.299f;
                     shineColor.x += sample.x * illuminationDecay * settings.intensity;
                     shineColor.y += sample.y * illuminationDecay * settings.intensity;
                     shineColor.z += sample.z * illuminationDecay * settings.intensity;

@@ -38,7 +38,7 @@ void ParadeCS(uint3 groupId : SV_GroupID, uint3 threadId : SV_GroupThreadID)
         uint2 pos = uint2(sx * g_Step, sy * g_Step);
         if (pos.x >= textureSize.x || pos.y >= textureSize.y) continue;
 
-        float4 color = g_InputTexture.Load(int3(pos, 0));
+        float4 color = g_InputTexture.Load(int3(pos, 0)).bgra;
 
         int ox = (sx * g_Step * g_OutputWidth) / (int)textureSize.x;
         int oyR = (int)(color.r * (float)(g_OutputHeight - 1));

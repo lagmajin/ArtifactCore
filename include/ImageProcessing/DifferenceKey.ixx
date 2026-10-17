@@ -3,6 +3,8 @@ module;
 
 export module ImageProcessing:DifferenceKey;
 
+import Graphics.SurfaceColorContract;
+
 export namespace ArtifactCore::Keying {
 
 // Difference keyer: RGB Euclidean distance to a reference color + edge
@@ -24,10 +26,11 @@ struct DifferenceKeyBuffers {
     float* dst = nullptr;
     int width = 0;
     int height = 0;
+    SurfaceChannelOrder channelOrder = SurfaceChannelOrder::RGBA;
 };
 
-// src and dst must be distinct buffers. Returns false for invalid
-// dimensions or missing buffers.
+// src and dst must be distinct tightly packed RGBA/BGRA buffers in channelOrder.
+// Returns false for invalid order, dimensions, or missing buffers.
 bool processDifferenceKey(const DifferenceKeyBuffers& buffers,
                           const DifferenceKeyParams& params = {});
 

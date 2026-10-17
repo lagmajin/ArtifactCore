@@ -28,7 +28,7 @@ void ColorCurvesCS(uint3 id : SV_DispatchThreadID)
     g_OutputTexture.GetDimensions(dims.x, dims.y);
     if (id.x >= dims.x || id.y >= dims.y) return;
 
-    float4 color = g_InputTexture.Load(int3(id.xy, 0));
+    float4 color = g_InputTexture.Load(int3(id.xy, 0)).bgra;
 
     if (g_MasterOnly) {
         color.r = g_LUTs[curveLutIndex(color.r)];
@@ -52,7 +52,7 @@ void ColorCurvesCS(uint3 id : SV_DispatchThreadID)
         color.b = g_LUTs[768u + bMapped];
     }
 
-    g_OutputTexture[id.xy] = color;
+    g_OutputTexture[id.xy] = color.bgra;
 }
 )";
 

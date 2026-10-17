@@ -59,10 +59,10 @@ export namespace ArtifactCore {
    ImageYUV420(const QImage& image);
    ~ImageYUV420();
 
-   // Create from an ImageF32x4_RGBA (straight RGBA)
+   // Create from an ImageF32x4_RGBA, respecting its descriptor channel order.
    static ImageYUV420 fromImage32xRGBA(const ImageF32x4_RGBA& rgba);
 
-   // Convert back to ImageF32x4_RGBA
+   // Convert back to ImageF32x4_RGBA with the default BGRA backing order.
    ImageF32x4_RGBA toImage32xRGBA() const;
 
    // Create from raw Y/U/V planes (U/V may be subsampled H/2 x W/2)

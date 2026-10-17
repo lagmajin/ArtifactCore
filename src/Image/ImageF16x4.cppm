@@ -5,6 +5,8 @@ module;
 
 module Image.ImageF16x4;
 
+import Graphics.SurfaceColorContract;
+
 namespace ArtifactCore {
 namespace {
 
@@ -52,14 +54,26 @@ std::uint16_t floatToHalf(float value) noexcept {
 ImageF16x4::ImageF16x4(int width, int height, SurfaceColorDescriptor descriptor)
     : width_(std::max(0, width)), height_(std::max(0, height)),
       descriptor_(descriptor), pixels_(static_cast<std::size_t>(width_) *
-                                        static_cast<std::size_t>(height_) * 4u) {}
+                                        static_cast<std::size_t>(height_) * 4u) {
+    descriptor_.storage = SurfacePixelStorage::RGBA16Float;
+    descriptor_.channelOrder = SurfaceChannelOrder::BGRA;
+}
 
 ImageF16x4 ImageF16x4::fromF32(const ImageF32x4_RGBA& source) {
-    ImageF16x4 result(source.width(), source.height(), source.colorDescriptor());
+    auto descriptor = source.colorDescriptor();
+    if (descriptor.channelOrder != SurfaceChannelOrder::BGRA)
+        return {};
+    descriptor.storage = SurfacePixelStorage::RGBA16Float;
+    descriptor.channelOrder = SurfaceChannelOrder::BGRA;
+    ImageF16x4 result(source.width(), source.height(), descriptor);
     const float* input = source.rgba32fData();
     if (!input) return result;
-    for (std::size_t i = 0; i < result.pixels_.size(); ++i)
-        result.pixels_[i] = floatToHalf(input[i]);
+    for (std::size_t i = 0; i < result.pixels_.size(); i += 4) {
+        result.pixels_[i + 0] = floatToHalf(input[i + 0]);
+        result.pixels_[i + 1] = floatToHalf(input[i + 1]);
+        result.pixels_[i + 2] = floatToHalf(input[i + 2]);
+        result.pixels_[i + 3] = floatToHalf(input[i + 3]);
+    }
     return result;
 }
 
@@ -73,7 +87,8 @@ ImageF32x4_RGBA ImageF16x4::toF32() const {
 }
 
 ImageF16x4 ImageF16x4::toCanonicalRGBA16FC4() const {
-    if (descriptor_.channelOrder != SurfaceChannelOrder::BGRA) return *this;
+    if (descriptor_.channelOrder == SurfaceChannelOrder::RGBA) return *this;
+    if (descriptor_.channelOrder != SurfaceChannelOrder::BGRA) return {};
     ImageF16x4 result(width_, height_, descriptor_);
     result.descriptor_.channelOrder = SurfaceChannelOrder::RGBA;
     for (std::size_t i = 0; i < pixels_.size(); i += 4) {
@@ -87,6 +102,7 @@ ImageF16x4 ImageF16x4::toCanonicalRGBA16FC4() const {
 
 ImageF16x4 ImageF16x4::toCanonicalBGRA16FC4() const {
     if (descriptor_.channelOrder == SurfaceChannelOrder::BGRA) return *this;
+    if (descriptor_.channelOrder != SurfaceChannelOrder::RGBA) return {};
     ImageF16x4 result(width_, height_, descriptor_);
     result.descriptor_.channelOrder = SurfaceChannelOrder::BGRA;
     for (std::size_t i = 0; i < pixels_.size(); i += 4) {

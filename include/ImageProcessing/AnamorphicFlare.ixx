@@ -12,7 +12,7 @@ struct AnamorphicFlareSettings {
     float threshold = 0.8f;   // Brightness threshold for light sources (0.0 to 1.0)
     float flareLength = 0.4f;  // Width/spread of the horizontal flare (0.0 to 1.0)
     float intensity = 1.0f;    // Strength multiplier of the flare (0.0 to 5.0)
-    float4 tint{0.1f, 0.4f, 1.0f, 1.0f}; // Color tint (default is beautiful cinematic cyan/blue)
+    float4 tint{0.1f, 0.4f, 1.0f, 1.0f}; // Logical RGBA tint.
 };
 
 class LIBRARY_DLL_API AnamorphicFlare {
@@ -20,7 +20,7 @@ public:
     AnamorphicFlare() = default;
     ~AnamorphicFlare() = default;
 
-    // Process a raw float4 (RGBA) buffer
+    // Process a raw float4 buffer in Artifact BGRA backing order.
     void process(float4* buffer, int width, int height, const AnamorphicFlareSettings& settings);
 
     // Process an ImageF32x4_RGBA reference

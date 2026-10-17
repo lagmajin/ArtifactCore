@@ -38,7 +38,7 @@ void SobelCS(uint3 id : SV_DispatchThreadID)
     float lum[9];
     for (int i = 0; i < 9; ++i) {
         float4 c = g_InputTexture.Load(int3(id.xy, 0) + off[i]);
-        lum[i] = dot(c.rgb, float3(0.299f, 0.587f, 0.114f));
+        lum[i] = dot(c.bgra.rgb, float3(0.299f, 0.587f, 0.114f));
     }
 
     // Sobel X: [-1 0 +1; -2 0 +2; -1 0 +1]
@@ -131,7 +131,8 @@ void CompositeCS(uint3 id : SV_DispatchThreadID)
     g_OutputTexture.GetDimensions(dims.x, dims.y);
     if (id.x >= dims.x || id.y >= dims.y) return;
 
-    float4 orig  = g_InputTexture.Load(int3(id.xy, 0));
+    float4 origBgra = g_InputTexture.Load(int3(id.xy, 0));
+    float4 orig = origBgra.bgra;
     float4 hist  = g_History.Load(int3(id.xy, 0));
     float strength = max(hist.r, max(hist.g, hist.b));
 
@@ -139,7 +140,7 @@ void CompositeCS(uint3 id : SV_DispatchThreadID)
         ? orig.rgb + g_EchoColor.rgb * strength
         : orig.rgb;
 
-    g_OutputTexture[id.xy] = float4(clamp(result, 0.0f, 1.0f), orig.a);
+    g_OutputTexture[id.xy] = float4(clamp(result, 0.0f, 1.0f), orig.a).bgra;
 }
 )";
 

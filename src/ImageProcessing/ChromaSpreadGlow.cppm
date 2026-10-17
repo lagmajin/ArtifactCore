@@ -10,13 +10,18 @@ module ImageProcessing;
 import :ChromaSpreadGlow;
 import :ChromaSpread;
 import Core.Parallel;
+import Graphics.SurfaceColorContract;
 
 namespace ArtifactCore {
 
 void ChromaSpreadGlow::process(ImageF32x4_RGBA& image, const ChromaSpreadGlowSettings& settings) {
     if (image.isEmpty()) return;
 
-    cv::Mat srcMat = image.toCVMat(); // CV_32FC4, BGRA
+    const auto descriptor = image.colorDescriptor();
+    if (descriptor.channelOrder != SurfaceChannelOrder::RGBA &&
+        descriptor.channelOrder != SurfaceChannelOrder::BGRA)
+        return;
+    cv::Mat srcMat = image.toCanonicalBGRA32FC4();
     const int w = srcMat.cols;
     const int h = srcMat.rows;
     const auto finiteOr = [](const float value, const float fallback) {
@@ -30,6 +35,9 @@ void ChromaSpreadGlow::process(ImageF32x4_RGBA& image, const ChromaSpreadGlowSet
     const float aberrationScale = std::max(
         0.001f, finiteOr(settings.aberrationScale, 1.02f));
     const int dispersionSteps = std::clamp(settings.dispersionSteps, 1, 64);
+    constexpr int redIndex = 2;
+    constexpr int greenIndex = 1;
+    constexpr int blueIndex = 0;
     const float tintB = finiteOr(settings.tintColor.x, 1.0f) * intensity;
     const float tintG = finiteOr(settings.tintColor.y, 1.0f) * intensity;
     const float tintR = finiteOr(settings.tintColor.z, 1.0f) * intensity;
@@ -41,9 +49,9 @@ void ChromaSpreadGlow::process(ImageF32x4_RGBA& image, const ChromaSpreadGlowSet
         cv::Vec4f* brightRow = brightMat.ptr<cv::Vec4f>(y);
         for (int x = 0; x < w; ++x) {
             const cv::Vec4f& pixel = srcRow[x];
-            // Simple luminance calculation: Y = 0.299*R + 0.587*G + 0.114*B
-            // ImageF32x4_RGBA uses BGRA internally: pixel[0]=B, pixel[1]=G, pixel[2]=R
-            float luma = 0.299f * pixel[2] + 0.587f * pixel[1] + 0.114f * pixel[0];
+            const float luma = 0.299f * pixel[redIndex] +
+                               0.587f * pixel[greenIndex] +
+                               0.114f * pixel[blueIndex];
 
             if (luma >= threshold) {
                 brightRow[x] = pixel;
@@ -81,13 +89,22 @@ void ChromaSpreadGlow::process(ImageF32x4_RGBA& image, const ChromaSpreadGlowSet
             const cv::Vec4f& glow = glowRow[x];
 
             // Additive blend for color channels, preserve original alpha
-            src[0] = std::clamp(src[0] + glow[0] * tintB, 0.0f, 1.0f); // Blue
-            src[1] = std::clamp(src[1] + glow[1] * tintG, 0.0f, 1.0f); // Green
-            src[2] = std::clamp(src[2] + glow[2] * tintR, 0.0f, 1.0f); // Red
+            src[redIndex] = std::clamp(
+                src[redIndex] + glow[redIndex] * tintR, 0.0f, 1.0f);
+            src[greenIndex] = std::clamp(
+                src[greenIndex] + glow[greenIndex] * tintG, 0.0f, 1.0f);
+            src[blueIndex] = std::clamp(
+                src[blueIndex] + glow[blueIndex] * tintB, 0.0f, 1.0f);
         }
     });
 
-    image.setFromCVMat(srcMat);
+    if (descriptor.channelOrder == SurfaceChannelOrder::RGBA) {
+        cv::Mat rgbaMat;
+        cv::cvtColor(srcMat, rgbaMat, cv::COLOR_BGRA2RGBA);
+        image.setFromCVMat(rgbaMat, descriptor);
+    } else {
+        image.setFromCVMat(srcMat, descriptor);
+    }
 }
 
 } // namespace ArtifactCore

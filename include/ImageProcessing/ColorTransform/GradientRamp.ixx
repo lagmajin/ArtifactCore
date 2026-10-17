@@ -45,8 +45,11 @@ public:
     void applyPreset(Preset preset);
 
     QImage apply(const QImage& source) const;
+    // Raw float pixels use canonical BGRA backing order; applyPixel uses logical RGBA refs.
     void apply(float* pixels, int width, int height) const;
     void applyRow(float* pixels, int width, int height, int y) const;
+    void applyPixel(float x, float y, int width, int height,
+                    float& r, float& g, float& b, float& a) const;
 
 private:
     GradientRampSettings settings_;

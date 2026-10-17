@@ -332,9 +332,12 @@ namespace ArtifactCore {
   hlsl += "    {\n";
   hlsl += "        return;\n";
   hlsl += "    }\n\n";
+  // Artifact image-pipeline textures store BGRA component values. The
+  // generated pixel function works in logical RGBA so RGB operations keep
+  // their documented meaning regardless of the resident storage order.
   hlsl += "    float4 src = ";
   hlsl += inputTexture;
-  hlsl += ".Load(int3(pixel, 0));\n";
+  hlsl += ".Load(int3(pixel, 0)).bgra;\n";
   if (options.includeUv)
   {
    hlsl += "    float2 uv = (float2(pixel) + 0.5f) / float2(width, height);\n";
@@ -342,7 +345,7 @@ namespace ArtifactCore {
    hlsl += outputTexture;
    hlsl += "[pixel] = ";
    hlsl += pixelFunctionName;
-   hlsl += "(src, pixel, uv);\n";
+   hlsl += "(src, pixel, uv).bgra;\n";
   }
   else
   {
@@ -350,7 +353,7 @@ namespace ArtifactCore {
    hlsl += outputTexture;
    hlsl += "[pixel] = ";
    hlsl += pixelFunctionName;
-   hlsl += "(src, pixel);\n";
+   hlsl += "(src, pixel).bgra;\n";
   }
   hlsl += "}\n";
 

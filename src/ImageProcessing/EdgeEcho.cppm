@@ -66,7 +66,7 @@ void EdgeEcho::process(float4* buffer, int width, int height, const EdgeEchoSett
             for (int dy = -1; dy <= 1; ++dy) {
                 for (int dx = -1; dx <= 1; ++dx) {
                     float4 p = original[(y + dy) * width + (x + dx)];
-                    float lum = p.x * 0.299f + p.y * 0.587f + p.z * 0.114f;
+                    float lum = p.z * 0.299f + p.y * 0.587f + p.x * 0.114f;
 
                     // Sobel X kernel weight
                     int wx = dx * (dy == 0 ? 2 : 1);
@@ -150,9 +150,9 @@ void EdgeEcho::process(float4* buffer, int width, int height, const EdgeEchoSett
                 const float4 orig_pixel = original[i];
 
                 // Additive combination with neon glow overlay
-                buffer[i].x = std::clamp(orig_pixel.x + echo_color.x * outline_strength, 0.0f, 1.0f);
+                buffer[i].x = std::clamp(orig_pixel.x + echo_color.z * outline_strength, 0.0f, 1.0f);
                 buffer[i].y = std::clamp(orig_pixel.y + echo_color.y * outline_strength, 0.0f, 1.0f);
-                buffer[i].z = std::clamp(orig_pixel.z + echo_color.z * outline_strength, 0.0f, 1.0f);
+                buffer[i].z = std::clamp(orig_pixel.z + echo_color.x * outline_strength, 0.0f, 1.0f);
             }
         }
         }

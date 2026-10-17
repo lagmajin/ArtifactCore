@@ -10,7 +10,7 @@ import IPC.SharedMemoryRingBuffer;
 namespace ArtifactCore::IPC {
 
 namespace {
-constexpr std::uint32_t kFramePacketMagic = 0x41524650; // ARFP
+constexpr std::uint32_t kFramePacketMagic = 0x41524651; // ARFQ: BGRA payload v2
 struct FramePacketHeader {
     std::uint32_t magic = kFramePacketMagic;
     std::uint32_t width = 0;
@@ -86,7 +86,8 @@ RenderFarmSharedBuffer::FrameReadResult RenderFarmSharedBuffer::readNextFrame() 
     const std::size_t expected = sizeof(header) + static_cast<std::size_t>(header.width) * header.height * 4u * sizeof(float);
     if (header.magic != kFramePacketMagic || expected != static_cast<std::size_t>(result.data.size())) return {false, 0, {}, result.timestampNs, QStringLiteral("Invalid frame dimensions")};
     auto frame = std::make_unique<ImageF32x4_RGBA>();
-    frame->setFromRGBA32F(reinterpret_cast<const float*>(result.data.constData() + sizeof(header)),
+    // The packet payload copies ImageF32x4_RGBA's canonical BGRA backing.
+    frame->setFromBGRA32F(reinterpret_cast<const float*>(result.data.constData() + sizeof(header)),
                           static_cast<int>(header.width), static_cast<int>(header.height));
     return {true, header.frameNumber, std::move(frame), result.timestampNs, {}};
 }

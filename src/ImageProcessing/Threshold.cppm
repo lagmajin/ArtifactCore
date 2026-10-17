@@ -21,7 +21,7 @@ void Threshold::process(float4* buffer, int width, int height, const ThresholdSe
         for (int x = 0; x < width; ++x) {
             const size_t i = rowStart + static_cast<size_t>(x);
             const float4 orig = buffer[i];
-            const float luma = orig.x * 0.299f + orig.y * 0.587f + orig.z * 0.114f;
+            const float luma = orig.z * 0.299f + orig.y * 0.587f + orig.x * 0.114f;
             const float t = std::clamp((luma - thresh + soft * 0.5f) / soft, 0.0f, 1.0f);
             buffer[i] = { t, t, t, orig.w };
         }

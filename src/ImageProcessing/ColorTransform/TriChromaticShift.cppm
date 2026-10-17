@@ -192,13 +192,13 @@ void TriChromaticProcessor::apply(float4* buffer, int width, int height) const {
         const int rowBase = y * width;
         for (int x = x0; x < x1; ++x) {
             auto& pixel = buffer[rowBase + x];
-            double r = pixel.x;
+            double r = pixel.z;
             double g = pixel.y;
-            double b = pixel.z;
+            double b = pixel.x;
             applyPixel(r, g, b);
-            pixel.x = static_cast<float>(r);
+            pixel.z = static_cast<float>(r);
             pixel.y = static_cast<float>(g);
-            pixel.z = static_cast<float>(b);
+            pixel.x = static_cast<float>(b);
         }
     }
     });

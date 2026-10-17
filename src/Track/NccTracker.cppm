@@ -12,7 +12,7 @@ static cv::Mat toGray(const ImageF32x4_RGBA& img) {
     cv::Mat m = img.toCVMat();
     cv::Mat gray;
     if (m.channels() >= 3) {
-        cv::cvtColor(m, gray, cv::COLOR_RGBA2GRAY);
+        cv::cvtColor(m, gray, cv::COLOR_BGRA2GRAY);
     } else {
         gray = m.clone();
     }

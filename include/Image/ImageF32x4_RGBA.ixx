@@ -17,6 +17,7 @@ module;
 #include <functional>
 #include <optional>
 #include <cstdint>
+#include <cstddef>
 #include <array>
 #include <chrono>
 
@@ -52,28 +53,24 @@ export namespace ArtifactCore {
   ~ImageF32x4_RGBA();
   
   // 基本操作
-  // NOTE: The class name describes the logical image contract. The backing
-  // CV_32FC4/CV_8UC4 memory follows colorDescriptor().channelOrder and may
-  // therefore be BGRA. Callers crossing a GPU RGBA texture boundary must
-  // normalize BGRA -> RGBA explicitly; these accessors do not reorder data.
+  // NOTE: The class name describes the logical image API. Canonical CPU
+  // CV_32FC4/CV_8UC4 backing is BGRA; raw accessors do not reorder data.
   auto toCVMat() const -> cv::Mat;
-  // Returns a continuous CV_32FC4 copy in fixed logical R,G,B,A order.
-  // Unlike toCVMat(), this normalizes BGRA backing storage when necessary.
+  // Returns a continuous CV_32FC4 copy in GPU/API R,G,B,A order.
   auto toCanonicalRGBA32FC4() const -> cv::Mat;
-  // Returns a continuous CV_32FC4 copy in fixed OpenCV B,G,R,A order.
-  // This is the migration target for CPU/OpenCV-oriented processing.
+  // Returns a continuous CV_32FC4 copy in canonical CPU B,G,R,A order.
   auto toCanonicalBGRA32FC4() const -> cv::Mat;
   ImageSurfaceView surfaceView() const noexcept;
   QImage toQImage() const;
-  // Returns a pointer to contiguous 4-float pixels in backing-memory order,
-  // not guaranteed logical R,G,B,A order. Inspect colorDescriptor() first.
+  // Returns a pointer to contiguous 4-float pixels in canonical B,G,R,A order.
   const float* rgba32fData() const;
   float* rgba32fData();
-  // Returns a pointer to contiguous 4-byte pixels in backing-memory order,
-  // not guaranteed logical R,G,B,A order. Inspect colorDescriptor() first.
+  // Returns a pointer to contiguous 4-byte pixels in canonical B,G,R,A order.
   const std::uint8_t* rgba8Data() const;
   std::uint8_t* rgba8Data();
   SurfaceColorDescriptor colorDescriptor() const noexcept;
+  // Updates color/alpha metadata while preserving this image's Float32 BGRA
+  // storage contract. External channel orders must be normalized at ingress.
   void setColorDescriptor(const SurfaceColorDescriptor& descriptor) noexcept;
   void fill(const FloatRGBA& rgba);
   bool load(const QString& path);
@@ -95,20 +92,31 @@ export namespace ArtifactCore {
   void flipHorizontal();
   void flipVertical();
   ImageF32x4_RGBA crop(int x, int y, int width, int height) const;
-  // Set from an existing OpenCV Mat (various types supported). CV_32FC4 is
-  // copied as-is when passed directly; provide a descriptor when the Mat is
-  // BGRA or otherwise differs from canonical RGBA.
+  // Set from an OpenCV Mat (various types supported). The no-descriptor
+  // overload follows OpenCV's BGR/BGRA convention. The descriptor overload
+  // identifies the producer order; storage is normalized to BGRA.
   void setFromCVMat(const cv::Mat& mat);
   void setFromCVMat(const cv::Mat& mat,
                     const SurfaceColorDescriptor& descriptor);
   // Takes ownership of a caller-created CV_32FC4 buffer without cloning it.
   void setFromCVMatOwned(cv::Mat&& mat,
                          const SurfaceColorDescriptor& descriptor);
-  // Despite the historical name, the no-descriptor overload assumes the
-  // supplied memory is canonical RGBA. Use the descriptor overload for BGRA.
+  // The no-descriptor overload accepts logical RGBA input and stores BGRA.
+  // The descriptor overload identifies the input order; output storage stays BGRA.
   void setFromRGBA32F(const float* data, int width, int height);
   void setFromRGBA32F(const float* data, int width, int height,
                       const SurfaceColorDescriptor& descriptor);
+  void setFromBGRA32F(const float* data, int width, int height);
+  void setFromBGRA32F(const float* data, int width, int height,
+                      const SurfaceColorDescriptor& descriptor);
+  // Copies a mapped GPU RGBA32F image into canonical CPU BGRA backing.
+  bool setFromGpuRGBA32F(const float* data, int width, int height,
+                         std::size_t rowStride,
+                         const SurfaceColorDescriptor& backingDescriptor);
+  // Copies a mapped BGRA-native Artifact GPU image into canonical CPU BGRA backing.
+  bool setFromGpuBGRA32F(const float* data, int width, int height,
+                         std::size_t rowStride,
+                         const SurfaceColorDescriptor& backingDescriptor);
   void setFromRGBA8(const std::uint8_t* data, int width, int height);
   void setFromRGBA8(const std::uint8_t* data, int width, int height,
                     const SurfaceColorDescriptor& descriptor);

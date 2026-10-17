@@ -2,8 +2,10 @@ module;
 #include <utility>
 #include <algorithm>
 #include <limits>
+#include <cstddef>
 #include <cstring>
 #include <memory>
+#include <vector>
 #include <QString>
 #include <QStringList>
 #include <QFile>
@@ -550,7 +552,10 @@ public:
             lastError_ = "Failed to allocate temporary RGBA frame";
             return false;
         }
-        rgbaFrame->format = AV_PIX_FMT_RGBA;
+        const AVPixelFormat rgbaInputFormat =
+            codecCtx_->pix_fmt == AV_PIX_FMT_YUV420P10LE
+                ? AV_PIX_FMT_RGBA64LE : AV_PIX_FMT_RGBA;
+        rgbaFrame->format = rgbaInputFormat;
         rgbaFrame->width = w;
         rgbaFrame->height = h;
 
@@ -566,27 +571,35 @@ public:
             return false;
         }
 
-        // HDR 対応: ノミナルピーク値を使って float → uint8/uint16 変換
-        uint8_t* dst = rgbaFrame->data[0];
+        // HDR対応: ノミナルピーク値を使って8/16-bit RGBA stagingへ変換
         const bool isHdr = (settings_.hdrColorSpace != HDRColorSpace::SDR_BT709);
         const float peak = isHdr ? static_cast<float>(settings_.hdrNominalPeak / 100.0) : 1.0f;
 
         if (codecCtx_->pix_fmt == AV_PIX_FMT_YUV420P10LE) {
-            // 10bit YUV: float → 10bit スケーリング（HDR: [0, peak] → [0, 1023]）
-            uint16_t* dst16 = reinterpret_cast<uint16_t*>(dst);
-            for (int i = 0; i < w * h; ++i) {
-                dst16[i * 4 + 0] = static_cast<uint16_t>(std::clamp((srcData[i * 4 + 0] / peak) * 1023.0f, 0.0f, 1023.0f));
-                dst16[i * 4 + 1] = static_cast<uint16_t>(std::clamp((srcData[i * 4 + 1] / peak) * 1023.0f, 0.0f, 1023.0f));
-                dst16[i * 4 + 2] = static_cast<uint16_t>(std::clamp((srcData[i * 4 + 2] / peak) * 1023.0f, 0.0f, 1023.0f));
-                dst16[i * 4 + 3] = static_cast<uint16_t>(std::clamp((srcData[i * 4 + 3]) * 1023.0f, 0.0f, 1023.0f));
+            // RGBA64LE staging is converted by libswscale to the codec's 10-bit format.
+            for (int y = 0; y < h; ++y) {
+                auto* dst16 = reinterpret_cast<uint16_t*>(rgbaFrame->data[0] +
+                    static_cast<std::ptrdiff_t>(y) * rgbaFrame->linesize[0]);
+                for (int x = 0; x < w; ++x) {
+                    const std::size_t offset = (static_cast<std::size_t>(y) * w + x) * 4u;
+                    dst16[x * 4 + 0] = static_cast<uint16_t>(std::clamp((srcData[offset + 2] / peak) * 65535.0f, 0.0f, 65535.0f));
+                    dst16[x * 4 + 1] = static_cast<uint16_t>(std::clamp((srcData[offset + 1] / peak) * 65535.0f, 0.0f, 65535.0f));
+                    dst16[x * 4 + 2] = static_cast<uint16_t>(std::clamp((srcData[offset + 0] / peak) * 65535.0f, 0.0f, 65535.0f));
+                    dst16[x * 4 + 3] = static_cast<uint16_t>(std::clamp(srcData[offset + 3] * 65535.0f, 0.0f, 65535.0f));
+                }
             }
         } else {
             // 8bit: float → uint8（HDR は peak で正規化）
-            for (int i = 0; i < w * h; ++i) {
-                dst[i * 4 + 0] = static_cast<uint8_t>(std::clamp((srcData[i * 4 + 0] / peak) * 255.0f, 0.0f, 255.0f));
-                dst[i * 4 + 1] = static_cast<uint8_t>(std::clamp((srcData[i * 4 + 1] / peak) * 255.0f, 0.0f, 255.0f));
-                dst[i * 4 + 2] = static_cast<uint8_t>(std::clamp((srcData[i * 4 + 2] / peak) * 255.0f, 0.0f, 255.0f));
-                dst[i * 4 + 3] = static_cast<uint8_t>(std::clamp(srcData[i * 4 + 3] * 255.0f, 0.0f, 255.0f));
+            for (int y = 0; y < h; ++y) {
+                uint8_t* dstRow = rgbaFrame->data[0] +
+                    static_cast<std::ptrdiff_t>(y) * rgbaFrame->linesize[0];
+                for (int x = 0; x < w; ++x) {
+                    const std::size_t offset = (static_cast<std::size_t>(y) * w + x) * 4u;
+                    dstRow[x * 4 + 0] = static_cast<uint8_t>(std::clamp((srcData[offset + 2] / peak) * 255.0f, 0.0f, 255.0f));
+                    dstRow[x * 4 + 1] = static_cast<uint8_t>(std::clamp((srcData[offset + 1] / peak) * 255.0f, 0.0f, 255.0f));
+                    dstRow[x * 4 + 2] = static_cast<uint8_t>(std::clamp((srcData[offset + 0] / peak) * 255.0f, 0.0f, 255.0f));
+                    dstRow[x * 4 + 3] = static_cast<uint8_t>(std::clamp(srcData[offset + 3] * 255.0f, 0.0f, 255.0f));
+                }
             }
         }
 
@@ -596,8 +609,16 @@ public:
             return false;
         }
 
-        uint8_t* srcDataPtr[1] = {dst};
-        const int srcLinesize[1] = {w * 4};
+        swsCtx_ = sws_getCachedContext(
+            swsCtx_, w, h, rgbaInputFormat, w, h, codecCtx_->pix_fmt,
+            SWS_BILINEAR, nullptr, nullptr, nullptr);
+        if (!swsCtx_) {
+            av_frame_free(&rgbaFrame);
+            lastError_ = "Failed to create RGBA conversion context";
+            return false;
+        }
+        const uint8_t* srcDataPtr[1] = {rgbaFrame->data[0]};
+        const int srcLinesize[1] = {rgbaFrame->linesize[0]};
         sws_scale(swsCtx_, srcDataPtr, srcLinesize, 0, h, frame_->data, frame_->linesize);
 
         av_frame_free(&rgbaFrame);
@@ -673,6 +694,13 @@ public:
             return false;
         }
 
+        swsCtx_ = sws_getCachedContext(
+            swsCtx_, w, h, AV_PIX_FMT_RGBA, w, h, codecCtx_->pix_fmt,
+            SWS_BILINEAR, nullptr, nullptr, nullptr);
+        if (!swsCtx_) {
+            lastError_ = "Failed to create RGBA image conversion context";
+            return false;
+        }
         const uint8_t* srcDataPtr[1] = { rgba.constBits() };
         const int srcLinesize[1] = { static_cast<int>(rgba.bytesPerLine()) };
         sws_scale(swsCtx_, srcDataPtr, srcLinesize, 0, h, frame_->data, frame_->linesize);
@@ -746,7 +774,24 @@ public:
                 return false;
             }
 
-            if (!out->write_image(TypeDesc::FLOAT, srcData)) {
+            const std::size_t widthSize = static_cast<std::size_t>(image.width());
+            const std::size_t heightSize = static_cast<std::size_t>(image.height());
+            if (heightSize == 0 || widthSize > std::numeric_limits<std::size_t>::max() /
+                                                       heightSize ||
+                widthSize * heightSize > std::numeric_limits<std::size_t>::max() / 4u) {
+                lastError_ = "EXR frame dimensions overflow the output buffer size";
+                return false;
+            }
+            const std::size_t channelCount = widthSize * heightSize * 4u;
+            oiioRgbaScratch_.resize(channelCount);
+            for (std::size_t pixel = 0; pixel < channelCount / 4u; ++pixel) {
+                const std::size_t offset = pixel * 4u;
+                oiioRgbaScratch_[offset + 0] = srcData[offset + 2];
+                oiioRgbaScratch_[offset + 1] = srcData[offset + 1];
+                oiioRgbaScratch_[offset + 2] = srcData[offset + 0];
+                oiioRgbaScratch_[offset + 3] = srcData[offset + 3];
+            }
+            if (!out->write_image(TypeDesc::FLOAT, oiioRgbaScratch_.data())) {
                 lastError_ = QStringLiteral("Failed to write EXR frame: %1")
                                  .arg(QString::fromUtf8(out->geterror()));
                 out->close();
@@ -776,7 +821,9 @@ public:
             lastError_ = "Failed to allocate temporary RGBA frame";
             return false;
         }
-        rgbaFrame->format = AV_PIX_FMT_RGBA;
+        const AVPixelFormat rgbaInputFormat = dstPixFmt_ == AV_PIX_FMT_RGB48LE
+            ? AV_PIX_FMT_RGBA64LE : AV_PIX_FMT_RGBA;
+        rgbaFrame->format = rgbaInputFormat;
         rgbaFrame->width = w;
         rgbaFrame->height = h;
 
@@ -792,20 +839,38 @@ public:
             return false;
         }
 
-        if (dstPixFmt_ == AV_PIX_FMT_RGB48LE) {
-            uint16_t* dst = reinterpret_cast<uint16_t*>(rgbaFrame->data[0]);
-            for (int i = 0; i < w * h * 4; ++i) {
-                dst[i] = static_cast<uint16_t>(std::clamp(srcData[i] * 65535.0f, 0.0f, 65535.0f));
-            }
-        } else if (dstPixFmt_ == AV_PIX_FMT_RGBF32LE) {
-            float* dst = reinterpret_cast<float*>(rgbaFrame->data[0]);
-            for (int i = 0; i < w * h * 4; ++i) {
-                dst[i] = srcData[i];
-            }
-        } else {
-            uint8_t* dst = rgbaFrame->data[0];
-            for (int i = 0; i < w * h * 4; ++i) {
-                dst[i] = static_cast<uint8_t>(std::clamp(srcData[i] * 255.0f, 0.0f, 255.0f));
+        for (int y = 0; y < h; ++y) {
+            const std::size_t rowOffset = static_cast<std::size_t>(y) * w * 4u;
+            if (dstPixFmt_ == AV_PIX_FMT_RGB48LE) {
+                auto* dst = reinterpret_cast<uint16_t*>(rgbaFrame->data[0] +
+                    static_cast<std::ptrdiff_t>(y) * rgbaFrame->linesize[0]);
+                for (int x = 0; x < w; ++x) {
+                    const std::size_t offset = rowOffset + static_cast<std::size_t>(x) * 4u;
+                    dst[x * 4 + 0] = static_cast<uint16_t>(std::clamp(srcData[offset + 2] * 65535.0f, 0.0f, 65535.0f));
+                    dst[x * 4 + 1] = static_cast<uint16_t>(std::clamp(srcData[offset + 1] * 65535.0f, 0.0f, 65535.0f));
+                    dst[x * 4 + 2] = static_cast<uint16_t>(std::clamp(srcData[offset + 0] * 65535.0f, 0.0f, 65535.0f));
+                    dst[x * 4 + 3] = static_cast<uint16_t>(std::clamp(srcData[offset + 3] * 65535.0f, 0.0f, 65535.0f));
+                }
+            } else if (dstPixFmt_ == AV_PIX_FMT_RGBF32LE) {
+                auto* dst = reinterpret_cast<float*>(rgbaFrame->data[0] +
+                    static_cast<std::ptrdiff_t>(y) * rgbaFrame->linesize[0]);
+                for (int x = 0; x < w; ++x) {
+                    const std::size_t offset = rowOffset + static_cast<std::size_t>(x) * 4u;
+                    dst[x * 4 + 0] = srcData[offset + 2];
+                    dst[x * 4 + 1] = srcData[offset + 1];
+                    dst[x * 4 + 2] = srcData[offset + 0];
+                    dst[x * 4 + 3] = srcData[offset + 3];
+                }
+            } else {
+                uint8_t* dst = rgbaFrame->data[0] +
+                    static_cast<std::ptrdiff_t>(y) * rgbaFrame->linesize[0];
+                for (int x = 0; x < w; ++x) {
+                    const std::size_t offset = rowOffset + static_cast<std::size_t>(x) * 4u;
+                    dst[x * 4 + 0] = static_cast<uint8_t>(std::clamp(srcData[offset + 2] * 255.0f, 0.0f, 255.0f));
+                    dst[x * 4 + 1] = static_cast<uint8_t>(std::clamp(srcData[offset + 1] * 255.0f, 0.0f, 255.0f));
+                    dst[x * 4 + 2] = static_cast<uint8_t>(std::clamp(srcData[offset + 0] * 255.0f, 0.0f, 255.0f));
+                    dst[x * 4 + 3] = static_cast<uint8_t>(std::clamp(srcData[offset + 3] * 255.0f, 0.0f, 255.0f));
+                }
             }
         }
 
@@ -815,8 +880,16 @@ public:
             return false;
         }
 
-        uint8_t* srcDataPtr[1] = {rgbaFrame->data[0]};
-        const int srcLinesize[1] = {w * 4};
+        swsCtx_ = sws_getCachedContext(
+            swsCtx_, w, h, rgbaInputFormat, w, h, dstPixFmt_,
+            SWS_BILINEAR, nullptr, nullptr, nullptr);
+        if (!swsCtx_) {
+            av_frame_free(&rgbaFrame);
+            lastError_ = "Failed to create image sequence conversion context";
+            return false;
+        }
+        const uint8_t* srcDataPtr[1] = {rgbaFrame->data[0]};
+        const int srcLinesize[1] = {rgbaFrame->linesize[0]};
         sws_scale(swsCtx_, srcDataPtr, srcLinesize, 0, h, frame_->data, frame_->linesize);
 
         av_frame_free(&rgbaFrame);
@@ -1015,6 +1088,7 @@ private:
     int compressionLevel_ = 6;
     int jpegQuality_ = 90;
     AVPixelFormat dstPixFmt_ = AV_PIX_FMT_RGB24;
+    std::vector<float> oiioRgbaScratch_;
 };
 
 FFmpegEncoder::FFmpegEncoder() : impl_(new Impl()) {

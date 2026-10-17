@@ -24,13 +24,13 @@ void LeaveColor::process(float4* buffer, int width, int height, const LeaveColor
             const size_t rowStart = static_cast<size_t>(y) * static_cast<size_t>(width);
             for (int x = x0; x < x1; ++x) {
                 auto& px = buffer[rowStart + static_cast<size_t>(x)];
-            float3 c = {px.x, px.y, px.z};
+            float3 c = {px.z, px.y, px.x};
             float dist = colorDist(c, kc);
             float mix = std::clamp((dist - s.tolerance) / std::max(s.softness, 0.001f), 0.0f, 1.0f);
             float gray = luma(c);
-            px.x = c.x + (gray - c.x) * mix * s.desaturateAmount;
+            px.x = c.z + (gray - c.z) * mix * s.desaturateAmount;
             px.y = c.y + (gray - c.y) * mix * s.desaturateAmount;
-            px.z = c.z + (gray - c.z) * mix * s.desaturateAmount;
+            px.z = c.x + (gray - c.x) * mix * s.desaturateAmount;
             }
         }
     });

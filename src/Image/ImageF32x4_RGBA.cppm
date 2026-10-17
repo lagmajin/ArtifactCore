@@ -12,6 +12,8 @@ module;
 #include <cmath>
 #include <functional>
 #include <optional>
+#include <cstdint>
+#include <limits>
 #include <utility>
 #include <array>
 #include <mutex>
@@ -58,7 +60,7 @@ namespace ArtifactCore {
 
  public:
   cv::Mat mat_;
-  SurfaceColorDescriptor colorDescriptor_ = SurfaceColorDescriptor::unknown();
+  SurfaceColorDescriptor colorDescriptor_ = SurfaceColorDescriptor::unknownBgra32Float();
   int32_t width() const;
   int32_t height() const;
   Impl();
@@ -102,22 +104,22 @@ namespace ArtifactCore {
   }
   
   const cv::Vec4f pixel = mat_.ptr<cv::Vec4f>(y)[x];
-  return FloatRGBA(pixel[0], pixel[1], pixel[2], pixel[3]);
+  return FloatRGBA(pixel[2], pixel[1], pixel[0], pixel[3]);
  }
 
  void ImageF32x4_RGBA::Impl::setPixel(int x, int y, const FloatRGBA& color)
  {
   if (x >= 0 && x < mat_.cols && y >= 0 && y < mat_.rows) {
    mat_.ptr<cv::Vec4f>(y)[x] =
-       cv::Vec4f(color.r(), color.g(), color.b(), color.a());
+       cv::Vec4f(color.b(), color.g(), color.r(), color.a());
   }
  }
 
  ImageF32x4_RGBA::Impl::Impl(const FloatRGBA& rgba, int width, int height)
   : mat_(height, width, CV_32FC4),
-    colorDescriptor_(SurfaceColorDescriptor::unknownRgba32Float())
+    colorDescriptor_(SurfaceColorDescriptor::unknownBgra32Float())
  {
-  cv::Vec4f color(rgba.r(), rgba.g(), rgba.b(), rgba.a()); // Assuming FloatRGBA is RGBA
+  cv::Vec4f color(rgba.b(), rgba.g(), rgba.r(), rgba.a());
   mat_.setTo(color);
  }
 
@@ -178,10 +180,10 @@ namespace ArtifactCore {
 
   void ImageF32x4_RGBA::fill(const FloatRGBA& rgba)
   {
-   cv::Vec4f color(rgba.r(), rgba.g(), rgba.b(), rgba.a());
+   cv::Vec4f color(rgba.b(), rgba.g(), rgba.r(), rgba.a());
    impl_->mat_.setTo(color);
    if (impl_->colorDescriptor_.channelOrder == SurfaceChannelOrder::Unknown) {
-    impl_->colorDescriptor_ = SurfaceColorDescriptor::unknownRgba32Float();
+    impl_->colorDescriptor_ = SurfaceColorDescriptor::unknownBgra32Float();
    }
  }
 
@@ -194,13 +196,36 @@ namespace ArtifactCore {
     const OIIO::ImageSpec& spec = oriented.spec();
     if (spec.width > 0 && spec.height > 0 && spec.nchannels > 0) {
       OIIO::ImageBuf rgba;
-      if (spec.nchannels >= 4) {
-        const std::array<int, 4> channelOrder{0, 1, 2, 3};
-        rgba = OIIO::ImageBufAlgo::channels(oriented, 4, channelOrder);
-      } else if (spec.nchannels == 3) {
-        const std::array<int, 4> channelOrder{0, 1, 2, -1};
+      if (spec.nchannels >= 3) {
+        std::array<int, 4> channelOrder{-1, -1, -1, -1};
+        const char* canonicalNames[] = {"r", "g", "b", "a"};
+        for (int channel = 0; channel < 4; ++channel) {
+          for (int candidate = 0;
+               candidate < spec.nchannels &&
+               candidate < static_cast<int>(spec.channelnames.size());
+               ++candidate) {
+            const QString name = QString::fromStdString(
+                spec.channelnames[static_cast<std::size_t>(candidate)]).toLower();
+            if (name == QLatin1String(canonicalNames[channel]) ||
+                (channel == 0 && name.endsWith(QLatin1String(".r"))) ||
+                (channel == 1 && name.endsWith(QLatin1String(".g"))) ||
+                (channel == 2 && name.endsWith(QLatin1String(".b"))) ||
+                (channel == 3 && name.endsWith(QLatin1String(".a")))) {
+              channelOrder[static_cast<std::size_t>(channel)] = candidate;
+              break;
+            }
+          }
+        }
+        if (channelOrder[0] < 0 || channelOrder[1] < 0 || channelOrder[2] < 0) {
+          channelOrder[0] = 0;
+          channelOrder[1] = 1;
+          channelOrder[2] = 2;
+        }
+        if (channelOrder[3] < 0 && spec.nchannels >= 4)
+          channelOrder[3] = 3;
         const std::array<float, 4> channelValues{0.0f, 0.0f, 0.0f, 1.0f};
-        rgba = OIIO::ImageBufAlgo::channels(oriented, 4, channelOrder, channelValues);
+        rgba = OIIO::ImageBufAlgo::channels(
+            oriented, 4, channelOrder, channelValues);
       } else if (spec.nchannels == 2) {
         const std::array<int, 4> channelOrder{0, 0, 0, 1};
         const std::array<float, 4> channelValues{0.0f, 0.0f, 0.0f, 1.0f};
@@ -234,7 +259,7 @@ namespace ArtifactCore {
  {
   const QString suffix = QFileInfo(path).suffix().toLower();
   if (suffix == QStringLiteral("exr")) {
-    cv::Mat mat = impl_->mat_;
+    cv::Mat mat = toCanonicalRGBA32FC4();
     if (mat.empty() || mat.type() != CV_32FC4) {
       return false;
     }
@@ -307,13 +332,11 @@ namespace ArtifactCore {
    if (impl_->mat_.empty() || impl_->mat_.type() != CV_32FC4) {
     return {};
    }
-   if (impl_->colorDescriptor_.channelOrder ==
-       SurfaceChannelOrder::BGRA) {
-    cv::Mat rgba;
-    cv::cvtColor(impl_->mat_, rgba, cv::COLOR_BGRA2RGBA);
-    return rgba;
-   }
-   return impl_->mat_.clone();
+   if (impl_->colorDescriptor_.channelOrder != SurfaceChannelOrder::BGRA)
+    return {};
+   cv::Mat rgba;
+   cv::cvtColor(impl_->mat_, rgba, cv::COLOR_BGRA2RGBA);
+   return rgba;
   }
 
   cv::Mat ImageF32x4_RGBA::toCanonicalBGRA32FC4() const
@@ -321,13 +344,9 @@ namespace ArtifactCore {
    if (impl_->mat_.empty() || impl_->mat_.type() != CV_32FC4) {
     return {};
    }
-   if (impl_->colorDescriptor_.channelOrder ==
-       SurfaceChannelOrder::BGRA) {
-    return impl_->mat_.clone();
-   }
-   cv::Mat bgra;
-   cv::cvtColor(impl_->mat_, bgra, cv::COLOR_RGBA2BGRA);
-   return bgra;
+   if (impl_->colorDescriptor_.channelOrder != SurfaceChannelOrder::BGRA)
+    return {};
+   return impl_->mat_.clone();
   }
 
   ImageSurfaceView ImageF32x4_RGBA::surfaceView() const noexcept
@@ -378,6 +397,8 @@ namespace ArtifactCore {
       const SurfaceColorDescriptor& descriptor) noexcept
   {
    impl_->colorDescriptor_ = descriptor;
+   impl_->colorDescriptor_.storage = SurfacePixelStorage::RGBA32Float;
+   impl_->colorDescriptor_.channelOrder = SurfaceChannelOrder::BGRA;
   }
 
   QImage ImageF32x4_RGBA::toQImage() const
@@ -420,43 +441,40 @@ namespace ArtifactCore {
   {
     if (mat.empty()) return;
 
-    // CV_32FC4 is the canonical in-memory RGBA float representation. Keep
-    // the descriptor explicit even when the caller does not provide source
-    // primaries/transfer metadata; downstream upload paths can then apply
-    // their documented boundary conversion instead of treating the buffer as
-    // an unknown channel layout.
-    impl_->colorDescriptor_ = SurfaceColorDescriptor::unknownRgba32Float();
+    // The no-descriptor overload follows OpenCV's BGR/BGRA convention and
+    // stores the result in the canonical CPU BGRA layout.
+    impl_->colorDescriptor_ = SurfaceColorDescriptor::unknownBgra32Float();
 
     cv::Mat tmp;
-    // Convert various types to CV_32FC4 (RGBA float)
+    // Normalize OpenCV inputs to the canonical CV_32FC4 BGRA backing layout.
     if (mat.type() == CV_8UC1) {
-      cv::cvtColor(mat, tmp, cv::COLOR_GRAY2RGBA);
+      cv::cvtColor(mat, tmp, cv::COLOR_GRAY2BGRA);
       tmp.convertTo(tmp, CV_32F, 1.0/255.0);
     } else if (mat.type() == CV_8UC3) {
-      cv::cvtColor(mat, tmp, cv::COLOR_BGR2RGBA);
+      cv::cvtColor(mat, tmp, cv::COLOR_BGR2BGRA);
       tmp.convertTo(tmp, CV_32F, 1.0/255.0);
     } else if (mat.type() == CV_8UC4) {
       mat.convertTo(tmp, CV_32F, 1.0/255.0);
     } else if (mat.type() == CV_16UC1) {
       cv::Mat f;
       mat.convertTo(f, CV_32F, 1.0/65535.0);
-      cv::cvtColor(f, tmp, cv::COLOR_GRAY2RGBA);
+      cv::cvtColor(f, tmp, cv::COLOR_GRAY2BGRA);
     } else if (mat.type() == CV_16UC3) {
       cv::Mat f;
       mat.convertTo(f, CV_32F, 1.0/65535.0);
-      cv::cvtColor(f, tmp, cv::COLOR_BGR2RGBA);
+      cv::cvtColor(f, tmp, cv::COLOR_BGR2BGRA);
     } else if (mat.type() == CV_32FC3) {
-      cv::cvtColor(mat, tmp, cv::COLOR_BGR2RGBA);
+      cv::cvtColor(mat, tmp, cv::COLOR_BGR2BGRA);
       tmp.convertTo(tmp, CV_32F);
     } else if (mat.type() == CV_32FC4) {
       // Copy here to avoid aliasing caller-owned temporary buffers.
       impl_->mat_ = mat.clone();
       return;
     } else {
-      // Fallback: convert to RGBA 8-bit then to float
+      // Fallback: convert to BGR 8-bit, then normalize to BGRA float.
       cv::Mat bgr8;
       mat.convertTo(bgr8, CV_8U, 255.0);
-      cv::cvtColor(bgr8, tmp, cv::COLOR_BGR2RGBA);
+      cv::cvtColor(bgr8, tmp, cv::COLOR_BGR2BGRA);
       tmp.convertTo(tmp, CV_32F, 1.0/255.0);
     }
 
@@ -464,8 +482,8 @@ namespace ArtifactCore {
     if (tmp.type() != CV_32FC4) {
       cv::Mat conv;
       tmp.convertTo(conv, CV_32F);
-      if (conv.channels() == 1) cv::cvtColor(conv, conv, cv::COLOR_GRAY2RGBA);
-      else if (conv.channels() == 3) cv::cvtColor(conv, conv, cv::COLOR_BGR2RGBA);
+      if (conv.channels() == 1) cv::cvtColor(conv, conv, cv::COLOR_GRAY2BGRA);
+      else if (conv.channels() == 3) cv::cvtColor(conv, conv, cv::COLOR_BGR2BGRA);
       impl_->mat_ = conv; // move converted mat
     } else {
       impl_->mat_ = tmp; // assign without extra clone
@@ -475,43 +493,170 @@ namespace ArtifactCore {
   void ImageF32x4_RGBA::setFromCVMat(
       const cv::Mat& mat, const SurfaceColorDescriptor& descriptor)
   {
-    setFromCVMat(mat);
-    if (!mat.empty()) {
-      impl_->colorDescriptor_ = descriptor;
+    if (mat.empty()) return;
+    cv::Mat normalized;
+    const int channelCount = mat.channels();
+    if (channelCount == 4) {
+      if (descriptor.channelOrder == SurfaceChannelOrder::RGBA) {
+        cv::cvtColor(mat, normalized, cv::COLOR_RGBA2BGRA);
+      } else if (descriptor.channelOrder == SurfaceChannelOrder::BGRA) {
+        normalized = mat;
+      } else {
+        impl_->mat_.release();
+        impl_->colorDescriptor_ = SurfaceColorDescriptor::unknown();
+        return;
+      }
+    } else if (channelCount == 3) {
+      if (descriptor.channelOrder == SurfaceChannelOrder::RGB) {
+        cv::cvtColor(mat, normalized, cv::COLOR_RGB2BGR);
+      } else if (descriptor.channelOrder == SurfaceChannelOrder::BGR) {
+        normalized = mat;
+      } else {
+        impl_->mat_.release();
+        impl_->colorDescriptor_ = SurfaceColorDescriptor::unknown();
+        return;
+      }
+    } else if (channelCount == 1 &&
+               descriptor.channelOrder == SurfaceChannelOrder::Gray) {
+      normalized = mat;
+    } else {
+      impl_->mat_.release();
+      impl_->colorDescriptor_ = SurfaceColorDescriptor::unknown();
+      return;
     }
+    setFromCVMat(normalized);
+    impl_->colorDescriptor_ = descriptor;
+    impl_->colorDescriptor_.storage = SurfacePixelStorage::RGBA32Float;
+    impl_->colorDescriptor_.channelOrder = SurfaceChannelOrder::BGRA;
   }
 
   void ImageF32x4_RGBA::setFromCVMatOwned(
       cv::Mat&& mat, const SurfaceColorDescriptor& descriptor)
   {
-    if (mat.empty() || mat.type() != CV_32FC4) {
+    if (mat.empty() || mat.type() != CV_32FC4 ||
+        descriptor.channelOrder != SurfaceChannelOrder::BGRA) {
       setFromCVMat(mat, descriptor);
       return;
     }
     impl_->mat_ = std::move(mat);
     impl_->colorDescriptor_ = descriptor;
+    impl_->colorDescriptor_.storage = SurfacePixelStorage::RGBA32Float;
   }
 
   void ImageF32x4_RGBA::setFromRGBA32F(const float* data, int width, int height)
   {
-   if (!data || width <= 0 || height <= 0) {
-    impl_->mat_.release();
-    impl_->colorDescriptor_ = SurfaceColorDescriptor::unknown();
-    return;
-   }
-   cv::Mat mat(height, width, CV_32FC4, const_cast<float*>(data));
-   impl_->mat_ = mat.clone();
-   impl_->colorDescriptor_ = SurfaceColorDescriptor::unknownRgba32Float();
+   setFromRGBA32F(data, width, height,
+                  SurfaceColorDescriptor::unknownRgba32Float());
   }
 
   void ImageF32x4_RGBA::setFromRGBA32F(
       const float* data, int width, int height,
       const SurfaceColorDescriptor& descriptor)
   {
-   setFromRGBA32F(data, width, height);
-   if (data && width > 0 && height > 0) {
-    impl_->colorDescriptor_ = descriptor;
+   if (!data || width <= 0 || height <= 0) {
+    impl_->mat_.release();
+    impl_->colorDescriptor_ = SurfaceColorDescriptor::unknown();
+    return;
    }
+   const cv::Mat source(height, width, CV_32FC4, const_cast<float*>(data));
+   auto inputDescriptor = descriptor;
+   if (inputDescriptor.channelOrder == SurfaceChannelOrder::Unknown)
+     inputDescriptor.channelOrder = SurfaceChannelOrder::RGBA;
+   setFromCVMat(source, inputDescriptor);
+  }
+
+  void ImageF32x4_RGBA::setFromBGRA32F(const float* data, int width, int height)
+  {
+   setFromBGRA32F(data, width, height,
+                  SurfaceColorDescriptor::unknownBgra32Float());
+  }
+
+  void ImageF32x4_RGBA::setFromBGRA32F(
+      const float* data, int width, int height,
+      const SurfaceColorDescriptor& descriptor)
+  {
+   if (!data || width <= 0 || height <= 0) {
+    impl_->mat_.release();
+    impl_->colorDescriptor_ = SurfaceColorDescriptor::unknown();
+    return;
+   }
+   const cv::Mat source(height, width, CV_32FC4, const_cast<float*>(data));
+   auto inputDescriptor = descriptor;
+   inputDescriptor.storage = SurfacePixelStorage::RGBA32Float;
+   inputDescriptor.channelOrder = SurfaceChannelOrder::BGRA;
+   setFromCVMat(source, inputDescriptor);
+  }
+
+  bool ImageF32x4_RGBA::setFromGpuRGBA32F(
+      const float* data, int width, int height, std::size_t rowStride,
+      const SurfaceColorDescriptor& backingDescriptor)
+  {
+    if (!data || width <= 0 || height <= 0 ||
+        backingDescriptor.storage != SurfacePixelStorage::RGBA32Float ||
+        (backingDescriptor.channelOrder != SurfaceChannelOrder::RGBA &&
+         backingDescriptor.channelOrder != SurfaceChannelOrder::BGRA)) {
+      return false;
+    }
+
+    const auto rowBytes = static_cast<std::size_t>(width) * 4u * sizeof(float);
+    if (rowStride < rowBytes || rowStride % alignof(float) != 0 ||
+        reinterpret_cast<std::uintptr_t>(data) % alignof(float) != 0) {
+      return false;
+    }
+    const auto maxSize = (std::numeric_limits<std::size_t>::max)();
+    if (static_cast<std::size_t>(height - 1) >
+        (maxSize - rowBytes) / rowStride) {
+      return false;
+    }
+    const auto span = static_cast<std::size_t>(height - 1) * rowStride + rowBytes;
+    if (reinterpret_cast<std::uintptr_t>(data) >
+        (std::numeric_limits<std::uintptr_t>::max)() - span) {
+      return false;
+    }
+
+    const cv::Mat rgbaView(height, width, CV_32FC4,
+                           const_cast<float*>(data), rowStride);
+    auto inputDescriptor = backingDescriptor;
+    inputDescriptor.storage = SurfacePixelStorage::RGBA32Float;
+    inputDescriptor.channelOrder = SurfaceChannelOrder::RGBA;
+    setFromCVMat(rgbaView, inputDescriptor);
+    return !impl_->mat_.empty();
+  }
+
+  bool ImageF32x4_RGBA::setFromGpuBGRA32F(
+      const float* data, int width, int height, std::size_t rowStride,
+      const SurfaceColorDescriptor& backingDescriptor)
+  {
+    if (!data || width <= 0 || height <= 0 ||
+        backingDescriptor.storage != SurfacePixelStorage::RGBA32Float ||
+        (backingDescriptor.channelOrder != SurfaceChannelOrder::RGBA &&
+         backingDescriptor.channelOrder != SurfaceChannelOrder::BGRA)) {
+      return false;
+    }
+
+    const auto rowBytes = static_cast<std::size_t>(width) * 4u * sizeof(float);
+    if (rowStride < rowBytes || rowStride % alignof(float) != 0 ||
+        reinterpret_cast<std::uintptr_t>(data) % alignof(float) != 0) {
+      return false;
+    }
+    const auto maxSize = (std::numeric_limits<std::size_t>::max)();
+    if (static_cast<std::size_t>(height - 1) >
+        (maxSize - rowBytes) / rowStride) {
+      return false;
+    }
+    const auto span = static_cast<std::size_t>(height - 1) * rowStride + rowBytes;
+    if (reinterpret_cast<std::uintptr_t>(data) >
+        (std::numeric_limits<std::uintptr_t>::max)() - span) {
+      return false;
+    }
+
+    const cv::Mat bgraView(height, width, CV_32FC4,
+                           const_cast<float*>(data), rowStride);
+    auto inputDescriptor = backingDescriptor;
+    inputDescriptor.storage = SurfacePixelStorage::RGBA32Float;
+    inputDescriptor.channelOrder = SurfaceChannelOrder::BGRA;
+    setFromCVMat(bgraView, inputDescriptor);
+    return !impl_->mat_.empty();
   }
 
   void ImageF32x4_RGBA::setFromRGBA8(const std::uint8_t* data, int width, int height)
@@ -522,18 +667,24 @@ namespace ArtifactCore {
     return;
    }
    cv::Mat mat(height, width, CV_8UC4, const_cast<std::uint8_t*>(data));
-   setFromCVMat(mat);
-   impl_->colorDescriptor_ = SurfaceColorDescriptor::unknownRgba32Float();
+   setFromCVMat(mat, SurfaceColorDescriptor::unknownRgba32Float());
   }
 
   void ImageF32x4_RGBA::setFromRGBA8(
       const std::uint8_t* data, int width, int height,
       const SurfaceColorDescriptor& descriptor)
   {
-   setFromRGBA8(data, width, height);
-   if (data && width > 0 && height > 0) {
-    impl_->colorDescriptor_ = descriptor;
+   if (!data || width <= 0 || height <= 0) {
+    impl_->mat_.release();
+    impl_->colorDescriptor_ = SurfaceColorDescriptor::unknown();
+    return;
    }
+   const cv::Mat source(height, width, CV_8UC4,
+                        const_cast<std::uint8_t*>(data));
+   auto inputDescriptor = descriptor;
+   if (inputDescriptor.channelOrder == SurfaceChannelOrder::Unknown)
+    inputDescriptor.channelOrder = SurfaceChannelOrder::RGBA;
+   setFromCVMat(source, inputDescriptor);
   }
 
   ImageF32x4_RGBA ImageF32x4_RGBA::DeepCopy() const

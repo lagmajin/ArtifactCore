@@ -17,15 +17,20 @@ void BroadcastColors::process(float4* buffer, int width, int height, const Broad
         const int rowBase = row * width;
         for (int x = x0; x < x1; ++x) {
             auto& px = buffer[rowBase + x];
-            float y = px.x * 0.299f + px.y * 0.587f + px.z * 0.114f;
-            float u = px.x * -0.147f + px.y * -0.289f + px.z * 0.436f;
-            float v = px.x * 0.615f + px.y * -0.515f + px.z * -0.100f;
+            const float r = px.z;
+            const float g = px.y;
+            const float b = px.x;
+            float y = r * 0.299f + g * 0.587f + b * 0.114f;
+            float u = r * -0.147f + g * -0.289f + b * 0.436f;
+            float v = r * 0.615f + g * -0.515f + b * -0.100f;
             y = std::clamp(y, yLo, yHi);
             u = std::clamp(u, -uvLimit, uvLimit) * sat;
             v = std::clamp(v, -uvLimit, uvLimit) * sat;
-            px.x = std::clamp(y + 0.000f * u + 1.140f * v, 0.0f, 1.0f);
+            const float outR = std::clamp(y + 0.000f * u + 1.140f * v, 0.0f, 1.0f);
             px.y = std::clamp(y - 0.394f * u - 0.581f * v, 0.0f, 1.0f);
-            px.z = std::clamp(y + 2.032f * u + 0.000f * v, 0.0f, 1.0f);
+            const float outB = std::clamp(y + 2.032f * u + 0.000f * v, 0.0f, 1.0f);
+            px.x = outB;
+            px.z = outR;
         }
     }
     });

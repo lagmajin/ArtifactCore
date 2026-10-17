@@ -17,34 +17,34 @@ namespace ArtifactCore {
 
  namespace
  {
-  cv::Mat convertToFloat32RGBA(const cv::Mat& input)
+  cv::Mat convertToFloat32BGRA(const cv::Mat& input)
   {
    if (input.empty()) {
     return {};
    }
 
    if (input.type() == CV_32FC4) {
-    return input.clone();
+    return input.clone(); // CV_32FC4 inputs follow the local BGRA contract.
    }
 
-   cv::Mat rgba;
+   cv::Mat bgra;
    if (input.channels() == 4) {
-    input.convertTo(rgba, CV_32FC4, input.depth() == CV_8U ? (1.0 / 255.0) : 1.0);
-    return rgba;
+    input.convertTo(bgra, CV_32FC4, input.depth() == CV_8U ? (1.0 / 255.0) : 1.0);
+    return bgra;
    }
 
    if (input.channels() == 3) {
-    cv::cvtColor(input, rgba, cv::COLOR_BGR2RGBA);
+    cv::cvtColor(input, bgra, cv::COLOR_BGR2BGRA);
    } else if (input.channels() == 1) {
-    cv::cvtColor(input, rgba, cv::COLOR_GRAY2RGBA);
+    cv::cvtColor(input, bgra, cv::COLOR_GRAY2BGRA);
    } else {
     return {};
    }
 
-   if (rgba.depth() != CV_32F) {
-    rgba.convertTo(rgba, CV_32FC4, input.depth() == CV_8U ? (1.0 / 255.0) : 1.0);
+   if (bgra.depth() != CV_32F) {
+    bgra.convertTo(bgra, CV_32FC4, input.depth() == CV_8U ? (1.0 / 255.0) : 1.0);
    }
-   return rgba;
+   return bgra;
   }
 
   cv::Mat toBgr8U(const cv::Mat& src)
@@ -345,7 +345,7 @@ namespace ArtifactCore {
   // 入力画像がCV_32FC4でない場合、変換を試みる
   if (src.empty() || src.channels() != 4 || src.depth() != CV_32F) {
    std::cerr << "Input image is not CV_32FC4. Attempting conversion..." << std::endl;
-   processed_src = convertToFloat32RGBA(src); // ヘルパー関数で変換
+   processed_src = convertToFloat32BGRA(src); // ヘルパー関数で変換
    if (processed_src.empty()) {
 	// 変換に失敗した場合
 	std::cerr << "Failed to convert input image to CV_32FC4. Aborting." << std::endl;

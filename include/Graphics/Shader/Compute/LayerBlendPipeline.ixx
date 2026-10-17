@@ -110,6 +110,14 @@ export namespace ArtifactCore
    Uint32 height
   );
 
+  bool convertBgraAccumulatorToStraightRgba(
+   IDeviceContext* ctx,
+   ITextureView* srcSRV,
+   ITextureView* outUAV,
+   Uint32 width,
+   Uint32 height
+  );
+
   bool displayComponent(
    IDeviceContext* ctx,
    ITextureView* srcSRV,
@@ -215,6 +223,7 @@ export namespace ArtifactCore
   class Impl;
   Impl* pImpl_ = nullptr;
   std::unique_ptr<ComputeExecutor> layerToFloatExecutor_;
+  std::unique_ptr<ComputeExecutor> bgraAccumulatorToStraightRgbaExecutor_;
   std::unique_ptr<ComputeExecutor> clearRegionExecutor_;
   std::unique_ptr<ComputeExecutor> channelComponentDisplayExecutor_;
   std::map<BlendMode, BlendExecutor> executors_;

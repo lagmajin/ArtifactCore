@@ -23,11 +23,11 @@ float smooth01(float value) {
     return value * value * (3.0f - 2.0f * value);
 }
 
-cv::Mat channelLuma(const cv::Mat& rgba) {
+cv::Mat channelLuma(const cv::Mat& bgra) {
     std::vector<cv::Mat> channels;
-    cv::split(rgba, channels);
-    return channels[0] * 0.2126f + channels[1] * 0.7152f +
-        channels[2] * 0.0722f;
+    cv::split(bgra, channels);
+    return channels[2] * 0.2126f + channels[1] * 0.7152f +
+        channels[0] * 0.0722f;
 }
 
 } // namespace
@@ -62,16 +62,16 @@ bool processFilmRepair(const FilmRepairBuffers& buffers,
     p.scratchMinLength = std::clamp(p.scratchMinLength, 4, 256);
 
     const float* source = buffers.src;
-    cv::Mat rgba(h, w, CV_32FC4, const_cast<float*>(source));
+    cv::Mat bgra(h, w, CV_32FC4, const_cast<float*>(source));
     std::vector<cv::Mat> channels;
-    cv::split(rgba, channels);
+    cv::split(bgra, channels);
     std::vector<cv::Mat> medianChannels(3);
     const int kernel = p.radius * 2 + 1;
     for (int channel = 0; channel < 3; ++channel)
         cv::medianBlur(channels[channel], medianChannels[channel], kernel);
-    const cv::Mat luma = channelLuma(rgba);
-    const cv::Mat medianLuma = medianChannels[0] * 0.2126f +
-        medianChannels[1] * 0.7152f + medianChannels[2] * 0.0722f;
+    const cv::Mat luma = channelLuma(bgra);
+    const cv::Mat medianLuma = medianChannels[2] * 0.2126f +
+        medianChannels[1] * 0.7152f + medianChannels[0] * 0.0722f;
 
     std::vector<float> mask(pixelCount, 0.0f);
     // Per-pixel temporal weight: drives neighbor-average fill when
@@ -256,9 +256,9 @@ double frameLuma(const float* rgba, int width, int height) {
         for (int x = 0; x < width; x += 4) {
             const std::size_t offset =
                 (static_cast<std::size_t>(y) * w + static_cast<std::size_t>(x)) * 4;
-            const double r = rgba[offset + 0];
+            const double r = rgba[offset + 2];
             const double g = rgba[offset + 1];
-            const double b = rgba[offset + 2];
+            const double b = rgba[offset + 0];
             if (!std::isfinite(r) || !std::isfinite(g) || !std::isfinite(b))
                 continue;
             total += r * 0.299 + g * 0.587 + b * 0.114;

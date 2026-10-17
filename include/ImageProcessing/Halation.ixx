@@ -27,7 +27,7 @@ public:
     };
 
     /**
-     * @brief Process an RGBA image buffer (float32x4)
+     * @brief Process a BGRA image buffer (float32x4)
      * Note: In a real implementation, this would be a GPU compute shader.
      * This C++ implementation provides the physical logic.
      */
@@ -43,11 +43,13 @@ public:
             const auto rowOffset = static_cast<std::size_t>(y) * static_cast<std::size_t>(width);
             for (int x = 0; x < width; ++x) {
                 const auto i = rowOffset + static_cast<std::size_t>(x);
-                float lum = source[i].x * 0.299f + source[i].y * 0.587f + source[i].z * 0.114f;
+                float lum = source[i].x * 0.114f + source[i].y * 0.587f + source[i].z * 0.299f;
                 if (lum > settings.threshold) {
                     float weight = std::clamp((lum - settings.threshold) / (1.0f - settings.threshold + 0.001f), 0.0f, 1.0f);
                     // Halation is physically red-shifted due to scattering
-                    highlights[i] = {source[i].x * weight, source[i].y * weight * 0.2f, source[i].z * weight * 0.1f, 0.0f};
+                    highlights[i] = {source[i].x * weight * 0.1f,
+                                     source[i].y * weight * 0.2f,
+                                     source[i].z * weight, 0.0f};
                 } else {
                     highlights[i] = {0, 0, 0, 0};
                 }
@@ -110,9 +112,9 @@ private:
                     count++;
                 }
                 const auto index = static_cast<std::size_t>(y) * static_cast<std::size_t>(w) + static_cast<std::size_t>(x);
-                data[index].x = (sum.x / count) * rM;
+                data[index].x = (sum.x / count) * bM;
                 data[index].y = (sum.y / count) * gM;
-                data[index].z = (sum.z / count) * bM;
+                data[index].z = (sum.z / count) * rM;
             }
         });
     }

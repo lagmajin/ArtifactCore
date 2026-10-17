@@ -8,6 +8,7 @@ module;
 module ImageProcessing;
 import :DifferenceKey;
 import Core.Parallel;
+import Graphics.SurfaceColorContract;
 
 namespace ArtifactCore::Keying {
 namespace {
@@ -23,6 +24,12 @@ bool processDifferenceKey(const DifferenceKeyBuffers& buffers,
     if (!buffers.src || !buffers.dst || buffers.src == buffers.dst ||
         buffers.width <= 0 || buffers.height <= 0)
         return false;
+    if (buffers.channelOrder != SurfaceChannelOrder::RGBA &&
+        buffers.channelOrder != SurfaceChannelOrder::BGRA)
+        return false;
+    const int rIndex = buffers.channelOrder == SurfaceChannelOrder::RGBA ? 0 : 2;
+    constexpr int gIndex = 1;
+    const int bIndex = buffers.channelOrder == SurfaceChannelOrder::RGBA ? 2 : 0;
     const auto width = static_cast<std::size_t>(buffers.width);
     const auto height = static_cast<std::size_t>(buffers.height);
     if (height != 0 && width > std::numeric_limits<std::size_t>::max() / height)
@@ -50,9 +57,9 @@ bool processDifferenceKey(const DifferenceKeyBuffers& buffers,
                 const std::size_t i = static_cast<std::size_t>(y) * width +
                     static_cast<std::size_t>(x);
                 const float* s = buffers.src + i * 4;
-                const float dr = s[0] - p.refR;
-                const float dg = s[1] - p.refG;
-                const float db = s[2] - p.refB;
+                const float dr = s[rIndex] - p.refR;
+                const float dg = s[gIndex] - p.refG;
+                const float db = s[bIndex] - p.refB;
                 const float distance = std::sqrt(dr * dr + dg * dg + db * db);
                 if (!std::isfinite(distance) || !std::isfinite(s[3])) {
                     matte[i] = 0.0f;
@@ -123,12 +130,12 @@ bool processDifferenceKey(const DifferenceKeyBuffers& buffers,
                 float* d = buffers.dst + i * 4;
                 const float alpha = std::clamp(matte[i], 0.0f, 1.0f);
                 if (p.viewMode == 1) {
-                    d[0] = d[1] = d[2] = alpha;
+                    d[rIndex] = d[gIndex] = d[bIndex] = alpha;
                     d[3] = 1.0f;
                 } else {
-                    d[0] = s[0];
-                    d[1] = s[1];
-                    d[2] = s[2];
+                    d[rIndex] = s[rIndex];
+                    d[gIndex] = s[gIndex];
+                    d[bIndex] = s[bIndex];
                     d[3] = std::clamp(s[3] * alpha, 0.0f, 1.0f);
                 }
             }

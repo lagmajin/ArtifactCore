@@ -8,6 +8,7 @@ module;
 module ImageProcessing;
 import :IBKKeyer;
 import Core.Parallel;
+import Graphics.SurfaceColorContract;
 
 namespace ArtifactCore::Keying {
 namespace {
@@ -55,6 +56,17 @@ bool processIBK(const IBKBuffers& buffers, const IBKParams& inputParams) {
         buffers.width <= 0 || buffers.height <= 0) {
         return false;
     }
+    if ((buffers.foregroundOrder != SurfaceChannelOrder::RGBA &&
+         buffers.foregroundOrder != SurfaceChannelOrder::BGRA) ||
+        (buffers.cleanPlateOrder != SurfaceChannelOrder::RGBA &&
+         buffers.cleanPlateOrder != SurfaceChannelOrder::BGRA))
+        return false;
+    const int fgR = buffers.foregroundOrder == SurfaceChannelOrder::RGBA ? 0 : 2;
+    constexpr int fgG = 1;
+    const int fgB = buffers.foregroundOrder == SurfaceChannelOrder::RGBA ? 2 : 0;
+    const int plateR = buffers.cleanPlateOrder == SurfaceChannelOrder::RGBA ? 0 : 2;
+    constexpr int plateG = 1;
+    const int plateB = buffers.cleanPlateOrder == SurfaceChannelOrder::RGBA ? 2 : 0;
     const auto width = static_cast<std::size_t>(buffers.width);
     const auto height = static_cast<std::size_t>(buffers.height);
     if (height != 0 && width > std::numeric_limits<std::size_t>::max() / height)
@@ -76,12 +88,12 @@ bool processIBK(const IBKBuffers& buffers, const IBKParams& inputParams) {
         const std::size_t i = static_cast<std::size_t>(y) * width + static_cast<std::size_t>(x);
         const float* fg = buffers.foreground + i * 4;
         const float* plate = buffers.cleanPlate + i * 4;
-        const float r = std::max(0.0f, fg[0] * screenCorrection);
-        const float g = std::max(0.0f, fg[1] * screenCorrection);
-        const float b = std::max(0.0f, fg[2] * screenCorrection);
-        const float dr = r - plate[0];
-        const float dg = g - plate[1];
-        const float db = b - plate[2];
+        const float r = std::max(0.0f, fg[fgR] * screenCorrection);
+        const float g = std::max(0.0f, fg[fgG] * screenCorrection);
+        const float b = std::max(0.0f, fg[fgB] * screenCorrection);
+        const float dr = r - plate[plateR];
+        const float dg = g - plate[plateG];
+        const float db = b - plate[plateB];
         const float distance = std::sqrt(dr * dr + dg * dg + db * db);
         const float raw = 1.0f - std::exp(-distance / 0.25f);
         const float core = std::clamp(raw - coreClip, 0.0f, 1.0f);
@@ -104,11 +116,12 @@ bool processIBK(const IBKBuffers& buffers, const IBKParams& inputParams) {
         const float* plate = buffers.cleanPlate + i * 4;
         float* out = buffers.outputRGBA + i * 4;
         const float alpha = std::clamp(matte[i] * std::clamp(fg[3], 0.0f, 1.0f), 0.0f, 1.0f);
-        for (int channel = 0; channel < 3; ++channel) {
-            const float corrected = std::max(0.0f, fg[channel] * screenCorrection);
-            const float value = std::max(0.0f, corrected - plate[channel] * despill);
-            out[channel] = value * alpha;
-        }
+        const float correctedR = std::max(0.0f, fg[fgR] * screenCorrection);
+        const float correctedG = std::max(0.0f, fg[fgG] * screenCorrection);
+        const float correctedB = std::max(0.0f, fg[fgB] * screenCorrection);
+        out[fgR] = std::max(0.0f, correctedR - plate[plateR] * despill) * alpha;
+        out[fgG] = std::max(0.0f, correctedG - plate[plateG] * despill) * alpha;
+        out[fgB] = std::max(0.0f, correctedB - plate[plateB] * despill) * alpha;
         out[3] = alpha;
         }
     }
@@ -128,6 +141,9 @@ bool autoGenerateCleanPlate(const std::vector<ImageF32x4_RGBA>& frames,
     for (const auto& frame : frames) {
         if (frame.width() != width || frame.height() != height ||
             !frame.rgba32fData()) return false;
+        const auto order = frame.colorDescriptor().channelOrder;
+        if (order != SurfaceChannelOrder::RGBA && order != SurfaceChannelOrder::BGRA)
+            return false;
     }
 
     std::vector<float> result(pixelCount * 4, 0.0f);
@@ -140,7 +156,12 @@ bool autoGenerateCleanPlate(const std::vector<ImageF32x4_RGBA>& frames,
         for (int channel = 0; channel < 4; ++channel) {
             values.clear();
             for (const auto& frame : frames) {
-                const float sample = frame.rgba32fData()[pixel * 4 + channel];
+                const auto order = frame.colorDescriptor().channelOrder;
+                const int sourceChannel = channel == 3 || channel == 1
+                    ? channel
+                    : (order == SurfaceChannelOrder::RGBA
+                        ? channel : 2 - channel);
+                const float sample = frame.rgba32fData()[pixel * 4 + sourceChannel];
                 values.push_back(std::isfinite(sample) ? sample : 0.0f);
             }
             const auto middle = values.begin() + values.size() / 2;

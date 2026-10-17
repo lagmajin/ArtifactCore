@@ -27,7 +27,7 @@ void Duotone::process(float4* buffer, int width, int height, const DuotoneSettin
                 float4 orig = buffer[i];
 
                 // Perceptual luminance calculation
-                float luminance = std::clamp(orig.x * 0.299f + orig.y * 0.587f + orig.z * 0.114f, 0.0f, 1.0f);
+                float luminance = std::clamp(orig.z * 0.299f + orig.y * 0.587f + orig.x * 0.114f, 0.0f, 1.0f);
 
                 // Linear interpolation shadow -> highlight
                 float r_map = shadow.x * (1.0f - luminance) + highlight.x * luminance;
@@ -35,9 +35,9 @@ void Duotone::process(float4* buffer, int width, int height, const DuotoneSettin
                 float b_map = shadow.z * (1.0f - luminance) + highlight.z * luminance;
 
                 // Blend with original pixel
-                buffer[i].x = orig.x * (1.0f - blend) + r_map * blend;
+                buffer[i].x = orig.x * (1.0f - blend) + b_map * blend;
                 buffer[i].y = orig.y * (1.0f - blend) + g_map * blend;
-                buffer[i].z = orig.z * (1.0f - blend) + b_map * blend;
+                buffer[i].z = orig.z * (1.0f - blend) + r_map * blend;
                 // Keep original alpha
             }
         }
