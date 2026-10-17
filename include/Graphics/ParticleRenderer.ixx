@@ -64,9 +64,9 @@ public:
     void setFrameCostStats(ArtifactCore::RenderCostStats* stats);
 
     /**
-     * @brief CPUプールのデータをGPU構造化バッファへアップロード
+     * @brief CPUプールのデータを指定contextのcommand streamへアップロード
      */
-    void updateBuffer(const ParticleRenderData& data);
+    void updateBuffer(IDeviceContext* pContext, const ParticleRenderData& data);
     void setRenderOptions(const ParticleRenderOptions& options);
     size_t lastUploadedParticleCount() const;
 

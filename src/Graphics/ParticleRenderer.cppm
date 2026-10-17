@@ -1174,7 +1174,7 @@ void ParticleRenderer::asyncWorkerMain()
     }
 }
 
-void ParticleRenderer::updateBuffer(const ParticleRenderData& data) {
+void ParticleRenderer::updateBuffer(IDeviceContext* pContext, const ParticleRenderData& data) {
     setRenderOptions(data.options);
     debugCount_ = static_cast<qulonglong>(data.particles.size());
     debugUploaded_ = 0;
@@ -1184,8 +1184,6 @@ void ParticleRenderer::updateBuffer(const ParticleRenderData& data) {
         debugState_ = DebugState::UpdateEmpty;
         return;
     }
-    auto pContext = context_.DeviceContext();
-    
     size_t count = std::min(data.particles.size(), maxParticles_);
     lastUploadedParticleCount_ = count;
     debugUploaded_ = static_cast<qulonglong>(count);
