@@ -205,24 +205,24 @@ void main(uint3 id : SV_DispatchThreadID)
 
     const float4 source = (SrcTex[id.xy]).bgra;
     if (displayMode == 1u) {
-        OutTex[id.xy] = (float4(source.rgb, 1.0)).bgra;
+        OutTex[id.xy] = (float4(source.rgb, saturate(source.a))).bgra;
         return;
     }
     if (displayMode == 2u) {
-        OutTex[id.xy] = (float4(source.rgb * 0.5 + 0.5, 1.0)).bgra;
+        OutTex[id.xy] = (float4(source.rgb * 0.5 + 0.5, saturate(source.a))).bgra;
         return;
     }
     if (displayMode == 3u) {
         const float velocityX = source[min(displayComponentY, 3u)];
         const float velocityY = source[min(displayComponentZ, 3u)];
-        OutTex[id.xy] = (float4(velocityX, velocityY, 0.5, 1.0)).bgra;
+        OutTex[id.xy] = (float4(velocityX, velocityY, 0.5, saturate(source.a))).bgra;
         return;
     }
     const float value = saturate(source[min(blendMode, 3u)]);
-    // Keep the source coverage for R/G/B inspection so transparent portions
-    // of the composition do not replace the viewport background with black.
-    // Alpha inspection remains an opaque grayscale diagnostic surface.
-    const float outputAlpha = blendMode <= 2u ? saturate(source.a) : 1.0;
+    // Keep source coverage for every channel, including Alpha. The viewport
+    // background is drawn underneath this diagnostic surface and must remain
+    // visible wherever the source has no coverage.
+    const float outputAlpha = saturate(source.a);
     OutTex[id.xy] = (float4(value, value, value, outputAlpha)).bgra;
 }
 )";

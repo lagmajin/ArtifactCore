@@ -2465,7 +2465,10 @@ float4 PSMain(PSInput In) : SV_Target {
     float outputAlpha = PbrTextureFlags.w > 0.5 ? 1.0 : materialAlpha;
     if (In.Mode > 1.5 && In.Mode < 2.5) {
         float3 normalColor = viewNormal * 0.5 + 0.5;
-        return float4(normalColor, outputAlpha);
+        // Normal AOV coverage comes from the mesh fragment itself. Material
+        // base-color alpha is not the validity mask for this pass (the normal
+        // target is cleared with alpha zero before drawing).
+        return float4(normalColor, 1.0);
     }
     if (In.Mode > 0.5 && In.Mode < 1.5) {
         return float4(baseColor.rgb, outputAlpha);
