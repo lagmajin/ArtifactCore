@@ -13,15 +13,15 @@ export namespace ArtifactCore {
 template <typename K, typename V>
 class ArtifactDict {
 public:
-    void set(const K& key, const V& value) { map_.insert(key, value); }
-    void set(const K& key, V&& value) { map_.insert(key, std::move(value)); }
+    void set(const K& key, const V& value) { map_.tryEmplace(key, value); }
+    void set(const K& key, V&& value) { map_.tryEmplace(key, std::move(value)); }
 
     /// Returns value if key exists, nullopt otherwise.
     /// Forces caller to handle missing case. No silent default-construction.
     ArtifactOptional<V> get(const K& key) const {
         auto it = map_.find(key);
         if (it != map_.end()) return ArtifactOptional<V>(it->second);
-        return ArtifactNullopt;
+        return ArtifactOptional<V>(ArtifactNullopt);
     }
 
     /// Convenience: returns value or fallback. Explicit about the fallback path.
@@ -51,11 +51,11 @@ private:
 template <typename K, typename V>
 class ArtifactOrderedDict {
 public:
-    void set(const K& key, const V& value) { map_.insert(key, value); }
+    void set(const K& key, const V& value) { map_.tryEmplace(key, value); }
     ArtifactOptional<V> get(const K& key) const {
         auto it = map_.find(key);
         if (it != map_.end()) return ArtifactOptional<V>(it->second);
-        return ArtifactNullopt;
+        return ArtifactOptional<V>(ArtifactNullopt);
     }
     V getOr(const K& key, const V& fallback) const {
         auto it = map_.find(key);

@@ -72,7 +72,8 @@ inline bool hasParentTraversal(std::string_view value) noexcept
 
 inline bool isSafeRelativePath(std::string_view value) noexcept
 {
-  return !value.empty() && !isAbsolutePath(value) && !hasParentTraversal(value);
+  return !value.empty() && value.find('\0') == std::string_view::npos &&
+         !isAbsolutePath(value) && !hasParentTraversal(value);
 }
 
 } // namespace ArtifactCore

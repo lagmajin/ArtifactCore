@@ -60,6 +60,8 @@ constexpr int kRxMaxGroups = 9;
 constexpr int kRxMaxNestingDepth = 32;
 constexpr int kRxMaxRepeat = 256;
 constexpr std::uint64_t kRxStepBudget = 4'000'000;
+inline constexpr std::uint32_t kRxSlotUnset =
+    static_cast<std::uint32_t>(regexNpos & 0xFFFFFFFFu);
 
 constexpr bool rxIsWordChar(const char c) noexcept {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
@@ -548,7 +550,7 @@ private:
 class RxEmitter {
 public:
     explicit RxEmitter(Array<Array<RxInst>>& lookaheadPrograms)
-        : lookaheadPrograms_(lookaheadPrograms) {}
+        : lookaheadPrograms_(&lookaheadPrograms) {}
 
     [[nodiscard]] bool emit(const RxNode& node, Array<RxInst>& out) {
         target_ = &out;
@@ -665,15 +667,16 @@ private:
             for (const std::uint32_t jump : jumps) {
                 (*target_)[static_cast<int>(jump)].a = endPosition;
             }
-            for (const std::uint32_t split : splits) {
+            for (std::size_t i = 0; i < splits.size(); ++i) {
+                const std::uint32_t split = splits[static_cast<int>(i)];
                 (*target_)[static_cast<int>(split)].a = split + 1;
-                (*target_)[static_cast<int>(split)].b = endPosition;
+                (*target_)[static_cast<int>(split)].b = jumps[static_cast<int>(i)] + 1;
             }
             return true;
         }
         case K::Star:
         case K::Opt: {
-            const bool star = node.kind == K::Kind::Star;
+            const bool star = node.kind == K::Star;
             RxInst split;
             split.op = RxOp::Split;
             if (node.greedy) {
@@ -793,13 +796,14 @@ private:
     }
 
     Array<RxInst>* target_ = nullptr;
+    Array<Array<RxInst>>* lookaheadPrograms_ = nullptr;
     bool overflowed_ = false;
 };
 
 struct RxVmContext {
     const RxInst* program = nullptr;
     int programSize = 0;
-    const Array<RxInst>* lookaheadPrograms = nullptr;
+    const Array<Array<RxInst>>* lookaheadPrograms = nullptr;
     const char* text = nullptr;
     std::size_t textLength = 0;
     bool ignoreCase = false;
@@ -1001,9 +1005,6 @@ struct RxVmContext {
     }
 };
 
-inline constexpr std::uint32_t kRxSlotUnset =
-    static_cast<std::uint32_t>(regexNpos & 0xFFFFFFFFu);
-
 } // namespace detail
 
 // ---- public API ----
@@ -1036,7 +1037,7 @@ public:
             return false;
         }
 
-        Array<RxInst> mainProgram;
+        Array<detail::RxInst> mainProgram;
         detail::RxEmitter emitter(lookaheadPrograms_);
         detail::RxInst prologue;
         prologue.op = detail::RxOp::Save;
@@ -1089,7 +1090,7 @@ public:
             anchored_ ? from : text.length();
         for (std::size_t start = from; start <= lastStart; ++start) {
             vm.resetSlots();
-            vm.stepsLeft = kRxStepBudget;
+            vm.stepsLeft = detail::kRxStepBudget;
             if (vm.execute(vm.program, vm.programSize,
                            static_cast<std::uint32_t>(start), vm.slots)) {
                 result.matched = true;
@@ -1099,8 +1100,8 @@ public:
                         vm.slots[g * 2];
                     const std::uint32_t endSlot =
                         vm.slots[g * 2 + 1];
-                    if (beginSlot != kRxSlotUnset &&
-                        endSlot != kRxSlotUnset && beginSlot <= endSlot) {
+                    if (beginSlot != detail::kRxSlotUnset &&
+                        endSlot != detail::kRxSlotUnset && beginSlot <= endSlot) {
                         result.groups[g].position = beginSlot;
                         result.groups[g].length = endSlot - beginSlot;
                     } else {
@@ -1195,8 +1196,8 @@ private:
         }
     }
 
-    Array<RxInst> program_;
-    Array<Array<RxInst>> lookaheadPrograms_;
+    Array<detail::RxInst> program_;
+    Array<Array<detail::RxInst>> lookaheadPrograms_;
     String pattern_;
     bool ignoreCase_ = false;
     bool anchored_ = false;

@@ -47,7 +47,8 @@ namespace ArtifactCore {
  }
 
  void FrameTime::setFrame(int f) {
-  if (impl_) impl_->frame_ = f;
+  if (!impl_) impl_ = new Impl(f);
+  else impl_->frame_ = f;
  }
 
  RationalTime FrameTime::toTime(double fps) const {

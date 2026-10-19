@@ -46,12 +46,13 @@ void AudioBassTreble::process(AudioSegment& segment, const AudioSegment* /*sideC
 
     if (stateSampleRate_ != segment.sampleRate) {
         stateSampleRate_ = segment.sampleRate;
-        std::fill(statesInitialized_.begin(), statesInitialized_.end(), false);
+        std::fill(statesInitialized_.begin(), statesInitialized_.end(),
+                  std::uint8_t{0});
     }
     if (static_cast<int>(lowStates_.size()) < channels) {
         lowStates_.resize(channels, 0.0f);
         highStates_.resize(channels, 0.0f);
-        statesInitialized_.resize(channels, false);
+        statesInitialized_.resize(channels, std::uint8_t{0});
     }
 
     // 簡易ローシェルフ/ハイシェルフ
@@ -76,10 +77,10 @@ void AudioBassTreble::process(AudioSegment& segment, const AudioSegment* /*sideC
         
         float& lowState = lowStates_[ch];
         float& highState = highStates_[ch];
-        if (!statesInitialized_[ch]) {
+        if (statesInitialized_[ch] == 0) {
             lowState = std::isfinite(data[0]) ? data[0] : 0.0f;
             highState = lowState;
-            statesInitialized_[ch] = true;
+            statesInitialized_[ch] = 1;
         }
         
         for (int i = 0; i < samples; ++i) {

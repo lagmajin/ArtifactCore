@@ -165,7 +165,7 @@ void artifactReverse(Iterator first, Iterator last) {
     }
 }
 
-// Erase-remove for containers with eraseAt(size_t) style removal. Returns
+// Erase-remove for containers with removeAt(size_t) style removal. Returns
 // the new element count.
 template <typename Container, typename Predicate>
 std::size_t artifactRemoveIf(Container& container, Predicate&& predicate) {
@@ -178,7 +178,7 @@ std::size_t artifactRemoveIf(Container& container, Predicate&& predicate) {
         }
     }
     for (std::size_t index = count; index > out; --index) {
-        container.eraseAt(index - 1);
+        container.removeAt(index - 1);
     }
     return out;
 }

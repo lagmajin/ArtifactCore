@@ -2,6 +2,7 @@ module;
 #include <utility>
 #include <string>
 #include <vector>
+#include <cstdint>
 #include <memory>
 #include <algorithm>
 #include <cmath>
@@ -43,7 +44,7 @@ private:
     std::atomic<float> trebleCoeff_{1.0f};
     std::vector<float> lowStates_;
     std::vector<float> highStates_;
-    std::vector<bool> statesInitialized_;
+    std::vector<std::uint8_t> statesInitialized_;
     int stateSampleRate_ = 0;
 };
 

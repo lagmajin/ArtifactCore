@@ -19,6 +19,7 @@ if(MSVC)
 endif()
 
 
+
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Script/CSharpScriptEngine.cppm" APPEND PROPERTY COMPILE_OPTIONS
     "/reference;Container.NamedVector=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.NamedVector.ifc"
     "/reference;Container.Debug=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.ifc"
@@ -214,33 +215,38 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
                 "/reference;Container.Debug.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.Registry.ifc"
                 "/reference;Container.NamedVector=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.NamedVector.ifc")
     elseif(_artifact_impl_relative STREQUAL "src/Animation/AnimatableTransform2D.cppm")
-        # The primary-interface attachment and imported IFCs are emitted by
-        # the target's module dependency metadata.  Duplicating their legacy
-        # aggregate paths here makes MSVC resolve two IFCs per module name.
+        # CMake already adds the provider IFCs to the MSVC compile command.
+        # Do not attach a second, aggregate-target path for the same module:
+        # MSVC resolves the interface and implementation reference as an
+        # ambiguous IFC (C7684). OBJECT_DEPENDS below preserves build order.
     elseif(_artifact_impl_relative STREQUAL "src/Animation/AnimatableTransform3D.cppm")
-        # The target's module dependency metadata supplies the current IFC
-        # paths for this implementation and its imports.
+        # CMake already adds the provider IFCs to the MSVC compile command.
+        # Duplicate aggregate-target references make MSVC report C7684.
     elseif(_artifact_impl_relative STREQUAL "src/Codec/EncoderSetting.cppm")
-        # This implementation is owned by ArtifactCoreVideo alongside its
-        # primary interface; use that target's module dependency metadata.
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Codec.Encoder.Setting=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreVideo.dir/Codec.Encoder.Setting.ifc"
+            "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc")
     elseif(_artifact_impl_relative STREQUAL "src/Codec/GStreamerDecoder.cppm")
-        # This implementation is owned by ArtifactCoreVideo alongside its
-        # primary interface; use that target's module dependency metadata.
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Video.GStreamerDecoder=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreVideo.dir/Video.GStreamerDecoder.ifc")
     elseif(_artifact_impl_relative STREQUAL "src/Codec/MFEncoder.cppm")
-        # Use the generated module dependency metadata for the current IFC path.
+        # The provider IFC is already included by CMake; avoid a duplicate
+        # aggregate-target reference (MSVC C7684).
     elseif(_artifact_impl_relative STREQUAL "src/Animation/AnimationDynamics.cppm")
-        # Use generated module dependency metadata for the current IFC paths.
+        # Use the CMake-generated provider references; manual aggregate paths
+        # duplicate the same module IFCs and trigger MSVC C7684.
     elseif(_artifact_impl_relative STREQUAL "src/Channel/Channel.cppm")
-        # Use generated module dependency metadata for the current IFC paths.
+        # Use the CMake-generated provider references to avoid duplicate IFC
+        # names from the aggregate-target paths (MSVC C7684).
+    elseif(_artifact_impl_relative MATCHES "^src/Graphics/GPU(Algorithms|AppendConsume|Capabilities|ThreadPool)\\.cppm$")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;${_artifact_module_name}=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/${_artifact_module_name}.ifc")
     elseif(_artifact_impl_relative STREQUAL "src/Codec/MFFrameExtractor.cppm")
-        # Use generated module dependency metadata for current IFC paths.
+        # CMake's provider references are sufficient; do not duplicate IFCs
+        # through the aggregate-target aliases (MSVC C7684).
     elseif(_artifact_impl_relative STREQUAL "src/Color/ColorBlendMode.cppm")
-        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
-            COMPILE_OPTIONS
-                "/reference;Color.BlendMode=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.BlendMode.ifc"
-                "/reference;Color.Float=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Float.ifc"
-                "/reference;Color.Conversion=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Conversion.ifc"
-                "/reference;Color.Luminance=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Luminance.ifc")
+        # Let CMake supply the provider IFC references; duplicate aggregate
+        # target aliases produce MSVC C7684.
     elseif(_artifact_impl_relative STREQUAL "src/Color/ColorConversion.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
@@ -258,12 +264,8 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
                 "/reference;Color.Luminance=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Luminance.ifc"
                 "/reference;Color.Float=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Float.ifc")
     elseif(_artifact_impl_relative STREQUAL "src/Color/ColorLUT.cppm")
-        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
-            COMPILE_OPTIONS
-                "/reference;Color.LUT=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.LUT.ifc"
-                "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc"
-                "/reference;Container.NamedVector=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.NamedVector.ifc"
-                "/reference;Container.Debug=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.ifc")
+        # CMake supplies the provider IFC references for this source. Manual
+        # aggregate-target aliases duplicate them under Visual Studio (C7684).
     elseif(_artifact_impl_relative STREQUAL "src/Color/ColorSpace.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
@@ -305,10 +307,6 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
                 "/reference;Color.XYZ=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.XYZ.ifc"
                 "/reference;Color.Float=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Float.ifc"
                 "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/Common/Point2D.cppm")
-        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
-            COMPILE_OPTIONS
-                "/reference;Core.Point2D=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Point2D.ifc")
     elseif(_artifact_impl_relative STREQUAL "src/Core/AspectRatio.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
@@ -331,18 +329,8 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
                 "/reference;Container.Debug=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.ifc"
                 "/reference;Container.Debug.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.Registry.ifc")
     elseif(_artifact_impl_relative STREQUAL "src/Color/AutoColorMatch.cppm")
-        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
-            COMPILE_OPTIONS
-                "/reference;Color.AutoMatch=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.AutoMatch.ifc"
-                "/reference;Color.TransferFunction=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.TransferFunction.ifc"
-                "/reference;Image.ImageF32x4_RGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageF32x4_RGBA.ifc"
-                "/reference;Image.ImageSurfaceView=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageSurfaceView.ifc"
-                "/reference;Graphics.SurfaceColorContract=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.SurfaceColorContract.ifc"
-                "/reference;ImageInterface=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageInterface.ifc"
-                "/reference;FloatRGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/FloatRGBA.ifc"
-                "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc"
-                "/reference;Container.NamedVector=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.NamedVector.ifc"
-                "/reference;Container.Debug=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.ifc")
+        # Use CMake-generated provider references; duplicate aggregate-target
+        # aliases cause MSVC C7684 for the same module names.
     elseif(_artifact_impl_relative STREQUAL "src/Diagnostics/CrashHandler.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
@@ -1152,7 +1140,8 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             "/reference;Image.ImageSurfaceView=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageSurfaceView.ifc"
             "/reference;Container.NamedVector=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.NamedVector.ifc"
             "/reference;Graphics.SurfaceColorContract=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.SurfaceColorContract.ifc"
-            "/reference;Color.TransferFunction=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.TransferFunction.ifc")
+            "/reference;Color.TransferFunction=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.TransferFunction.ifc"
+            "/reference;Image.GpuImageUpload=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.GpuImageUpload.ifc")
     elseif(_artifact_impl_relative STREQUAL "src/Physics/Physics2D.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;Physics2D=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Physics2D.ifc"
@@ -1767,7 +1756,9 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc"
             "/reference;FloatRGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/FloatRGBA.ifc"
             "/reference;Color.GamutConversion=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.GamutConversion.ifc"
-            "/reference;Particle=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Particle.ifc")
+            "/reference;Particle=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Particle.ifc"
+            "/reference;Graphics.SurfaceColorContract=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.SurfaceColorContract.ifc"
+            "/reference;Color.TransferFunction=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.TransferFunction.ifc")
     elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ChromaKey.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;ImageProcessing=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ifc"
@@ -2193,6 +2184,12 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
     elseif(_artifact_impl_relative STREQUAL "src/Scene/SceneNode.cppm")
         # SceneNode is emitted by ArtifactCoreScene; its split-target
         # references are declared with the other Scene properties below.
+    elseif(_artifact_impl_relative STREQUAL "src/IO/VectorExport.cppm")
+        # VectorExport is compiled by ArtifactCoreShape; the source manifest
+        # is declared later, so resolve its primary IFC here.
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;IO.VectorExport=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreShape.dir/IO.VectorExport.ifc")
     elseif(_artifact_impl_relative MATCHES "^src/Audio/" OR
            _artifact_impl_relative STREQUAL "src/Codec/FFMpegAudioDecoder.cppm" OR
            _artifact_impl_relative STREQUAL "src/CLAP/CLAPHost.cppm" OR
@@ -2416,10 +2413,6 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
                 "/reference;${_artifact_module_name}=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAnalyze.dir/${_artifact_module_name}.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/IO/VectorExport.cppm")
-        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
-            COMPILE_OPTIONS
-                "/reference;${_artifact_module_name}=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreShape.dir/${_artifact_module_name}.ifc")
     elseif(_artifact_impl_relative STREQUAL "src/AI/OnnxImageSegmenter.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
@@ -2466,6 +2459,18 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
         # interface in the same split target.  A second explicit /reference
         # resolves the same logical module through the aggregate target path
         # and makes MSVC report an ambiguous IFC.
+        if(CMAKE_GENERATOR MATCHES "Ninja")
+            set(_artifact_environment_ifc
+                "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreEnvironment.dir/EnvironmentVariable.ifc")
+            set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+                COMPILE_OPTIONS
+                    "/reference;EnvironmentVariable=${_artifact_environment_ifc}")
+        endif()
+    elseif(_artifact_impl_relative STREQUAL "src/Common/Point2D.cppm")
+        # This implementation attachment is unscanned, so its primary module
+        # IFC must be named explicitly despite the producer ordering edge.
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Core.Point2D=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Point2D.ifc")
     elseif(NOT _artifact_impl_relative STREQUAL "src/AI/APIKeyManager.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
@@ -2482,7 +2487,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
                 "/reference;Configuration.ConfigLayer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreConfiguration.dir/Configuration.ConfigLayer.ifc"
                 "/reference;Configuration.LayeredConfigStore=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreConfiguration.dir/Configuration.LayeredConfigStore.ifc")
     endif()
-    set(_artifact_dependency_target_dir "ArtifactCore.dir")
+    set(_artifact_module_provider_target_dir "ArtifactCore.dir")
     file(REAL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/${_artifact_interface_relative}" _artifact_expected_interface)
     set(_artifact_interface_owner_found OFF)
     get_cmake_property(_artifact_core_variables VARIABLES)
@@ -2493,11 +2498,11 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
                 if(_artifact_actual_interface STREQUAL _artifact_expected_interface)
                     set(_artifact_interface_owner_found ON)
                     string(REGEX REPLACE "^ARTIFACTCORE_(.+)_MODULES$" "\\1" _artifact_domain "${_artifact_domain_var}")
-                    set(_artifact_dependency_target_dir "ArtifactCore${_artifact_domain}.dir")
+                    set(_artifact_module_provider_target_dir "ArtifactCore${_artifact_domain}.dir")
                     break()
                 endif()
             endforeach()
-            if(NOT _artifact_dependency_target_dir STREQUAL "ArtifactCore.dir")
+            if(NOT _artifact_module_provider_target_dir STREQUAL "ArtifactCore.dir")
                 break()
             endif()
         endif()
@@ -2596,6 +2601,53 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             endif()
         endif()
     endforeach()
+    if(MSVC AND CMAKE_GENERATOR MATCHES "Ninja" AND
+       NOT _artifact_impl_relative STREQUAL "src/Scene/SceneNode.cppm")
+        # Every implementation unit above is scanner-disabled because MSVC's
+        # module scanner can form cycles for `module Name;` attachments. The
+        # CMake Visual Studio generator injects provider references itself,
+        # but Ninja does not. Supply the IFC resolved from the provider owner
+        # and depend on its producer so stale object files cannot mask a
+        # missing BMI during an incremental build.
+        set(_artifact_reference_ifc
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/${_artifact_module_provider_target_dir}/${_artifact_module_name}.ifc")
+        get_source_file_property(_artifact_impl_compile_options
+            "${_artifact_impl_file}" COMPILE_OPTIONS)
+        set(_artifact_has_module_reference OFF)
+        if(_artifact_impl_compile_options AND
+           NOT _artifact_impl_compile_options STREQUAL "NOTFOUND")
+            set(_artifact_option_index 0)
+            list(LENGTH _artifact_impl_compile_options _artifact_option_count)
+            while(_artifact_option_index LESS _artifact_option_count)
+                list(GET _artifact_impl_compile_options ${_artifact_option_index}
+                    _artifact_compile_option)
+                if(_artifact_compile_option STREQUAL "/reference")
+                    math(EXPR _artifact_reference_value_index
+                        "${_artifact_option_index} + 1")
+                    if(_artifact_reference_value_index LESS _artifact_option_count)
+                        list(GET _artifact_impl_compile_options
+                            ${_artifact_reference_value_index}
+                            _artifact_reference_value)
+                        if(_artifact_reference_value MATCHES
+                           "^${_artifact_module_name}=")
+                            set(_artifact_has_module_reference ON)
+                        endif()
+                    endif()
+                elseif(_artifact_compile_option MATCHES
+                       "^/reference;${_artifact_module_name}=")
+                    set(_artifact_has_module_reference ON)
+                endif()
+                math(EXPR _artifact_option_index "${_artifact_option_index} + 1")
+            endwhile()
+        endif()
+        if(NOT _artifact_has_module_reference)
+            set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+                COMPILE_OPTIONS
+                    "/reference;${_artifact_module_name}=${_artifact_reference_ifc}")
+        endif()
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            OBJECT_DEPENDS "${_artifact_reference_ifc}")
+    endif()
     # The aggregate target still needs its interface object as an explicit
     # order-only dependency.  Split targets receive ordering from their own
     # CXX_MODULES file set and must not reference ArtifactCore.dir objects.
@@ -2606,6 +2658,223 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
         set_property(SOURCE "${_artifact_impl_file}" PROPERTY OBJECT_DEPENDS "")
     endif()
 endforeach()
+
+# MSVC's Ninja generator cannot infer imports for the scanner-disabled
+# implementation attachments above.  Resolve the explicit imported-module
+# table to each provider's IFC and attach both the compile reference and its
+# producer dependency.  Keep provider and consumer target ownership separate:
+# the former locates the IFC, while the latter is only relevant to the source
+# object's own interface attachment.
+if(MSVC AND CMAKE_GENERATOR MATCHES "Ninja")
+    foreach(_artifact_import_reference IN LISTS
+            ARTIFACTCORE_IMPLEMENTATION_IMPORTED_MODULE_REFERENCES)
+        string(REPLACE "|" ";" _artifact_import_fields
+            "${_artifact_import_reference}")
+        list(GET _artifact_import_fields 0 _artifact_import_consumer_relative)
+        list(GET _artifact_import_fields 1 _artifact_import_module_name)
+        list(GET _artifact_import_fields 2 _artifact_import_provider_relative)
+        set(_artifact_import_consumer_file
+            "${CMAKE_CURRENT_SOURCE_DIR}/${_artifact_import_consumer_relative}")
+        get_source_file_property(_artifact_import_scan_enabled
+            "${_artifact_import_consumer_file}" CXX_SCAN_FOR_MODULES)
+        if(_artifact_import_scan_enabled)
+            # The compiler scanner already resolves this translation unit's
+            # imports and CMake injects the matching IFC references.  Keep the
+            # explicit table for scanner-disabled `module Name;` attachments.
+            continue()
+        endif()
+
+        set(_artifact_import_provider_target_dir "ArtifactCore.dir")
+        file(REAL_PATH
+            "${CMAKE_CURRENT_SOURCE_DIR}/${_artifact_import_provider_relative}"
+            _artifact_import_expected_provider)
+        get_cmake_property(_artifact_import_variables VARIABLES)
+        foreach(_artifact_import_domain_var IN LISTS _artifact_import_variables)
+            if(_artifact_import_provider_relative MATCHES "^include/" AND
+               _artifact_import_domain_var MATCHES "^ARTIFACTCORE_(.+)_MODULES$")
+                foreach(_artifact_import_domain_path IN LISTS ${_artifact_import_domain_var})
+                    file(REAL_PATH "${_artifact_import_domain_path}"
+                        _artifact_import_actual_provider)
+                    if(_artifact_import_actual_provider STREQUAL
+                       _artifact_import_expected_provider)
+                        string(REGEX REPLACE "^ARTIFACTCORE_(.+)_MODULES$" "\\1"
+                            _artifact_import_domain "${_artifact_import_domain_var}")
+                        set(_artifact_import_provider_target_dir
+                            "ArtifactCore${_artifact_import_domain}.dir")
+                        break()
+                    endif()
+                endforeach()
+            elseif(_artifact_import_provider_relative MATCHES "^src/" AND
+                   _artifact_import_domain_var MATCHES "^ARTIFACTCORE_(.+)_IMPL$")
+                foreach(_artifact_import_domain_path IN LISTS ${_artifact_import_domain_var})
+                    file(REAL_PATH "${_artifact_import_domain_path}"
+                        _artifact_import_actual_provider)
+                    if(_artifact_import_actual_provider STREQUAL
+                       _artifact_import_expected_provider)
+                        string(REGEX REPLACE "^ARTIFACTCORE_(.+)_IMPL$" "\\1"
+                            _artifact_import_domain "${_artifact_import_domain_var}")
+                        set(_artifact_import_provider_target_dir
+                            "ArtifactCore${_artifact_import_domain}.dir")
+                        break()
+                    endif()
+                endforeach()
+            endif()
+            if(NOT _artifact_import_provider_target_dir STREQUAL "ArtifactCore.dir")
+                break()
+            endif()
+        endforeach()
+        # The split target source manifests are declared later in this file,
+        # so their owner lists are not available during this early reference
+        # pass.  Resolve the established AI/configuration module directories
+        # here; the remaining modules belong to the aggregate Core target.
+        if(_artifact_import_provider_relative MATCHES "^include/AI/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreAI.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/Composition/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreComposition.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/Event/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreEvent.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/Media/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreMedia.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/NLE/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreNLE.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/Playback/")
+            set(_artifact_import_provider_target_dir "ArtifactCorePlayback.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/Video/" OR
+               _artifact_import_provider_relative MATCHES "^include/Codec/")
+            if(_artifact_import_module_name STREQUAL "Codec.FFmpegAudioDecoder")
+                set(_artifact_import_provider_target_dir "ArtifactCoreAudio.dir")
+            else()
+                set(_artifact_import_provider_target_dir "ArtifactCoreVideo.dir")
+            endif()
+        elseif(_artifact_import_provider_relative MATCHES "^include/Scene/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreScene.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/Control/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreControl.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/Database/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreDatabase.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/Export/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreExport.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/Rig/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreRig.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/IPC/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreIPC.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/Light/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreLight.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/Plugin/")
+            set(_artifact_import_provider_target_dir "ArtifactCorePlugin.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/IO/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreShape.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/Shape/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreShape.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/Text/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreText.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/Simulation/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreSimulation.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/Source/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreSource.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/Track/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreTrack.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/UI/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreUI.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/Audio/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreAudio.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/Configuration/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreConfiguration.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/Asset/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreAsset.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/Mask/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreMask.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/Generate/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreGenerate.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/Preview/")
+            set(_artifact_import_provider_target_dir "ArtifactCorePreview.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/Thread/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreThread.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/Analyze/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreAnalyze.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/Tracking/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreTracking.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/File/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreFile.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/Platform/")
+            set(_artifact_import_provider_target_dir "ArtifactCorePlatform.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/Project/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreProject.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/Environment/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreEnvironment.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/Grid/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreGrid.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/Material/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreMaterial.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/Shape/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreShape.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/Sound/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreSound.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/Sequence/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreSequence.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/Network/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreNetwork.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/Collaborate/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreCollaborate.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/ColorCollection/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreColorCollection.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/Localization/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreLocalization.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/Coordinate/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreCoordinate.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/Domain/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreDomain.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/FileSystem/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreFileSystem.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/Icon/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreIcon.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/Crowd/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreCrowd.dir")
+        elseif(_artifact_import_provider_relative MATCHES "^include/VST3/")
+            set(_artifact_import_provider_target_dir "ArtifactCoreVST3.dir")
+        endif()
+
+        set(_artifact_import_ifc
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/${_artifact_import_provider_target_dir}/${_artifact_import_module_name}.ifc")
+        get_source_file_property(_artifact_import_compile_options
+            "${_artifact_import_consumer_file}" COMPILE_OPTIONS)
+        set(_artifact_import_already_referenced OFF)
+        if(_artifact_import_compile_options AND
+           NOT _artifact_import_compile_options STREQUAL "NOTFOUND")
+            set(_artifact_import_option_index 0)
+            list(LENGTH _artifact_import_compile_options
+                _artifact_import_option_count)
+            while(_artifact_import_option_index LESS _artifact_import_option_count)
+                list(GET _artifact_import_compile_options
+                    ${_artifact_import_option_index} _artifact_import_option)
+                if(_artifact_import_option STREQUAL "/reference")
+                    math(EXPR _artifact_import_value_index
+                        "${_artifact_import_option_index} + 1")
+                    if(_artifact_import_value_index LESS _artifact_import_option_count)
+                        list(GET _artifact_import_compile_options
+                            ${_artifact_import_value_index} _artifact_import_value)
+                        if(_artifact_import_value MATCHES
+                           "^${_artifact_import_module_name}=")
+                            set(_artifact_import_already_referenced ON)
+                        endif()
+                    endif()
+                elseif(_artifact_import_option MATCHES
+                       "^/reference;${_artifact_import_module_name}=")
+                    set(_artifact_import_already_referenced ON)
+                endif()
+                math(EXPR _artifact_import_option_index
+                    "${_artifact_import_option_index} + 1")
+            endwhile()
+        endif()
+        if(NOT _artifact_import_already_referenced)
+            set_property(SOURCE "${_artifact_import_consumer_file}" APPEND PROPERTY
+                COMPILE_OPTIONS
+                "/reference;${_artifact_import_module_name}=${_artifact_import_ifc}")
+        endif()
+        set_property(SOURCE "${_artifact_import_consumer_file}" APPEND PROPERTY
+            OBJECT_DEPENDS "${_artifact_import_ifc}")
+    endforeach()
+endif()
 
 # GPUComputeContext's public interface imports GPUCapabilities.  MSVC needs
 # the transitive IFC reference on each implementation unit explicitly; the
@@ -3389,18 +3658,8 @@ set(ARTIFACTCORE_PLAYBACK_MODULES
 set(ARTIFACTCORE_PLAYBACK_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Playback/PlaybackClock.cppm"
 )
-set_source_files_properties(${ARTIFACTCORE_PLAYBACK_IMPL} PROPERTIES CXX_SCAN_FOR_MODULES OFF)
-set_property(SOURCE ${ARTIFACTCORE_PLAYBACK_IMPL} APPEND PROPERTY COMPILE_OPTIONS
-    "/reference;Playback.Clock=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCorePlayback.dir/Playback.Clock.ifc"
-    "/reference;Playback.State=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCorePlayback.dir/Playback.State.ifc"
-    "/reference;Event.Bus=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreEvent.dir/Event.Bus.ifc"
-    "/reference;Frame.Position=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Position.ifc"
-    "/reference;Frame.Rate=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Rate.ifc"
-    "/reference;Time.Rational=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Time.Rational.ifc"
-    "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc"
-    "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc")
-set_property(SOURCE ${ARTIFACTCORE_PLAYBACK_IMPL} APPEND PROPERTY OBJECT_DEPENDS
-    "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCorePlayback.dir/include/Playback/PlaybackClock.ixx.obj")
+set_property(SOURCE ${ARTIFACTCORE_PLAYBACK_IMPL} APPEND PROPERTY
+    VS_SETTINGS "CompileAs=CompileAsCpp")
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_PLAYBACK_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_PLAYBACK_IMPL})
 
@@ -3561,9 +3820,6 @@ set(ARTIFACTCORE_TEXT_IMPL
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_TEXT_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_TEXT_IMPL})
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/include/Text/GlyphLayout.ixx" APPEND PROPERTY COMPILE_OPTIONS
-    "/reference;Shape.Types=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreShape.dir/Shape.Types.ifc"
-    "/reference;Property.Types=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Property.Types.ifc")
 
 set(ARTIFACTCORE_GENERATE_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Generate/GenerateTestImage.ixx"
@@ -4188,6 +4444,47 @@ foreach(_artifact_math_vec_consumer IN ITEMS
     set_property(SOURCE "${_artifact_math_vec_source}" APPEND PROPERTY OBJECT_DEPENDS
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Math/Vec.ixx.obj")
 endforeach()
+
+# The Visual Studio CMake generator passes the available provider IFC map to
+# each implementation compile. Source-local /reference pairs duplicate those
+# entries and MSVC reports C7684 when the same module resolves through the
+# aggregate and provider target paths. Keep explicit pairs for Ninja, where
+# scanner-disabled implementation units still need the source-local mapping.
+if(MSVC AND CMAKE_GENERATOR MATCHES "Visual Studio")
+    foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES)
+        string(REPLACE "|" ";" _artifact_module_fields
+            "${_artifact_module_reference}")
+        list(GET _artifact_module_fields 0 _artifact_impl_relative)
+        set(_artifact_impl "${CMAKE_CURRENT_SOURCE_DIR}/${_artifact_impl_relative}")
+        get_source_file_property(_artifact_impl_options
+            "${_artifact_impl}" COMPILE_OPTIONS)
+        if(_artifact_impl_options AND
+           NOT _artifact_impl_options STREQUAL "NOTFOUND")
+            set(_artifact_filtered_options)
+            set(_artifact_skip_reference_value OFF)
+            foreach(_artifact_option IN LISTS _artifact_impl_options)
+                if(_artifact_skip_reference_value)
+                    set(_artifact_skip_reference_value OFF)
+                    if(_artifact_option MATCHES "^std=")
+                        list(APPEND _artifact_filtered_options "/reference"
+                            "${_artifact_option}")
+                    endif()
+                elseif(_artifact_option STREQUAL "/reference")
+                    set(_artifact_skip_reference_value ON)
+                elseif(_artifact_option MATCHES "^/reference;std=(.+)$")
+                    list(APPEND _artifact_filtered_options "/reference"
+                        "std=${CMAKE_MATCH_1}")
+                elseif(_artifact_option MATCHES "^/reference;")
+                    # Remove a source-local module reference pair.
+                else()
+                    list(APPEND _artifact_filtered_options "${_artifact_option}")
+                endif()
+            endforeach()
+            set_property(SOURCE "${_artifact_impl}" PROPERTY COMPILE_OPTIONS
+                "${_artifact_filtered_options}")
+        endif()
+    endforeach()
+endif()
 
 add_library(ArtifactCore STATIC)
 
@@ -5076,10 +5373,20 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Analyze/SmartPaletteAnalyze
         "/reference;Image.Raw=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.Raw.ifc"
         "/reference;Container.Debug=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.ifc"
         "/reference;Container.Debug.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.Registry.ifc")
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Analyze/ImageAnalyzer.cppm"
+    APPEND PROPERTY COMPILE_OPTIONS
+        "/reference;Image.ImageSurfaceView=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageSurfaceView.ifc"
+        "/reference;Graphics.SurfaceColorContract=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.SurfaceColorContract.ifc"
+        "/reference;Color.TransferFunction=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.TransferFunction.ifc")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Analyze/Histgram.cppm" APPEND PROPERTY COMPILE_OPTIONS
     "/reference;Container.NamedVector=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.NamedVector.ifc"
     "/reference;Container.Debug=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.ifc"
     "/reference;Container.Debug.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.Registry.ifc")
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Analyze/ImageAnalyzer.cppm"
+    APPEND PROPERTY OBJECT_DEPENDS
+        "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Image/ImageSurfaceView.ixx.obj"
+        "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Graphics/SurfaceColorContract.ixx.obj"
+        "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Color/ColorTransferFunction.ixx.obj")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Tracking/MotionTracker.cppm"
     APPEND PROPERTY COMPILE_OPTIONS
         "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc"
@@ -5246,14 +5553,6 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Generate/StarfieldGenerator
     APPEND PROPERTY COMPILE_OPTIONS
         "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc"
         "/reference;Math.Random=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Math.Random.ifc")
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/IO/VectorExport.cppm"
-    APPEND PROPERTY COMPILE_OPTIONS
-        "/reference;Shape.Layer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreShape.dir/Shape.Layer.ifc"
-        "/reference;Property.Types=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Property.Types.ifc"
-        "/reference;Shape.Group=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreShape.dir/Shape.Group.ifc"
-        "/reference;Shape.Path=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreShape.dir/Shape.Path.ifc"
-        "/reference;Shape.Types=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreShape.dir/Shape.Types.ifc"
-        "/reference;Shape.Operator=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreShape.dir/Shape.Operator.ifc")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Database/Database.cppm"
     APPEND PROPERTY COMPILE_OPTIONS
         "/reference;Core.Database.Types=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreDatabase.dir/Core.Database.Types.ifc")
@@ -5403,7 +5702,7 @@ target_sources(ArtifactCoreCommand
     PRIVATE ${ARTIFACTCORE_COMMAND_IMPL}
     PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_COMMAND_MODULES}
 )
-target_link_libraries(ArtifactCoreCommand PUBLIC ArtifactCore)
+target_link_libraries(ArtifactCoreCommand PUBLIC ArtifactCore ArtifactCoreEvent)
 target_include_directories(ArtifactCoreCommand PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
     "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
@@ -5744,7 +6043,7 @@ target_sources(ArtifactCorePlayback
     PRIVATE ${ARTIFACTCORE_PLAYBACK_IMPL}
     PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_PLAYBACK_MODULES}
 )
-target_link_libraries(ArtifactCorePlayback PUBLIC ArtifactCore)
+target_link_libraries(ArtifactCorePlayback PUBLIC ArtifactCore ArtifactCoreEvent)
 target_include_directories(ArtifactCorePlayback PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
     "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
@@ -6030,7 +6329,7 @@ target_sources(ArtifactCoreConfiguration
     PRIVATE ${ARTIFACTCORE_CONFIGURATION_IMPL}
     PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_CONFIGURATION_MODULES}
 )
-target_link_libraries(ArtifactCoreConfiguration PUBLIC ArtifactCore)
+target_link_libraries(ArtifactCoreConfiguration PUBLIC ArtifactCore ArtifactCoreEvent)
 target_include_directories(ArtifactCoreConfiguration PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
     "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
@@ -6083,7 +6382,7 @@ target_sources(ArtifactCoreText
     PRIVATE ${ARTIFACTCORE_TEXT_IMPL}
     PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_TEXT_MODULES}
 )
-target_link_libraries(ArtifactCoreText PUBLIC ArtifactCore)
+target_link_libraries(ArtifactCoreText PUBLIC ArtifactCore ArtifactCoreShape)
 target_include_directories(ArtifactCoreText PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
     "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
@@ -6435,20 +6734,14 @@ if(ARTIFACT_FRONTEND_MSVC)
     )
 endif()
 
-# Keep the cross-target interface reference attached after all split-target
-# source property blocks; later assignments otherwise can replace it.
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/include/Text/GlyphLayout.ixx" APPEND PROPERTY COMPILE_OPTIONS
-    "/reference;Shape.Types=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreShape.dir/Shape.Types.ifc"
-    "/reference;Property.Types=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Property.Types.ifc")
-
 # These core implementations import NamedVector directly.  Keep their
 # interface object dependency explicit so MSVC has the IFC before compiling
 # the implementation unit.
 foreach(_artifact_namedvector_consumer IN ITEMS
         "${CMAKE_CURRENT_SOURCE_DIR}/src/Diagnostics/ProjectDiagnostic.cppm"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/Color/ColorLUT.cppm")
-    set_property(SOURCE "${_artifact_namedvector_consumer}" APPEND PROPERTY COMPILE_OPTIONS
-        "/reference;Container.Debug.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.Registry.ifc")
+    # Visual Studio supplies the provider IFC for these imports. Keep only
+    # the ordering dependency here to avoid a second alias for the same IFC.
     set_property(SOURCE "${_artifact_namedvector_consumer}" APPEND PROPERTY OBJECT_DEPENDS
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/NamedVector.ixx.obj")
 endforeach()
@@ -6557,5 +6850,105 @@ if(MSVC)
         set_property(SOURCE "${_artifact_array_consumer}" APPEND PROPERTY OBJECT_DEPENDS
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Core/ArtifactArray.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/src/Core/ArtifactOptional.cppm.obj")
+    endforeach()
+endif()
+
+# Collect implementation sources from both the aggregate target and every
+# split domain target. Their source-level references were authored before the
+# target split and can duplicate the IFC references generated from CXX_MODULES
+# file sets for the same provider.
+get_cmake_property(_artifactcore_cmake_variables VARIABLES)
+set(_artifactcore_module_implementation_sources)
+foreach(_artifactcore_variable IN LISTS _artifactcore_cmake_variables)
+    if(_artifactcore_variable MATCHES "_IMPL$")
+        foreach(_artifactcore_source IN LISTS ${_artifactcore_variable})
+            if(_artifactcore_source MATCHES
+                    "^${CMAKE_CURRENT_SOURCE_DIR}/.*[.]cppm$")
+                list(APPEND _artifactcore_module_implementation_sources
+                    "${_artifactcore_source}")
+            endif()
+        endforeach()
+    endif()
+endforeach()
+list(REMOVE_DUPLICATES _artifactcore_module_implementation_sources)
+
+# Apply Visual Studio IFC de-duplication after every source-local option block.
+# MSBuild already emits the canonical provider path for modules in the current
+# Core target graph; remove older CMakeFiles aliases for those same providers.
+if(MSVC AND CMAKE_GENERATOR MATCHES "Visual Studio")
+    foreach(_artifact_core_impl IN LISTS
+            _artifactcore_module_implementation_sources)
+        get_property(_artifact_core_options SOURCE "${_artifact_core_impl}"
+            PROPERTY COMPILE_OPTIONS)
+        if(NOT _artifact_core_options OR
+           _artifact_core_options STREQUAL "NOTFOUND")
+            continue()
+        endif()
+
+        set(_artifact_core_filtered_options)
+        set(_artifact_core_skip_reference_value OFF)
+        foreach(_artifact_core_option IN LISTS _artifact_core_options)
+            if(_artifact_core_skip_reference_value)
+                set(_artifact_core_skip_reference_value OFF)
+                if(_artifact_core_option MATCHES
+                        "^(Audio[.]Modulation[.](Router|Modulator)|NetworkRPCServer)=")
+                    # Replace the stale aggregate alias below with the actual
+                    # Visual Studio provider IFC path.
+                elseif(NOT _artifact_core_option MATCHES
+                        "=([^;]*[/\\]CMakeFiles[/\\]ArtifactCore[^/\\]*\\.dir[/\\])")
+                    list(APPEND _artifact_core_filtered_options
+                        "/reference" "${_artifact_core_option}")
+                endif()
+            elseif(_artifact_core_option STREQUAL "/reference")
+                set(_artifact_core_skip_reference_value ON)
+            elseif(_artifact_core_option MATCHES "^/reference;(.+)$")
+                set(_artifact_core_reference_value "${CMAKE_MATCH_1}")
+                if(_artifact_core_reference_value MATCHES "^std=")
+                    list(APPEND _artifact_core_filtered_options
+                        "/reference" "${_artifact_core_reference_value}")
+                elseif(_artifact_core_reference_value MATCHES
+                        "^(Audio[.]Modulation[.](Router|Modulator)|NetworkRPCServer)=")
+                    # Replace the stale aggregate alias below.
+                elseif(NOT _artifact_core_reference_value MATCHES
+                        "=([^;]*[/\\]CMakeFiles[/\\]ArtifactCore[^/\\]*\\.dir[/\\])")
+                    list(APPEND _artifact_core_filtered_options
+                        "/reference" "${_artifact_core_reference_value}")
+                endif()
+            else()
+                list(APPEND _artifact_core_filtered_options
+                    "${_artifact_core_option}")
+            endif()
+        endforeach()
+        set_property(SOURCE "${_artifact_core_impl}" PROPERTY COMPILE_OPTIONS
+            "${_artifact_core_filtered_options}")
+    endforeach()
+
+    # These providers are deliberately outside ArtifactCore's target graph,
+    # so the consumer project needs their actual Visual Studio IFC locations.
+    set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Diagnostics/Logger.cppm"
+        APPEND PROPERTY COMPILE_OPTIONS
+        "/reference;Event.Bus=${CMAKE_CURRENT_BINARY_DIR}/ArtifactCoreEvent.dir/$<CONFIG>/include/Event/EventBus.ixx.ifc")
+    set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/FFmpegAudioEncoder.cppm"
+        APPEND PROPERTY COMPILE_OPTIONS
+        "/reference;Media.Encoder.FFmpegAudioEncoder=${CMAKE_CURRENT_BINARY_DIR}/ArtifactCoreVideo.dir/$<CONFIG>/FFmpegAudioEncoder.ixx.ifc")
+    set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Property/AbstractProperty.cppm"
+        APPEND PROPERTY COMPILE_OPTIONS
+        "/reference;Audio.Modulation.Router=${CMAKE_CURRENT_BINARY_DIR}/ArtifactCoreAudio.dir/$<CONFIG>/Router.ixx.ifc")
+    set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Property/AbstractProperty.cppm"
+        APPEND PROPERTY COMPILE_OPTIONS
+        "/reference;Audio.Modulation.Modulator=${CMAKE_CURRENT_BINARY_DIR}/ArtifactCoreAudio.dir/$<CONFIG>/Modulator.ixx.ifc")
+    set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Render/RenderFarmMaster.cppm"
+        APPEND PROPERTY COMPILE_OPTIONS
+        "/reference;NetworkRPCServer=${CMAKE_CURRENT_BINARY_DIR}/ArtifactCoreNetwork.dir/$<CONFIG>/NetworkRPCServer.ixx.ifc")
+endif()
+
+# MSBuild treats the .cppm extension as module interface code by default.
+# The *_IMPL source lists contain module implementation units (`module X;`),
+# so compile them as C++ while keeping CMake's module dependency scan enabled.
+if(MSVC)
+    foreach(_artifactcore_source IN LISTS
+            _artifactcore_module_implementation_sources)
+        set_property(SOURCE "${_artifactcore_source}" APPEND PROPERTY
+            VS_SETTINGS "CompileAs=CompileAsCpp")
     endforeach()
 endif()

@@ -68,7 +68,7 @@ public:
             grow();
         }
         const std::size_t index = bucketIndex(hash);
-        Node* node = new Node{item, hash, nullptr, buckets_[index], head_};
+        Node* node = new Node{item, hash, head_, buckets_[index], nullptr};
         buckets_[index] = node;
         if (head_) head_->previousAll = node;
         head_ = node;
@@ -110,9 +110,10 @@ public:
     }
 
     [[nodiscard]] Optional<const T&> find(const T& item) const {
-        if (bucketCount_ == 0) return Nullopt;
+        if (bucketCount_ == 0) return Optional<const T&>(Nullopt);
         Node* node = findNode(item, hasher_(item));
-        return node ? Optional<const T&>(node->value) : Nullopt;
+        if (node) return Optional<const T&>(node->value);
+        return Optional<const T&>(Nullopt);
     }
 
     [[nodiscard]] std::size_t size() const noexcept { return size_; }
@@ -133,7 +134,7 @@ public:
     [[nodiscard]] Array<T> values() const {
         Array<T> result;
         result.reserve(size_);
-        for (Node* node = tail_; node; node = node->nextAll) {
+        for (Node* node = head_; node; node = node->nextAll) {
             result.append(node->value);
         }
         return result;
@@ -225,7 +226,7 @@ private:
     void copyFrom(const HashSet& other) {
         if (other.size_ == 0) return;
         if (bucketCount_ < other.bucketCount_) allocateBuckets(other.bucketCount_);
-        for (Node* node = other.tail_; node; node = node->nextAll) {
+        for (Node* node = other.head_; node; node = node->nextAll) {
             add(node->value);
         }
     }

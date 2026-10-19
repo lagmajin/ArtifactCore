@@ -171,7 +171,7 @@ QString TimeCode::toString() const
  toHMSF(h, m, s, f);
  // SMPTE drop-frame notation marks the seconds/frames boundary with ';'.
  const char frameSeparator = impl_->dropFrame ? ';' : ':';
- return QString("%1:%2:%3%c%4")
+ return QString("%1:%2:%3%4%5")
   .arg(h, 2, 10, QChar('0'))
   .arg(m, 2, 10, QChar('0'))
   .arg(s, 2, 10, QChar('0'))

@@ -64,17 +64,29 @@ public:
     }
 
     // --- Safe access ---
-    Optional<T&> at(size_t i) { return (i < size_) ? Optional<T&>(data_[i]) : Nullopt; }
-    Optional<const T&> at(size_t i) const { return (i < size_) ? Optional<const T&>(data_[i]) : Nullopt; }
+    Optional<T&> at(size_t i) {
+        if (i < size_) return Optional<T&>(data_[i]);
+        return Optional<T&>(Nullopt);
+    }
+    Optional<const T&> at(size_t i) const {
+        if (i < size_) return Optional<const T&>(data_[i]);
+        return Optional<const T&>(Nullopt);
+    }
 
     // Unchecked element access for hot loops; bounds-checked access is `at`.
     T& operator[](size_t index) noexcept { return data_[index]; }
     const T& operator[](size_t index) const noexcept { return data_[index]; }
     T value(size_t i, const T& fallback) const { return (i < size_) ? data_[i] : fallback; }
     Optional<T&> first() { return at(0); }
-    Optional<T&> last() { return size_ > 0 ? Optional<T&>(data_[size_ - 1]) : Nullopt; }
+    Optional<T&> last() {
+        if (size_ > 0) return Optional<T&>(data_[size_ - 1]);
+        return Optional<T&>(Nullopt);
+    }
     Optional<const T&> first() const { return at(0); }
-    Optional<const T&> last() const { return size_ > 0 ? Optional<const T&>(data_[size_ - 1]) : Nullopt; }
+    Optional<const T&> last() const {
+        if (size_ > 0) return Optional<const T&>(data_[size_ - 1]);
+        return Optional<const T&>(Nullopt);
+    }
 
     // --- Remove ---
     void removeAt(size_t index) {

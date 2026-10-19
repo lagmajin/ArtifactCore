@@ -223,13 +223,13 @@ public:
     // Non-throwing lookup: returns Nullopt when the key is absent.
     Optional<V&> at(const K& key) {
         Node* node = findNode(key);
-        if (!node) return Nullopt;
+        if (!node) return Optional<V&>(Nullopt);
         return Optional<V&>(node->data.second);
     }
 
     Optional<const V&> at(const K& key) const {
         const Node* node = findNode(key);
-        if (!node) return Nullopt;
+        if (!node) return Optional<const V&>(Nullopt);
         return Optional<const V&>(node->data.second);
     }
 
