@@ -143,6 +143,9 @@ struct LIBRARY_DLL_API LiquidSpillParticle2D {
 struct LIBRARY_DLL_API LiquidSurfaceSample2D {
     float x = 0.0f;
     float y = 0.0f;
+    // Optional render-space vertical offset for foam placement. Surface
+    // density continues to use x/y so foam projection cannot deform the mesh.
+    float foamOffsetY = 0.0f;
     float size = 2.0f;
     float vx = 0.0f;
     float vy = 0.0f;
@@ -155,6 +158,9 @@ struct LIBRARY_DLL_API LiquidSurfaceTriangle2D {
     LiquidContainerPoint2D b;
     LiquidContainerPoint2D c;
     float thickness = 0.0f;
+    float coverageA = 0.34f;
+    float coverageB = 0.34f;
+    float coverageC = 0.34f;
 };
 
 struct LIBRARY_DLL_API LiquidSurfaceSegment2D {
@@ -166,6 +172,8 @@ struct LIBRARY_DLL_API LiquidFoamPoint2D {
     LiquidContainerPoint2D position;
     float size = 1.0f;
     float alpha = 0.0f;
+    float vx = 0.0f;
+    float vy = 0.0f;
 };
 
 struct LIBRARY_DLL_API LiquidSurfaceSnapshot2D {
@@ -175,6 +183,11 @@ struct LIBRARY_DLL_API LiquidSurfaceSnapshot2D {
         ContainerName{"Physics.LiquidSurfaceContourSegments"}};
     NamedVector<LiquidFoamPoint2D> foamPoints{
         ContainerName{"Physics.LiquidSurfaceFoamPoints"}};
+};
+
+struct LIBRARY_DLL_API LiquidSurfaceWorkspace2D {
+    NamedVector<LiquidSurfaceSample2D> validSamples{
+        ContainerName{"Physics.LiquidValidSurfaceSamples"}};
 };
 
 // Lightweight, deterministic 2D particle liquid for layer-local containers.
@@ -206,6 +219,15 @@ public:
     static LiquidSurfaceSnapshot2D buildSurfaceSnapshot(
         const NamedVector<LiquidSurfaceSample2D>& samples,
         std::size_t maximumSurfaceCells = 65536);
+    static void buildSurfaceSnapshotInto(
+        const NamedVector<LiquidSurfaceSample2D>& samples,
+        LiquidSurfaceSnapshot2D& output,
+        std::size_t maximumSurfaceCells = 65536);
+    static void buildSurfaceSnapshotInto(
+        const NamedVector<LiquidSurfaceSample2D>& samples,
+        LiquidSurfaceSnapshot2D& output,
+        LiquidSurfaceWorkspace2D& workspace,
+        std::size_t maximumSurfaceCells = 65536);
 
     float fillAmount() const noexcept { return fillAmount_; }
     float particleSpacing() const noexcept { return particleSpacing_; }
@@ -219,6 +241,22 @@ public:
 private:
     NamedVector<LiquidParticle2D> particles_{
         ContainerName{"Physics.LiquidParticles"}};
+    NamedVector<LiquidContainerPoint2D> previousPositions_{
+        ContainerName{"Physics.LiquidPreviousPositions"}};
+    NamedVector<float> particleDensities_{
+        ContainerName{"Physics.LiquidParticleDensities"}};
+    NamedVector<float> particleLambdas_{
+        ContainerName{"Physics.LiquidParticleLambdas"}};
+    NamedVector<float> gradientSumX_{
+        ContainerName{"Physics.LiquidGradientSumX"}};
+    NamedVector<float> gradientSumY_{
+        ContainerName{"Physics.LiquidGradientSumY"}};
+    NamedVector<float> gradientMagnitudeSum_
+        {ContainerName{"Physics.LiquidGradientMagnitudeSum"}};
+    NamedVector<LiquidContainerPoint2D> positionCorrections_{
+        ContainerName{"Physics.LiquidPositionCorrections"}};
+    NamedVector<std::size_t> neighborPairIndices_{
+        ContainerName{"Physics.LiquidNeighborPairIndices"}};
     float fillAmount_ = 0.5f;
     float particleSpacing_ = 0.055f;
     float gravityX_ = 0.0f;
@@ -231,7 +269,7 @@ private:
         ContainerName{"Physics.LiquidContainerPolygon"}};
     std::size_t openContainerEdge_ = 0;
 
-    void solveParticleDistances();
+    void solveDensityConstraints();
     void solveContainerBounds(LiquidParticle2D& particle) const;
     bool escapedThroughContainerOpening(
         const LiquidParticle2D& particle) const;

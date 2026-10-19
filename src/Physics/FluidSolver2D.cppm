@@ -1,4 +1,5 @@
 module;
+#include <array>
 #include <utility>
 #include <algorithm>
 #include <vector>
@@ -6,6 +7,7 @@ module;
 #include <limits>
 #include <map>
 #include <set>
+#include <numbers>
 
 module Physics.Fluid;
 
@@ -746,14 +748,39 @@ LiquidSurfaceSnapshot2D LiquidSolver2D::buildSurfaceSnapshot(
     const NamedVector<LiquidSurfaceSample2D>& samples,
     std::size_t maximumSurfaceCells) {
     LiquidSurfaceSnapshot2D snapshot;
-    if (samples.empty()) return snapshot;
+    LiquidSurfaceWorkspace2D workspace;
+    buildSurfaceSnapshotInto(samples, snapshot, workspace, maximumSurfaceCells);
+    return snapshot;
+}
+
+void LiquidSolver2D::buildSurfaceSnapshotInto(
+    const NamedVector<LiquidSurfaceSample2D>& samples,
+    LiquidSurfaceSnapshot2D& snapshot,
+    std::size_t maximumSurfaceCells) {
+    LiquidSurfaceWorkspace2D workspace;
+    buildSurfaceSnapshotInto(samples, snapshot, workspace, maximumSurfaceCells);
+}
+
+void LiquidSolver2D::buildSurfaceSnapshotInto(
+    const NamedVector<LiquidSurfaceSample2D>& samples,
+    LiquidSurfaceSnapshot2D& snapshot,
+    LiquidSurfaceWorkspace2D& workspace,
+    std::size_t maximumSurfaceCells) {
+    snapshot.triangles.clear();
+    snapshot.contourSegments.clear();
+    snapshot.foamPoints.clear();
+    auto& validSamples = workspace.validSamples;
+    validSamples.clear();
+    if (samples.empty()) return;
     maximumSurfaceCells = std::clamp<std::size_t>(
         maximumSurfaceCells, 1024, 200000);
 
-    NamedVector<LiquidSurfaceSample2D> validSamples{
-        ContainerName{"Physics.LiquidValidSurfaceSamples"}};
     constexpr std::size_t maximumDensitySamples = 4096;
-    validSamples.reserve(std::min(samples.size(), maximumDensitySamples));
+    const auto validSampleCapacity =
+        std::min(samples.size(), maximumDensitySamples);
+    if (validSamples.capacity() < validSampleCapacity) {
+        validSamples.reserve(validSampleCapacity);
+    }
     double sizeSum = 0.0;
     const std::size_t sampleStride = std::max<std::size_t>(
         1, (samples.size() + maximumDensitySamples - 1) /
@@ -764,6 +791,7 @@ LiquidSurfaceSnapshot2D LiquidSolver2D::buildSurfaceSnapshot(
          sampleIndex += sampleStride) {
         const auto& sample = samples[sampleIndex];
         if (!std::isfinite(sample.x) || !std::isfinite(sample.y) ||
+            !std::isfinite(sample.foamOffsetY) ||
             !std::isfinite(sample.size) || sample.size <= 0.0f ||
             !std::isfinite(sample.vx) || !std::isfinite(sample.vy) ||
             !std::isfinite(sample.foamBias) ||
@@ -777,7 +805,7 @@ LiquidSurfaceSnapshot2D LiquidSolver2D::buildSurfaceSnapshot(
         sizeSum += sample.size;
         if (validSamples.size() >= maximumDensitySamples) break;
     }
-    if (validSamples.empty()) return snapshot;
+    if (validSamples.empty()) return;
 
     const float averageSize = static_cast<float>(
         sizeSum / static_cast<double>(validSamples.size()));
@@ -845,10 +873,11 @@ LiquidSurfaceSnapshot2D LiquidSolver2D::buildSurfaceSnapshot(
         const float intensity = activity * effectiveExposure *
             std::clamp(sample.foamBias, 0.0f, 1.0f);
         if (intensity <= 0.08f) continue;
+        const float foamY = sample.y + sample.foamOffsetY;
         snapshot.foamPoints.push_back(
-            {{sample.x, sample.y},
+            {{sample.x, foamY},
              std::max(1.0f, sample.size * (0.18f + intensity * 0.22f)),
-             0.18f + intensity * 0.62f});
+             0.18f + intensity * 0.62f, sample.vx, sample.vy});
     }
 
     std::set<std::pair<int, int>> surfaceCells;
@@ -864,6 +893,10 @@ LiquidSurfaceSnapshot2D LiquidSolver2D::buildSurfaceSnapshot(
         if (surfaceCells.size() >= maximumSurfaceCells) break;
     }
 
+    const auto densityAt = [&densityNodes](int x, int y) {
+        const auto found = densityNodes.find({x, y});
+        return found != densityNodes.end() ? found->second : 0.0f;
+    };
     struct SurfaceVertex {
         LiquidContainerPoint2D point;
         float density = 0.0f;
@@ -877,18 +910,19 @@ LiquidSurfaceSnapshot2D LiquidSolver2D::buildSurfaceSnapshot(
         const float t = std::abs(denominator) > 1.0e-8f
             ? std::clamp((threshold - from.density) / denominator, 0.0f, 1.0f)
             : 0.5f;
-        return SurfaceVertex{{from.point.x + (to.point.x - from.point.x) * t,
-                              from.point.y + (to.point.y - from.point.y) * t},
-                             threshold};
+        return SurfaceVertex{
+            {from.point.x + (to.point.x - from.point.x) * t,
+             from.point.y + (to.point.y - from.point.y) * t},
+            threshold};
     };
     const auto emitClippedTriangle = [&](const SurfaceVertex& a,
                                          const SurfaceVertex& b,
                                          const SurfaceVertex& c) {
-        std::vector<SurfaceVertex> input{a, b, c};
-        std::vector<SurfaceVertex> output;
-        std::vector<LiquidContainerPoint2D> intersections;
-        output.reserve(4);
-        intersections.reserve(2);
+        const std::array<SurfaceVertex, 3> input{a, b, c};
+        std::array<SurfaceVertex, 4> output{};
+        std::array<LiquidContainerPoint2D, 2> intersections{};
+        std::size_t outputCount = 0;
+        std::size_t intersectionCount = 0;
         SurfaceVertex previous = input.back();
         bool previousInside = previous.density >= threshold;
         for (const auto& current : input) {
@@ -896,14 +930,21 @@ LiquidSurfaceSnapshot2D LiquidSolver2D::buildSurfaceSnapshot(
             if (currentInside != previousInside) {
                 const SurfaceVertex intersection =
                     interpolate(previous, current);
-                output.push_back(intersection);
-                intersections.push_back(intersection.point);
+                if (outputCount >= output.size() ||
+                    intersectionCount >= intersections.size()) {
+                    return;
+                }
+                output[outputCount++] = intersection;
+                intersections[intersectionCount++] = intersection.point;
             }
-            if (currentInside) output.push_back(current);
+            if (currentInside) {
+                if (outputCount >= output.size()) return;
+                output[outputCount++] = current;
+            }
             previous = current;
             previousInside = currentInside;
         }
-        if (intersections.size() == 2 &&
+        if (intersectionCount == 2 &&
             snapshot.contourSegments.size() < maximumContourSegments) {
             const float dx = intersections[1].x - intersections[0].x;
             const float dy = intersections[1].y - intersections[0].y;
@@ -912,8 +953,8 @@ LiquidSurfaceSnapshot2D LiquidSolver2D::buildSurfaceSnapshot(
                     {intersections[0], intersections[1]});
             }
         }
-        if (output.size() < 3) return;
-        for (std::size_t i = 1; i + 1 < output.size(); ++i) {
+        if (outputCount < 3) return;
+        for (std::size_t i = 1; i + 1 < outputCount; ++i) {
             if (snapshot.triangles.size() >= maximumTriangles) return;
             const float averageDensity =
                 (output[0].density + output[i].density +
@@ -922,7 +963,8 @@ LiquidSurfaceSnapshot2D LiquidSolver2D::buildSurfaceSnapshot(
                 (averageDensity - threshold) / 1.5f, 0.0f, 1.0f);
             snapshot.triangles.push_back(
                 {output[0].point, output[i].point, output[i + 1].point,
-                 thickness});
+                 thickness, output[0].density, output[i].density,
+                 output[i + 1].density});
         }
     };
 
@@ -930,10 +972,6 @@ LiquidSurfaceSnapshot2D LiquidSolver2D::buildSurfaceSnapshot(
         maximumTriangles, surfaceCells.size() * 4));
     snapshot.contourSegments.reserve(std::min<std::size_t>(
         maximumContourSegments, surfaceCells.size() * 2));
-    const auto densityAt = [&densityNodes](int x, int y) {
-        const auto found = densityNodes.find({x, y});
-        return found != densityNodes.end() ? found->second : 0.0f;
-    };
     for (const auto& cell : surfaceCells) {
             const int x = cell.first;
             const int y = cell.second;
@@ -953,9 +991,8 @@ LiquidSurfaceSnapshot2D LiquidSolver2D::buildSurfaceSnapshot(
             emitClippedTriangle(corners[1], corners[2], center);
             emitClippedTriangle(corners[2], corners[3], center);
             emitClippedTriangle(corners[3], corners[0], center);
-            if (snapshot.triangles.size() >= maximumTriangles) return snapshot;
+            if (snapshot.triangles.size() >= maximumTriangles) return;
     }
-    return snapshot;
 }
 
 void LiquidSolver2D::reset(float fillAmount, float particleSpacing) {
@@ -1125,52 +1162,148 @@ bool LiquidSolver2D::escapedThroughContainerOpening(
            closestDistanceSquared > particleSpacing_ * particleSpacing_ * 0.25f;
 }
 
-void LiquidSolver2D::solveParticleDistances() {
-    const float restDistance = particleSpacing_ * 0.92f;
+void LiquidSolver2D::solveDensityConstraints() {
+    const std::size_t count = particles_.size();
+    if (count < 2) return;
+    const float h = particleSpacing_ * 1.55f;
+    const float hSquared = h * h;
+    const float poly6Scale = 4.0f /
+        (std::numbers::pi_v<float> * std::pow(h, 8.0f));
+    const float restDistance = particleSpacing_;
     const float restDistanceSquared = restDistance * restDistance;
-    const float supportDistance = surfaceTension_ > 0.0f
-        ? particleSpacing_ * 1.55f
-        : restDistance;
-    const float supportDistanceSquared = supportDistance * supportDistance;
-    const float stiffness = 0.42f + surfaceTension_ * 0.28f;
+
+    // Calibrate rest density from a regular 2D hexagonal particle lattice.
+    // This keeps the constraint independent of the world-space particle size.
+    float restDensity = poly6Scale * std::pow(hSquared, 3.0f);
+    for (int row = -2; row <= 2; ++row) {
+        for (int column = -2; column <= 2; ++column) {
+            if (row == 0 && column == 0) continue;
+            const float x = (static_cast<float>(column) +
+                ((row % 2 != 0) ? 0.5f : 0.0f)) * restDistance;
+            const float y = static_cast<float>(row) *
+                restDistance * 0.8660254f;
+            const float distanceSquared = x * x + y * y;
+            if (distanceSquared >= hSquared) continue;
+            const float difference = hSquared - distanceSquared;
+            restDensity += poly6Scale * difference * difference * difference;
+        }
+    }
+    restDensity = std::max(restDensity, 1.0e-8f);
+
+    const auto resizeAndClear = [count](NamedVector<float>& values) {
+        if (values.size() != count) values.resize(count);
+        std::fill(values.begin(), values.end(), 0.0f);
+    };
+    resizeAndClear(particleDensities_);
+    resizeAndClear(particleLambdas_);
+    resizeAndClear(gradientSumX_);
+    resizeAndClear(gradientSumY_);
+    resizeAndClear(gradientMagnitudeSum_);
+    if (positionCorrections_.size() != count) {
+        positionCorrections_.resize(count);
+    }
+    std::fill(positionCorrections_.begin(), positionCorrections_.end(),
+              LiquidContainerPoint2D{});
+
+    for (std::size_t i = 0; i < count; ++i) {
+        particleDensities_[i] = poly6Scale * hSquared * hSquared * hSquared;
+    }
+    // Build the spatial neighborhood once per constraint iteration and reuse
+    // this bounded, retained pair list for density, lambda and correction passes.
+    constexpr std::size_t maximumNeighborPairs = 1000000;
+    neighborPairIndices_.clear();
     forEachLiquidNeighborPair(
-        particles_, supportDistance,
-        [this, restDistance, restDistanceSquared, supportDistance,
-         supportDistanceSquared, stiffness](
-            std::size_t i, std::size_t j) {
-            float dx = particles_[j].x - particles_[i].x;
-            float dy = particles_[j].y - particles_[i].y;
-            float distanceSquared = dx * dx + dy * dy;
-            if (distanceSquared >= supportDistanceSquared) return;
-            if (distanceSquared < 1.0e-10f) {
-                dx = (i & 1U) ? 1.0e-4f : -1.0e-4f;
-                dy = 0.0f;
-                distanceSquared = dx * dx;
-            }
-            const float distance = std::sqrt(std::max(distanceSquared, 1.0e-10f));
-            float correctionDistance = 0.0f;
-            if (distanceSquared < restDistanceSquared) {
-                correctionDistance =
-                    (restDistance - distance) * stiffness;
-            } else if (surfaceTension_ > 0.0f) {
-                const float supportRange =
-                    std::max(supportDistance - restDistance, 1.0e-6f);
-                const float falloff = std::clamp(
-                    1.0f - (distance - restDistance) / supportRange,
-                    0.0f, 1.0f);
-                correctionDistance =
-                    -(distance - restDistance) * surfaceTension_ *
-                    0.06f * falloff;
-            }
-            const float correction =
-                correctionDistance * 0.5f / distance;
-            const float cx = dx * correction;
-            const float cy = dy * correction;
-            particles_[i].x -= cx;
-            particles_[i].y -= cy;
-            particles_[j].x += cx;
-            particles_[j].y += cy;
+        particles_, h,
+        [this](std::size_t i, std::size_t j) {
+            if (neighborPairIndices_.size() / 2 >= maximumNeighborPairs) return;
+            neighborPairIndices_.push_back(i);
+            neighborPairIndices_.push_back(j);
         });
+    const auto forEachCachedPair = [this](auto&& visitor) {
+        for (std::size_t pairIndex = 0;
+             pairIndex + 1 < neighborPairIndices_.size(); pairIndex += 2) {
+            visitor(neighborPairIndices_[pairIndex],
+                    neighborPairIndices_[pairIndex + 1]);
+        }
+    };
+    for (std::size_t pairIndex = 0;
+         pairIndex + 1 < neighborPairIndices_.size(); pairIndex += 2) {
+        const std::size_t i = neighborPairIndices_[pairIndex];
+        const std::size_t j = neighborPairIndices_[pairIndex + 1];
+        const float dx = particles_[i].x - particles_[j].x;
+        const float dy = particles_[i].y - particles_[j].y;
+        const float distanceSquared = dx * dx + dy * dy;
+        if (distanceSquared >= hSquared) continue;
+        const float difference = hSquared - distanceSquared;
+        const float density = poly6Scale * difference * difference * difference;
+        particleDensities_[i] += density;
+        particleDensities_[j] += density;
+    }
+
+    const float gradientScale = 20.0f /
+        (std::numbers::pi_v<float> * std::pow(h, 5.0f));
+    forEachCachedPair(
+        [this, h, hSquared, gradientScale, restDensity](
+            std::size_t i, std::size_t j) {
+            const float dx = particles_[i].x - particles_[j].x;
+            const float dy = particles_[i].y - particles_[j].y;
+            const float distanceSquared = dx * dx + dy * dy;
+            if (distanceSquared >= hSquared || distanceSquared < 1.0e-12f) return;
+            const float distance = std::sqrt(distanceSquared);
+            const float falloff = h - distance;
+            const float scale = -gradientScale * falloff * falloff / distance;
+            const float gx = dx * scale;
+            const float gy = dy * scale;
+            gradientSumX_[i] += gx;
+            gradientSumY_[i] += gy;
+            gradientSumX_[j] -= gx;
+            gradientSumY_[j] -= gy;
+            const float gradientMagnitude = (gx * gx + gy * gy) /
+                (restDensity * restDensity);
+            gradientMagnitudeSum_[i] += gradientMagnitude;
+            gradientMagnitudeSum_[j] += gradientMagnitude;
+        });
+
+    for (std::size_t i = 0; i < count; ++i) {
+        const float densityConstraint =
+            particleDensities_[i] / restDensity - 1.0f;
+        const float gradientX = gradientSumX_[i] / restDensity;
+        const float gradientY = gradientSumY_[i] / restDensity;
+        const float denominator = gradientX * gradientX +
+            gradientY * gradientY + gradientMagnitudeSum_[i] + 1.0e-6f;
+        particleLambdas_[i] = -std::max(0.0f, densityConstraint) / denominator;
+    }
+
+    const float tension = std::clamp(surfaceTension_, 0.0f, 1.0f);
+    forEachCachedPair(
+        [this, h, hSquared, gradientScale, tension, restDensity](
+            std::size_t i, std::size_t j) {
+            const float dx = particles_[i].x - particles_[j].x;
+            const float dy = particles_[i].y - particles_[j].y;
+            const float distanceSquared = dx * dx + dy * dy;
+            if (distanceSquared >= hSquared || distanceSquared < 1.0e-12f) return;
+            const float distance = std::sqrt(distanceSquared);
+            const float falloff = h - distance;
+            const float gradientFactor = -gradientScale * falloff * falloff / distance;
+            const float kernelRatio = std::pow(
+                (hSquared - distanceSquared) / hSquared, 3.0f);
+            const float artificialPressure =
+                -0.001f * std::pow(kernelRatio / 0.5f, 4.0f) +
+                0.002f * tension * kernelRatio * kernelRatio;
+            const float correctionScale =
+                (particleLambdas_[i] + particleLambdas_[j] +
+                 artificialPressure) / restDensity;
+            const float correctionX = dx * gradientFactor * correctionScale;
+            const float correctionY = dy * gradientFactor * correctionScale;
+            positionCorrections_[i].x += correctionX;
+            positionCorrections_[i].y += correctionY;
+            positionCorrections_[j].x -= correctionX;
+            positionCorrections_[j].y -= correctionY;
+        });
+    for (std::size_t i = 0; i < count; ++i) {
+        particles_[i].x += positionCorrections_[i].x;
+        particles_[i].y += positionCorrections_[i].y;
+    }
 }
 
 void LiquidSolver2D::applyViscosity() {
@@ -1198,7 +1331,9 @@ void LiquidSolver2D::update(float dt) {
     if (dt <= 0.0f || particles_.empty()) return;
     dt = std::min(dt, 0.05f);
     const float stepDt = dt / static_cast<float>(substeps_);
-    std::vector<std::pair<float, float>> previous(particles_.size());
+    if (previousPositions_.size() != particles_.size()) {
+        previousPositions_.resize(particles_.size());
+    }
     for (int substep = 0; substep < substeps_; ++substep) {
         const float impactRetention = std::exp(-6.0f * stepDt);
         for (std::size_t i = 0; i < particles_.size(); ++i) {
@@ -1208,7 +1343,7 @@ void LiquidSolver2D::update(float dt) {
                 particle.collisionImpact < 0.0f) {
                 particle.collisionImpact = 0.0f;
             }
-            previous[i] = {particle.x, particle.y};
+            previousPositions_[i] = {particle.x, particle.y};
             particle.vx += gravityX_ * stepDt;
             particle.vy += gravityY_ * stepDt;
             particle.x += particle.vx * stepDt;
@@ -1216,12 +1351,14 @@ void LiquidSolver2D::update(float dt) {
             solveContainerBounds(particle);
         }
         for (int iteration = 0; iteration < solverIterations_; ++iteration) {
-            solveParticleDistances();
+            solveDensityConstraints();
             for (auto& particle : particles_) solveContainerBounds(particle);
         }
         for (std::size_t i = 0; i < particles_.size(); ++i) {
-            particles_[i].vx = (particles_[i].x - previous[i].first) / stepDt;
-            particles_[i].vy = (particles_[i].y - previous[i].second) / stepDt;
+            particles_[i].vx =
+                (particles_[i].x - previousPositions_[i].x) / stepDt;
+            particles_[i].vy =
+                (particles_[i].y - previousPositions_[i].y) / stepDt;
         }
         applyViscosity();
     }
