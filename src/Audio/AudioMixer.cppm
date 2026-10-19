@@ -429,6 +429,9 @@ bool AudioMixer::deserialize(const QJsonObject& data) {
                 masterBus_->isMute()));
         }
         if (masterObj.contains(QStringLiteral("effects")) && impl_->effectFactory) {
+            // Deserialization is the complete state: drop the live rack first
+            // or a second load of the same document would append duplicates.
+            while (masterBus_->getEffectCount() > 0) masterBus_->removeEffect(0);
             for (const auto& entry : masterObj.value(QStringLiteral("effects")).toArray()) {
                 const auto effectObj = entry.toObject();
                 const auto type = effectObj.value(QStringLiteral("type")).toString();
@@ -529,6 +532,8 @@ bool AudioMixer::deserialize(const QJsonObject& data) {
             if (!impl_->effectFactory) {
                 return;
             }
+            // Same convergence rule as the master rack above.
+            while (bus->getEffectCount() > 0) bus->removeEffect(0);
             for (const auto& entry : entries) {
                 const auto effectObj = entry.toObject();
                 const auto type = effectObj.value(QStringLiteral("type")).toString();
