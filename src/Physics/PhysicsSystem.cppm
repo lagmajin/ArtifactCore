@@ -1925,7 +1925,9 @@ public:
 
         for (auto& [id, fs] : fluidSolvers_) {
             if (fs) {
-                if (lodSettings_.fluidSolverIterations > 0) fs->setSolverIterations(lodSettings_.fluidSolverIterations);
+                if (lodSettings_.fluidSolverIterations > 0) {
+                    fs->setSolverIterations(std::clamp(lodSettings_.fluidSolverIterations, 1, 12));
+                }
                 fs->update(simulationDt);
             }
         }
