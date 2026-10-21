@@ -6,9 +6,9 @@ module;
 
 export module Core.AI.APIKeyManager;
 
-export namespace ArtifactCore {
+import Core.AI.CloudAgent;
 
-enum class CloudProvider : int;
+export namespace ArtifactCore {
 
 class APIKeyManager {
 public:

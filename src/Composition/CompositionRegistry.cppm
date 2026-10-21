@@ -5,6 +5,7 @@ module;
 module Composition.Registry;
 
 import Container.NameMap;
+import Container.Debug;
 
 namespace ArtifactCore {
 

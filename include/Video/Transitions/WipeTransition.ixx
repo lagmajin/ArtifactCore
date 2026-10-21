@@ -5,6 +5,7 @@ module;
 #include <QString>
 
 export module Video.Transitions.WipeTransition;
+import Video.VideoFrame;
 
 import NLE.Core;
 import Video.AbstractTransition;

@@ -32,6 +32,7 @@ module;
 #include <regex>
 #include <random>
 export module Audio.Decibels;
+import Core.ArtifactString;
 
 import Utils.String.UniString;
 

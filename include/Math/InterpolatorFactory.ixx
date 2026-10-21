@@ -34,7 +34,7 @@ export module Interpolate.Factory;
 
 export namespace ArtifactCore {
  
- export template <typename T>
+ template <typename T>
   class Interpolator
  {
  public:
@@ -47,7 +47,7 @@ export namespace ArtifactCore {
  template <typename T>
  using InterpolatorPtr = std::unique_ptr<Interpolator<T>>;
 
- export template <typename T>
+ template <typename T>
   class LinearInterpolator final : public Interpolator<T>
  {
  public:
@@ -57,7 +57,7 @@ export namespace ArtifactCore {
   }
  };
 
- export template <typename T>
+ template <typename T>
   class CubicInterpolator final : public Interpolator<T>
  {
  public:

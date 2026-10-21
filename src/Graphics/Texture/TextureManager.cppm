@@ -1,6 +1,7 @@
 module;
 #include <utility>
 #include <QString>
+#include <QSize>
 #include <string>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Texture.h>

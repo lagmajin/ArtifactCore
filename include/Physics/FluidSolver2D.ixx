@@ -5,6 +5,8 @@ module;
 export module Physics.Fluid;
 
 import Container.NamedVector;
+import Container.Debug;
+import Container.Debug;
 
 export namespace ArtifactCore {
 

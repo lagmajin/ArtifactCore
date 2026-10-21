@@ -39,7 +39,7 @@ import Script.Expression.Parser;
 import Core.ArtifactString;
 
 
-export namespace ArtifactCore {
+namespace ArtifactCore {
 
 // Evaluation mode for time-dependent expressions
 export enum class EvaluationMode {

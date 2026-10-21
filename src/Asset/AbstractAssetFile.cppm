@@ -43,6 +43,7 @@ module Asset.File;
 import Utils.Id;
 import Utils.String.UniString;
 import Container.NamedVector;
+import Container.Debug;
 
 namespace ArtifactCore {
 

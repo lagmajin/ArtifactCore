@@ -13,6 +13,7 @@ module;
 module Light.IESProfile;
 
 import Container.NamedVector;
+import Container.Debug;
 
 namespace ArtifactCore {
 

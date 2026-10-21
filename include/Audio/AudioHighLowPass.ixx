@@ -12,6 +12,7 @@ export module Audio.Effect.HighLowPass;
 
 import Audio.Effect;
 import Audio.Segment;
+import Core.ArtifactString;
 
 export namespace ArtifactCore {
 

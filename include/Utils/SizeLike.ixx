@@ -8,7 +8,7 @@ module;
 #include <opencv2/opencv.hpp>
 export module Utils.Size.Like;
 
-namespace ArtifactCore {
+export namespace ArtifactCore {
 
  inline QSize toQSize(const QSize& s) { return s; }
  inline QSize toQSize(const QSizeF& s) { return s.toSize(); }

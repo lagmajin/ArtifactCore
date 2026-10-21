@@ -35,11 +35,10 @@ module;
 #include <random>
 #include <QImage>
 #include <QtGui/QBitmap>
+#include <opencv2/core/mat.hpp>
+import Image.ImageF32x4_RGBA;
 export module Image.ImageYUV420;
 
-namespace cv {
-  class Mat;
-}
 
 
 
@@ -48,7 +47,6 @@ namespace cv {
 
 export namespace ArtifactCore {
 
- class ImageF32x4_RGBA;
 
  class LIBRARY_DLL_API ImageYUV420 {
   private:

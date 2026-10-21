@@ -48,7 +48,7 @@ export namespace ArtifactCore {
    Impl* impl_;
   public:
    FramePosition();
-   explicit FramePosition(int framePosition=0);
+   explicit FramePosition(int framePosition);
    FramePosition(const FramePosition& other);
    FramePosition(FramePosition&& other) noexcept;
    ~FramePosition();

@@ -5,6 +5,8 @@ module;
 #include <dlfcn.h>
 #endif
 #include <cstdio>
+#include <array>
+#include <cstdint>
 #include <cstring>
 #include <filesystem>
 #include <new>
@@ -239,6 +241,14 @@ bool tuidFromString(const char8* text, TUID out) {
     return true;
 }
 
+namespace {
+std::array<char8, 16> rawTuidFromString(const char8* text) {
+    std::array<char8, 16> result{};
+    (void)tuidFromString(text, result.data());
+    return result;
+}
+} // namespace
+
 bool tuidEquals(const TUID a, const TUID b) {
     return std::memcmp(a, b, 16) == 0;
 }
@@ -271,15 +281,27 @@ FIDString iidStringIComponent() {
         uidStringFromInts(0xE831FF31u, 0xF2D54301u, 0x928EBBEEu, 0x25697802u);
     return iid.c_str();
 }
+const char8* iidTuidIComponent() {
+    static const auto iid = rawTuidFromString(iidStringIComponent());
+    return iid.data();
+}
 FIDString iidStringIAudioProcessor() {
     static const std::string iid =
         uidStringFromInts(0x42043F99u, 0xB7DA453Cu, 0xA569E79Du, 0x9AAEC33Du);
     return iid.c_str();
 }
+const char8* iidTuidIAudioProcessor() {
+    static const auto iid = rawTuidFromString(iidStringIAudioProcessor());
+    return iid.data();
+}
 FIDString iidStringIEditController() {
     static const std::string iid =
         uidStringFromInts(0xDCD7BBE3u, 0x7742448Du, 0xA874AACCu, 0x979C759Eu);
     return iid.c_str();
+}
+const char8* iidTuidIEditController() {
+    static const auto iid = rawTuidFromString(iidStringIEditController());
+    return iid.data();
 }
 FIDString iidStringIParameterChanges() {
     static const std::string iid =
@@ -381,7 +403,7 @@ public:
     }
 
     tresult read(void* buffer, int32 numBytes, int32* numBytesRead) override {
-        if (!buffer || numBytes < 0) return kInvalidArgument;
+        if ((!buffer && numBytes != 0) || numBytes < 0) return kInvalidArgument;
         const int64 available =
             static_cast<int64>(storage_->size()) - position_;
         const int64 clamped = numBytes < available ? numBytes
@@ -397,7 +419,9 @@ public:
     }
 
     tresult write(void* buffer, int32 numBytes, int32* numBytesWritten) override {
-        if (!buffer || numBytes < 0) return kInvalidArgument;
+        if ((!buffer && numBytes != 0) || numBytes < 0) return kInvalidArgument;
+        constexpr int64 kMaximumStateBytes = 256ll * 1024ll * 1024ll;
+        if (position_ > kMaximumStateBytes - numBytes) return kOutOfMemory;
         const int64 required = position_ + numBytes;
         if (required > static_cast<int64>(storage_->size())) {
             storage_->resize(static_cast<size_t>(required));
@@ -568,6 +592,12 @@ private:
 // ---------------------------------------------------------------------------
 namespace Vst {
 
+#ifdef _WIN32
+using ModuleLifecycleProc = bool (__cdecl*)();
+#else
+using ModuleLifecycleProc = bool (*)();
+#endif
+
 namespace {
 
 bool readFactoryError(std::string& out) {
@@ -664,6 +694,14 @@ bool VST3Module::load(const ArtifactCore::String& path) {
     }
     getFactoryProc_ = reinterpret_cast<GetFactoryProc>(
         ::GetProcAddress(static_cast<HMODULE>(moduleHandle_), "GetPluginFactory"));
+    auto initModule = reinterpret_cast<ModuleLifecycleProc>(
+        ::GetProcAddress(static_cast<HMODULE>(moduleHandle_), "InitDll"));
+    if (initModule && !initModule()) {
+        lastError_ = "[VST3] InitDll returned false: " + binaryPath;
+        unload();
+        return false;
+    }
+    moduleInitialized_ = initModule != nullptr;
 #else
     moduleHandle_ = ::dlopen(binaryPath.c_str(), RTLD_NOW | RTLD_LOCAL);
     if (!moduleHandle_) {
@@ -700,6 +738,12 @@ void VST3Module::unload() {
 
     if (moduleHandle_) {
 #ifdef _WIN32
+        if (moduleInitialized_) {
+            auto exitModule = reinterpret_cast<ModuleLifecycleProc>(
+                ::GetProcAddress(static_cast<HMODULE>(moduleHandle_), "ExitDll"));
+            if (exitModule) (void)exitModule();
+            moduleInitialized_ = false;
+        }
         ::FreeLibrary(static_cast<HMODULE>(moduleHandle_));
 #else
         ::dlclose(moduleHandle_);
@@ -730,10 +774,19 @@ bool VST3Module::classInfo(int32 index, PClassInfo& out) const {
     return true;
 }
 
-void* VST3Module::createInstance(FIDString cid, FIDString iid) const {
+void* VST3Module::createInstance(const TUID cid, const TUID iid) const {
     if (!factory_ || !cid || !iid) return nullptr;
     void* object = nullptr;
-    if (factory_->createInstance(cid, iid, &object) != kResultOk) return nullptr;
+    const tresult result = factory_->createInstance(cid, iid, &object);
+    if (result != kResultOk || !object) {
+        char8 cidText[33]{};
+        char8 iidText[33]{};
+        tuidToString(cid, cidText);
+        tuidToString(iid, iidText);
+        lastError_ = "[VST3] Factory createInstance failed (result=" +
+            std::to_string(result) + ", CID=" + cidText + ", IID=" + iidText + ").";
+        return nullptr;
+    }
     return object;
 }
 
@@ -742,6 +795,8 @@ void* VST3Module::createInstance(FIDString cid, FIDString iid) const {
 // ---------------------------------------------------------------------------
 class VST3EffectHost::Impl {
 public:
+    static constexpr int32 kMaxAudioBuses = 16;
+    static constexpr int32 kMaxAudioChannels = 64;
     VST3Module module;
     Vst::IComponent* component = nullptr;
     Vst::IAudioProcessor* processor = nullptr;
@@ -762,6 +817,10 @@ public:
     int32 audioOutputBuses = 0;
     int32 inputChannels = 0;
     int32 outputChannels = 0;
+    std::array<int32, kMaxAudioBuses> inputBusChannels{};
+    std::array<int32, kMaxAudioBuses> outputBusChannels{};
+    std::array<BusType, kMaxAudioBuses> inputBusTypes{};
+    std::array<BusType, kMaxAudioBuses> outputBusTypes{};
     std::string lastError_;
 
     bool active = false;
@@ -964,6 +1023,11 @@ void VST3EffectHost::closeEditor() {
 
 bool VST3EffectHost::load(const ArtifactCore::String& pluginPath, int32 classIndex) {
     unload();
+    const auto failAndUnload = [this]() {
+        const std::string error = impl_ ? impl_->lastError_ : std::string{};
+        unload();
+        if (impl_) impl_->fail(error);
+    };
     if (!impl_ || !impl_->host || !impl_->inputParameterChanges) {
         return false;
     }
@@ -976,14 +1040,14 @@ bool VST3EffectHost::load(const ArtifactCore::String& pluginPath, int32 classInd
     IPluginFactory* factory = impl_->module.getFactory();
     if (!factory) {
         impl_->fail("[VST3] No factory available.");
-        unload();
+        failAndUnload();
         return false;
     }
 
     const int32 classCount = impl_->module.classCount();
     if (classCount <= 0) {
         impl_->fail("[VST3] Factory exports no classes.");
-        unload();
+        failAndUnload();
         return false;
     }
 
@@ -1007,7 +1071,7 @@ bool VST3EffectHost::load(const ArtifactCore::String& pluginPath, int32 classInd
     }
     if (selected < 0) {
         impl_->fail("[VST3] No audio effect class found in module.");
-        unload();
+        failAndUnload();
         return false;
     }
 
@@ -1021,23 +1085,22 @@ bool VST3EffectHost::load(const ArtifactCore::String& pluginPath, int32 classInd
             boundedCString(impl_->factoryInfo.vendor, PFactoryInfo::kNameSize);
     }
 
-    char8 cidText[33];
-    tuidToString(selectedInfo.cid, cidText);
-
-    // The component must expose IComponent; the audio processor is obtained
-    // from the same object (components implement both).
-    void* componentObject =
-        impl_->module.createInstance(cidText, Vst::iidStringIComponent());
+    // The factory arguments are raw 16-byte TUID values. FIDString is a
+    // pointer alias in the SDK, not a 32-character hexadecimal encoding here.
+    void* componentObject = impl_->module.createInstance(
+        selectedInfo.cid, Vst::iidTuidIComponent());
     if (!componentObject) {
-        impl_->fail("[VST3] Could not instantiate the audio effect class.");
-        unload();
+        if (impl_->lastError_.empty()) {
+            impl_->fail(impl_->module.lastError());
+        }
+        failAndUnload();
         return false;
     }
     auto* component = static_cast<Vst::IComponent*>(componentObject);
     if (component->initialize(impl_->host) != kResultOk) {
         component->release();
         impl_->fail("[VST3] Component refused to initialize.");
-        unload();
+        failAndUnload();
         return false;
     }
 
@@ -1049,7 +1112,7 @@ bool VST3EffectHost::load(const ArtifactCore::String& pluginPath, int32 classInd
         component->terminate();
         component->release();
         impl_->fail("[VST3] Component does not expose IAudioProcessor.");
-        unload();
+        failAndUnload();
         return false;
     }
 
@@ -1059,10 +1122,8 @@ bool VST3EffectHost::load(const ArtifactCore::String& pluginPath, int32 classInd
     // Controller: either a dedicated class or part of the component itself.
     TUID controllerCid{};
     if (component->getControllerClassId(controllerCid) == kResultOk) {
-        char8 controllerCidText[33];
-        tuidToString(controllerCid, controllerCidText);
         void* controllerObject = impl_->module.createInstance(
-            controllerCidText, Vst::iidStringIEditController());
+            controllerCid, Vst::iidTuidIEditController());
         if (controllerObject) {
             auto* controller =
                 static_cast<Vst::IEditController*>(controllerObject);
@@ -1087,23 +1148,50 @@ bool VST3EffectHost::load(const ArtifactCore::String& pluginPath, int32 classInd
     // Read the audio bus layout; default-activate the audio buses.
     impl_->audioInputBuses = component->getBusCount(Vst::kAudio, Vst::kInput);
     impl_->audioOutputBuses = component->getBusCount(Vst::kAudio, Vst::kOutput);
+    if (impl_->audioInputBuses < 0 || impl_->audioOutputBuses < 0 ||
+        impl_->audioInputBuses > Impl::kMaxAudioBuses ||
+        impl_->audioOutputBuses > Impl::kMaxAudioBuses) {
+        impl_->fail("[VST3] Plug-in exposes an unsupported number of audio buses.");
+        failAndUnload();
+        return false;
+    }
     impl_->inputChannels = 0;
     impl_->outputChannels = 0;
+    impl_->inputBusChannels.fill(0);
+    impl_->outputBusChannels.fill(0);
     for (int32 i = 0; i < impl_->audioInputBuses; ++i) {
         Vst::BusInfo info{};
         if (component->getBusInfo(Vst::kAudio, Vst::kInput, i, info) != kResultOk) {
             continue;
         }
+        if (info.channelCount < 0 || info.channelCount > Impl::kMaxAudioChannels ||
+            impl_->inputChannels > Impl::kMaxAudioChannels - info.channelCount) {
+            impl_->fail("[VST3] Plug-in input channel layout exceeds the host limit.");
+            failAndUnload();
+            return false;
+        }
         (void)component->activateBus(Vst::kAudio, Vst::kInput, i, 1);
-        impl_->inputChannels += info.channelCount > 0 ? info.channelCount : 0;
+        impl_->inputBusChannels[static_cast<size_t>(i)] =
+            info.channelCount > 0 ? info.channelCount : 0;
+        impl_->inputBusTypes[static_cast<size_t>(i)] = info.busType;
+        impl_->inputChannels += impl_->inputBusChannels[static_cast<size_t>(i)];
     }
     for (int32 i = 0; i < impl_->audioOutputBuses; ++i) {
         Vst::BusInfo info{};
         if (component->getBusInfo(Vst::kAudio, Vst::kOutput, i, info) != kResultOk) {
             continue;
         }
+        if (info.channelCount < 0 || info.channelCount > Impl::kMaxAudioChannels ||
+            impl_->outputChannels > Impl::kMaxAudioChannels - info.channelCount) {
+            impl_->fail("[VST3] Plug-in output channel layout exceeds the host limit.");
+            failAndUnload();
+            return false;
+        }
         (void)component->activateBus(Vst::kAudio, Vst::kOutput, i, 1);
-        impl_->outputChannels += info.channelCount > 0 ? info.channelCount : 0;
+        impl_->outputBusChannels[static_cast<size_t>(i)] =
+            info.channelCount > 0 ? info.channelCount : 0;
+        impl_->outputBusTypes[static_cast<size_t>(i)] = info.busType;
+        impl_->outputChannels += impl_->outputBusChannels[static_cast<size_t>(i)];
     }
     return true;
 }
@@ -1119,6 +1207,22 @@ int32 VST3EffectHost::inputBusCount() const {
 }
 int32 VST3EffectHost::outputBusCount() const {
     return impl_ ? impl_->audioOutputBuses : 0;
+}
+int32 VST3EffectHost::inputBusChannelCount(int32 index) const {
+    return impl_ && index >= 0 && index < impl_->audioInputBuses
+        ? impl_->inputBusChannels[static_cast<size_t>(index)] : 0;
+}
+int32 VST3EffectHost::outputBusChannelCount(int32 index) const {
+    return impl_ && index >= 0 && index < impl_->audioOutputBuses
+        ? impl_->outputBusChannels[static_cast<size_t>(index)] : 0;
+}
+BusType VST3EffectHost::inputBusType(int32 index) const {
+    return impl_ && index >= 0 && index < impl_->audioInputBuses
+        ? impl_->inputBusTypes[static_cast<size_t>(index)] : Vst::kAux;
+}
+BusType VST3EffectHost::outputBusType(int32 index) const {
+    return impl_ && index >= 0 && index < impl_->audioOutputBuses
+        ? impl_->outputBusTypes[static_cast<size_t>(index)] : Vst::kAux;
 }
 int32 VST3EffectHost::inputChannelCount() const {
     return impl_ ? impl_->inputChannels : 0;
@@ -1170,39 +1274,37 @@ bool VST3EffectHost::processFloat(Sample32* const* inputs, int32 numInputChannel
     // Distribute the caller channel pointers over the preallocated buses.
     int32 inputCursor = 0;
     for (int32 i = 0; i < impl_->audioInputBuses; ++i) {
-        Vst::BusInfo info{};
-        if (impl_->component->getBusInfo(Vst::kAudio, Vst::kInput, i, info) != kResultOk ||
-            info.channelCount <= 0) {
+        const int32 channelCount = impl_->inputBusChannels[static_cast<size_t>(i)];
+        if (channelCount <= 0) {
             impl_->inputBuses[static_cast<size_t>(i)].numChannels = 0;
             impl_->inputBuses[static_cast<size_t>(i)].channelBuffers32 = nullptr;
             continue;
         }
-        impl_->inputBuses[static_cast<size_t>(i)].numChannels = info.channelCount;
-        for (int32 c = 0; c < info.channelCount; ++c) {
+        impl_->inputBuses[static_cast<size_t>(i)].numChannels = channelCount;
+        for (int32 c = 0; c < channelCount; ++c) {
             impl_->inputPtrs32[static_cast<size_t>(inputCursor + c)] =
                 inputs[inputCursor + c];
         }
         impl_->inputBuses[static_cast<size_t>(i)].channelBuffers32 =
             impl_->inputPtrs32.data() + inputCursor;
-        inputCursor += info.channelCount;
+        inputCursor += channelCount;
     }
     int32 outputCursor = 0;
     for (int32 i = 0; i < impl_->audioOutputBuses; ++i) {
-        Vst::BusInfo info{};
-        if (impl_->component->getBusInfo(Vst::kAudio, Vst::kOutput, i, info) != kResultOk ||
-            info.channelCount <= 0) {
+        const int32 channelCount = impl_->outputBusChannels[static_cast<size_t>(i)];
+        if (channelCount <= 0) {
             impl_->outputBuses[static_cast<size_t>(i)].numChannels = 0;
             impl_->outputBuses[static_cast<size_t>(i)].channelBuffers32 = nullptr;
             continue;
         }
-        impl_->outputBuses[static_cast<size_t>(i)].numChannels = info.channelCount;
-        for (int32 c = 0; c < info.channelCount; ++c) {
+        impl_->outputBuses[static_cast<size_t>(i)].numChannels = channelCount;
+        for (int32 c = 0; c < channelCount; ++c) {
             impl_->outputPtrs32[static_cast<size_t>(outputCursor + c)] =
                 outputs[outputCursor + c];
         }
         impl_->outputBuses[static_cast<size_t>(i)].channelBuffers32 =
             impl_->outputPtrs32.data() + outputCursor;
-        outputCursor += info.channelCount;
+        outputCursor += channelCount;
     }
 
     impl_->processData.numSamples = numSamples;
@@ -1225,39 +1327,37 @@ bool VST3EffectHost::processDouble(Sample64* const* inputs, int32 numInputChanne
 
     int32 inputCursor = 0;
     for (int32 i = 0; i < impl_->audioInputBuses; ++i) {
-        Vst::BusInfo info{};
-        if (impl_->component->getBusInfo(Vst::kAudio, Vst::kInput, i, info) != kResultOk ||
-            info.channelCount <= 0) {
+        const int32 channelCount = impl_->inputBusChannels[static_cast<size_t>(i)];
+        if (channelCount <= 0) {
             impl_->inputBuses[static_cast<size_t>(i)].numChannels = 0;
             impl_->inputBuses[static_cast<size_t>(i)].channelBuffers64 = nullptr;
             continue;
         }
-        impl_->inputBuses[static_cast<size_t>(i)].numChannels = info.channelCount;
-        for (int32 c = 0; c < info.channelCount; ++c) {
+        impl_->inputBuses[static_cast<size_t>(i)].numChannels = channelCount;
+        for (int32 c = 0; c < channelCount; ++c) {
             impl_->inputPtrs64[static_cast<size_t>(inputCursor + c)] =
                 inputs[inputCursor + c];
         }
         impl_->inputBuses[static_cast<size_t>(i)].channelBuffers64 =
             impl_->inputPtrs64.data() + inputCursor;
-        inputCursor += info.channelCount;
+        inputCursor += channelCount;
     }
     int32 outputCursor = 0;
     for (int32 i = 0; i < impl_->audioOutputBuses; ++i) {
-        Vst::BusInfo info{};
-        if (impl_->component->getBusInfo(Vst::kAudio, Vst::kOutput, i, info) != kResultOk ||
-            info.channelCount <= 0) {
+        const int32 channelCount = impl_->outputBusChannels[static_cast<size_t>(i)];
+        if (channelCount <= 0) {
             impl_->outputBuses[static_cast<size_t>(i)].numChannels = 0;
             impl_->outputBuses[static_cast<size_t>(i)].channelBuffers64 = nullptr;
             continue;
         }
-        impl_->outputBuses[static_cast<size_t>(i)].numChannels = info.channelCount;
-        for (int32 c = 0; c < info.channelCount; ++c) {
+        impl_->outputBuses[static_cast<size_t>(i)].numChannels = channelCount;
+        for (int32 c = 0; c < channelCount; ++c) {
             impl_->outputPtrs64[static_cast<size_t>(outputCursor + c)] =
                 outputs[outputCursor + c];
         }
         impl_->outputBuses[static_cast<size_t>(i)].channelBuffers64 =
             impl_->outputPtrs64.data() + outputCursor;
-        outputCursor += info.channelCount;
+        outputCursor += channelCount;
     }
 
     impl_->processData.numSamples = numSamples;
@@ -1304,9 +1404,6 @@ bool VST3EffectHost::setup(double sampleRate, int32 maxBlockSize, bool doublePre
     if (sampleRate <= 0.0 || sampleRate > 1000000.0) return false;
     if (maxBlockSize <= 0 || maxBlockSize > 65536) return false;
 
-    constexpr SpeakerArrangement kSpeakerStereo = 0x3u;  // vstspeaker.h kStereo
-    (void)kSpeakerStereo;
-
     impl_->doublePrecision = doublePrecision;
     impl_->sampleRate = sampleRate;
     impl_->maxBlockSize = maxBlockSize;
@@ -1318,36 +1415,6 @@ bool VST3EffectHost::setup(double sampleRate, int32 maxBlockSize, bool doublePre
         }
         // Even 32-bit precision was refused: continue anyway, the plug-in
         // may still accept it in setupProcessing.
-    }
-
-    // Ask for a simple arrangement; fall back to the plug-in defaults.
-    std::vector<SpeakerArrangement> inArr;
-    if (impl_->audioInputBuses > 0) {
-        inArr.assign(static_cast<size_t>(impl_->audioInputBuses), kSpeakerStereo);
-    }
-    std::vector<SpeakerArrangement> outArr;
-    if (impl_->audioOutputBuses > 0) {
-        outArr.assign(static_cast<size_t>(impl_->audioOutputBuses), kSpeakerStereo);
-    }
-    (void)impl_->processor->setBusArrangements(inArr.data(), impl_->audioInputBuses,
-                                               outArr.data(), impl_->audioOutputBuses);
-
-    // Re-read the effective bus layout.
-    impl_->inputChannels = 0;
-    impl_->outputChannels = 0;
-    for (int32 i = 0; i < impl_->audioInputBuses; ++i) {
-        Vst::BusInfo info{};
-        if (impl_->component->getBusInfo(Vst::kAudio, Vst::kInput, i, info) == kResultOk &&
-            info.channelCount > 0) {
-            impl_->inputChannels += info.channelCount;
-        }
-    }
-    for (int32 i = 0; i < impl_->audioOutputBuses; ++i) {
-        Vst::BusInfo info{};
-        if (impl_->component->getBusInfo(Vst::kAudio, Vst::kOutput, i, info) == kResultOk &&
-            info.channelCount > 0) {
-            impl_->outputChannels += info.channelCount;
-        }
     }
 
     Vst::ProcessSetup vstSetup{};
@@ -1455,7 +1522,7 @@ bool VST3EffectHost::saveState(std::vector<uint8_t>& outState) const {
         outState.push_back(static_cast<uint8_t>((value >> 16) & 0xFFu));
         outState.push_back(static_cast<uint8_t>((value >> 24) & 0xFFu));
     };
-    appendU32(0x56535433u);                                  // "VST3"
+    appendU32(0x33545356u);                                  // little-endian "VST3"
     appendU32(static_cast<uint32>(componentLength));
     appendU32(static_cast<uint32>(controllerLength));
     outState.insert(outState.end(), componentState.begin(),
@@ -1478,34 +1545,65 @@ bool VST3EffectHost::loadState(const std::vector<uint8_t>& state) {
     };
     const uint32 componentSize = readU32(4);
     const uint32 controllerSize = readU32(8);
-    if (static_cast<uint64>(componentSize) + controllerSize + 12 > state.size()) {
+    const uint64 payloadSize = static_cast<uint64>(componentSize) + controllerSize;
+    if (payloadSize + 12 > state.size()) {
         return false;
     }
 
     std::vector<uint8_t> componentState(
         state.begin() + 12, state.begin() + 12 + componentSize);
-    {
-        HostMemoryStream* stream = new (std::nothrow) HostMemoryStream(&componentState);
-        if (!stream) return false;
-        (void)stream->addRef();
-        (void)impl_->component->setState(stream);
-        if (impl_->controller) {
-            (void)impl_->controller->setComponentState(stream);
+    std::vector<uint8_t> controllerState(
+        state.begin() + 12 + componentSize,
+        state.begin() + 12 + componentSize + controllerSize);
+    const bool wasProcessing = impl_->processing;
+    const bool wasActive = impl_->active;
+    if (wasProcessing && !setProcessing(false)) return false;
+    if (wasActive && !setActive(false)) {
+        if (wasProcessing) (void)setProcessing(true);
+        return false;
+    }
+
+    bool restored = true;
+    if (impl_->inputParameterChanges) impl_->inputParameterChanges->clear();
+    impl_->pendingParameters.clear();
+    HostMemoryStream* componentStream =
+        new (std::nothrow) HostMemoryStream(&componentState);
+    if (!componentStream) {
+        restored = false;
+    } else {
+        (void)componentStream->addRef();
+        restored = impl_->component->setState(componentStream) == kResultOk;
+        componentStream->release();
+    }
+    if (impl_->controller && componentSize > 0) {
+        std::vector<uint8_t> componentStateForController(
+            state.begin() + 12, state.begin() + 12 + componentSize);
+        HostMemoryStream* stream =
+            new (std::nothrow) HostMemoryStream(&componentStateForController);
+        if (!stream) {
+            restored = false;
+        } else {
+            (void)stream->addRef();
+            restored = impl_->controller->setComponentState(stream) == kResultOk &&
+                       restored;
+            stream->release();
         }
-        stream->release();
     }
     if (controllerSize > 0 && impl_->controller) {
-        std::vector<uint8_t> controllerState(
-            state.begin() + 12 + componentSize,
-            state.begin() + 12 + componentSize + controllerSize);
         HostMemoryStream* stream =
             new (std::nothrow) HostMemoryStream(&controllerState);
-        if (!stream) return false;
-        (void)stream->addRef();
-        (void)impl_->controller->setState(stream);
-        stream->release();
+        if (!stream) {
+            restored = false;
+        } else {
+            (void)stream->addRef();
+            restored = impl_->controller->setState(stream) == kResultOk && restored;
+            stream->release();
+        }
     }
-    return true;
+    bool resumed = true;
+    if (wasActive) resumed = setActive(true) && resumed;
+    if (wasProcessing) resumed = setProcessing(true) && resumed;
+    return restored && resumed;
 }
 
 // __VST3_LOADER_APPEND10__

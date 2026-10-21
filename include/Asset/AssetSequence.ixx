@@ -15,6 +15,7 @@ export module Asset.Sequence;
 import Core.ArtifactString;
 import Utils.Optional;
 import Container.NamedVector;
+import Container.Debug;
 
 
 // ================================================================

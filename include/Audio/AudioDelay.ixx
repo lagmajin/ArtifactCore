@@ -14,6 +14,7 @@ export module Audio.Effect.Delay;
 import Audio.Effect;
 import Audio.Segment;
 import Audio.RingBuffer;
+import Core.ArtifactString;
 
 export namespace ArtifactCore {
 

@@ -5,6 +5,8 @@ module;
 export module Core.AI.RotoBrushImageSegmenter;
 
 import Core.AI.ImageSegmenter;
+import Image.ImageF32x4_RGBA;
+import Image.DepthMap;
 import ArtifactCore.ImageProcessing.OpenCV.RotoBrushEngine;
 
 export namespace ArtifactCore {

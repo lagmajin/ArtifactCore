@@ -86,11 +86,6 @@ export namespace ArtifactCore
 
  using PathView = QStringView;
 
- inline QString toQString(PathView path)
- {
-  return path.toString();
- }
-
  inline QString joinPath(const QString& base, const QString& child)
  {
   QDir dir(base);

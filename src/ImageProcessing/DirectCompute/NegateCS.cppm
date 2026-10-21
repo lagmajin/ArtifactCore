@@ -12,13 +12,13 @@ module;
 module ImageProcessing.NegateCS;
 
 import Image;
+import Image.ImageF32x4RGBAWithCache;
 
 
 namespace Diligent{}
 
 namespace ArtifactCore
 {
-	class ImageF32x4RGBAWithCache;
 	using namespace Diligent;
 
 	class NegateCS::Impl

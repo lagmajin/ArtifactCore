@@ -15,6 +15,7 @@ export module Command.Session;
 
 import Command.Serializable;
 import Container.NamedVector;
+import Container.Debug;
 
 export namespace ArtifactCore
 {

@@ -26,6 +26,7 @@ import Memory.TrackedPtr;
 import Memory.SharedPtr;
 import Utils.Id;
 import Container.NamedVector;
+import Container.Debug;
 
 namespace ArtifactCore {
 

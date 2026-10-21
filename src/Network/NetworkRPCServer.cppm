@@ -28,6 +28,7 @@ module;
 module NetworkRPCServer;
 
 import Container.NamedVector;
+import Container.Debug;
 
 namespace ArtifactCore {
 

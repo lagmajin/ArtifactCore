@@ -14,10 +14,9 @@ module;
 #include <vector>
 
 export module Core.Diagnostics.Trace;
-
-class tst_QList;
-
 import Frame.Debug;
+
+
 
 export namespace ArtifactCore {
 

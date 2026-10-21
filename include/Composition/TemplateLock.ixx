@@ -10,7 +10,7 @@ export module Composition.TemplateLock;
 
 export namespace ArtifactCore {
 
-export enum class LockScope {
+enum class LockScope {
     Layout,
     ExportSettings,
     CompositionStructure,
@@ -19,13 +19,13 @@ export enum class LockScope {
     All
 };
 
-export enum class Editability {
+enum class Editability {
     Locked,
     Editable,
     EditableWithWarning
 };
 
-export struct ProtectedRegion {
+struct ProtectedRegion {
     QString id;
     QString displayName;
     LockScope scope = LockScope::Layout;
@@ -36,7 +36,7 @@ export struct ProtectedRegion {
     static ProtectedRegion fromJson(const QJsonObject& obj);
 };
 
-export struct EditableField {
+struct EditableField {
     QString fieldId;
     QString displayName;
     QString slotId;
@@ -47,7 +47,7 @@ export struct EditableField {
     static EditableField fromJson(const QJsonObject& obj);
 };
 
-export class TemplateLockSchema {
+class TemplateLockSchema {
 public:
     QString templateId;
     QString templateName;
@@ -64,7 +64,7 @@ public:
     Editability editabilityForField(const QString& fieldId) const;
 };
 
-export class TemplateEditGuard {
+class TemplateEditGuard {
 public:
     static bool canEditField(const TemplateLockSchema& schema, const QString& fieldId,
                              QString* outWarning = nullptr);

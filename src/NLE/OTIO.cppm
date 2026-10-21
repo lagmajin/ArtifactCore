@@ -17,6 +17,7 @@ module NLE.OTIO;
 
 import NLE.Core;
 import Frame.Range;
+import Frame.Position;
 
 namespace ArtifactCore::NLE {
 namespace {

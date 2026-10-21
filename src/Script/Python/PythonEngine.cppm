@@ -29,6 +29,7 @@ module;
 module Script.Python.Engine;
 
 import Container.NamedVector;
+import Container.Debug;
 
 import Core.ArtifactString;
 

@@ -17,7 +17,7 @@ export namespace ArtifactCore {
 /// <summary>
 /// 問題の重大度
 /// </summary>
-export enum class DiagnosticSeverity {
+enum class DiagnosticSeverity {
     Error,      // 修正必須（レンダリング失敗など）
     Warning,    // 警告（パフォーマンス低下など）
     Info        // 情報（推奨設定など）
@@ -26,7 +26,7 @@ export enum class DiagnosticSeverity {
 /// <summary>
 /// 問題のカテゴリ
 /// </summary>
-export enum class DiagnosticCategory {
+enum class DiagnosticCategory {
     Reference,      // 無効な参照
     Matte,          // マット関連
     CircularDep,    // 循環依存
@@ -41,7 +41,7 @@ export enum class DiagnosticCategory {
 /// <summary>
 /// プロジェクトの個別の問題
 /// </summary>
-export class ProjectDiagnostic {
+class ProjectDiagnostic {
 public:
     ProjectDiagnostic();
     ProjectDiagnostic(
@@ -107,7 +107,7 @@ private:
 /// <summary>
 /// 問題のリスト（型安全なコレクション）
 /// </summary>
-export class DiagnosticResult {
+class DiagnosticResult {
 public:
     DiagnosticResult() = default;
     ~DiagnosticResult() = default;

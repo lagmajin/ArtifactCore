@@ -8,26 +8,73 @@ module;
 #include <dlfcn.h>
 #endif
 #include <cstring>
+#include <cstdint>
 #include <cstdlib>
 #include <cctype>
 #include <cmath>
+#include <limits>
 #include <utility>
 #include <algorithm>
 #include <memory>
+#include <thread>
 #include <iostream>
 #include <string>
 #include <vector>
 #include <unordered_set>
 #include <filesystem>
+#include <QByteArray>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QString>
+#ifdef _WIN32
+#define CLAP_HOST_ABI __cdecl
+#else
+#define CLAP_HOST_ABI
+#endif
 
 module CLAP.Host;
 
 import Memory.SharedPtr;
 import Container.NamedVector;
+import Container.Debug;
 
 namespace clap {
 
 namespace fs = std::filesystem;
+
+struct PluginHostContext {
+    clap_host host{};
+    const clap_plugin* plugin = nullptr;
+    Plugin* owner = nullptr;
+    std::thread::id mainThread;
+    std::atomic<bool> restart{false};
+    std::atomic<bool> process{false};
+    std::atomic<bool> mainThreadCallback{false};
+    std::atomic<bool> dispatchMainThreadCallback{false};
+};
+
+thread_local bool gClapAudioThread = false;
+
+class ScopedClapAudioThread final {
+public:
+    ScopedClapAudioThread() : previous_(gClapAudioThread) {
+        gClapAudioThread = true;
+    }
+    ~ScopedClapAudioThread() { gClapAudioThread = previous_; }
+
+private:
+    bool previous_ = false;
+};
+
+bool CLAP_HOST_ABI hostIsMainThread(const clap_host* host) {
+    if (!host || !host->host_data) return false;
+    const auto* context = static_cast<const PluginHostContext*>(host->host_data);
+    return std::this_thread::get_id() == context->mainThread;
+}
+
+bool CLAP_HOST_ABI hostIsAudioThread(const clap_host*) {
+    return gClapAudioThread;
+}
 
 void hostGuiResizeHintsChanged(const clap_host*) {}
 bool hostGuiRequestResize(const clap_host*, uint32_t, uint32_t) { return false; }
@@ -39,13 +86,33 @@ const clap_host_gui kHostGuiExtension{
     hostGuiResizeHintsChanged, hostGuiRequestResize, hostGuiRequestShow,
     hostGuiRequestHide, hostGuiClosed};
 
+const clap_host_thread_check kHostThreadCheckExtension{
+    hostIsMainThread, hostIsAudioThread};
+
 const void* hostGetExtension(const clap_host*, const char* id) {
-    return id && std::strcmp(id, "clap.gui") == 0 ? &kHostGuiExtension : nullptr;
+    if (!id) return nullptr;
+    if (std::strcmp(id, "clap.gui") == 0) return &kHostGuiExtension;
+    if (std::strcmp(id, "clap.thread-check") == 0)
+        return &kHostThreadCheckExtension;
+    return nullptr;
 }
 
-void hostRequestRestart(const clap_host*) {}
-void hostRequestProcess(const clap_host*) {}
-void hostRequestCallback(const clap_host*) {}
+void hostRequestRestart(const clap_host* host) {
+    if (host && host->host_data)
+        static_cast<PluginHostContext*>(host->host_data)->restart.store(
+            true, std::memory_order_release);
+}
+void hostRequestProcess(const clap_host* host) {
+    if (host && host->host_data)
+        static_cast<PluginHostContext*>(host->host_data)->process.store(
+            true, std::memory_order_release);
+}
+void hostRequestCallback(const clap_host* host) {
+    if (!host || !host->host_data) return;
+    auto& context = *static_cast<PluginHostContext*>(host->host_data);
+    context.mainThreadCallback.store(true, std::memory_order_release);
+    context.dispatchMainThreadCallback.store(true, std::memory_order_release);
+}
 
 // ─────────────────────────────────────────────────────────
 // PluginLibrary — DLLラッパー、clap_entry を解決
@@ -191,8 +258,14 @@ const clap_event_header* pendingInputGet(const clap_input_events* list, uint32_t
     return &context->events[index].header;
 }
 
-bool discardOutputEvent(const clap_output_events*, const clap_event_header*) {
-    return false;
+bool PluginInstance::pushOutputEvent(const clap_output_events* list,
+                                    const clap_event_header* header) {
+    if (!list || !list->ctx || !header || header->space_id != 0 ||
+        header->type != 5 || header->size < sizeof(clap_event_param_value)) return false;
+    const auto* event = reinterpret_cast<const clap_event_param_value*>(header);
+    if (!std::isfinite(event->value)) return false;
+    auto* instance = static_cast<PluginInstance*>(list->ctx);
+    return instance->enqueueOutputParam({event->param_id, event->value, header->time});
 }
 
 // ─────────────────────────────────────────────────────────
@@ -204,6 +277,7 @@ PluginInstance::PluginInstance(const clap_plugin* plugin,
     : plugin_(plugin), desc_(desc), entry_(entry) {
     for (uint64_t index = 0; index < kPendingParamCapacity; ++index) {
         pendingParams_[index].sequence.store(index, std::memory_order_relaxed);
+        outputParams_[index].sequence.store(index, std::memory_order_relaxed);
     }
 }
 
@@ -221,32 +295,73 @@ bool PluginInstance::init() {
     if (!plugin_ || !plugin_->init || !plugin_->init(plugin_)) return false;
     const auto* audioPorts = static_cast<const clap_plugin_audio_ports*>(
         getExtension("clap.audio-ports"));
-    if (!audioPorts || !audioPorts->count || !audioPorts->get ||
-        audioPorts->count(plugin_, true) != 1 ||
-        audioPorts->count(plugin_, false) != 1) {
+    if (!audioPorts || !audioPorts->count || !audioPorts->get) {
         if (plugin_->destroy) plugin_->destroy(plugin_);
         plugin_ = nullptr;
         return false;
     }
-    clap_audio_port_info inputInfo{};
-    clap_audio_port_info outputInfo{};
+
+    const uint32 inputCount = audioPorts->count(plugin_, true);
+    const uint32 outputCount = audioPorts->count(plugin_, false);
+    if (inputCount == 0 || outputCount == 0 ||
+        inputCount > kMaxAudioBuses || outputCount > kMaxAudioBuses) {
+        if (plugin_->destroy) plugin_->destroy(plugin_);
+        plugin_ = nullptr;
+        return false;
+    }
+
     constexpr uint32 kAudioPortIsMain = 1u << 0;
-    if (!audioPorts->get(plugin_, 0, true, &inputInfo) ||
-        !audioPorts->get(plugin_, 0, false, &outputInfo) ||
-        !(inputInfo.flags & kAudioPortIsMain) ||
-        !(outputInfo.flags & kAudioPortIsMain) ||
-        inputInfo.channel_count == 0 || inputInfo.channel_count > 2 ||
-        outputInfo.channel_count == 0 || outputInfo.channel_count > 2) {
+    uint32 mainInputCount = 0;
+    uint32 mainOutputCount = 0;
+    audioInputBusCount_ = inputCount;
+    audioOutputBusCount_ = outputCount;
+    for (uint32 index = 0; index < inputCount; ++index) {
+        clap_audio_port_info info{};
+        if (!audioPorts->get(plugin_, index, true, &info) ||
+            info.channel_count == 0 || info.channel_count > 2) {
+            if (plugin_->destroy) plugin_->destroy(plugin_);
+            plugin_ = nullptr;
+            return false;
+        }
+        inputPortLayouts_[index] = {
+            info.channel_count, (info.flags & kAudioPortIsMain) != 0};
+        if (inputPortLayouts_[index].isMain) {
+            audioInputMainBus_ = index;
+            ++mainInputCount;
+        }
+    }
+    for (uint32 index = 0; index < outputCount; ++index) {
+        clap_audio_port_info info{};
+        if (!audioPorts->get(plugin_, index, false, &info) ||
+            info.channel_count == 0 || info.channel_count > 2) {
+            if (plugin_->destroy) plugin_->destroy(plugin_);
+            plugin_ = nullptr;
+            return false;
+        }
+        outputPortLayouts_[index] = {
+            info.channel_count, (info.flags & kAudioPortIsMain) != 0};
+        if (outputPortLayouts_[index].isMain) {
+            audioOutputMainBus_ = index;
+            ++mainOutputCount;
+        }
+    }
+    if (mainInputCount != 1 || mainOutputCount != 1) {
         if (plugin_->destroy) plugin_->destroy(plugin_);
         plugin_ = nullptr;
         return false;
     }
-    audioInputChannelCount_ = inputInfo.channel_count;
-    audioOutputChannelCount_ = outputInfo.channel_count;
     try {
-        for (uint32 channel = 0; channel < 2; ++channel) {
-            inputScratch_[channel].resize(kProcessMaxFrames);
-            outputScratch_[channel].resize(kProcessMaxFrames);
+        for (uint32 bus = 0; bus < audioInputBusCount_; ++bus) {
+            for (uint32 channel = 0;
+                 channel < inputPortLayouts_[bus].channelCount; ++channel) {
+                inputScratch_[bus][channel].resize(kProcessMaxFrames);
+            }
+        }
+        for (uint32 bus = 0; bus < audioOutputBusCount_; ++bus) {
+            for (uint32 channel = 0;
+                 channel < outputPortLayouts_[bus].channelCount; ++channel) {
+                outputScratch_[bus][channel].resize(kProcessMaxFrames);
+            }
         }
     } catch (...) {
         if (plugin_->destroy) plugin_->destroy(plugin_);
@@ -295,46 +410,43 @@ void PluginInstance::stopProcessing() {
 bool PluginInstance::process(const Process& process) {
     if (!plugin_ || !plugin_->process || !active_ || !processing_ ||
         process.framesCount == 0 || process.framesCount > maxFrames_ ||
-        !process.audioInputs || process.audioInputsCount != 1 ||
-        !process.audioOutputs || process.audioOutputsCount != 1 ||
-        process.audioInputs[0].channelCount != audioInputChannelCount_ ||
-        process.audioOutputs[0].channelCount != audioOutputChannelCount_) return false;
+        !process.audioInputs || process.audioInputsCount != audioInputBusCount_ ||
+        !process.audioOutputs || process.audioOutputsCount != audioOutputBusCount_) return false;
     clap_process cp{};
     cp.steady_time = -1;
     cp.frames_count = process.framesCount;
-    std::array<float*, 2> inputChannels{};
-    std::array<float*, 2> outputChannels{};
-    clap_audio_buffer inputBuffer{};
-    clap_audio_buffer outputBuffer{};
-    // AudioBuffer → deinterleaved float*
-    if (process.audioInputs && process.audioInputsCount > 0) {
-        const AudioBuffer& input = process.audioInputs[0];
-        cp.audio_inputs_count = input.channelCount;
-        for (uint32 channel = 0; channel < cp.audio_inputs_count; ++channel) {
-            inputChannels[channel] = input.channels[channel];
-            if (!inputChannels[channel] && input.channelCount == 1) {
-                inputChannels[channel] = input.data32;
-            }
-            if (!inputChannels[channel]) return false;
+    std::array<clap_audio_buffer, kMaxAudioBuses> inputBuffers{};
+    std::array<clap_audio_buffer, kMaxAudioBuses> outputBuffers{};
+    std::array<std::array<float*, 2>, kMaxAudioBuses> inputChannels{};
+    std::array<std::array<float*, 2>, kMaxAudioBuses> outputChannels{};
+    for (uint32 bus = 0; bus < audioInputBusCount_; ++bus) {
+        const AudioBuffer& input = process.audioInputs[bus];
+        if (input.channelCount != inputPortLayouts_[bus].channelCount) return false;
+        for (uint32 channel = 0; channel < input.channelCount; ++channel) {
+            inputChannels[bus][channel] = input.channels[channel];
+            if (!inputChannels[bus][channel] && input.channelCount == 1)
+                inputChannels[bus][channel] = input.data32;
+            if (!inputChannels[bus][channel]) return false;
         }
-        inputBuffer.data32 = inputChannels.data();
-        inputBuffer.channel_count = cp.audio_inputs_count;
-        cp.audio_inputs = &inputBuffer;
+        inputBuffers[bus].data32 = inputChannels[bus].data();
+        inputBuffers[bus].channel_count = input.channelCount;
     }
-    if (process.audioOutputs && process.audioOutputsCount > 0) {
-        const AudioBuffer& output = process.audioOutputs[0];
-        cp.audio_outputs_count = output.channelCount;
-        for (uint32 channel = 0; channel < cp.audio_outputs_count; ++channel) {
-            outputChannels[channel] = output.channels[channel];
-            if (!outputChannels[channel] && output.channelCount == 1) {
-                outputChannels[channel] = output.data32;
-            }
-            if (!outputChannels[channel]) return false;
+    for (uint32 bus = 0; bus < audioOutputBusCount_; ++bus) {
+        const AudioBuffer& output = process.audioOutputs[bus];
+        if (output.channelCount != outputPortLayouts_[bus].channelCount) return false;
+        for (uint32 channel = 0; channel < output.channelCount; ++channel) {
+            outputChannels[bus][channel] = output.channels[channel];
+            if (!outputChannels[bus][channel] && output.channelCount == 1)
+                outputChannels[bus][channel] = output.data32;
+            if (!outputChannels[bus][channel]) return false;
         }
-        outputBuffer.data32 = outputChannels.data();
-        outputBuffer.channel_count = cp.audio_outputs_count;
-        cp.audio_outputs = &outputBuffer;
+        outputBuffers[bus].data32 = outputChannels[bus].data();
+        outputBuffers[bus].channel_count = output.channelCount;
     }
+    cp.audio_inputs = inputBuffers.data();
+    cp.audio_inputs_count = audioInputBusCount_;
+    cp.audio_outputs = outputBuffers.data();
+    cp.audio_outputs_count = audioOutputBusCount_;
     uint32_t parameterEventCount = 0;
     PendingParam pending{};
     while (parameterEventCount < processParamEvents_.size() &&
@@ -355,10 +467,14 @@ bool PluginInstance::process(const Process& process) {
     }
     PendingInputContext inputContext{processParamEvents_.data(), parameterEventCount};
     clap_input_events inputEvents{&inputContext, pendingInputSize, pendingInputGet};
-    clap_output_events outputEvents{nullptr, discardOutputEvent};
+    clap_output_events outputEvents{this, PluginInstance::pushOutputEvent};
     cp.in_events = &inputEvents;
     cp.out_events = &outputEvents;
-    const int32_t status = plugin_->process(plugin_, &cp);
+    int32_t status = 0;
+    {
+        ScopedClapAudioThread audioThreadScope;
+        status = plugin_->process(plugin_, &cp);
+    }
     return status >= 1 && status <= 4;
 }
 
@@ -405,9 +521,63 @@ bool PluginInstance::dequeuePendingParam(PendingParam& value) {
     }
 }
 
+bool PluginInstance::enqueueOutputParam(OutputParamEvent value) {
+    uint64_t position = outputEnqueuePosition_.load(std::memory_order_relaxed);
+    for (;;) {
+        OutputParamSlot& slot = outputParams_[position % kPendingParamCapacity];
+        const uint64_t sequence = slot.sequence.load(std::memory_order_acquire);
+        const int64_t difference = static_cast<int64_t>(sequence - position);
+        if (difference == 0) {
+            if (outputEnqueuePosition_.compare_exchange_weak(
+                    position, position + 1, std::memory_order_relaxed)) {
+                slot.value = value;
+                slot.sequence.store(position + 1, std::memory_order_release);
+                return true;
+            }
+        } else if (difference < 0) {
+            return false;
+        } else {
+            position = outputEnqueuePosition_.load(std::memory_order_relaxed);
+        }
+    }
+}
+
+bool PluginInstance::dequeueOutputParam(OutputParamEvent& value) {
+    uint64_t position = outputDequeuePosition_.load(std::memory_order_relaxed);
+    for (;;) {
+        OutputParamSlot& slot = outputParams_[position % kPendingParamCapacity];
+        const uint64_t sequence = slot.sequence.load(std::memory_order_acquire);
+        const int64_t difference = static_cast<int64_t>(sequence - (position + 1));
+        if (difference == 0) {
+            if (outputDequeuePosition_.compare_exchange_weak(
+                    position, position + 1, std::memory_order_relaxed)) {
+                value = slot.value;
+                slot.sequence.store(position + kPendingParamCapacity,
+                                    std::memory_order_release);
+                return true;
+            }
+        } else if (difference < 0) {
+            return false;
+        } else {
+            position = outputDequeuePosition_.load(std::memory_order_relaxed);
+        }
+    }
+}
+
+bool PluginInstance::popOutputParamEvent(OutputParamEvent& event) {
+    return dequeueOutputParam(event);
+}
+
 bool PluginInstance::processSegment(const ArtifactCore::AudioSegment& input,
                                     ArtifactCore::AudioSegment& output,
                                     uint32 frameOffset) {
+    return processSegmentWithSideChain(input, nullptr, output, frameOffset);
+}
+
+bool PluginInstance::processSegmentWithSideChain(
+    const ArtifactCore::AudioSegment& input,
+    const ArtifactCore::AudioSegment* sideChain,
+    ArtifactCore::AudioSegment& output, uint32 frameOffset) {
     const uint32 hostChannels = static_cast<uint32>(input.channelCount());
     const uint32 frames = static_cast<uint32>(input.frameCount());
     if ((hostChannels != 1 && hostChannels != 2) || frames == 0 ||
@@ -420,60 +590,83 @@ bool PluginInstance::processSegment(const ArtifactCore::AudioSegment& input,
             output.channelData[static_cast<int>(channel)].size() <
                 static_cast<int>(frames)) return false;
     }
+    uint32 sideChainChannels = 0;
+    if (sideChain) {
+        if (sideChain->frameCount() != static_cast<int>(frames) ||
+            (sideChain->channelCount() != 1 && sideChain->channelCount() != 2))
+            return false;
+        sideChainChannels = static_cast<uint32>(sideChain->channelCount());
+        for (uint32 channel = 0; channel < sideChainChannels; ++channel) {
+            if (sideChain->channelData[static_cast<int>(channel)].size() <
+                static_cast<int>(frames)) return false;
+        }
+    }
 
-    AudioBuffer inputBuffer{};
-    AudioBuffer outputBuffer{};
-    inputBuffer.channelCount = audioInputChannelCount_;
-    inputBuffer.frameCount = frames;
-    outputBuffer.channelCount = audioOutputChannelCount_;
-    outputBuffer.frameCount = frames;
+    std::array<AudioBuffer, kMaxAudioBuses> inputBuffers{};
+    std::array<AudioBuffer, kMaxAudioBuses> outputBuffers{};
     Process request{};
     request.framesCount = frames;
     request.frameIndex = frameOffset;
-    request.audioInputs = &inputBuffer;
-    request.audioInputsCount = 1;
-    request.audioOutputs = &outputBuffer;
-    request.audioOutputsCount = 1;
-    if (audioInputChannelCount_ == hostChannels) {
-        for (uint32 channel = 0; channel < audioInputChannelCount_; ++channel) {
-            const auto& source = input.channelData[static_cast<int>(channel)];
-            std::copy_n(source.constData(), frames, inputScratch_[channel].data());
+    request.audioInputs = inputBuffers.data();
+    request.audioInputsCount = audioInputBusCount_;
+    request.audioOutputs = outputBuffers.data();
+    request.audioOutputsCount = audioOutputBusCount_;
+    for (uint32 bus = 0; bus < audioInputBusCount_; ++bus) {
+        const auto& layout = inputPortLayouts_[bus];
+        AudioBuffer& buffer = inputBuffers[bus];
+        buffer.channelCount = layout.channelCount;
+        buffer.frameCount = frames;
+        const bool useSideChain = !layout.isMain && sideChain;
+        const auto& source = useSideChain ? *sideChain : input;
+        const uint32 sourceChannels = useSideChain
+            ? sideChainChannels : hostChannels;
+        for (uint32 channel = 0; channel < layout.channelCount; ++channel) {
+            float* destination = inputScratch_[bus][channel].data();
+            if (!layout.isMain && !sideChain) {
+                std::fill_n(destination, frames, 0.0f);
+            } else if (sourceChannels == layout.channelCount) {
+                const auto& sourceChannel =
+                    source.channelData[static_cast<int>(channel)];
+                std::copy_n(sourceChannel.constData(), frames, destination);
+            } else if (sourceChannels == 1) {
+                const auto& sourceChannel = source.channelData[0];
+                std::copy_n(sourceChannel.constData(), frames, destination);
+            } else {
+                const auto& left = source.channelData[0];
+                const auto& right = source.channelData[1];
+                for (uint32 frame = 0; frame < frames; ++frame) {
+                    destination[frame] = 0.5f * left[static_cast<int>(frame)] +
+                                         0.5f * right[static_cast<int>(frame)];
+                }
+            }
+            buffer.channels[channel] = destination;
         }
-    } else if (audioInputChannelCount_ == 1) {
-        const auto& left = input.channelData[0];
-        const auto& right = input.channelData[1];
-        for (uint32 frame = 0; frame < frames; ++frame) {
-            inputScratch_[0][frame] =
-                0.5f * left[static_cast<int>(frame)] +
-                0.5f * right[static_cast<int>(frame)];
-        }
-    } else {
-        const auto& mono = input.channelData[0];
-        std::copy_n(mono.constData(), frames, inputScratch_[0].data());
-        std::copy_n(mono.constData(), frames, inputScratch_[1].data());
     }
-    for (uint32 channel = 0; channel < audioInputChannelCount_; ++channel) {
-        inputBuffer.channels[channel] = inputScratch_[channel].data();
-    }
-    for (uint32 channel = 0; channel < audioOutputChannelCount_; ++channel) {
-        outputBuffer.channels[channel] = outputScratch_[channel].data();
+    for (uint32 bus = 0; bus < audioOutputBusCount_; ++bus) {
+        AudioBuffer& buffer = outputBuffers[bus];
+        buffer.channelCount = outputPortLayouts_[bus].channelCount;
+        buffer.frameCount = frames;
+        for (uint32 channel = 0; channel < buffer.channelCount; ++channel)
+            buffer.channels[channel] = outputScratch_[bus][channel].data();
     }
     if (!process(request)) return false;
-    if (audioOutputChannelCount_ == hostChannels) {
+    const auto& mainOutput = outputPortLayouts_[audioOutputMainBus_];
+    const auto& outputScratch = outputScratch_[audioOutputMainBus_];
+    if (mainOutput.channelCount == hostChannels) {
         for (uint32 channel = 0; channel < hostChannels; ++channel) {
             auto& destination = output.channelData[static_cast<int>(channel)];
-            std::copy_n(outputScratch_[channel].data(), frames, destination.data());
+            std::copy_n(outputScratch[channel].data(), frames, destination.data());
         }
-    } else if (audioOutputChannelCount_ == 1) {
-        const float* mono = outputScratch_[0].data();
+    } else if (mainOutput.channelCount == 1) {
+        const float* mono = outputScratch[0].data();
         for (uint32 channel = 0; channel < hostChannels; ++channel) {
             auto& destination = output.channelData[static_cast<int>(channel)];
             std::copy_n(mono, frames, destination.data());
         }
     } else {
         auto& destination = output.channelData[0];
-        const float* left = outputScratch_[0].data();
-        const float* right = outputScratch_[1].data();
+        const float* left = outputScratch[0].data();
+        const float* right = outputScratch[1].data();
         for (uint32 frame = 0; frame < frames; ++frame) {
             destination[static_cast<int>(frame)] =
                 0.5f * left[frame] + 0.5f * right[frame];
@@ -640,6 +833,81 @@ ClapEffect::~ClapEffect() {
     }
 }
 
+QJsonObject ClapEffect::toJson() const {
+    QJsonObject obj = ArtifactCore::AudioEffect::toJson();
+    if (!plugin_) return obj;
+    const PluginDescriptor& descriptor = plugin_->descriptor();
+    obj["pluginPath"] = QString::fromStdString(descriptor.libraryPath);
+    obj["pluginId"] = QString::fromStdString(descriptor.id);
+    obj["name"] = QString::fromUtf8(
+        ArtifactCore::toStdString(name_).c_str());
+    QJsonArray parameters;
+    const uint32 count = plugin_->paramsCount();
+    for (uint32 index = 0; index < count; ++index) {
+        Plugin::ParamInfo info;
+        if (!plugin_->paramGetInfo(index, info)) continue;
+        QJsonObject value;
+        value["id"] = static_cast<double>(info.id);
+        value["value"] = plugin_->paramValue(info.id);
+        parameters.append(value);
+    }
+    obj["parameters"] = parameters;
+    std::vector<uint8_t> state;
+    if (plugin_->saveState(state) &&
+        state.size() <= static_cast<size_t>(std::numeric_limits<int>::max())) {
+        const QByteArray bytes(reinterpret_cast<const char*>(state.data()),
+                               static_cast<int>(state.size()));
+        obj["pluginState"] = QString::fromLatin1(bytes.toBase64());
+    }
+    return obj;
+}
+
+void ClapEffect::fromJson(const QJsonObject& obj) {
+    ArtifactCore::AudioEffect::fromJson(obj);
+    if (!owner_) return;
+    if (plugin_) {
+        if (active_) {
+            plugin_->stopProcessing();
+            plugin_->deactivate();
+            active_ = false;
+        }
+        plugin_->closeEditor();
+        owner_->unloadPlugin(plugin_);
+        plugin_ = nullptr;
+    }
+
+    const std::string path = obj.value("pluginPath").toString().toStdString();
+    const std::string pluginId = obj.value("pluginId").toString().toStdString();
+    if (obj.value("name").isString()) {
+        name_ = ArtifactCore::String(obj.value("name").toString().toStdString());
+    }
+    if (path.empty() || pluginId.empty()) return;
+    plugin_ = owner_->loadPlugin(path, pluginId);
+    if (!plugin_) return;
+
+    const QJsonArray parameters = obj.value("parameters").toArray();
+    for (const QJsonValue& entry : parameters) {
+        if (!entry.isObject()) continue;
+        const QJsonObject value = entry.toObject();
+        const double id = value.value("id").toDouble(-1.0);
+        const double paramValue = value.value("value").toDouble(
+            std::numeric_limits<double>::quiet_NaN());
+        if (!std::isfinite(id) || id < 0.0 ||
+            id > static_cast<double>(std::numeric_limits<uint32>::max()) ||
+            !std::isfinite(paramValue)) continue;
+        (void)plugin_->paramSetValue(static_cast<uint32>(id), paramValue);
+    }
+
+    const QByteArray encoded = obj.value("pluginState").toString().toLatin1();
+    if (!encoded.isEmpty()) {
+        const QByteArray bytes = QByteArray::fromBase64(encoded);
+        std::vector<uint8_t> state(
+            reinterpret_cast<const uint8_t*>(bytes.constData()),
+            reinterpret_cast<const uint8_t*>(bytes.constData()) + bytes.size());
+        (void)plugin_->loadState(state);
+    }
+}
+
 uint32 PluginInstance::latencySamples() const
 {
     const auto* extension = static_cast<const clap_plugin_latency*>(
@@ -652,6 +920,79 @@ uint32 PluginInstance::tailSamples() const
     const auto* extension = static_cast<const clap_plugin_tail*>(
         plugin_ && plugin_->get_extension ? plugin_->get_extension(plugin_, "clap.tail") : nullptr);
     return extension && extension->get ? extension->get(plugin_) : 0;
+}
+
+namespace {
+struct ClapStateOutputContext {
+    std::vector<uint8_t>* bytes = nullptr;
+    bool failed = false;
+};
+
+struct ClapStateInputContext {
+    const std::vector<uint8_t>* bytes = nullptr;
+    size_t offset = 0;
+};
+
+int64_t CLAP_HOST_ABI writeClapState(
+    const clap_ostream* stream, const void* buffer, uint64_t size) {
+    if (!stream || !stream->ctx || (!buffer && size != 0) ||
+        size > static_cast<uint64_t>(std::numeric_limits<size_t>::max()) ||
+        size > static_cast<uint64_t>(std::numeric_limits<int64_t>::max())) return -1;
+    auto& context = *static_cast<ClapStateOutputContext*>(stream->ctx);
+    if (context.failed || !context.bytes) return -1;
+    if (size == 0) return 0;
+    try {
+        const auto* first = static_cast<const uint8_t*>(buffer);
+        context.bytes->insert(context.bytes->end(), first, first + size);
+    } catch (...) {
+        context.failed = true;
+        return -1;
+    }
+    return static_cast<int64_t>(size);
+}
+
+int64_t CLAP_HOST_ABI readClapState(
+    const clap_istream* stream, void* buffer, uint64_t size) {
+    if (!stream || !stream->ctx || (!buffer && size != 0) ||
+        size > static_cast<uint64_t>(std::numeric_limits<size_t>::max()) ||
+        size > static_cast<uint64_t>(std::numeric_limits<int64_t>::max())) return -1;
+    auto& context = *static_cast<ClapStateInputContext*>(stream->ctx);
+    if (!context.bytes) return -1;
+    if (size == 0) return 0;
+    const size_t available = context.bytes->size() -
+        std::min(context.offset, context.bytes->size());
+    const size_t count = std::min(available, static_cast<size_t>(size));
+    if (count != 0) {
+        std::memcpy(buffer, context.bytes->data() + context.offset, count);
+        context.offset += count;
+    }
+    return static_cast<int64_t>(count);
+}
+} // namespace
+
+bool PluginInstance::saveState(std::vector<uint8_t>& state) const {
+    state.clear();
+    if (!plugin_ || !plugin_->get_extension) return false;
+    const auto* extension = static_cast<const clap_plugin_state*>(
+        plugin_->get_extension(plugin_, "clap.state"));
+    if (!extension || !extension->save) return false;
+    ClapStateOutputContext context{&state, false};
+    const clap_ostream stream{&context, writeClapState};
+    if (!extension->save(plugin_, &stream) || context.failed) {
+        state.clear();
+        return false;
+    }
+    return true;
+}
+
+bool PluginInstance::loadState(const std::vector<uint8_t>& state) {
+    if (!plugin_ || !plugin_->get_extension) return false;
+    const auto* extension = static_cast<const clap_plugin_state*>(
+        plugin_->get_extension(plugin_, "clap.state"));
+    if (!extension || !extension->load) return false;
+    ClapStateInputContext context{&state, 0};
+    const clap_istream stream{&context, readClapState};
+    return extension->load(plugin_, &stream);
 }
 
 qint64 ClapEffect::latencySamples() const
@@ -743,6 +1084,10 @@ void PluginInstance::closeEditor() {
     editorParent_ = {};
 }
 
+void PluginInstance::onMainThread() {
+    if (plugin_ && plugin_->on_main_thread) plugin_->on_main_thread(plugin_);
+}
+
 bool ClapEffect::hasEditor() const {
     return plugin_ && plugin_->hasEditor();
 }
@@ -764,7 +1109,7 @@ void ClapEffect::closeEditor() {
 }
 
 void ClapEffect::process(ArtifactCore::AudioSegment& segment,
-                         const ArtifactCore::AudioSegment* /*sideChain*/) {
+                         const ArtifactCore::AudioSegment* sideChain) {
     if (isBypassed() || !plugin_ || segment.frameCount() <= 0) return;
     const double sampleRate = static_cast<double>(segment.sampleRate);
     if (!std::isfinite(sampleRate) || sampleRate <= 0.0) return;
@@ -782,7 +1127,7 @@ void ClapEffect::process(ArtifactCore::AudioSegment& segment,
         active_ = true;
         activeSampleRate_ = sampleRate;
     }
-    plugin_->processSegment(segment, segment);
+    plugin_->processSegmentWithSideChain(segment, sideChain, segment);
 }
 
 std::vector<ArtifactCore::EffectParameter> ClapEffect::getParameters() const {
@@ -834,6 +1179,8 @@ void ClapEffect::setParameterValue(const ArtifactCore::String& id, float value) 
 class Host::Impl {
 public:
     clap_host host{};
+    std::thread::id mainThread = std::this_thread::get_id();
+    std::vector<std::unique_ptr<PluginHostContext>> pluginHosts;
     ArtifactCore::NamedVector<std::string> searchPaths{
         ArtifactCore::makeNamedVector<std::string>(ArtifactCore::ContainerName{"ClapHostSearchPaths"})};
     // ライブラリを生きたまま保持（プラグイン生存中のアンロード防止）
@@ -842,7 +1189,7 @@ public:
 
 Host::Host() : impl_(new Impl()) {
     impl_->host.clap_version = {1, 2, 10};
-    impl_->host.host_data = impl_;
+    impl_->host.host_data = nullptr;
     impl_->host.name = "ArtifactStudio";
     impl_->host.vendor = "ArtifactStudio";
     impl_->host.url = "https://github.com/lagmajin/ArtifactStudio";
@@ -871,6 +1218,11 @@ Host::Host() : impl_(new Impl()) {
 #endif
 }
 
+Host& Host::getInstance() {
+    static Host host;
+    return host;
+}
+
 Host::~Host() {
     unloadAll();
     delete impl_;
@@ -888,7 +1240,7 @@ void Host::setSearchPaths(const std::vector<std::string>& paths) {
     }
 }
 
-Plugin* Host::loadPlugin(const std::string& path) {
+Plugin* Host::loadPlugin(const std::string& path, const std::string& requestedPluginId) {
     if (!fs::exists(path) || !fs::is_regular_file(path)) {
         std::cerr << "[CLAP] File not found: " << path << std::endl;
         return nullptr;
@@ -924,17 +1276,25 @@ Plugin* Host::loadPlugin(const std::string& path) {
             !cd->name || !*cd->name || !cd->version || !*cd->version) continue;
 
         PluginDescriptor pd = makeDescriptor(cd);
-        const auto* cp = factory->create_plugin(factory, &impl_->host, cd->id);
+        pd.libraryPath = path;
+        if (!requestedPluginId.empty() && pd.id != requestedPluginId) continue;
+        auto pluginHost = std::make_unique<PluginHostContext>();
+        pluginHost->host = impl_->host;
+        pluginHost->host.host_data = pluginHost.get();
+        pluginHost->mainThread = impl_->mainThread;
+        const auto* cp = factory->create_plugin(factory, &pluginHost->host, cd->id);
         if (!cp) continue;
+        pluginHost->plugin = cp;
 
         auto* instance = new PluginInstance(cp, pd, entry);
         if (!instance->init()) {
             delete instance;
             continue;
         }
+        pluginHost->owner = instance;
         plugins_.push_back(instance);
+        impl_->pluginHosts.push_back(std::move(pluginHost));
         if (!first) first = instance;
-        break;
     }
 
     if (!first) return nullptr;
@@ -950,13 +1310,45 @@ void Host::unloadPlugin(Plugin* plugin) {
         (*it)->destroy();
         delete *it;
         plugins_.erase(it);
+        impl_->pluginHosts.erase(std::remove_if(
+            impl_->pluginHosts.begin(), impl_->pluginHosts.end(),
+            [plugin](const auto& context) {
+                return context->owner == plugin;
+            }), impl_->pluginHosts.end());
     }
 }
 
 std::unique_ptr<ClapEffect> Host::createEffect(
     Plugin* plugin, const ArtifactCore::String& name) {
-    if (!plugin) return nullptr;
     return std::make_unique<ClapEffect>(this, plugin, name);
+}
+
+Host::Requests Host::takeRequests() {
+    if (!impl_) return {};
+    Requests requests;
+    for (const auto& context : impl_->pluginHosts) {
+        requests.restart = context->restart.exchange(
+            false, std::memory_order_acq_rel) || requests.restart;
+        requests.process = context->process.exchange(
+            false, std::memory_order_acq_rel) || requests.process;
+        requests.mainThreadCallback = context->mainThreadCallback.exchange(
+            false, std::memory_order_acq_rel) || requests.mainThreadCallback;
+    }
+    return requests;
+}
+
+uint32 Host::dispatchMainThreadCallbacks() {
+    if (!impl_ || std::this_thread::get_id() != impl_->mainThread) return 0;
+    uint32 dispatched = 0;
+    for (const auto& context : impl_->pluginHosts) {
+        if (!context->dispatchMainThreadCallback.exchange(
+                false, std::memory_order_acq_rel)) continue;
+        if (context->plugin && context->plugin->on_main_thread) {
+            context->plugin->on_main_thread(context->plugin);
+            ++dispatched;
+        }
+    }
+    return dispatched;
 }
 
 void Host::unloadAll() {
@@ -965,6 +1357,7 @@ void Host::unloadAll() {
         delete p;
     }
     plugins_.clear();
+    impl_->pluginHosts.clear();
     impl_->libraries.clear();
 }
 

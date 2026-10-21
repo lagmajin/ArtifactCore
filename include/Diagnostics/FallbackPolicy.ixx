@@ -13,10 +13,11 @@ export module Core.Diagnostics.FallbackPolicy;
 
 import Utils.Optional;
 import Container.NamedVector;
+import Container.Debug;
 
 export namespace ArtifactCore {
 
-export enum class FallbackCategory {
+enum class FallbackCategory {
     Font,
     Image,
     Color,
@@ -25,7 +26,7 @@ export enum class FallbackCategory {
     Other
 };
 
-export enum class FallbackAction {
+enum class FallbackAction {
     Fallback,
     Bypass,
     Warning,
@@ -33,7 +34,7 @@ export enum class FallbackAction {
     Ignore
 };
 
-export struct FallbackEvent {
+struct FallbackEvent {
     QDateTime timestamp;
     FallbackCategory category;
     FallbackAction action;
@@ -43,7 +44,7 @@ export struct FallbackEvent {
     bool isWarning = true;
 };
 
-export struct FallbackPolicy {
+struct FallbackPolicy {
     FallbackAction action = FallbackAction::Fallback;
     QString fallbackValue;
     QString warningMessage;
@@ -67,7 +68,7 @@ export struct FallbackPolicy {
     }
 };
 
-export class FallbackTracker {
+class FallbackTracker {
 public:
     static FallbackTracker* instance();
 

@@ -9,6 +9,7 @@ export module Container.IdMap;
 
 import Container.Debug;
 import Container.NamedVector;
+import Core.ArtifactArray;
 
 export namespace ArtifactCore {
 

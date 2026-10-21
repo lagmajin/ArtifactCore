@@ -27,6 +27,7 @@ import Container.NamedVector;
 import Memory.SharedPtr;
 import Time.Rational;
 import Animation.Value;
+import Math.Interpolate;
 import Frame.Position;
 import Frame.Rate;
 import Serialization.JsonAdapter;

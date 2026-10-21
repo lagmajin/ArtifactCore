@@ -6,6 +6,7 @@ module;
 #include <QColor>
 
 export module Video.Transitions.SlideTransition;
+import Video.VideoFrame;
 
 import NLE.Core;
 import Video.AbstractTransition;

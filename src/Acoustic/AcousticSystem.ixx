@@ -24,10 +24,11 @@ import Artifact.Acoustic.AudioTaskSynthesizer;
 import Memory.TrackedPtr;
 import Memory.SharedPtr;
 import Container.NamedVector;
+import Container.Debug;
 
 export namespace Artifact::Acoustic {
 
-    export enum class RainImpactSurface : std::uint8_t {
+    enum class RainImpactSurface : std::uint8_t {
         Solid,
         Water
     };
@@ -35,7 +36,7 @@ export namespace Artifact::Acoustic {
     using ArtifactCore::SharedPtr;
     using ArtifactCore::makeShared;
 
-    export class AcousticSystem {
+    class AcousticSystem {
     public:
         AcousticSystem() {
             m_materialLibrary["Steel"] = { 7.8f, 0.8f, 0.5f };

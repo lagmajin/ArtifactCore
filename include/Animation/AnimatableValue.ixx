@@ -21,6 +21,8 @@ export module Animation.Value;
 import Frame.Position;
 import Math.Interpolate;
 import Container.NamedVector;
+import Container.Debug;
+import Container.Debug;
 
 
 export namespace ArtifactCore {
@@ -69,7 +71,7 @@ inline T interpolateValue(const T& start, const T& end, float alpha, Interpolati
 }
 
 // 物理演算用のランタイム状態
-export struct SpringState {
+struct SpringState {
     float velocity = 0.0f;
     float stiffness = 120.0f;   // k
     float damping = 12.0f;      // c
@@ -351,12 +353,12 @@ export struct SpringState {
   
  };
 
-export enum class AnimationLayerBlendMode : std::uint8_t {
+enum class AnimationLayerBlendMode : std::uint8_t {
   Additive,
   Override
 };
 
-export struct AnimationLayerState {
+struct AnimationLayerState {
   AnimationLayerBlendMode blendMode = AnimationLayerBlendMode::Additive;
   float weight = 1.0f;
   bool muted = false;
@@ -366,7 +368,7 @@ export struct AnimationLayerState {
 // Non-destructive property stack used by animation-layer clients. The base
 // value remains untouched; additive layers contribute a weighted delta from
 // the base and override layers blend toward their evaluated value.
-export template<typename T>
+template<typename T>
 class AnimationLayerStackT {
 public:
   struct Layer {
@@ -497,18 +499,18 @@ public:
 // allocation-free; sorting/sanitizing happens on the cold path. Float
 // channels only in Phase 2 (Transform/Opacity); Color remap is deferred.
 
-export enum class AutomationClipLoopMode : std::uint8_t {
+enum class AutomationClipLoopMode : std::uint8_t {
   Off,
   Loop,
   PingPong
 };
 
-export enum class AutomationClipTimePolicy : std::uint8_t {
+enum class AutomationClipTimePolicy : std::uint8_t {
   ParentFollow,
   FreeTime
 };
 
-export struct AutomationClipPoint {
+struct AutomationClipPoint {
   double time = 0.0;  // seconds, relative to pattern start, >= 0 after sanitize
   float value = 0.0f;
   InterpolationType interpolation = InterpolationType::Linear;
@@ -519,18 +521,18 @@ export struct AutomationClipPoint {
   float cp2_x = 0.58f, cp2_y = 1.0f;
 };
 
-export constexpr std::size_t kMaxAutomationClipPoints = 4096;
+constexpr std::size_t kMaxAutomationClipPoints = 4096;
 
 // Phase 2 evaluation coverage: only these layer-relative paths are read by
 // the layer evaluator. Instances on other paths persist (forward compatible)
 // but stay inert until later phases wire them.
-export inline bool isAutomationClipEvaluatedPath(std::string_view path) noexcept {
+inline bool isAutomationClipEvaluatedPath(std::string_view path) noexcept {
   return path == "transform.position.x" || path == "transform.position.y" ||
          path == "transform.rotation" || path == "transform.scale.x" ||
          path == "transform.scale.y" || path == "layer.opacity";
 }
 
-export struct AutomationClipPattern {
+struct AutomationClipPattern {
   std::uint32_t id{0};  // 0 = invalid/reserved, consistent with source ids
   std::string name;
   std::uint32_t seed{2463534242u};
@@ -545,7 +547,7 @@ export struct AutomationClipPattern {
   }
 };
 
-export struct AutomationClipInstance {
+struct AutomationClipInstance {
   std::uint32_t patternId{0};
   std::string targetPath;  // layer-relative property path, e.g. "transform.position.x"
   double offsetSeconds = 0.0;
@@ -557,7 +559,7 @@ export struct AutomationClipInstance {
 };
 
 // Maps a pattern-local time into [0, duration] per loop policy. No allocation.
-export inline double mapAutomationClipLoop(double t, double duration,
+inline double mapAutomationClipLoop(double t, double duration,
                                            AutomationClipLoopMode loop) noexcept {
   if (!(duration > 0.0)) {
     return 0.0;
@@ -588,7 +590,7 @@ export inline double mapAutomationClipLoop(double t, double duration,
 }
 
 // Evaluates pattern points at a loop-mapped local time. No allocation.
-export inline float evaluateAutomationClipPattern(
+inline float evaluateAutomationClipPattern(
     const AutomationClipPattern& pattern, double localSeconds) {
   const auto& points = pattern.points;
   if (points.empty()) {
@@ -627,7 +629,7 @@ export inline float evaluateAutomationClipPattern(
 
 // Applies one instance over a base value. weight == 0 (or disabled/mismatch)
 // returns baseValue exactly. No allocation.
-export inline float applyAutomationClipInstance(
+inline float applyAutomationClipInstance(
     float baseValue, const AutomationClipPattern& pattern,
     const AutomationClipInstance& instance, double parentSeconds) {
   if (!instance.enabled || instance.patternId == 0 ||
@@ -655,7 +657,7 @@ export inline float applyAutomationClipInstance(
 
 // Cold-path sanitizer: sorts by time, clamps ranges, caps size.
 // Returns false when no usable points remain.
-export inline bool sanitizeAutomationClipPattern(AutomationClipPattern& pattern) {
+inline bool sanitizeAutomationClipPattern(AutomationClipPattern& pattern) {
   if (pattern.points.size() > kMaxAutomationClipPoints) {
     pattern.points.resize(kMaxAutomationClipPoints);
   }
@@ -682,7 +684,7 @@ export inline bool sanitizeAutomationClipPattern(AutomationClipPattern& pattern)
   return !pattern.points.empty();
 }
 
-export inline bool automationClipInstancesEqual(
+inline bool automationClipInstancesEqual(
     const std::vector<AutomationClipInstance>& a,
     const std::vector<AutomationClipInstance>& b) {
   if (a.size() != b.size()) {
@@ -702,7 +704,7 @@ export inline bool automationClipInstancesEqual(
 }
 
 // Qt-boundary JSON converters (cold path only: project save/load, undo).
-export inline QJsonObject automationClipPatternToJson(
+inline QJsonObject automationClipPatternToJson(
     const AutomationClipPattern& pattern) {
   QJsonObject object;
   object[QStringLiteral("id")] = static_cast<double>(pattern.id);
@@ -725,7 +727,7 @@ export inline QJsonObject automationClipPatternToJson(
   return object;
 }
 
-export inline bool automationClipPatternFromJson(
+inline bool automationClipPatternFromJson(
     const QJsonObject& object, AutomationClipPattern& pattern) {
   const double rawId = object.value(QStringLiteral("id")).toDouble(0.0);
   if (!std::isfinite(rawId) || rawId < 1.0 ||
@@ -769,7 +771,7 @@ export inline bool automationClipPatternFromJson(
   return true;
 }
 
-export inline QJsonObject automationClipInstanceToJson(
+inline QJsonObject automationClipInstanceToJson(
     const AutomationClipInstance& instance) {
   QJsonObject object;
   object[QStringLiteral("patternId")] = static_cast<double>(instance.patternId);
@@ -783,7 +785,7 @@ export inline QJsonObject automationClipInstanceToJson(
   return object;
 }
 
-export inline bool automationClipInstanceFromJson(
+inline bool automationClipInstanceFromJson(
     const QJsonObject& object, AutomationClipInstance& instance) {
   const double rawId = object.value(QStringLiteral("patternId")).toDouble(0.0);
   if (!std::isfinite(rawId) || rawId < 1.0 ||

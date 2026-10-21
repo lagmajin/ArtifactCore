@@ -20,6 +20,7 @@ module;
 module Render.GPURayTracer;
 
 import Graphics.GPUcomputeContext;
+import Render.Vector3D;
 import Core.Parallel;
 
 namespace ArtifactCore::RayTrace

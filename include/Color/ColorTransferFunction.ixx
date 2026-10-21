@@ -10,7 +10,7 @@ export namespace ArtifactCore
 
  /// トランスファ関数 (EOTF/OETF) の列挙。
  /// DaVinci Resolve の Color Science メニューに対応。
- export enum class TransferFunction {
+ enum class TransferFunction {
   Linear,              // 線形 (シーン参照)
   sRGB,                // IEC 61966-2-1 (ディスプレイ)
   Gamma22,             // 単純ガンマ 2.2

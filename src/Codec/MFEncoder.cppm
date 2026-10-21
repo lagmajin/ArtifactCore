@@ -4,6 +4,7 @@ module ;
 #include <mfapi.h>
 #include <mfidl.h>
 #include <mfreadwrite.h>
+#include <wrl/client.h>
 #include <iostream>
 #include <vector>
 #include <string>

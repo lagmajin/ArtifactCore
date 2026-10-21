@@ -42,6 +42,7 @@ module;
 module Analyze.Histogram;
 
 import Image.ImageSurfaceView;
+import Graphics.SurfaceColorContract;
 
 namespace ArtifactCore {
 

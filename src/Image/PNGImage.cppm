@@ -2,6 +2,7 @@ module;
 #include <cstdint>
 #include <climits>
 #include <utility>
+#include <QByteArray>
 
 module Image.Png;
 

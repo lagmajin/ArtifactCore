@@ -48,6 +48,7 @@ module;
 module Core.Mask.RotoMask;
 
 import Container.NamedVector;
+import Container.Debug;
 import Core.Parallel;
 
 namespace ArtifactCore {

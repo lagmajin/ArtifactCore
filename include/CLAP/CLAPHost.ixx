@@ -8,6 +8,7 @@ module;
 #include <atomic>
 #include <algorithm>
 #include <cmath>
+#include <QJsonObject>
 #ifdef _WIN32
 #define CLAP_HOST_ABI __cdecl
 #else
@@ -18,6 +19,7 @@ export module CLAP.Host;
 
 import Audio.Segment;
 import Audio.Effect;
+import Core.ArtifactString;
 
 // ─────────────────────────────────────────────────────────
 // Minimal CLAP C API structs — clap.h 非依存
@@ -129,6 +131,21 @@ export struct clap_plugin_tail {
     uint32_t (CLAP_HOST_ABI *get)(const clap_plugin* plugin);
 };
 
+export struct clap_istream {
+    void* ctx;
+    int64_t (CLAP_HOST_ABI *read)(const clap_istream*, void* buffer, uint64_t size);
+};
+
+export struct clap_ostream {
+    void* ctx;
+    int64_t (CLAP_HOST_ABI *write)(const clap_ostream*, const void* buffer, uint64_t size);
+};
+
+export struct clap_plugin_state {
+    bool (CLAP_HOST_ABI *save)(const clap_plugin*, const clap_ostream*);
+    bool (CLAP_HOST_ABI *load)(const clap_plugin*, const clap_istream*);
+};
+
 export struct clap_audio_port_info {
     uint32_t id;
     char name[256];
@@ -215,6 +232,11 @@ export struct clap_host_gui {
     void (CLAP_HOST_ABI *closed)(const clap_host*, bool);
 };
 
+export struct clap_host_thread_check {
+    bool (CLAP_HOST_ABI *is_main_thread)(const clap_host*);
+    bool (CLAP_HOST_ABI *is_audio_thread)(const clap_host*);
+};
+
 export struct clap_plugin_entry {
     clap_version_t clap_version;
     bool (CLAP_HOST_ABI *init)(const char* plugin_path);
@@ -248,6 +270,7 @@ constexpr int32 kProcessMaxFrames = 8192;
 // === プラグイン情報 ===
 struct PluginDescriptor {
     std::string id;           // "com.u-he.diva"
+    std::string libraryPath;  // Absolute or user-selected library path
     std::string name;         // "Diva"
     std::string vendor;       // "u-he"
     std::string url;
@@ -335,6 +358,11 @@ struct Process {
 // === プラグインインスタンス ===
 class Plugin {
 public:
+    struct OutputParamEvent {
+        uint32 id = 0;
+        double value = 0.0;
+        uint32 time = 0;
+    };
     virtual ~Plugin() = default;
 
     virtual bool init() = 0;
@@ -387,11 +415,29 @@ public:
         return process(proc);
     }
 
+    virtual bool processSegmentWithSideChain(
+        const ArtifactCore::AudioSegment& input,
+        const ArtifactCore::AudioSegment* sideChain,
+        ArtifactCore::AudioSegment& output, uint32 frameOffset = 0) {
+        (void)sideChain;
+        return processSegment(input, output, frameOffset);
+    }
+
     virtual const void* getExtension(const char* id) = 0;
     virtual const PluginDescriptor& descriptor() const = 0;
 
     virtual uint32 latencySamples() const { return 0; }
     virtual uint32 tailSamples() const { return 0; }
+    virtual bool saveState(std::vector<uint8_t>& state) const {
+        state.clear(); return false;
+    }
+    virtual bool loadState(const std::vector<uint8_t>& state) {
+        (void)state; return false;
+    }
+    virtual void onMainThread() {}
+    virtual bool popOutputParamEvent(OutputParamEvent& event) {
+        (void)event; return false;
+    }
     virtual bool hasEditor() const { return false; }
     virtual bool openEditor(const clap_window& parent, void* resizeContext,
                             bool (*resizeCallback)(void*, int32, int32),
@@ -441,6 +487,8 @@ public:
 
     ArtifactCore::String getName() const override { return name_; }
     ArtifactCore::String effectType() const override { return ArtifactCore::String("clap"); }
+    QJsonObject toJson() const override;
+    void fromJson(const QJsonObject& obj) override;
     void process(ArtifactCore::AudioSegment& segment,
                  const ArtifactCore::AudioSegment* sideChain = nullptr) override;
     qint64 latencySamples() const override;
@@ -483,16 +531,25 @@ public:
     bool processSegment(const ArtifactCore::AudioSegment& input,
                         ArtifactCore::AudioSegment& output,
                         uint32 frameOffset = 0) override;
+    bool processSegmentWithSideChain(
+        const ArtifactCore::AudioSegment& input,
+        const ArtifactCore::AudioSegment* sideChain,
+        ArtifactCore::AudioSegment& output,
+        uint32 frameOffset = 0) override;
     const void* getExtension(const char* id) override;
     const PluginDescriptor& descriptor() const override { return desc_; }
     uint32 latencySamples() const override;
     uint32 tailSamples() const override;
+    bool saveState(std::vector<uint8_t>& state) const override;
+    bool loadState(const std::vector<uint8_t>& state) override;
+    bool popOutputParamEvent(OutputParamEvent& event) override;
     bool hasEditor() const override;
     bool openEditor(const clap_window& parent, void* resizeContext,
                     bool (*resizeCallback)(void*, int32, int32),
                     uint32& width, uint32& height, bool& resizable) override;
     bool resizeEditor(uint32& width, uint32& height) override;
     void closeEditor() override;
+    void onMainThread() override;
 
     // パラメータ
     uint32 paramsCount() const override;
@@ -513,9 +570,18 @@ private:
         std::atomic<uint64_t> sequence{0};
         PendingParam value{};
     };
+    struct OutputParamSlot {
+        std::atomic<uint64_t> sequence{0};
+        OutputParamEvent value{};
+    };
     static constexpr uint64_t kPendingParamCapacity = 256;
+    static constexpr uint32 kMaxAudioBuses = 8;
     bool enqueuePendingParam(PendingParam value);
     bool dequeuePendingParam(PendingParam& value);
+    static bool pushOutputEvent(
+        const clap_output_events* list, const clap_event_header* header);
+    bool enqueueOutputParam(OutputParamEvent value);
+    bool dequeueOutputParam(OutputParamEvent& value);
     const struct clap_plugin* plugin_;
     PluginDescriptor desc_;
     const struct clap_plugin_entry* entry_;
@@ -527,12 +593,23 @@ private:
     std::array<PendingParamSlot, kPendingParamCapacity> pendingParams_{};
     std::atomic<uint64_t> pendingEnqueuePosition_{0};
     std::atomic<uint64_t> pendingDequeuePosition_{0};
+    std::array<OutputParamSlot, kPendingParamCapacity> outputParams_{};
+    std::atomic<uint64_t> outputEnqueuePosition_{0};
+    std::atomic<uint64_t> outputDequeuePosition_{0};
     std::array<clap_event_param_value, kPendingParamCapacity> processParamEvents_{};
-    std::array<std::vector<float>, 2> inputScratch_;
-    std::array<std::vector<float>, 2> outputScratch_;
+    struct AudioPortLayout {
+        uint32 channelCount = 0;
+        bool isMain = false;
+    };
+    std::array<AudioPortLayout, kMaxAudioBuses> inputPortLayouts_{};
+    std::array<AudioPortLayout, kMaxAudioBuses> outputPortLayouts_{};
+    std::array<std::array<std::vector<float>, 2>, kMaxAudioBuses> inputScratch_;
+    std::array<std::array<std::vector<float>, 2>, kMaxAudioBuses> outputScratch_;
     uint32 maxFrames_ = 0;
-    uint32 audioInputChannelCount_ = 0;
-    uint32 audioOutputChannelCount_ = 0;
+    uint32 audioInputBusCount_ = 0;
+    uint32 audioOutputBusCount_ = 0;
+    uint32 audioInputMainBus_ = 0;
+    uint32 audioOutputMainBus_ = 0;
     void* guiExt_ = nullptr;
     bool guiCreated_ = false;
     bool guiResizable_ = false;
@@ -543,15 +620,25 @@ private:
 
 class Host {
 public:
+    struct Requests {
+        bool restart = false;
+        bool process = false;
+        bool mainThreadCallback = false;
+    };
+
     Host();
     ~Host();
 
+    static Host& getInstance();
+
     // プラグイン読み込み
-    Plugin* loadPlugin(const std::string& path);
+    Plugin* loadPlugin(const std::string& path, const std::string& pluginId = {});
     void unloadPlugin(Plugin* plugin);
     std::unique_ptr<ClapEffect> createEffect(
         Plugin* plugin,
         const ArtifactCore::String& name = ArtifactCore::String("CLAP Effect"));
+    Requests takeRequests();
+    uint32 dispatchMainThreadCallbacks();
     void unloadAll();
 
     // 検索パス管理

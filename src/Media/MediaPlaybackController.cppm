@@ -15,6 +15,7 @@ module;
 #define NOMINMAX
 #endif
 #include <d3d12.h>
+#include <vulkan/vulkan_core.h>
 
 #include <cerrno>
 #include <iostream>

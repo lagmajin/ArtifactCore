@@ -18,6 +18,7 @@ module Event.Bus;
 
 import Memory.SharedPtr;
 import Container.NamedVector;
+import Container.Debug;
 
 namespace ArtifactCore {
 

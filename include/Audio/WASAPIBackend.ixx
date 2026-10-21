@@ -2,6 +2,7 @@ module;
 #include <utility>
 #include <memory>
 #include <functional>
+#include <QString>
 
 export module Audio.Backend.WASAPI;
 
@@ -9,7 +10,7 @@ import Audio.Backend;
 
 export namespace ArtifactCore {
 
-export class WASAPIBackend : public AudioBackend {
+class WASAPIBackend : public AudioBackend {
 public:
   WASAPIBackend();
   ~WASAPIBackend() override;

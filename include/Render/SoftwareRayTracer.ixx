@@ -124,7 +124,7 @@ inline Color rayColor(const Ray& r, const Hittable& world, int depth)
         case MaterialType::DiffuseLight:
             return mat->albedo;
         case MaterialType::Isotropic:
-            [[fallthrough]];
+            return mat->albedo;
         }
     }
 

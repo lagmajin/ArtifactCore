@@ -7,6 +7,7 @@ module;
 #include <fstream>
 #include <utility>
 #include <string>
+#include <span>
 
 module Core.Simulation.Pyro;
 

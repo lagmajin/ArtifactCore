@@ -4,6 +4,8 @@ module;
 export module Core.AI.OnnxImageSegmenter;
 
 import Core.AI.ImageSegmenter;
+import Image.ImageF32x4_RGBA;
+import Image.DepthMap;
 
 export namespace ArtifactCore {
 

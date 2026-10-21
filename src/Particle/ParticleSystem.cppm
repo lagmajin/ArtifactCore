@@ -8,6 +8,7 @@ module;
 #include <random>
 
 #include <QList>
+#include <QVector3D>
 
 module Particle.System;
 

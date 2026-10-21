@@ -31,10 +31,6 @@ inline StringView toStringView(const QString& value) {
   return StringView(value);
 }
 
-inline QString toQString(std::string_view view) {
-  return QString::fromUtf8(view.data(), static_cast<int>(view.size()));
-}
-
 inline bool startsWith(StringView value, StringView prefix) {
   return value.startsWith(prefix);
 }

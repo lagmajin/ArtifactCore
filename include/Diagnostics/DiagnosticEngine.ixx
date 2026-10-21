@@ -16,7 +16,7 @@ export namespace ArtifactCore {
 /// <summary>
 /// 検証ルールのインターフェース
 /// </summary>
-export class IValidationRule {
+class IValidationRule {
 public:
     virtual ~IValidationRule() = default;
 
@@ -34,7 +34,7 @@ protected:
 /// <summary>
 /// 検証ルールレジストリ
 /// </summary>
-export class ValidationRuleRegistry {
+class ValidationRuleRegistry {
 public:
     void registerRule(std::unique_ptr<IValidationRule> rule);
     void unregisterRule(const QString& name);
@@ -54,7 +54,7 @@ private:
 /// 
 /// プロジェクトの静的解析を行い、問題を検出する。
 /// </summary>
-export class DiagnosticEngine {
+class DiagnosticEngine {
 public:
     DiagnosticEngine();
     ~DiagnosticEngine() = default;

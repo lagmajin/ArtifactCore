@@ -9,7 +9,7 @@ import Audio.Segment;
 
 export namespace ArtifactCore {
  
- export enum class PanningMode {
+ enum class PanningMode {
   StereoBalance, // シンプルなバランス (Linear)
   EqualPower,    // 定電力パンニング (Center での音量低下を防ぐ)
   VBAP,          // Vector Base Amplitude Panning (多チャンネル)
@@ -17,7 +17,7 @@ export namespace ArtifactCore {
   Binaural       // バイノーラル (HRTF)
  };
  
- export struct PanningGain {
+ struct PanningGain {
   std::vector<float> channelGains; // 0.0 ~ 1.0 のリスト
  };
 

@@ -10,7 +10,7 @@ import Artifact.Acoustic;
 
 export namespace Artifact::Acoustic {
 
-    export class WindModel : public IAcousticModel {
+    class WindModel : public IAcousticModel {
     public:
         void SetVelocity(float velocity_ms) {
             m_velocity = std::isfinite(velocity_ms)

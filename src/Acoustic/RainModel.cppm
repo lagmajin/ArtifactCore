@@ -8,7 +8,7 @@ import Artifact.Acoustic;
 
 export namespace Artifact::Acoustic {
 
-    export class RainModel : public IAcousticModel {
+    class RainModel : public IAcousticModel {
     public:
         void SetIntensity(float dropsPerSecond) {
             m_intensity = std::clamp(dropsPerSecond, 0.0f, 10000.0f);

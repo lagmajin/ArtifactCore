@@ -7,6 +7,7 @@ import Render.IRayTracer;
 import Render.Camera;
 import Render.Hittable;
 import Render.SoftwareRayTracer; // For ImageBuffer
+import Render.ImageBuffer;
 
 export namespace ArtifactCore::RayTrace
 {

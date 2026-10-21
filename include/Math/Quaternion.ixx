@@ -153,7 +153,7 @@ struct Quaternion {
 // ============================================================
 
 // Linear interpolation (NLerp - normalized)
-export inline Quaternion nlerp(const Quaternion& a, const Quaternion& b, float t) {
+inline Quaternion nlerp(const Quaternion& a, const Quaternion& b, float t) {
     // Ensure shortest path
     float dot = a.dot(b);
     Quaternion target = (dot < 0.0f) ? -b : b;
@@ -162,7 +162,7 @@ export inline Quaternion nlerp(const Quaternion& a, const Quaternion& b, float t
 }
 
 // Spherical Linear Interpolation (SLERP)
-export inline Quaternion slerp(const Quaternion& a, const Quaternion& b, float t) {
+inline Quaternion slerp(const Quaternion& a, const Quaternion& b, float t) {
     float dot = a.dot(b);
 
     // Ensure shortest path
@@ -189,7 +189,7 @@ export inline Quaternion slerp(const Quaternion& a, const Quaternion& b, float t
 }
 
 // Scaled SLERP (multiple keyframes)
-export inline Quaternion squad(const Quaternion& q0, const Quaternion& q1,
+inline Quaternion squad(const Quaternion& q0, const Quaternion& q1,
                                const Quaternion& q2, const Quaternion& q3, float t) {
     Quaternion slerp01 = slerp(q0, q1, t);
     Quaternion slerp23 = slerp(q2, q3, t);
@@ -197,7 +197,7 @@ export inline Quaternion squad(const Quaternion& q0, const Quaternion& q1,
 }
 
 // Angle between two quaternions (in radians)
-export inline float angleBetween(const Quaternion& a, const Quaternion& b) {
+inline float angleBetween(const Quaternion& a, const Quaternion& b) {
     float d = std::clamp(a.dot(b), -1.0f, 1.0f);
     return 2.0f * std::acos(std::abs(d));
 }

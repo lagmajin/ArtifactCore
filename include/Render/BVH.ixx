@@ -11,6 +11,7 @@ import Memory.SharedPtr;
 import Render.Vector3D;
 import Render.Ray;
 import Render.Hittable;
+import Render.Material;
 
 export namespace ArtifactCore::RayTrace
 {

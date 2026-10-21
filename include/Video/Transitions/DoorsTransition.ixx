@@ -4,6 +4,7 @@ module;
 #include <algorithm>
 
 export module Video.Transitions.DoorsTransition;
+import Video.VideoFrame;
 
 import NLE.Core;
 import Video.AbstractTransition;

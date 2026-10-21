@@ -361,10 +361,10 @@ struct DynamicsChannel3D {
 
 /// Returns a built-in preset by name ("Smooth", "Bouncy", "Jelly", "Heavy", "Floaty", "Rigid").
 /// Falls back to Smooth for unknown names.
-export DynamicsPreset presetByName(const String& name);
+DynamicsPreset presetByName(const String& name);
 
 /// Returns a human-readable name for a preset.
 /// Returns "Custom" if the parameters don't match any built-in preset.
-export String presetName(const DynamicsPreset& p) noexcept;
+String presetName(const DynamicsPreset& p) noexcept;
 
 } // namespace ArtifactCore

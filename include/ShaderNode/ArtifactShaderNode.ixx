@@ -64,7 +64,7 @@ namespace ShaderNode {
     };
 
     // ノードの状態
-    export enum class NodeState {
+    enum class NodeState {
         Clean,
         Dirty,
         Evaluating,
@@ -72,7 +72,7 @@ namespace ShaderNode {
     };
 
     // デバッグ表示用のノード情報
-    export struct NodeDebugInfo {
+    struct NodeDebugInfo {
         std::string id;
         std::string name;
         NodeState state;

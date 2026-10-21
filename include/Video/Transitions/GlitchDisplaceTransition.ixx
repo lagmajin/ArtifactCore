@@ -5,6 +5,7 @@ module;
 #include <array>
 
 export module Video.Transitions.GlitchDisplaceTransition;
+import Video.VideoFrame;
 
 import NLE.Core;
 import Video.AbstractTransition;

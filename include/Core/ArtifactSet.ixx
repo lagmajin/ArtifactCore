@@ -140,7 +140,9 @@ public:
         return result;
     }
 
+private:
     struct Node;
+public:
 
     class Iterator {
     public:

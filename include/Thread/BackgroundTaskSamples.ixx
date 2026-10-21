@@ -3,6 +3,7 @@ module;
 #include <functional>
 #include <thread>
 #include <utility>
+#include <QString>
 
 export module Core.Thread.BackgroundTaskSamples;
 

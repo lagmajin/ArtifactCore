@@ -16,6 +16,7 @@ import Mesh;
 import Memory.SharedPtr;
 import Particle;
 import Utils.Id;
+import Container.Debug;
 import Container.NamedVector;
 
 export namespace ArtifactCore {

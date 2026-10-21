@@ -12,6 +12,7 @@ export module Audio.Effect.BassTreble;
 
 import Audio.Effect;
 import Audio.Segment;
+import Core.ArtifactString;
 
 export namespace ArtifactCore {
 

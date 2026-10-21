@@ -9,7 +9,7 @@ import Artifact.Acoustic;
 
 export namespace Artifact::Acoustic {
 
-    export class FrictionModel : public IAcousticModel {
+    class FrictionModel : public IAcousticModel {
     public:
         void SetRelativeVelocity(float v) { m_velocity = std::abs(v); }
         void SetPressure(float p) { m_pressure = std::clamp(p, 0.0f, 10.0f); }

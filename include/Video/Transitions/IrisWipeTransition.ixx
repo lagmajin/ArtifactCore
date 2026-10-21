@@ -5,6 +5,7 @@ module;
 #include <cmath>
 
 export module Video.Transitions.IrisWipeTransition;
+import Video.VideoFrame;
 
 import NLE.Core;
 import Video.AbstractTransition;

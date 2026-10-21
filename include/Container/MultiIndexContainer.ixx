@@ -35,8 +35,6 @@ module;
 #include <QMultiHash>
 export module Container.MultiIndex;
 
-class tst_QList;
-
 export namespace ArtifactCore {
 
 

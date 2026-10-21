@@ -2,6 +2,7 @@ module;
 
 #include <compare>
 #include <utility>
+#include <QVector>
 
 module Video.TransitionFactory;
 

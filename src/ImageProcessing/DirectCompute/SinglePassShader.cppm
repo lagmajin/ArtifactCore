@@ -8,6 +8,8 @@ module;
 #include <string_view>
 #include <vector>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/GraphicsTypes.h>
+#include <DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h>
+#include <DiligentCore/Graphics/GraphicsEngine/interface/Shader.h>
 
 module ImageProcessing.Shader;
 import Graphics.Compute;

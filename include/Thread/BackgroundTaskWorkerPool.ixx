@@ -12,6 +12,7 @@ module;
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <QString>
 
 export module Core.Thread.BackgroundTaskWorkerPool;
 
@@ -87,7 +88,10 @@ public:
     bool enableDependencyResolution = true;   // 依存関係の自動解決
   };
 
-  explicit BackgroundTaskWorkerPool(Config config = {})
+  BackgroundTaskWorkerPool()
+      : BackgroundTaskWorkerPool(Config{}) {}
+
+  explicit BackgroundTaskWorkerPool(Config config)
       : config_(config), running_(false) {
 
     if (config_.maxWorkers <= 0) {

@@ -5,6 +5,7 @@ module;
 #include <cmath>
 
 export module Video.Transitions.CubeTransition;
+import Video.VideoFrame;
 
 import NLE.Core;
 import Video.AbstractTransition;

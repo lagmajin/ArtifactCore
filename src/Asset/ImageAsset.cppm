@@ -5,6 +5,8 @@ module;
 module ImageAsset;
 
 import IO.ImageImporter;
+import Image.Raw;
+import Utils.String.UniString;
 
 namespace ArtifactCore {
 

@@ -7,6 +7,7 @@ module;
 #include <random>
 #include <chrono>
 #include <string>
+#include <QVector2D>
 
 #include <iostream>
 #include <vector>

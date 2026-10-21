@@ -6,6 +6,7 @@ module;
 #include <random>
 
 export module Video.Transitions.BlockDissolveTransition;
+import Video.VideoFrame;
 
 import NLE.Core;
 import Video.AbstractTransition;

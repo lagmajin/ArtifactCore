@@ -48,10 +48,7 @@ import Math.Interpolate;
 import Script.Expression.Evaluator;
 import Script.Expression.Value;
 import Time.Rational;
-
-namespace ArtifactCore::Audio::Modulation {
-class ModulationRouter;
-}
+import Audio.Modulation.Router;
 
 export namespace ArtifactCore {
 

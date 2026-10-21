@@ -5,12 +5,14 @@ module;
 #include <vector>
 #include <algorithm>
 #include <cmath>
+#include <QJsonObject>
 #include "../Define/DllExportMacro.hpp"
 
 export module Audio.Effect.Compressor;
 
 import Audio.Effect;
 import Audio.Segment;
+import Core.ArtifactString;
 
 export namespace ArtifactCore {
 

@@ -160,7 +160,7 @@ private:
     int order_;
 };
 
-export class MatteStack {
+class MatteStack {
 public:
     MatteStack()
         : stackMode_(MatteStackMode::Add)

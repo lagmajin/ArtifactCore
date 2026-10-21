@@ -763,6 +763,11 @@ Mesh::Meshlet buildMeshletFromIndexRange(const Mesh::RenderData& renderData,
         return data;
     }
 
+    Mesh::MeshletLODData Mesh::generateMeshletLODData() const
+    {
+        return generateMeshletLODData(MeshletLODConfig{});
+    }
+
     Mesh::MeshletLODData Mesh::generateMeshletLODData(const MeshletLODConfig& config) const
     {
         MeshletLODData data;

@@ -19,6 +19,7 @@ module;
 
 export module Core.AI.CommandIR;
 import Container.NamedVector;
+import Container.Debug;
 
 export namespace ArtifactCore {
 

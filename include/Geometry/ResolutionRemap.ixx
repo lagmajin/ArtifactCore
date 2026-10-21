@@ -12,7 +12,7 @@ export module Geometry.ResolutionRemap;
 
 export namespace ArtifactCore {
 
-export enum class RemapPolicy {
+enum class RemapPolicy {
     CenterLocked    = 0,
     TopLeftLocked   = 1,
     StretchToFit    = 2,
@@ -20,7 +20,7 @@ export enum class RemapPolicy {
     FitWithCrop     = 4
 };
 
-export struct RemapImpact {
+struct RemapImpact {
     int maskVertexCount   = 0;
     int keyframeCount     = 0;
     bool hasAnchorPoints  = false;
@@ -33,7 +33,7 @@ export struct RemapImpact {
     }
 };
 
-export class ResolutionRemap {
+class ResolutionRemap {
 public:
     static QPointF remapPosition(
         const QPointF& pos,

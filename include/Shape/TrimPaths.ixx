@@ -21,7 +21,7 @@ export namespace ArtifactCore {
 /**
  * @brief トリムパスのモード
  */
-export enum class TrimMode {
+enum class TrimMode {
     Simultaneously, ///< 同時に（全てのパスを1本の連続したパスとして扱う）
     Individually    ///< 個別に（それぞれのパスを独立して0-100%で扱う）
 };

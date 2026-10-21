@@ -36,9 +36,7 @@ import Memory.SharedPtr;
 import Script.Expression.Value;
 import Script.Expression.Evaluator;
 import Script.Expression.Parser;
-
-// Forward-declare ScriptContext to avoid module cycle
-export namespace ArtifactCore { class ScriptContext; }
+import Script.Engine.Context;
 
 export namespace ArtifactCore {
  

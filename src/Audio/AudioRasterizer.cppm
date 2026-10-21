@@ -4,6 +4,7 @@ module;
 #include <cstdint>
 #include <limits>
 #include <utility>
+#include <QVector>
 
 module Audio.Rasterizer;
 

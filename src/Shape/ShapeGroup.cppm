@@ -14,6 +14,7 @@ import Container.NamedVector;
 import Shape.TrimPaths;
 import Shape.Repeater;
 import Shape.AeOperators;
+import Property.Types;
 
 namespace ArtifactCore {
 

@@ -1,6 +1,7 @@
 module;
 #include <cmath>
 #include <algorithm>
+#include <vector>
 
 module Graphics.Effect.Creative.Kaleidoscope;
 

@@ -3,6 +3,7 @@ module;
 #include <vector>
 #include <algorithm>
 #include <cmath>
+#include <QVector2D>
 
 module Physics.Fracture;
 

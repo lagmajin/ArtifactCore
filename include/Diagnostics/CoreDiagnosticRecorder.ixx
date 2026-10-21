@@ -16,6 +16,7 @@ import Core.Diagnostics.Snapshot;
 import Utils.Result;
 import Utils.Optional;
 import Container.NamedVector;
+import Container.Debug;
 
 export namespace ArtifactCore {
 

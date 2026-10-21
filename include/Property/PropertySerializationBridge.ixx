@@ -22,6 +22,7 @@ import Property.Group;
 import Property.Path;
 import Memory.SharedPtr;
 import Time.Rational;
+import Math.Interpolate;
 
 export namespace ArtifactCore {
 

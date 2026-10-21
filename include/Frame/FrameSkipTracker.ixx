@@ -9,7 +9,7 @@ export module Frame.SkipTracker;
 
 export namespace ArtifactCore {
 
-export enum class FrameSkipReason {
+enum class FrameSkipReason {
     None,
     TooHeavy,
     SeekConflict,
@@ -19,7 +19,7 @@ export enum class FrameSkipReason {
     Unknown
 };
 
-export struct FrameDispatchEvent {
+struct FrameDispatchEvent {
     int64_t requestedFrame = 0;
     int64_t committedFrame = 0;
     int64_t displayedFrame = 0;
@@ -30,7 +30,7 @@ export struct FrameDispatchEvent {
     double elapsedMs = 0.0;
 };
 
-export class FrameSkipTracker {
+class FrameSkipTracker {
 public:
     static FrameSkipTracker* instance();
 

@@ -10,6 +10,7 @@ module;
 module Frame.Range;
 
 import Container.NamedVector;
+import Container.Debug;
 import Frame.Position;
 import Frame.Offset;
 import Frame.Rate;

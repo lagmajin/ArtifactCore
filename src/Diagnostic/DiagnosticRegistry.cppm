@@ -13,7 +13,7 @@ import Container.NamedVector;
 
 export namespace Artifact::Diagnostic {
 
-    export class DiagnosticRegistry {
+    class DiagnosticRegistry {
     public:
         static DiagnosticRegistry& Instance() {
             static DiagnosticRegistry instance;

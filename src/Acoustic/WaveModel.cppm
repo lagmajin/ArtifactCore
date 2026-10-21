@@ -14,7 +14,7 @@ import Artifact.Acoustic;
 export namespace Artifact::Acoustic {
 
     // Generates a repeating water-swell bed and a short stochastic breaking transient.
-    export class WaveModel : public IAcousticModel {
+    class WaveModel : public IAcousticModel {
     public:
         static constexpr std::size_t MaxBubbleSamples = 64;
 

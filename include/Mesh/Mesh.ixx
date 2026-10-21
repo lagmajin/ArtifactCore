@@ -283,7 +283,8 @@ export namespace ArtifactCore {
             bool isValid() const { return !renderData.positions.isEmpty() && !lodIndices.isEmpty() && !meshlets.isEmpty(); }
         };
 
-        MeshletLODData generateMeshletLODData(const MeshletLODConfig& config = {}) const;
+        MeshletLODData generateMeshletLODData() const;
+        MeshletLODData generateMeshletLODData(const MeshletLODConfig& config) const;
         static int chooseMeshletLODLevel(const MeshletLODData& data, float projectedRadiusPixels);
 
         // 5. ボーン/モーフ (Deformer)

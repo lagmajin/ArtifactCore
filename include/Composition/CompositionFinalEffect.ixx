@@ -18,7 +18,7 @@ export namespace ArtifactCore {
 /// <summary>
 /// Final Effectの種別
 /// </summary>
-export enum class FinalEffectType {
+enum class FinalEffectType {
     ColorGrading,       // カラーグレーディング
     ColorCurves,        // カラーカーブ
     LUT,                // LUT適用
@@ -35,7 +35,7 @@ export enum class FinalEffectType {
 /// <summary>
 /// Final Effectの定義
 /// </summary>
-export class CompositionFinalEffect {
+class CompositionFinalEffect {
 public:
     CompositionFinalEffect();
     explicit CompositionFinalEffect(FinalEffectType type);
@@ -79,7 +79,7 @@ protected:
 /// Composition Final Effect Stack
 /// 順序付きエフェクトリスト
 /// </summary>
-export class CompositionFinalEffectStack {
+class CompositionFinalEffectStack {
 public:
     CompositionFinalEffectStack() = default;
     ~CompositionFinalEffectStack() = default;

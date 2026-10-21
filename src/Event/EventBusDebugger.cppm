@@ -13,6 +13,7 @@ module;
 module ArtifactCore.Event.EventBusDebugger;
 
 import Container.NamedVector;
+import Container.Debug;
 
 namespace ArtifactCore {
 

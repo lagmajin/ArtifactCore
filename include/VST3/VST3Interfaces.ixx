@@ -99,6 +99,9 @@ namespace Vst {
 FIDString iidStringIComponent();
 FIDString iidStringIAudioProcessor();
 FIDString iidStringIEditController();
+const char8* iidTuidIComponent();
+const char8* iidTuidIAudioProcessor();
+const char8* iidTuidIEditController();
 FIDString iidStringIParameterChanges();
 FIDString iidStringIParamValueQueue();
 FIDString iidStringIHostApplication();
@@ -377,13 +380,14 @@ public:
     // Class enumeration helpers (safe against non conforming factories).
     int32 classCount() const;
     bool classInfo(int32 index, PClassInfo& out) const;
-    void* createInstance(FIDString cid, FIDString iid) const;
+    void* createInstance(const TUID cid, const TUID iid) const;
 
 private:
     void* moduleHandle_ = nullptr;
     GetFactoryProc getFactoryProc_ = nullptr;
     IPluginFactory* factory_ = nullptr;
-    std::string lastError_;
+    bool moduleInitialized_ = false;
+    mutable std::string lastError_;
 };
 
 // ---------------------------------------------------------------------------
@@ -409,6 +413,10 @@ public:
     const char8* vendorName() const;
     int32 inputBusCount() const;
     int32 outputBusCount() const;
+    int32 inputBusChannelCount(int32 index) const;
+    int32 outputBusChannelCount(int32 index) const;
+    BusType inputBusType(int32 index) const;
+    BusType outputBusType(int32 index) const;
     int32 inputChannelCount() const;
     int32 outputChannelCount() const;
     int32 parameterCount() const;

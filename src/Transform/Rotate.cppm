@@ -1,4 +1,4 @@
-import Rotate;
+module Rotate;
 
 namespace ArtifactCore {
 

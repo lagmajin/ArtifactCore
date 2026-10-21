@@ -20,6 +20,7 @@ module;
 module IO.Async.ImageWriterManager;
 
 import IO.ImageExporter;
+import Image.ExportOptions;
 import Image;
 
 namespace ArtifactCore {

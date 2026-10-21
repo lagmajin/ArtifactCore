@@ -16,6 +16,7 @@ module;
 module Audio.Mixer;
 
 import Container.NamedVector;
+import Container.Debug;
 import Audio.Bus;
 import Audio.Segment;
 import Core.ArtifactString;
@@ -35,6 +36,11 @@ ZeroString toZeroString(const QString& text)
 ZeroString toZeroString(const UniString& text)
 {
     return ZeroString(static_cast<std::string>(text));
+}
+
+QString audioStringToQString(const String& text)
+{
+    return QString::fromUtf8(text.data(), static_cast<qsizetype>(text.length()));
 }
 
 AudioBusKind legacyBusKind(const QString& name)
@@ -352,7 +358,7 @@ QJsonObject AudioMixer::serialize() const {
 
         QJsonObject busObj;
         busObj["id"] = bus->id().toQString();
-        busObj["name"] = toQString(bus->getName());
+        busObj["name"] = audioStringToQString(bus->getName());
         busObj["volume"] = bus->getVolume();
         busObj["pan"] = bus->getPan();
         busObj["layout"] = static_cast<int>(bus->getLayout());
@@ -363,7 +369,7 @@ QJsonObject AudioMixer::serialize() const {
         const auto target = getRoutingTarget(bus);
         if (target) {
             busObj["targetId"] = target->id().toQString();
-            busObj["target"] = toQString(target->getName());
+            busObj["target"] = audioStringToQString(target->getName());
         }
 
         QJsonArray sendsArr;
@@ -371,7 +377,7 @@ QJsonObject AudioMixer::serialize() const {
             if (send.source == bus) {
                 QJsonObject sendObj;
                 sendObj["targetId"] = send.target->id().toQString();
-                sendObj["target"] = toQString(send.target->getName());
+                sendObj["target"] = audioStringToQString(send.target->getName());
                 sendObj["amount"] = send.amount;
                 sendObj["preFader"] = send.preFader;
                 sendsArr.push_back(sendObj);

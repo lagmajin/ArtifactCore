@@ -7,6 +7,7 @@ class tst_QList;
 #include <QByteArray>
 #include <QtMultimedia/QAudioFormat>
 export module Audio.SimpleWav;
+import Core.ArtifactString;
 
 import Utils.String.UniString;
 

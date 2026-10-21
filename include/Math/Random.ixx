@@ -13,8 +13,67 @@ export module Math.Random;
 
 export namespace ArtifactCore {
 
-struct float2 { float x, y; };
-struct float3 { float x, y, z; };
+struct float2 {
+    float x = 0.0f;
+    float y = 0.0f;
+
+    constexpr float2() = default;
+    constexpr float2(float value) : x(value), y(value) {}
+    constexpr float2(float xValue, float yValue) : x(xValue), y(yValue) {}
+
+    float2 operator+(const float2& other) const { return {x + other.x, y + other.y}; }
+    float2 operator-(const float2& other) const { return {x - other.x, y - other.y}; }
+    float2 operator-() const { return {-x, -y}; }
+    float2 operator*(float scalar) const { return {x * scalar, y * scalar}; }
+    float2 operator*(const float2& other) const { return {x * other.x, y * other.y}; }
+    float2 operator/(float scalar) const { return {x / scalar, y / scalar}; }
+    float2 operator/(const float2& other) const { return {x / other.x, y / other.y}; }
+    float2& operator+=(const float2& other) { x += other.x; y += other.y; return *this; }
+    float2& operator-=(const float2& other) { x -= other.x; y -= other.y; return *this; }
+    float2& operator*=(float scalar) { x *= scalar; y *= scalar; return *this; }
+    float2& operator*=(const float2& other) { x *= other.x; y *= other.y; return *this; }
+    float2& operator/=(float scalar) { x /= scalar; y /= scalar; return *this; }
+    float2& operator/=(const float2& other) { x /= other.x; y /= other.y; return *this; }
+    bool operator==(const float2& other) const { return x == other.x && y == other.y; }
+    bool operator!=(const float2& other) const { return !(*this == other); }
+    static float2 lerp(const float2& a, const float2& b, float t) {
+        const float u = std::clamp(t, 0.0f, 1.0f);
+        return {a.x + (b.x - a.x) * u, a.y + (b.y - a.y) * u};
+    }
+};
+
+struct float3 {
+    float x = 0.0f;
+    float y = 0.0f;
+    float z = 0.0f;
+
+    constexpr float3() = default;
+    constexpr float3(float value) : x(value), y(value), z(value) {}
+    constexpr float3(float xValue, float yValue, float zValue)
+        : x(xValue), y(yValue), z(zValue) {}
+
+    float3 operator+(const float3& other) const { return {x + other.x, y + other.y, z + other.z}; }
+    float3 operator-(const float3& other) const { return {x - other.x, y - other.y, z - other.z}; }
+    float3 operator-() const { return {-x, -y, -z}; }
+    float3 operator*(float scalar) const { return {x * scalar, y * scalar, z * scalar}; }
+    float3 operator*(const float3& other) const { return {x * other.x, y * other.y, z * other.z}; }
+    float3 operator/(float scalar) const { return {x / scalar, y / scalar, z / scalar}; }
+    float3 operator/(const float3& other) const { return {x / other.x, y / other.y, z / other.z}; }
+    float3& operator+=(const float3& other) { x += other.x; y += other.y; z += other.z; return *this; }
+    float3& operator-=(const float3& other) { x -= other.x; y -= other.y; z -= other.z; return *this; }
+    float3& operator*=(float scalar) { x *= scalar; y *= scalar; z *= scalar; return *this; }
+    float3& operator*=(const float3& other) { x *= other.x; y *= other.y; z *= other.z; return *this; }
+    float3& operator/=(float scalar) { x /= scalar; y /= scalar; z /= scalar; return *this; }
+    float3& operator/=(const float3& other) { x /= other.x; y /= other.y; z /= other.z; return *this; }
+    bool operator==(const float3& other) const { return x == other.x && y == other.y && z == other.z; }
+    bool operator!=(const float3& other) const { return !(*this == other); }
+    static float3 lerp(const float3& a, const float3& b, float t) {
+        const float u = std::clamp(t, 0.0f, 1.0f);
+        return {a.x + (b.x - a.x) * u,
+                a.y + (b.y - a.y) * u,
+                a.z + (b.z - a.z) * u};
+    }
+};
 
 class RandomStream {
 public:

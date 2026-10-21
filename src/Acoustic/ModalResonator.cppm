@@ -6,16 +6,17 @@ module;
 export module Artifact.Acoustic.ModalResonator;
 
 import Artifact.Acoustic;
+import Container.Debug;
 
 export namespace Artifact::Acoustic {
 
-    export struct MaterialProfile {
+    struct MaterialProfile {
         float density;
         float stiffness;
         float damping;
     };
 
-    export class ModalResonator : public IAcousticModel {
+    class ModalResonator : public IAcousticModel {
     public:
         struct Mode {
             float freq;

@@ -2,6 +2,7 @@ module;
 #include <utility>
 #include <memory>
 #include <functional>
+#include <QString>
 
 export module Audio.Backend.ASIOStub;
 
@@ -15,7 +16,7 @@ export namespace ArtifactCore {
  * ASIO SDK を使用しないスタブ実装。
  * 内部では WASAPI を使用して互換性を確保。
  */
-export class ASIOBackendStub : public AudioBackend {
+class ASIOBackendStub : public AudioBackend {
 public:
   ASIOBackendStub();
   ~ASIOBackendStub() override;

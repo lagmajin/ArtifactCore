@@ -1,14 +1,15 @@
 module;
+#define STBIW_STATIC
 #include <utility>
 #include <algorithm>
 #include <cmath>
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <stb_image_write.h>
 
 module Render.ImageBuffer:Impl;
 
 import Render.ImageBuffer;
 
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include <stb_image_write.h>
 
 namespace ArtifactCore::RayTrace
 {

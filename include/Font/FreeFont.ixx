@@ -31,6 +31,7 @@ import Text.Style;
 import Font.Descriptor;
 import Core.Diagnostics.FallbackPolicy;
 import Container.NamedVector;
+import Container.Debug;
 
 export namespace ArtifactCore
 {

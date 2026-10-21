@@ -11,6 +11,7 @@ module;
 #include <string>
 #include <string_view>
 #include <vector>
+#include "Graphics/InstanceData.h"
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h>

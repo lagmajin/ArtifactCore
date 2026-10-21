@@ -1,3 +1,5 @@
+module;
+
 #include <QDebug>
 #include <QString>
 
@@ -45,7 +47,7 @@ extern "C" {
 #include <libavutil/display.h>
 }
 
-import Codec.FFmpegVideoDecoder;
+module Codec.FFmpegVideoDecoder;
 
 import Video.VideoFrame;
 import Core.Diagnostics.Recorder;

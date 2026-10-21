@@ -19,6 +19,7 @@ module;
 module Control.Midi.Input;
 
 import Container.NamedVector;
+import Container.Debug;
 
 namespace ArtifactCore {
 

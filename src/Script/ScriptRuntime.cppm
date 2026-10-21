@@ -8,6 +8,7 @@ module;
 #include <map>
 #include <mutex>
 #include <utility>
+#include <vector>
 
 module Script.Runtime;
 

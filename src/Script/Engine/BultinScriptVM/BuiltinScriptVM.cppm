@@ -3,6 +3,7 @@ module;
 #include <future>
 #include <chrono>
 #include <thread>
+#include <map>
 
 module Script.Engine.BuiltinVM;
 

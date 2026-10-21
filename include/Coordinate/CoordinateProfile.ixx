@@ -12,7 +12,7 @@ export module Coordinate.Profile;
 
 export namespace ArtifactCore {
 
-export enum class CoordinateUnit {
+enum class CoordinateUnit {
     Pixels,
     Percent,
     Normalized,
@@ -20,7 +20,7 @@ export enum class CoordinateUnit {
     SafeArea
 };
 
-export struct CoordinateValue {
+struct CoordinateValue {
     double value = 0.0;
     CoordinateUnit unit = CoordinateUnit::Pixels;
     QString expression;
@@ -33,14 +33,14 @@ export struct CoordinateValue {
     static CoordinateValue fromJson(const QJsonObject& obj);
 };
 
-export enum class CoordinateSpaceKind {
+enum class CoordinateSpaceKind {
     Canvas,
     SafeArea,
     TileGrid,
     World
 };
 
-export struct CoordinateSpace {
+struct CoordinateSpace {
     CoordinateSpaceKind kind = CoordinateSpaceKind::Canvas;
     QString name;
     double canvasWidth = 1920.0;
@@ -56,7 +56,7 @@ export struct CoordinateSpace {
     double resolveY(const CoordinateValue& val) const;
 };
 
-export struct CoordinateProfile {
+struct CoordinateProfile {
     QString id;
     QString name;
     CoordinateUnit baseUnit = CoordinateUnit::Pixels;
@@ -72,7 +72,7 @@ export struct CoordinateProfile {
     static CoordinateProfile defaultNormalized();
 };
 
-export class CoordinateResolver {
+class CoordinateResolver {
 public:
     CoordinateResolver() = default;
     explicit CoordinateResolver(const CoordinateProfile& profile);

@@ -10,27 +10,27 @@ import FloatRGBA;
 
 export namespace ArtifactCore {
 
-export enum class TextHorizontalAlignment {
+enum class TextHorizontalAlignment {
   Left = 0,
   Center = 1,
   Right = 2,
   Justify = 3
 };
 
-export enum class TextVerticalAlignment { Top = 0, Middle = 1, Bottom = 2 };
+enum class TextVerticalAlignment { Top = 0, Middle = 1, Bottom = 2 };
 
-export enum class TextWrapMode {
+enum class TextWrapMode {
   NoWrap = 0,
   WordWrap = 1,
   WrapAnywhere = 2,
   ManualWrap = 3
 };
 
-export enum class FontWeight { Normal = 0, Bold = 1 };
+enum class FontWeight { Normal = 0, Bold = 1 };
 
-export enum class FontStyle { Normal = 0, Italic = 1 };
+enum class FontStyle { Normal = 0, Italic = 1 };
 
-export struct TextStyle {
+struct TextStyle {
   UniString fontFamily = UniString(QStringLiteral("Arial"));
   float fontSize = 60.0f;
   float pixelSize = 60.0f;
@@ -62,7 +62,7 @@ export struct TextStyle {
   bool operator==(const TextStyle &other) const = default;
 };
 
-export struct ParagraphStyle {
+struct ParagraphStyle {
   TextHorizontalAlignment horizontalAlignment = TextHorizontalAlignment::Left;
   TextVerticalAlignment verticalAlignment = TextVerticalAlignment::Top;
   TextWrapMode wrapMode = TextWrapMode::WordWrap;

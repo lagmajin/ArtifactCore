@@ -37,7 +37,7 @@ export namespace ArtifactCore {
 
 using InterpFunc = std::function<float(float)>;
 
-export enum class InterpolationType {
+enum class InterpolationType {
   // 基本形
   Linear,   // 線形補間
   Constant, // ステップ（補間なし）
@@ -114,7 +114,7 @@ struct Linear {
 };
 
 // Generic linear interpolation function (LERP)
-export template <typename T>
+template <typename T>
 T lerp(const T &start, const T &end, double alpha) {
   return start + (end - start) * alpha;
 }
@@ -285,7 +285,7 @@ struct SineOut {
   }
 };
 
-export inline float bezierEvaluate(float t, float cp1x, float cp1y,
+inline float bezierEvaluate(float t, float cp1x, float cp1y,
                                    float cp2x, float cp2y) noexcept {
   // 3次ベジェ 数値解 Newton-Raphson法
   // AE 互換 誤差 1e-6 で 4回反復
@@ -526,7 +526,7 @@ struct EaseOutIn {
   }
 };
 
-export template <typename T>
+template <typename T>
 T interpolate(const T &start, const T &end, float alpha,
               InterpolationType type) {
   switch (type) {
@@ -595,7 +595,7 @@ T interpolate(const T &start, const T &end, float alpha,
  * @param alpha 時間パラメータ [0, 1]
  * @param cp1_x, cp1_y, cp2_x, cp2_y AE 互換のベジェ制御点
  */
-export template <typename T>
+template <typename T>
 T bezierInterpolate(const T &start, const T &end, float alpha,
                     float cp1_x, float cp1_y, float cp2_x, float cp2_y) {
   const float easedT = bezierEvaluate(alpha, cp1_x, cp1_y, cp2_x, cp2_y);
@@ -608,7 +608,7 @@ T bezierInterpolate(const T &start, const T &end, float alpha,
  * Tangents m0/m1 are in value units per unit alpha. Zero tangents give the
  * smoothstep curve. Out-of-range alpha extrapolates the polynomial as-is.
  */
-export template <typename T>
+template <typename T>
 T hermiteInterpolate(const T &p0, const T &m0, const T &p1, const T &m1,
                      float alpha) {
   const float t = alpha;
@@ -626,7 +626,7 @@ T hermiteInterpolate(const T &p0, const T &m0, const T &p1, const T &m1,
  *
  * Endpoints duplicate when neighbors are missing (evaluate() clamps).
  */
-export template <typename T>
+template <typename T>
 T catmullRomInterpolate(const T &p0, const T &p1, const T &p2, const T &p3,
                         float alpha) {
   const T m0 = (p2 - p0) * 0.5f;
@@ -640,7 +640,7 @@ T catmullRomInterpolate(const T &p0, const T &p1, const T &p2, const T &p3,
  * speed graph 表示や微分値として使用。
  * 数値微分により dy/dx を求める。
  */
-export inline float bezierSpeed(float t, float cp1x, float cp1y,
+inline float bezierSpeed(float t, float cp1x, float cp1y,
                                 float cp2x, float cp2y,
                                 float epsilon = 1e-4f) noexcept {
   const float y1 = bezierEvaluate(t, cp1x, cp1y, cp2x, cp2y);
@@ -654,7 +654,7 @@ export inline float bezierSpeed(float t, float cp1x, float cp1y,
  * キーフレームのリストから現在時刻に対応する値を補間する。
  * Bezier 制御点に対応し、speed graph の計算も可能。
  */
-export template <typename T>
+template <typename T>
 class KeyframeInterpolator {
 public:
   struct KeyframeEntry {

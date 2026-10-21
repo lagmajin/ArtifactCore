@@ -12,6 +12,7 @@ export module Core.AI.Context;
 import Serialization.JsonAdapter;
 import Serialization.SchemaMigration;
 import Container.NamedVector;
+import Container.Debug;
 
 export namespace ArtifactCore {
 
@@ -19,7 +20,7 @@ export namespace ArtifactCore {
  * @brief AIに渡すためのアプリケーションの文脈（コンテキスト）を表現するクラス。
  * ローカルAIがこのデータを収集し、必要に応じてクラウドAIへ送るペイロードの基礎となります。
  */
-export class AIContext {
+class AIContext {
 public:
     enum class ActionType {
         SelectLayer,

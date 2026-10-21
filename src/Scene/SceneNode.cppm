@@ -14,6 +14,7 @@ module;
 module Scene.SceneNode;
 
 import Container.NamedVector;
+import Container.Debug;
 import Mesh;
 import Memory.SharedPtr;
 import Utils.String.UniString;

@@ -8,6 +8,7 @@ module;
 module Core.Composition.FinalEffect;
 
 import Container.NamedVector;
+import Container.Debug;
 
 namespace ArtifactCore {
 

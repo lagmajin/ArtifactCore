@@ -38,6 +38,7 @@ module;
 module Render.Farm.Master;
 
 import Container.NamedVector;
+import Utils.Id;
 
 import Render.Farm.Types;
 import Render.Farm.Checkpoint;

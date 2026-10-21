@@ -19,6 +19,7 @@ import Frame.Position;
 import Property.Types;
 import Math.Interpolate;
 import Container.NamedVector;
+import Container.Debug;
 //import Graphics.CBuffer.Constants;
 
 namespace ArtifactCore
@@ -423,14 +424,6 @@ public:
  {
   return impl_->timeScale_;
  }
-
-void AnimatableTransform3D::setInitalAngle(const RationalTime& time, float angle/*=0*/)
-{
-  impl_->rotation_.setOffset(angle);
-  if (impl_->rotation_.getKeyFrameCount() == 0) impl_->rotation_.setCurrent(0.0f);
-  impl_->initialRotation_ = angle;
-  impl_->currentRotation_ = angle;
-}
 
 void AnimatableTransform3D::setInitialScale(const RationalTime& time, float xs, float ys)
 {

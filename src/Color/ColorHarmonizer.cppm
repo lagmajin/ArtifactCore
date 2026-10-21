@@ -10,8 +10,6 @@ module Color.Harmonizer;
 import Color.Float;
 import Color.Conversion;
 
-class tst_QList;
-
 namespace ArtifactCore {
 
 static FloatColor fromHueShifted(const FloatColor& baseColor, qreal hueShiftDegrees) {

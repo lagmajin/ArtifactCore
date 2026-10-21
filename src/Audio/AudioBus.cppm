@@ -41,6 +41,7 @@ module Audio.Bus;
 import Utils.String.UniString;
 import Core.ArtifactString;
 import Utils.String.Like;
+import Container.Debug;
 import Audio.Segment;
 import Audio.DownMixer;
 import Audio.Effect;
@@ -587,13 +588,15 @@ namespace ArtifactCore {
 	{
 		QJsonObject obj;
 		obj["id"] = impl_->id_.toQString();
-		obj["name"] = toQString(impl_->name_);
+		obj["name"] = QString::fromUtf8(impl_->name_.data(),
+				static_cast<qsizetype>(impl_->name_.length()));
 		obj["volume_db"] = impl_->volumeDb_;
 		obj["pan"] = impl_->pan_;
 		obj["layout"] = static_cast<int>(impl_->layout_);
 		obj["mute"] = impl_->mute_;
 		obj["solo"] = impl_->solo_;
-		obj["sidechain_source"] = toQString(impl_->sidechainSource_);
+		obj["sidechain_source"] = QString::fromUtf8(impl_->sidechainSource_.data(),
+				static_cast<qsizetype>(impl_->sidechainSource_.length()));
 
 		QJsonArray effects;
 		for (size_t i = 0; i < impl_->effects_.size(); ++i) {

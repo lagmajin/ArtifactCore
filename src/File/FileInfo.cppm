@@ -2,7 +2,8 @@ module;
 
 #include <utility>
 
-module File:Info;
+module File:InfoImpl;
+import :Info;
 
 namespace ArtifactCore {
 

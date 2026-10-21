@@ -5,12 +5,15 @@ module;
 #include <iterator>
 #include <vector>
 #include <string>
+#include <QString>
+#include <QVector2D>
 
 module Export.Lottie.RigExporter;
 
 import Export.Lottie.Exporter;
 import Container.NamedVector;
 import Frame.Rate;
+import Time.Rational;
 
 namespace ArtifactCore::Export::Lottie {
 namespace {

@@ -13,6 +13,7 @@ module;
 export module Core.Diagnostics.SessionLedger;
 
 import Container.NamedVector;
+import Container.Debug;
 
 export namespace ArtifactCore {
 

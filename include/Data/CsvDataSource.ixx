@@ -9,6 +9,7 @@ import Data.CsvParser;
 import Data.DataTable;
 import Data.DataSource;
 import Core.ArtifactString;
+import Memory.SharedPtr;
 
 export namespace ArtifactCore {
 

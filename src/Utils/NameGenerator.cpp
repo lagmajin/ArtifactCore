@@ -35,6 +35,7 @@ module Utils.NameGenerator;
 
 import Core.ArtifactString;
 import Container.NameMap;
+import Container.Debug;
 
 namespace ArtifactCore
 {

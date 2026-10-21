@@ -2,6 +2,12 @@
 # Set default behavior to automatically normalize line endings.
 ###############################################################################
 * text=auto
+/.gitattributes text eol=lf
+*.cpp text eol=lf
+*.cppm text eol=lf
+*.ixx text eol=lf
+*.cmake text eol=lf
+CMakeLists.txt text eol=lf
 
 ###############################################################################
 # Set default behavior for command prompt diff.

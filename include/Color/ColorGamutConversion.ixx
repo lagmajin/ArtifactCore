@@ -9,7 +9,7 @@ export namespace ArtifactCore
 {
 
  /// ガムット (色域) の列挙。
- export enum class Gamut {
+ enum class Gamut {
   sRGB,       // IEC 61966-2-1 (Rec.709 primaries, D65)
   Rec709,     // ITU-R BT.709 (sRGB と同等プライマリ)
   Rec2020,    // ITU-R BT.2020 (ワイド色域)
@@ -24,7 +24,7 @@ export namespace ArtifactCore
  };
 
  /// 3x3 行列。行優先。
- export struct Matrix3x3 {
+ struct Matrix3x3 {
   float m[3][3];
 
   float* operator[](int row) { return m[row]; }
@@ -37,7 +37,7 @@ export namespace ArtifactCore
  };
 
  /// RGB ベクトルの行列変換。
- export inline void multiply(const Matrix3x3& mat, float r, float g, float b,
+ inline void multiply(const Matrix3x3& mat, float r, float g, float b,
                               float& outR, float& outG, float& outB) {
   outR = mat[0][0]*r + mat[0][1]*g + mat[0][2]*b;
   outG = mat[1][0]*r + mat[1][1]*g + mat[1][2]*b;
@@ -45,7 +45,7 @@ export namespace ArtifactCore
  }
 
  /// 行列の乗算 (A × B)。
- export inline Matrix3x3 multiply(const Matrix3x3& a, const Matrix3x3& b) {
+ inline Matrix3x3 multiply(const Matrix3x3& a, const Matrix3x3& b) {
   Matrix3x3 result{};
   for (int i = 0; i < 3; ++i)
    for (int j = 0; j < 3; ++j)
@@ -54,7 +54,7 @@ export namespace ArtifactCore
  }
 
  /// 単位行列。
- export inline Matrix3x3 identity() {
+ inline Matrix3x3 identity() {
   return {{{1,0,0},{0,1,0},{0,0,1}}};
  }
 

@@ -3,6 +3,7 @@ module;
 #include <limits>
 #include <utility>
 #include <utility>
+#include <vector>
 
 module Image.Bitmap;
 

@@ -7,12 +7,6 @@ export namespace ArtifactCore
 {
  using namespace Diligent;
 
-    struct RectVertex
-    {
-        float2 position;
-        float4 color;
-    };
-
     struct SpriteVertex
     {
         float2 position;

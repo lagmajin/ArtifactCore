@@ -9,6 +9,7 @@ module;
 #include "../Define/DllExportMacro.hpp"
 
 export module Audio.Effect.Reverb;
+import Core.ArtifactString;
 
 import Audio.Effect;
 import Audio.Segment;

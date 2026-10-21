@@ -558,7 +558,7 @@ public:
       lastMutation_,
       samples
     };
-    snapshot.notes = debugNotes_;
+    snapshot.notes.assign(debugNotes_.begin(), debugNotes_.end());
     return snapshot;
   }
 

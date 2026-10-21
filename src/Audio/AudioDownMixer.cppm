@@ -4,6 +4,7 @@ module;
 #include <cmath>
 #include <limits>
 #include <vector>
+#include <QVector>
 module Audio.DownMixer;
 
 import Audio.Segment;

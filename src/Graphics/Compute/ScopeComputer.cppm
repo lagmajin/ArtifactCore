@@ -3,6 +3,8 @@ module;
 #include <cstdint>
 #include <cstring>
 #include <limits>
+#include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
+#include <DiligentCore/Graphics/GraphicsEngine/interface/GraphicsTypes.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h>

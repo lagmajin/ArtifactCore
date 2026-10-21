@@ -37,6 +37,7 @@ export module ArtifactCore.Core.Simulation;
 import Memory.SharedPtr;
 import Core.ArtifactString;
 import Container.NamedVector;
+import Container.Debug;
 
 export namespace ArtifactCore {
 

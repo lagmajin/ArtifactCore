@@ -1,6 +1,8 @@
 module;
 #include <algorithm>
 #include <cmath>
+#include <QString>
+#include <QVariant>
 #include <map>
 #include <mutex>
 #include <shared_mutex>
@@ -13,6 +15,7 @@ module Configuration.ConfigSchema;
 
 import Configuration.LayeredConfigStore;
 import Container.NamedVector;
+import Container.Debug;
 
 namespace ArtifactCore {
 

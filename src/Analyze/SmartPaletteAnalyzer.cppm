@@ -9,6 +9,7 @@ module Analyze.SmartPalette;
 import Color.Float;
 import Image.Raw;
 import Container.NamedVector;
+import Container.Debug;
 
 namespace ArtifactCore {
 

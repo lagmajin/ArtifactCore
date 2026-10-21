@@ -13,7 +13,7 @@ import Reactive.Events;
 
 export namespace ArtifactCore {
 
-export struct CollaborationMessage {
+struct CollaborationMessage {
     enum class Type {
         RuleAdded,
         RuleRemoved,
@@ -36,7 +36,7 @@ export struct CollaborationMessage {
     CollaborationMessage() : timestamp(QDateTime::currentMSecsSinceEpoch()) {}
 };
 
-export class CollaborationProtocol {
+class CollaborationProtocol {
 public:
     static CollaborationMessage wrapRule(const ReactiveRule& rule, CollaborationMessage::Type msgType) {
         CollaborationMessage msg;

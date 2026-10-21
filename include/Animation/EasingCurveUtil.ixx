@@ -12,7 +12,7 @@ import Math.Interpolate;
 
 export namespace ArtifactCore {
 
-export enum class EasingType {
+enum class EasingType {
     Hold,
     Linear,
     EaseIn,
@@ -37,17 +37,17 @@ export enum class EasingType {
     Bezier,
 };
 
-export struct EasingCandidate {
+struct EasingCandidate {
     QString name;
     EasingType type = EasingType::Linear;
 };
 
-export inline float clampUnit(float t) noexcept
+inline float clampUnit(float t) noexcept
 {
     return std::clamp(t, 0.0f, 1.0f);
 }
 
-export inline QString easingTypeToString(EasingType type)
+inline QString easingTypeToString(EasingType type)
 {
     switch (type) {
     case EasingType::Hold: return QStringLiteral("Hold");
@@ -79,7 +79,7 @@ export inline QString easingTypeToString(EasingType type)
     return QStringLiteral("Linear");
 }
 
-export inline float evaluateEasing(EasingType type, float t) noexcept
+inline float evaluateEasing(EasingType type, float t) noexcept
 {
     t = clampUnit(t);
 
@@ -240,7 +240,7 @@ export inline float evaluateEasing(EasingType type, float t) noexcept
     return t;
 }
 
-export inline InterpolationType easingTypeToInterpolation(EasingType type) noexcept
+inline InterpolationType easingTypeToInterpolation(EasingType type) noexcept
 {
     switch (type) {
     case EasingType::Hold:
@@ -317,7 +317,7 @@ static_assert(static_cast<int>(InterpolationType::BackOut) == 23);
 static_assert(static_cast<int>(InterpolationType::BackInOut) == 24);
 static_assert(static_cast<int>(InterpolationType::Bezier) == 25);
 
-export inline std::vector<EasingCandidate> defaultEasingCandidates()
+inline std::vector<EasingCandidate> defaultEasingCandidates()
 {
     return {
         {QStringLiteral("Hold"), EasingType::Hold},

@@ -34,7 +34,7 @@ struct AudioBackendFormat {
 
  using AudioCallback = std::function<void(float* buffer, int frames, int channels)>;
 
- export class AudioBackend {
+ class AudioBackend {
  public:
   virtual ~AudioBackend() = default;
 

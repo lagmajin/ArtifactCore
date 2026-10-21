@@ -14,11 +14,11 @@ export import Container.NamedVector;
 export namespace Artifact::Acoustic {
 
     // 物理定数
-    export constexpr float SPEED_OF_SOUND = 343.0f; // m/s
-    export constexpr float AIR_DENSITY = 1.225f;    // kg/m3
+    constexpr float SPEED_OF_SOUND = 343.0f; // m/s
+    constexpr float AIR_DENSITY = 1.225f;    // kg/m3
 
     // 音響タスクの型
-    export enum class SynthesisType {
+    enum class SynthesisType {
         Modal,      // インパクト音 (サイン波合成)
         Stochastic, // 雨・砂など (ショットノイズ/粒状合成)
         Flow,       // 風・気流 (ノイズフィルタリング)
@@ -29,7 +29,7 @@ export namespace Artifact::Acoustic {
     };
 
     // 簡易的なベクトル構造体
-    export struct Vector3 {
+    struct Vector3 {
         float x = 0.0f;
         float y = 0.0f;
         float z = 0.0f;
@@ -40,13 +40,13 @@ export namespace Artifact::Acoustic {
 
     // A physical bubble sample from a fluid/acoustic bridge. Position and radius
     // are expressed in meters; visual foam sprite sizes must not be passed as radii.
-    export struct AcousticBubbleSample {
+    struct AcousticBubbleSample {
         Vector3 position{};
         float radiusMeters = 0.001f;
     };
 
     // レンダラーへの詳細指示書
-    export struct AudioTask {
+    struct AudioTask {
         SynthesisType type;
         float amplitude;
         float frequency;
@@ -64,7 +64,7 @@ export namespace Artifact::Acoustic {
     };
 
     // Small, fixed-capacity result for one physical model update.
-    export struct AudioTaskBatch {
+    struct AudioTaskBatch {
         static constexpr std::size_t Capacity = 8;
         std::array<AudioTask, Capacity> tasks{};
         std::size_t count = 0;
@@ -80,7 +80,7 @@ export namespace Artifact::Acoustic {
     };
 
     // Fixed-size handoff for the highest-priority tasks in one audio block.
-    export struct AudioTaskBlock {
+    struct AudioTaskBlock {
         static constexpr std::size_t Capacity = 32;
         std::array<AudioTask, Capacity> tasks{};
         std::size_t count = 0;
@@ -89,7 +89,7 @@ export namespace Artifact::Acoustic {
     };
 
     // 音響合成タスクのデバッグ用情報
-    export struct AudioTaskDebug {
+    struct AudioTaskDebug {
         std::uint32_t layerId;
         SynthesisType type;
         float freq;
@@ -103,7 +103,7 @@ export namespace Artifact::Acoustic {
     };
 
     // 1フレーム分の音響情報のスナップショット
-    export struct AcousticSnapshot {
+    struct AcousticSnapshot {
         std::uint64_t frameNumber;
         double timestamp;
         std::vector<AudioTaskDebug> activeTasks;
@@ -111,7 +111,7 @@ export namespace Artifact::Acoustic {
     };
 
     // モデルの基本インターフェース
-    export class IAcousticModel {
+    class IAcousticModel {
     public:
         virtual ~IAcousticModel() = default;
         virtual void Update(float dt) = 0;

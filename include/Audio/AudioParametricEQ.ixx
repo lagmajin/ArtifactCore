@@ -6,6 +6,7 @@ module;
 #include <cmath>
 #include <memory>
 #include <atomic>
+#include <QJsonObject>
 #include "../Define/DllExportMacro.hpp"
 
 export module Audio.Effect.ParametricEQ;
@@ -13,6 +14,8 @@ export module Audio.Effect.ParametricEQ;
 import Audio.Effect;
 import Audio.Segment;
 import Container.NamedVector;
+import Core.ArtifactString;
+import Container.Debug;
 
 export namespace ArtifactCore {
 

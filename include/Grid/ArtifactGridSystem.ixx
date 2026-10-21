@@ -20,10 +20,6 @@ export module Artifact.Grid.System;
 import Particle;
 import Color.Float;
 import Container.NamedVector;
-// PrimitiveRenderer2D is declared in Artifact; forward-declare to avoid
-// requiring the Artifact.Render.PrimitiveRenderer2D module at this header
-// level. The full module is used in implementation files where needed.
-export namespace Artifact { class PrimitiveRenderer2D; }
 
 using namespace ArtifactCore;
 
@@ -241,7 +237,7 @@ struct GroundGridSettings {
  * - ズーム・パンに応じた有効範囲判定
  * - 主グリッド、細分グリッド、原点軸を個別制御
  */
-export class GridSystem {
+class GridSystem {
 public:
     explicit GridSystem(const GridSettings& settings = {});
     ~GridSystem() = default;
@@ -305,7 +301,7 @@ private:
 };
 
 /** @brief 一つのグリッド定義と計算キャッシュをまとめるレイヤー。 */
-export class GridLayer {
+class GridLayer {
 public:
     explicit GridLayer(const GridDescriptor& descriptor = {});
 
@@ -326,7 +322,7 @@ private:
 };
 
 /** @brief 複数の GridLayer を z-order とスナップ優先度付きで管理する。 */
-export class GridManager {
+class GridManager {
 public:
     int addLayer(const GridDescriptor& descriptor);
     bool removeLayer(int id);
@@ -346,33 +342,6 @@ private:
     struct Entry { int id = -1; GridLayer layer; };
     std::vector<Entry> layers_;
     int nextId_ = 0;
-};
-
-/**
- * @brief グリッド描画ヘルパー
- *
- * GridSystemが生成したGridLinesを実際のレンダラー
- * （PrimitiveRenderer2Dなど）で描画するためのユーティリティ。
- */
-export class GridRenderer {
-public:
-    explicit GridRenderer(Artifact::PrimitiveRenderer2D* renderer = nullptr);
-
-    void setRenderer(Artifact::PrimitiveRenderer2D* r);
-    Artifact::PrimitiveRenderer2D* renderer() const;
-
-    /**
-     * @brief GridLinesを描画
-     */
-    void draw(const GridSystem& grid, const GridSystem::GridLines& lines);
-
-    /**
-     * @brief グリッド数値を描画（将来用）
-     */
-    void drawLabels(const GridSystem& grid, const GridSystem::GridLines& lines);
-
-private:
-    Artifact::PrimitiveRenderer2D* renderer_ = nullptr;
 };
 
 // ============================================================
@@ -1129,9 +1098,5 @@ inline int GridManager::visibleLayerCount() const {
 inline int GridManager::layerCount() const {
     return static_cast<int>(layers_.size());
 }
-
-// GridRenderer implementation is provided in the corresponding implementation
-// unit (ArtifactCore/src/Grid/ArtifactGridSystem.cppm) because it depends on
-// Artifact::PrimitiveRenderer2D which is defined in the Artifact module.
 
 } // namespace Artifact::Grid

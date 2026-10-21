@@ -1,6 +1,7 @@
 module;
 
 #include <algorithm>
+#include <QString>
 #include <utility>
 #include <iostream>
 #include <vector>

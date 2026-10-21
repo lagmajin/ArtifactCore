@@ -5,6 +5,8 @@ module;
 #include <limits>
 #include <vector>
 #include <QString>
+#include <QJsonArray>
+#include <QJsonObject>
 
 module Audio.LipSyncTrack;
 

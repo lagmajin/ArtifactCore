@@ -3,6 +3,8 @@ module;
 #include <cmath>
 #include <cstring>
 #include <limits>
+#include <vector>
+#include <QtCore/qtypes.h>
 #include "../Define/DllExportMacro.hpp"
 
 module Audio.Effect.Spectrum;

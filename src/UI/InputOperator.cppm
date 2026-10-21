@@ -39,6 +39,7 @@ static void publishActionManagerChanged(ActionManagerChangeKind kind,
 }
 
 W_OBJECT_IMPL(InputBinding)
+W_OBJECT_IMPL(InteractiveAction)
 W_OBJECT_IMPL(Action)
 W_OBJECT_IMPL(ActionManager)
 W_OBJECT_IMPL(KeyMap)

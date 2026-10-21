@@ -1,4 +1,5 @@
 module;
+#include <QVector2D>
 #include <box2d/box2d.h>
 #include <vector>
 #include <memory>
@@ -39,6 +40,7 @@ module;
 module Physics2D;
 
 import Container.NamedVector;
+import Container.Debug;
 
 namespace ArtifactCore {
 

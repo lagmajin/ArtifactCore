@@ -9,12 +9,12 @@ import Artifact.Acoustic;
 
 export namespace Artifact::Acoustic {
 
-    export struct SpatialState {
+    struct SpatialState {
         Vector3 position;
         Vector3 velocity;
     };
 
-    export class SpatialCalculator {
+    class SpatialCalculator {
     public:
         void SetListener(const SpatialState& listener) { m_listener = listener; }
 

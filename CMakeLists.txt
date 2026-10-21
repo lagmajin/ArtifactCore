@@ -3,13 +3,29 @@ project(ArtifactCore)
 
 set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "")
 
+if(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND
+   CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "GNU")
+    # The upstream Clang GNU frontend targeting the MSVC ABI does not set the
+    # platform macros attached to MSVC-front-end targets below. ArtifactCore
+    # and its split module libraries still consume Windows/Diligent headers.
+    add_compile_definitions(
+        PLATFORM_WIN32
+        _GUARDOVERFLOW_CRT_ALLOCATORS=1
+        _WIN32_WINNT=0x0A00
+        WINVER=0x0A00
+        _UNICODE
+        UNICODE
+        GLOG_USE_GLOG_EXPORT
+    )
+endif()
+
 # ---------------------------------------------------------------------------
 # Explicit source manifest
 # ---------------------------------------------------------------------------
 # Do not discover or classify source files during configure.  In particular,
 # reading every .cppm to find `export module` made an unrelated new file force
 # a full source-tree scan.  Add new sources to cmake/ArtifactCoreSources.cmake
-# and place public .cppm units in ARTIFACTCORE_MODULE_SOURCES explicitly.
+# and place public module interfaces in ARTIFACTCORE_MODULE_SOURCES explicitly.
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/ArtifactCoreSources.cmake")
 if(MSVC)
     # The generated module compile rules already provide the canonical
@@ -39,7 +55,7 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Property/AbstractProperty.c
     "/reference;Script.Engine.Context=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Script.Engine.Context.ifc"
     "/reference;Math.Interpolate=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Math.Interpolate.ifc"
     "/reference;EnvironmentVariable.Expansion=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreEnvironment.dir/EnvironmentVariable.Expansion.ifc"
-    "/reference;Audio.Modulation.Router=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAudio.dir/Audio.Modulation.Router.ifc")
+    "/reference;Audio.Modulation.Router=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Audio.Modulation.Router.ifc")
 set(CORE_MODULES ${ARTIFACTCORE_MODULE_SOURCES})
 set(CORE_IMPL ${ARTIFACTCORE_IMPL_SOURCES})
 
@@ -146,6 +162,14 @@ endif()
 # CMake emits per-source Visual Studio metadata only when the source property
 # is set before the source is attached to its target.  Keep the precomputed
 # mapping explicit rather than reading every source during CMake configure.
+if(ARTIFACT_COMPILER_CLANG_GNU)
+    # OpenEXR uses MSVC-only manual IFC/object edges below; upstream clang++
+    # instead gets its P1689 module dependency map.
+    set_source_files_properties(
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/OpenEXR.cppm"
+        PROPERTIES CXX_SCAN_FOR_MODULES ON
+    )
+endif()
 set(_artifact_scanned_impl ${CORE_IMPL})
 list(REMOVE_ITEM _artifact_scanned_impl
     "${CMAKE_CURRENT_SOURCE_DIR}/src/File/FileInfo.cppm"
@@ -205,7 +229,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
                 "/reference;Diagnostics.Logger=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Diagnostics.Logger.ifc"
-                "/reference;Event.Bus=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreEvent.dir/Event.Bus.ifc"
+                "/reference;Event.Bus=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Event.Bus.ifc"
                 "/reference;Core.Diagnostics.Recorder=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Diagnostics.Recorder.ifc"
                 "/reference;Core.Diagnostics.Snapshot=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Diagnostics.Snapshot.ifc"
                 "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc"
@@ -372,7 +396,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
                 "/reference;Frame.Rate=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Rate.ifc"
                 "/reference;Time.Rational=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Time.Rational.ifc"
                 "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/Frame/FrameTime.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/Frame/FrameTime.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
                 "/reference;Frame.Time=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Time.ifc"
@@ -451,7 +475,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
                 "/reference;Diagnostics.Logger=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Diagnostics.Logger.ifc"
-                "/reference;Event.Bus=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreEvent.dir/Event.Bus.ifc"
+                "/reference;Event.Bus=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Event.Bus.ifc"
                 "/reference;Container.NamedVector=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.NamedVector.ifc"
                 "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc"
                 "/reference;Core.Diagnostics.Recorder=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Diagnostics.Recorder.ifc"
@@ -978,7 +1002,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             "/reference;Float3=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Float3.ifc")
     elseif(_artifact_impl_relative STREQUAL "src/Diagnostics/Logger.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
-            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreEvent.dir/include/Event/EventBus.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Event/EventBus.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/src/Memory/SharedPtr.cppm.obj")
     elseif(_artifact_impl_relative STREQUAL "src/Transform/ViewportTransformer.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
@@ -1375,13 +1399,13 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
     elseif(_artifact_impl_relative STREQUAL "src/Property/AbstractProperty.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreEnvironment.dir/include/EnvironmentVariable/TokenExpansion.ixx.obj"
-            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAudio.dir/include/Audio/Modulation/Router.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Audio/Modulation/Router.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Color/Float.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Frame/FramePosition.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Property/PropertyTypes.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Time/RationalTime.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Utils/UniString.ixx.obj"
-            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAudio.dir/include/Audio/Modulation/Modulator.ixx.obj")
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Audio/Modulation/Modulator.ixx.obj")
     elseif(_artifact_impl_relative STREQUAL "src/Layer/LayerMatte.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;Layer.Matte=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Layer.Matte.ifc"
@@ -1604,7 +1628,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
              "/reference;Container.NamedVector=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.NamedVector.ifc"
              "/reference;Container.Debug=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.ifc"
              "/reference;Container.Debug.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.Registry.ifc"
-             "/reference;NetworkRPCServer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreNetwork.dir/NetworkRPCServer.ifc"
+             "/reference;NetworkRPCServer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/NetworkRPCServer.ifc"
             "/reference;Utils.Id=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Id.ifc"
             "/reference;Utils.Optional=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Optional.ifc")
     elseif(_artifact_impl_relative STREQUAL "src/Utils/Tag.cppm")
@@ -2140,7 +2164,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             "/reference;Script.Expression.Parser=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Script.Expression.Parser.ifc"
             "/reference;Time.Rational=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Time.Rational.ifc"
             "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc"
-            "/reference;Audio.Modulation.Router=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAudio.dir/Audio.Modulation.Router.ifc"
+            "/reference;Audio.Modulation.Router=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Audio.Modulation.Router.ifc"
             "/reference;EnvironmentVariable.Expansion=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreEnvironment.dir/EnvironmentVariable.Expansion.ifc")
     elseif(_artifact_impl_relative STREQUAL "src/Time/TimeCode.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
@@ -2454,7 +2478,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
         endif()
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;${_artifact_module_name}=${_artifact_gpu_interface_ifc}")
-    elseif(_artifact_impl_relative STREQUAL "src/EnvironmentVariable/EnvironmentVariable.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/EnvironmentVariable/EnvironmentVariable.cpp")
         # CMake already wires this implementation unit to the primary
         # interface in the same split target.  A second explicit /reference
         # resolves the same logical module through the aggregate target path
@@ -2874,6 +2898,7 @@ if(MSVC AND CMAKE_GENERATOR MATCHES "Ninja")
         set_property(SOURCE "${_artifact_import_consumer_file}" APPEND PROPERTY
             OBJECT_DEPENDS "${_artifact_import_ifc}")
     endforeach()
+
 endif()
 
 # GPUComputeContext's public interface imports GPUCapabilities.  MSVC needs
@@ -2926,21 +2951,21 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/NLE/Core.cppm" PROPERTY COM
     "/reference;Serialization.JsonAdapter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Serialization.JsonAdapter.ifc"
     "/reference;Serialization.SchemaMigration=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Serialization.SchemaMigration.ifc")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Event/EventBus.cppm" PROPERTY COMPILE_OPTIONS
-    "/reference;Event.Bus=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreEvent.dir/Event.Bus.ifc"
+    "/reference;Event.Bus=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Event.Bus.ifc"
     "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc"
     "/reference;Container.NamedVector=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.NamedVector.ifc"
     "/reference;Container.Debug=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.ifc"
     "/reference;Container.Debug.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.Registry.ifc")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Event/EventBusDebugger.cppm" PROPERTY COMPILE_OPTIONS
     "/reference;ArtifactCore.Event.EventBusDebugger=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreEvent.dir/ArtifactCore.Event.EventBusDebugger.ifc"
-    "/reference;Event.Bus=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreEvent.dir/Event.Bus.ifc"
+    "/reference;Event.Bus=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Event.Bus.ifc"
     "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc"
     "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc"
     "/reference;Utils.Text.String=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Text.String.ifc"
     "/reference;Container.NamedVector=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.NamedVector.ifc"
     "/reference;Container.Debug=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.ifc"
     "/reference;Container.Debug.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.Registry.ifc")
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/AbstractEncoder.cppm" PROPERTY COMPILE_OPTIONS
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/AbstractEncoder.cpp" PROPERTY COMPILE_OPTIONS
     "/reference;Codec.AbstractEncoder=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreVideo.dir/Codec.AbstractEncoder.ifc")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/PlaybackManager.cppm" PROPERTY COMPILE_OPTIONS
     "/reference;Video.PlaybackManager=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreVideo.dir/Video.PlaybackManager.ifc")
@@ -3130,6 +3155,12 @@ set(ARTIFACTCORE_AUDIO_IMPL
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_AUDIO_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_AUDIO_IMPL})
 list(REMOVE_ITEM ARTIFACTCORE_AUDIO_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/Modulation/Modulator.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/Modulation/Router.ixx")
+list(APPEND CORE_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/Modulation/Modulator.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/Modulation/Router.ixx")
+list(REMOVE_ITEM ARTIFACTCORE_AUDIO_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Particle/ParticleSystem.ixx")
 list(REMOVE_ITEM ARTIFACTCORE_AUDIO_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Particle/ParticleSystem.cppm")
@@ -3230,8 +3261,9 @@ set(ARTIFACTCORE_VIDEO_MODULES
 )
 set(ARTIFACTCORE_VIDEO_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Codec/EncoderSetting.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/FFmpegAudioEncoder.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/FFmpegEncoder.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/AbstractEncoder.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/AbstractEncoder.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/PlaybackManager.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Stabilizer.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/TransitionFactory.cppm"
@@ -3296,7 +3328,7 @@ set(ARTIFACTCORE_MEDIA_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Media/MediaProbe.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Media/MediaReader.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Media/MediaSource.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/MediaTimeStamp.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/MediaTimeStamp.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Codec/FFmpegThumbnailExtractor.cppm"
 )
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Media/ImageSequenceSource.cppm"
@@ -3355,7 +3387,7 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Network/NetworkRPCServer.cp
     "/reference;Container.Debug=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.ifc"
     "/reference;Container.Debug.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.Registry.ifc")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Command/LayerLockManager.cppm" APPEND PROPERTY COMPILE_OPTIONS
-    "/reference;Event.Bus=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreEvent.dir/Event.Bus.ifc"
+    "/reference;Event.Bus=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Event.Bus.ifc"
     "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Mask/VolumeMask.cppm" APPEND PROPERTY COMPILE_OPTIONS
     "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
@@ -3413,7 +3445,7 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Configuration/ConfigSchema.
     "/reference;Container.Debug.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.Registry.ifc")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/InputOperator.cppm" APPEND PROPERTY COMPILE_OPTIONS
     "/reference;Container.NamedVector=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.NamedVector.ifc"
-    "/reference;Event.Bus=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreEvent.dir/Event.Bus.ifc"
+    "/reference;Event.Bus=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Event.Bus.ifc"
     "/reference;Container.Debug=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.ifc")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Asset/AbstractAssetFile.cppm" APPEND PROPERTY COMPILE_OPTIONS
     "/reference;Container.NamedVector=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.NamedVector.ifc"
@@ -3431,7 +3463,7 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Text/TextShapingBackend.cpp
     "/reference;Container.NamedVector=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.NamedVector.ifc"
     "/reference;Container.Debug=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.ifc")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Application/ArtifactAppSettings.cppm" APPEND PROPERTY COMPILE_OPTIONS
-    "/reference;Event.Bus=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreEvent.dir/Event.Bus.ifc"
+    "/reference;Event.Bus=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Event.Bus.ifc"
     "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc")
 
 set(ARTIFACTCORE_UI_MODULES
@@ -3575,9 +3607,9 @@ set(ARTIFACTCORE_PLATFORM_MODULES
 )
 set(ARTIFACTCORE_PLATFORM_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Platform/Platform.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Platform/Power.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Platform/ProcessHelperWin.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Platform/ShellUtils.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Platform/Power.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Platform/ProcessHelperWin.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Platform/ShellUtils.cpp"
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_PLATFORM_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_PLATFORM_IMPL})
@@ -3608,7 +3640,7 @@ set(ARTIFACTCORE_ANALYZE_MODULES
 set(ARTIFACTCORE_ANALYZE_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Analyze/Histgram.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Analyze/ImageAnalyzer.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Analyze/OpenCV/OptifalFlowResult.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Analyze/OpenCV/OptifalFlowResult.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Analyze/SmartPaletteAnalyzer.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Time/TimeRemap.cppm"
 )
@@ -3724,6 +3756,14 @@ set(ARTIFACTCORE_EVENT_IMPL
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_EVENT_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_EVENT_IMPL})
+list(REMOVE_ITEM ARTIFACTCORE_EVENT_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Event/EventBus.ixx")
+list(REMOVE_ITEM ARTIFACTCORE_EVENT_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Event/EventBus.cppm")
+list(APPEND CORE_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Event/EventBus.ixx")
+list(APPEND CORE_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Event/EventBus.cppm")
 
 set(ARTIFACTCORE_FILE_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/File/FileInfo.ixx"
@@ -3816,7 +3856,7 @@ set(ARTIFACTCORE_TEXT_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Text/GlyphLayout.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Text/TextAnimator.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Text/TextShapingBackend.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Text/TextStyle.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Text/TextStyle.cpp"
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_TEXT_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_TEXT_IMPL})
@@ -3938,7 +3978,7 @@ list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_MATERIAL_IMPL})
 set(ARTIFACTCORE_ENVIRONMENT_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/EnvironmentVariable/EnvironmentVariable.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/EnvironmentVariable/TokenExpansion.ixx")
-set(ARTIFACTCORE_ENVIRONMENT_IMPL "${CMAKE_CURRENT_SOURCE_DIR}/src/EnvironmentVariable/EnvironmentVariable.cppm")
+set(ARTIFACTCORE_ENVIRONMENT_IMPL "${CMAKE_CURRENT_SOURCE_DIR}/src/EnvironmentVariable/EnvironmentVariable.cpp")
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_ENVIRONMENT_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_ENVIRONMENT_IMPL})
 
@@ -3983,6 +4023,14 @@ set(ARTIFACTCORE_NETWORK_IMPL
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_NETWORK_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_NETWORK_IMPL})
+list(REMOVE_ITEM ARTIFACTCORE_NETWORK_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/NetworkRPCServer.ixx")
+list(REMOVE_ITEM ARTIFACTCORE_NETWORK_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Network/NetworkRPCServer.cppm")
+list(APPEND CORE_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/NetworkRPCServer.ixx")
+list(APPEND CORE_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Network/NetworkRPCServer.cppm")
 
 set(ARTIFACTCORE_COLLABORATE_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Collaborate/CollaborationProtocol.cppm"
@@ -4111,7 +4159,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
         # debug interfaces when MSVC resolves the transitive import set.
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Diagnostics/Logger.ixx.obj"
-            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreEvent.dir/include/Event/EventBus.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Event/EventBus.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Diagnostics/CoreDiagnosticRecorder.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Diagnostics/CoreDiagnosticSnapshot.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/src/Memory/SharedPtr.cppm.obj"
@@ -4349,7 +4397,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/ContainerDebugRegistry.ixx.obj")
     elseif(_artifact_impl_relative STREQUAL "src/Event/EventBusDebugger.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
-            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreEvent.dir/include/Event/EventBus.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Event/EventBus.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/src/Memory/SharedPtr.cppm.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Core/ArtifactString.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Utils/Text/String.ixx.obj"
@@ -4516,7 +4564,7 @@ endif()
 
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Property/AbstractProperty.cppm" APPEND PROPERTY COMPILE_OPTIONS
     "/reference;EnvironmentVariable.Expansion=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreEnvironment.dir/EnvironmentVariable.Expansion.ifc"
-    "/reference;Audio.Modulation.Router=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAudio.dir/Audio.Modulation.Router.ifc"
+    "/reference;Audio.Modulation.Router=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Audio.Modulation.Router.ifc"
     "/reference;Color.Float=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Float.ifc"
     "/reference;Frame.Position=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Position.ifc"
     "/reference;Property.Types=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Property.Types.ifc"
@@ -4526,13 +4574,13 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Property/AbstractProperty.c
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Property/AbstractProperty.cppm" APPEND PROPERTY COMPILE_OPTIONS
     "/reference;Script.Expression.Parser=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Script.Expression.Parser.ifc")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Property/AbstractProperty.cppm" APPEND PROPERTY COMPILE_OPTIONS
-    "/reference;Audio.Modulation.Modulator=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAudio.dir/Audio.Modulation.Modulator.ifc")
+    "/reference;Audio.Modulation.Modulator=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Audio.Modulation.Modulator.ifc")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Property/AbstractProperty.cppm" APPEND PROPERTY COMPILE_OPTIONS
     "/reference;EnvironmentVariable=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreEnvironment.dir/EnvironmentVariable.ifc"
     "/reference;Frame.Rate=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Rate.ifc")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Property/AbstractProperty.cppm" APPEND PROPERTY OBJECT_DEPENDS
     "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreEnvironment.dir/include/EnvironmentVariable/TokenExpansion.ixx.obj"
-    "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAudio.dir/include/Audio/Modulation/Router.ixx.obj")
+    "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Audio/Modulation/Router.ixx.obj")
 # The aggregate manifest can still receive a path spelling from the generated
 # source manifest after domain removals. Enforce the split boundary immediately
 # before the target is declared.
@@ -4558,7 +4606,7 @@ list(REMOVE_ITEM CORE_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Playback/PlaybackState.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Codec/FFmpegThumbnailExtractor.ixx")
 list(REMOVE_ITEM CORE_IMPL
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/EnvironmentVariable/EnvironmentVariable.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/EnvironmentVariable/EnvironmentVariable.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Playback/PlaybackClock.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Codec/FFmpegThumbnailExtractor.cppm")
 target_sources(ArtifactCore
@@ -4707,6 +4755,17 @@ target_link_libraries(ArtifactCore PUBLIC TBB::tbb)
 
 # Taskflow (header-only, work-stealing DAG executor)
 find_package(Taskflow CONFIG REQUIRED)
+if(ARTIFACT_COMPILER_CLANG_GNU)
+    # The vcpkg Taskflow package exports this MSVC-only warning option
+    # unconditionally. Upstream clang++ treats it as an input path during P1689 scanning.
+    get_property(_artifact_taskflow_compile_options
+        TARGET Taskflow::Taskflow PROPERTY INTERFACE_COMPILE_OPTIONS)
+    if(_artifact_taskflow_compile_options)
+        list(FILTER _artifact_taskflow_compile_options EXCLUDE REGEX "/wd4324")
+        set_property(TARGET Taskflow::Taskflow PROPERTY INTERFACE_COMPILE_OPTIONS
+            "${_artifact_taskflow_compile_options}")
+    endif()
+endif()
 target_link_libraries(ArtifactCore PUBLIC Taskflow::Taskflow)
 
 # OpenImageIO
@@ -4769,6 +4828,39 @@ target_link_libraries(ArtifactCore PUBLIC magic_enum::magic_enum)
 
 find_package(protobuf CONFIG REQUIRED)
 find_package(absl CONFIG REQUIRED)
+
+if(ARTIFACT_COMPILER_CLANG_GNU)
+    # The vcpkg Abseil package exports the MSVC linker-only -ignore:4221
+    # option as an interface library item. The upstream GNU-style Clang driver
+    # rejects it before reaching lld-link, so remove only that unused warning
+    # suppression from Abseil's imported target interfaces in this compiler lane.
+    get_cmake_property(_artifact_all_targets TARGETS)
+    get_property(_artifact_imported_targets DIRECTORY PROPERTY IMPORTED_TARGETS)
+    list(APPEND _artifact_all_targets ${_artifact_imported_targets})
+    list(REMOVE_DUPLICATES _artifact_all_targets)
+    foreach(_artifact_imported_target IN LISTS _artifact_all_targets)
+        if(_artifact_imported_target MATCHES "^absl::")
+            get_target_property(_artifact_absl_link_items
+                "${_artifact_imported_target}" INTERFACE_LINK_LIBRARIES)
+            if(_artifact_absl_link_items)
+                set(_artifact_absl_filtered_link_items)
+                foreach(_artifact_absl_link_item IN LISTS
+                        _artifact_absl_link_items)
+                    if(_artifact_absl_link_item STREQUAL "-ignore:4221" OR
+                       _artifact_absl_link_item STREQUAL
+                           "$<LINK_ONLY:-ignore:4221>")
+                        continue()
+                    endif()
+                    list(APPEND _artifact_absl_filtered_link_items
+                        "${_artifact_absl_link_item}")
+                endforeach()
+                set_property(TARGET "${_artifact_imported_target}" PROPERTY
+                    INTERFACE_LINK_LIBRARIES
+                    "${_artifact_absl_filtered_link_items}")
+            endif()
+        endif()
+    endforeach()
+endif()
 
 # Locate sentencepiece using explicit paths derived from the include dir to avoid
 # the PATH_SUFFIXES bug where a Debug-build CMAKE_PREFIX_PATH causes the release
@@ -5282,7 +5374,7 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/InputOperatorManager.cpp
         "/reference;Input.Surface.Manager=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreUI.dir/Input.Surface.Manager.ifc"
         "/reference;Input.Operator=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreUI.dir/Input.Operator.ifc"
         "/reference;InputEvent=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreUI.dir/InputEvent.ifc"
-        "/reference;Event.Bus=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreEvent.dir/Event.Bus.ifc"
+        "/reference;Event.Bus=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Event.Bus.ifc"
         "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/InputOperatorManager.cppm"
     APPEND PROPERTY OBJECT_DEPENDS
@@ -5522,12 +5614,11 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Light/IESProfile.cppm"
     APPEND PROPERTY OBJECT_DEPENDS
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreLight.dir/include/Light/IESProfile.ixx.obj"
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/NamedVector.ixx.obj")
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/EnvironmentVariable/EnvironmentVariable.cppm"
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/EnvironmentVariable/EnvironmentVariable.cpp"
     APPEND PROPERTY OBJECT_DEPENDS
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreEnvironment.dir/include/EnvironmentVariable/EnvironmentVariable.ixx.obj")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Render/RenderFarmMaster.cppm"
     APPEND PROPERTY OBJECT_DEPENDS
-        "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreNetwork.dir/NetworkRPCServer.ixx.obj"
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/ContainerDebugRegistry.ixx.obj")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Media/MediaAudioDecoder.cppm"
     APPEND PROPERTY OBJECT_DEPENDS
@@ -5593,7 +5684,7 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Source/ISource.cppm"
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Localization/Localization.cppm"
     APPEND PROPERTY COMPILE_OPTIONS
         "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc"
-        "/reference;Event.Bus=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreEvent.dir/Event.Bus.ifc"
+        "/reference;Event.Bus=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Event.Bus.ifc"
         "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc"
         "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/RotoMaskEditor.cppm"
@@ -5609,7 +5700,7 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/RotoMaskEditor.cppm"
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/SelectionManager.cppm"
     APPEND PROPERTY COMPILE_OPTIONS
         "/reference;UI.SelectionManager=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreUI.dir/UI.SelectionManager.ifc"
-        "/reference;Event.Bus=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreEvent.dir/Event.Bus.ifc")
+        "/reference;Event.Bus=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Event.Bus.ifc")
 set_source_files_properties(
     "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/SelectionManager.cppm"
     PROPERTIES CXX_SCAN_FOR_MODULES OFF)
@@ -6863,7 +6954,7 @@ foreach(_artifactcore_variable IN LISTS _artifactcore_cmake_variables)
     if(_artifactcore_variable MATCHES "_IMPL$")
         foreach(_artifactcore_source IN LISTS ${_artifactcore_variable})
             if(_artifactcore_source MATCHES
-                    "^${CMAKE_CURRENT_SOURCE_DIR}/.*[.]cppm$")
+                    "^${CMAKE_CURRENT_SOURCE_DIR}/.*[.]cppm?$")
                 list(APPEND _artifactcore_module_implementation_sources
                     "${_artifactcore_source}")
             endif()
@@ -6891,7 +6982,7 @@ if(MSVC AND CMAKE_GENERATOR MATCHES "Visual Studio")
             if(_artifact_core_skip_reference_value)
                 set(_artifact_core_skip_reference_value OFF)
                 if(_artifact_core_option MATCHES
-                        "^(Audio[.]Modulation[.](Router|Modulator)|NetworkRPCServer)=")
+                        "^(Audio[.]Modulation[.](Router|Modulator)|Event[.]Bus|NetworkRPCServer)=")
                     # Replace the stale aggregate alias below with the actual
                     # Visual Studio provider IFC path.
                 elseif(NOT _artifact_core_option MATCHES
@@ -6907,7 +6998,7 @@ if(MSVC AND CMAKE_GENERATOR MATCHES "Visual Studio")
                     list(APPEND _artifact_core_filtered_options
                         "/reference" "${_artifact_core_reference_value}")
                 elseif(_artifact_core_reference_value MATCHES
-                        "^(Audio[.]Modulation[.](Router|Modulator)|NetworkRPCServer)=")
+                        "^(Audio[.]Modulation[.](Router|Modulator)|Event[.]Bus|NetworkRPCServer)=")
                     # Replace the stale aggregate alias below.
                 elseif(NOT _artifact_core_reference_value MATCHES
                         "=([^;]*[/\\]CMakeFiles[/\\]ArtifactCore[^/\\]*\\.dir[/\\])")
@@ -6923,23 +7014,6 @@ if(MSVC AND CMAKE_GENERATOR MATCHES "Visual Studio")
             "${_artifact_core_filtered_options}")
     endforeach()
 
-    # These providers are deliberately outside ArtifactCore's target graph,
-    # so the consumer project needs their actual Visual Studio IFC locations.
-    set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Diagnostics/Logger.cppm"
-        APPEND PROPERTY COMPILE_OPTIONS
-        "/reference;Event.Bus=${CMAKE_CURRENT_BINARY_DIR}/ArtifactCoreEvent.dir/$<CONFIG>/include/Event/EventBus.ixx.ifc")
-    set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/FFmpegAudioEncoder.cppm"
-        APPEND PROPERTY COMPILE_OPTIONS
-        "/reference;Media.Encoder.FFmpegAudioEncoder=${CMAKE_CURRENT_BINARY_DIR}/ArtifactCoreVideo.dir/$<CONFIG>/FFmpegAudioEncoder.ixx.ifc")
-    set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Property/AbstractProperty.cppm"
-        APPEND PROPERTY COMPILE_OPTIONS
-        "/reference;Audio.Modulation.Router=${CMAKE_CURRENT_BINARY_DIR}/ArtifactCoreAudio.dir/$<CONFIG>/Router.ixx.ifc")
-    set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Property/AbstractProperty.cppm"
-        APPEND PROPERTY COMPILE_OPTIONS
-        "/reference;Audio.Modulation.Modulator=${CMAKE_CURRENT_BINARY_DIR}/ArtifactCoreAudio.dir/$<CONFIG>/Modulator.ixx.ifc")
-    set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Render/RenderFarmMaster.cppm"
-        APPEND PROPERTY COMPILE_OPTIONS
-        "/reference;NetworkRPCServer=${CMAKE_CURRENT_BINARY_DIR}/ArtifactCoreNetwork.dir/$<CONFIG>/NetworkRPCServer.ixx.ifc")
 endif()
 
 # MSBuild treats the .cppm extension as module interface code by default.
@@ -6950,5 +7024,130 @@ if(MSVC)
             _artifactcore_module_implementation_sources)
         set_property(SOURCE "${_artifactcore_source}" APPEND PROPERTY
             VS_SETTINGS "CompileAs=CompileAsCpp")
+    endforeach()
+endif()
+
+# Clang's P1689 scan and module map replace the MSVC-only `/reference` pairs
+# and source-level IFC/object ordering table accumulated above. Keep this
+# active for upstream clang++ / MSVC ABI and for migrated `.cpp` units under
+# clang-cl. Apply it after every split-target property block so stale MSVC
+# edges cannot bypass the scanner or create dyndep cycles.
+if(ARTIFACT_COMPILER_CLANG_GNU OR ARTIFACT_COMPILER_CLANG_CL)
+    foreach(_artifactcore_source IN LISTS
+            _artifactcore_module_implementation_sources)
+        set(_artifactcore_use_clang_module_map OFF)
+        if(ARTIFACT_COMPILER_CLANG_GNU)
+            if(NOT _artifactcore_source MATCHES
+               "/src/File/FileInfo[.]cppm$")
+                set_source_files_properties("${_artifactcore_source}" PROPERTIES
+                    CXX_SCAN_FOR_MODULES ON)
+                set_property(SOURCE "${_artifactcore_source}" APPEND PROPERTY
+                    COMPILE_OPTIONS -x c++)
+                set(_artifactcore_use_clang_module_map ON)
+            else()
+                # FileInfo is a module partition. CMake's current Ninja dyndep
+                # provider model rejects this implementation as a provider,
+                # so keep its explicit IFC edge while translating the MSVC
+                # option pair for the upstream Clang driver.
+                get_source_file_property(_artifactcore_compile_flags
+                    "${_artifactcore_source}" COMPILE_FLAGS)
+                if(_artifactcore_compile_flags AND
+                   NOT _artifactcore_compile_flags STREQUAL "NOTFOUND")
+                    string(REPLACE " /TP" " " _artifactcore_compile_flags
+                        "${_artifactcore_compile_flags}")
+                    string(REPLACE "/TP " " " _artifactcore_compile_flags
+                        "${_artifactcore_compile_flags}")
+                    string(STRIP "${_artifactcore_compile_flags}"
+                        _artifactcore_compile_flags)
+                    set_property(SOURCE "${_artifactcore_source}" PROPERTY
+                        COMPILE_FLAGS "${_artifactcore_compile_flags}")
+                endif()
+
+                get_source_file_property(_artifactcore_compile_options
+                    "${_artifactcore_source}" COMPILE_OPTIONS)
+                if(_artifactcore_compile_options AND
+                   NOT _artifactcore_compile_options STREQUAL "NOTFOUND")
+                    set(_artifactcore_filtered_options)
+                    set(_artifactcore_reference_value OFF)
+                    foreach(_artifactcore_option IN LISTS
+                            _artifactcore_compile_options)
+                        if(_artifactcore_reference_value)
+                            string(REPLACE ".ifc" ".pcm"
+                                _artifactcore_clang_module_file
+                                "${_artifactcore_option}")
+                            list(APPEND _artifactcore_filtered_options
+                                "-fmodule-file=${_artifactcore_clang_module_file}")
+                            set(_artifactcore_reference_value OFF)
+                        elseif(_artifactcore_option STREQUAL "/reference")
+                            set(_artifactcore_reference_value ON)
+                        else()
+                            list(APPEND _artifactcore_filtered_options
+                                "${_artifactcore_option}")
+                        endif()
+                    endforeach()
+                    set_property(SOURCE "${_artifactcore_source}" PROPERTY
+                        COMPILE_OPTIONS "${_artifactcore_filtered_options}")
+                endif()
+            endif()
+        elseif(ARTIFACT_COMPILER_CLANG_CL AND
+               _artifactcore_source MATCHES "[.]cpp$")
+            set_source_files_properties("${_artifactcore_source}" PROPERTIES
+                CXX_SCAN_FOR_MODULES ON)
+            set(_artifactcore_use_clang_module_map ON)
+        endif()
+
+        if(_artifactcore_use_clang_module_map)
+            get_source_file_property(_artifactcore_compile_flags
+                "${_artifactcore_source}" COMPILE_FLAGS)
+            if(_artifactcore_compile_flags AND
+               NOT _artifactcore_compile_flags STREQUAL "NOTFOUND")
+                string(REPLACE " /TP" " " _artifactcore_compile_flags
+                    "${_artifactcore_compile_flags}")
+                string(REPLACE "/TP " " " _artifactcore_compile_flags
+                    "${_artifactcore_compile_flags}")
+                string(STRIP "${_artifactcore_compile_flags}"
+                    _artifactcore_compile_flags)
+                set_property(SOURCE "${_artifactcore_source}" PROPERTY
+                    COMPILE_FLAGS "${_artifactcore_compile_flags}")
+            endif()
+
+            get_source_file_property(_artifactcore_compile_options
+                "${_artifactcore_source}" COMPILE_OPTIONS)
+            if(_artifactcore_compile_options AND
+               NOT _artifactcore_compile_options STREQUAL "NOTFOUND")
+                set(_artifactcore_filtered_options)
+                set(_artifactcore_skip_reference_value OFF)
+                foreach(_artifactcore_option IN LISTS
+                        _artifactcore_compile_options)
+                    if(_artifactcore_skip_reference_value)
+                        set(_artifactcore_skip_reference_value OFF)
+                    elseif(_artifactcore_option STREQUAL "/reference")
+                        set(_artifactcore_skip_reference_value ON)
+                    elseif(NOT _artifactcore_option MATCHES "^/reference;")
+                        list(APPEND _artifactcore_filtered_options
+                            "${_artifactcore_option}")
+                    endif()
+                endforeach()
+                set_property(SOURCE "${_artifactcore_source}" PROPERTY
+                    COMPILE_OPTIONS "${_artifactcore_filtered_options}")
+            endif()
+
+            get_source_file_property(_artifactcore_object_depends
+                "${_artifactcore_source}" OBJECT_DEPENDS)
+            if(_artifactcore_object_depends AND
+               NOT _artifactcore_object_depends STREQUAL "NOTFOUND")
+                set(_artifactcore_filtered_depends)
+                foreach(_artifactcore_dependency IN LISTS
+                        _artifactcore_object_depends)
+                    if(NOT _artifactcore_dependency MATCHES
+                       "[/\\\\]CMakeFiles[/\\\\].+[.](ifc|obj|dd)$")
+                        list(APPEND _artifactcore_filtered_depends
+                            "${_artifactcore_dependency}")
+                    endif()
+                endforeach()
+                set_property(SOURCE "${_artifactcore_source}" PROPERTY
+                    OBJECT_DEPENDS "${_artifactcore_filtered_depends}")
+            endif()
+        endif()
     endforeach()
 endif()

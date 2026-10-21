@@ -17,7 +17,7 @@ export namespace ArtifactCore {
 
  class AbstractDecoderPrivate;
 
- export class AbstractDecoder {
+ class AbstractDecoder {
  private:
 
  public:

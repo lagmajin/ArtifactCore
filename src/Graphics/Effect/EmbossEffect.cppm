@@ -2,6 +2,7 @@ module;
 
 #include <algorithm>
 #include <cmath>
+#include <vector>
 
 module Graphics.Effect.Creative.Emboss;
 

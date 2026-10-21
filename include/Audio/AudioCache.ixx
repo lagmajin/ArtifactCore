@@ -26,7 +26,7 @@ struct CachedAudioFrame {
 };
 
 // オーディオデコード結果のキャッシュ管理
-export class LIBRARY_DLL_API AudioCache
+class LIBRARY_DLL_API AudioCache
 {
 public:
     using PrefetchProvider = std::function<bool(int64_t, AudioSegment&)>;

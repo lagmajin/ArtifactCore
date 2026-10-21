@@ -15,7 +15,7 @@ export namespace Artifact::Acoustic {
 
     // Converts the bounded task set produced by AcousticSystem into caller-owned
     // interleaved stereo PCM. The renderer itself does not allocate.
-    export class AudioTaskSynthesizer {
+    class AudioTaskSynthesizer {
     public:
         static constexpr std::size_t MaxTasks = 32;
 

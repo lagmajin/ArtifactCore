@@ -38,6 +38,7 @@ module Script.Expression.Value;
 
 import Core.ArtifactString;
 import Container.NamedVector;
+import Container.Debug;
 
 namespace ArtifactCore {
 
