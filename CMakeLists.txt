@@ -409,7 +409,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
                 "/reference;Geometry.LayerBounds=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Geometry.LayerBounds.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/Geometry/LayerAlignment.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/Geometry/LayerAlignment.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
                 "/reference;Geometry.LayerAlignment=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Geometry.LayerAlignment.ifc"
