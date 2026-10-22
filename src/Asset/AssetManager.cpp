@@ -1,7 +1,8 @@
 module;
 #include <QDir>
 #include <QFileInfo>
-#include <QFileSystemWatcher>
+#include <QString>
+#include <QUuid>
 #include <QHash>
 #include <QMutex>
 #include <QMutexLocker>
@@ -10,6 +11,7 @@ module;
 #include <QJsonValue>
 #include <QSet>
 #include <algorithm>
+#include <cstdint>
 #include <cmath>
 #include <vector>
 

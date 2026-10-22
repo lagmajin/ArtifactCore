@@ -1406,7 +1406,7 @@
     <ClCompile Include="..\Artifact\src\Composition\CompositionSettings.cpp" />
     <ClCompile Include="src\Animation\AnimatableTransform2D.cpp" />
     <ClCompile Include="src\Animation\AnimatableTransform3D.cpp" />
-    <ClCompile Include="src\Asset\AssetManager.cppm" />
+    <ClCompile Include="src\Asset\AssetManager.cpp" />
     <ClCompile Include="src\Audio\AudioBus.cppm" />
     <ClCompile Include="src\Audio\AudioDecibels.cppm" />
     <ClCompile Include="src\Audio\AudioDownMixer.cpp" />

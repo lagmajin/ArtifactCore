@@ -683,7 +683,7 @@
     <ClCompile Include="src\Animation\TransformModule.ixx">
       <CompileAs>CompileAsCppModule</CompileAs>
     </ClCompile>
-    <ClCompile Include="src\Asset\AssetManager.cppm">
+    <ClCompile Include="src\Asset\AssetManager.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
     <ClCompile Include="src\Audio\AudioBus.cppm">
