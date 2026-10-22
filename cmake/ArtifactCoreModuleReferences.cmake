@@ -395,7 +395,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/Thread/ThreadHelper.cppm|Thread.Helper|include/Thread/ThreadHelper.ixx"
     "src/Time/RationalTime.cppm|Time.Rational|include/Time/RationalTime.ixx"
     "src/Time/RealTime.cpp|Time.Real|include/Time/RealTime.ixx"
-    "src/Time/TimeCode.cppm|Time.Code|include/Time/TimeCode.ixx"
+    "src/Time/TimeCode.cpp|Time.Code|include/Time/TimeCode.ixx"
     "src/Time/TimeCodeRange.cppm|TimeCodeRange|include/Time/TimeCodeRange.ixx"
     "src/Time/TimeRemap.cppm|Time.TimeRemap|include/Time/TimeRemap.ixx"
     "src/Track/NccTracker.cppm|Track.NccTracker|include/Track/NccTracker.ixx"

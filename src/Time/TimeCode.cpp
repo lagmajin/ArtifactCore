@@ -1,6 +1,8 @@
 module;
 #include <QString>
 #include <QStringList>
+#include <algorithm>
+#include <cstdint>
 #include <cstdio>
 #include <cmath>
 #include <string>
