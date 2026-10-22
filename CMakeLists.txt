@@ -883,7 +883,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;Image.DeepImageBuffer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.DeepImageBuffer.ifc"
             "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/Image/PNGImage.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/Image/PNGImage.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;Image.Png=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.Png.ifc")
     elseif(_artifact_impl_relative STREQUAL "src/Image/Cryptomatte/CryptoPixel.cppm")

@@ -1087,7 +1087,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Image/JPEGImage.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Image/OpenCV/ImageTransformCV.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Image/OpenEXR.cppm"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Image/PNGImage.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Image/PNGImage.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Image/PSDDocument.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Image/RawImage.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/ImageProcessing/AbstractImageEffect.cppm"
