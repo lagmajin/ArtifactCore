@@ -1000,7 +1000,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/File/FileTypeDetector.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Frame/FrameOffset.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Frame/FramePosition.cpp"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Frame/FrameRange.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Frame/FrameRange.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Frame/FrameRate.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Frame/FrameSkipTracker.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Frame/FrameTime.cpp"
