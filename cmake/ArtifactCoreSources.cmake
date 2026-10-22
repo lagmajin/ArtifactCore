@@ -978,7 +978,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Control/MidiInput.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Control/OscInput.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Coordinate/CoordinateProfile.cpp"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Core/AspectRatio.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Core/AspectRatio.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Core/FastSettingsStore.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Core/KeyFrame.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Core/Opacity.cppm"
