@@ -967,7 +967,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Composition/CompositionBuffer2D.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Composition/CompositionFinalEffect.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Composition/CompositionRegistry.cpp"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Composition/ExportMatrix.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Composition/ExportMatrix.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Composition/OpenCVCompositionBuffer2D.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Composition/ParametricComposition.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Composition/PreCompose.cppm"
