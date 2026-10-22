@@ -1294,7 +1294,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Tracking/PlanarTracker.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Transform/Camera.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Transform/Light.cppm"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Transform/Rotate.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Transform/Rotate.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Transform/Scale2D.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Transform/StaticTransform2D.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Transform/StaticTransform3D.cppm"
