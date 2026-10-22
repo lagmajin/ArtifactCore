@@ -874,7 +874,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/AI/APIKeyManager.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/AI/CloudAgent.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/AI/LlamaLocalAgent.cpp"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/AI/ObjectDetector.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/AI/ObjectDetector.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/AI/OnnxDmlLocalAgent.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/AI/OnnxImageSegmenter.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/AI/RotoBrushImageSegmenter.cppm"
