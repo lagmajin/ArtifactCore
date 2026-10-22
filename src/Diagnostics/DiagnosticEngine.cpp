@@ -1,7 +1,9 @@
 module;
 #include <algorithm>
 #include <utility>
+#include <cstddef>
 #include <QString>
+#include <QStringList>
 #include <QList>
 
 module Core.Diagnostics.DiagnosticEngine;
