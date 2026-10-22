@@ -3323,7 +3323,7 @@ set(ARTIFACTCORE_MEDIA_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Media/MediaEditorController.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Media/MediaFrame.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Media/MediaImageFrameDecoder.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Media/MediaInfo.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Media/MediaInfo.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Media/MediaPlaybackController.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Media/MediaProbe.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Media/MediaReader.cppm"
