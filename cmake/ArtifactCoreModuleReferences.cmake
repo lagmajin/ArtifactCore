@@ -777,7 +777,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_IMPORTED_MODULE_REFERENCES
     "src/Event/EventBusDebugger.cppm|Core.ArtifactString|include/Core/ArtifactString.ixx"
     "src/Event/EventBusDebugger.cppm|Event.Bus|include/Event/EventBus.ixx"
     "src/Event/EventBusDebugger.cppm|Utils.Text.String|include/Utils/Text/String.ixx"
-    "src/Export/Lottie/LottieExporter.cppm|Export.Lottie.Types|include/Export/Lottie/LottieTypes.ixx"
+    "src/Export/Lottie/LottieExporter.cpp|Export.Lottie.Types|include/Export/Lottie/LottieTypes.ixx"
     "src/Export/Lottie/LottieRigExporter.cppm|ArtifactCore.Rig2D|include/Rig/Rig2D.ixx"
     "src/Export/Lottie/LottieRigExporter.cppm|Export.Lottie.Exporter|include/Export/Lottie/LottieExporter.ixx"
     "src/Export/Lottie/LottieRigExporter.cppm|Export.Lottie.Types|include/Export/Lottie/LottieTypes.ixx"
