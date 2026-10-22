@@ -75,7 +75,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/Codec/MFFrameExtractor.cppm|Codec.MFFrameExtractor|include/Codec/MFFrameExtractor.ixx"
     "src/Color/AutoColorMatch.cppm|Color.AutoMatch|include/Color/AutoColorMatch.ixx"
     "src/Color/ColorBlendMode.cppm|Color.BlendMode|include/Color/ColorBlendMode.ixx"
-    "src/Color/ColorConversion.cppm|Color.Conversion|include/Color/ColorConversion.ixx"
+    "src/Color/ColorConversion.cpp|Color.Conversion|include/Color/ColorConversion.ixx"
     "src/Color/ColorHarmonizer.cpp|Color.Harmonizer|include/Color/ColorHarmonizer.ixx"
     "src/Color/ColorLUT.cppm|Color.LUT|include/Color/ColorLUT.ixx"
     "src/Color/ColorLuminance.cpp|Color.Luminance|include/Color/ColorLuminance.ixx"

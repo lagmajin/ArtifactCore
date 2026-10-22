@@ -271,7 +271,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
     elseif(_artifact_impl_relative STREQUAL "src/Color/ColorBlendMode.cppm")
         # Let CMake supply the provider IFC references; duplicate aggregate
         # target aliases produce MSVC C7684.
-    elseif(_artifact_impl_relative STREQUAL "src/Color/ColorConversion.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/Color/ColorConversion.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
                 "/reference;Color.Conversion=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Conversion.ifc"
