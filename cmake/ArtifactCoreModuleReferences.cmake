@@ -274,7 +274,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/ImageProcessing/MotionTrail.cppm|ImageProcessing|include/ImageProcessing/AbstractImageEffect.ixx"
     "src/ImageProcessing/NegativeCV.cppm|ImageProcessing|include/ImageProcessing/AbstractImageEffect.ixx"
     "src/ImageProcessing/NeuromorphicDisplace.cppm|ImageProcessing|include/ImageProcessing/AbstractImageEffect.ixx"
-    "src/ImageProcessing/NoiseImageGenerator.cppm|Generator|include/Channel/Generator.ixx"
+    "src/ImageProcessing/NoiseImageGenerator.cpp|Generator|include/Channel/Generator.ixx"
     "src/ImageProcessing/OpenCV/AddBlockNoise.cpp|AddBlockNoise|include/ImageProcessing/OpenCV/AddBlockNoise.ixx"
     "src/ImageProcessing/OpenCV/AffineCV.cppm|ImageProcessing|include/ImageProcessing/AbstractImageEffect.ixx"
     "src/ImageProcessing/OpenCV/AutoGammaCV.cpp|ImageProcessing.AutoGamma.CV|include/ImageProcessing/OpenCV/AutoGammaCV.ixx"

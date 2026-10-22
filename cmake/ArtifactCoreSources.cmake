@@ -1144,7 +1144,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/ImageProcessing/MotionTrail.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/ImageProcessing/NegativeCV.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/ImageProcessing/NeuromorphicDisplace.cppm"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/ImageProcessing/NoiseImageGenerator.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/ImageProcessing/NoiseImageGenerator.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/ImageProcessing/OpenCV/AddBlockNoise.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/ImageProcessing/OpenCV/AffineCV.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/ImageProcessing/OpenCV/AutoContrastCV.cppm"
