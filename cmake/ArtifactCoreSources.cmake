@@ -1046,7 +1046,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Graphics/Effect/TemporalFossilEffect.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Graphics/GPUComputeContext.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Graphics/GPUThreadPool.cppm"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Graphics/GPUAlgorithms.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Graphics/GPUAlgorithms.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Graphics/GPUAppendConsume.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Graphics/GPUCapabilities.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Graphics/GPUTexture.cppm"

@@ -125,7 +125,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/Frame/FrameRate.cppm|Frame.Rate|include/Frame/FrameRate.ixx"
     "src/Frame/FrameSkipTracker.cpp|Frame.SkipTracker|include/Frame/FrameSkipTracker.ixx"
     "src/Frame/FrameTime.cpp|Frame.Time|include/Frame/FrameTime.ixx"
-    "src/Graphics/GPUAlgorithms.cppm|Graphics.GPUAlgorithms|include/Graphics/GPUAlgorithms.ixx"
+    "src/Graphics/GPUAlgorithms.cpp|Graphics.GPUAlgorithms|include/Graphics/GPUAlgorithms.ixx"
     "src/Graphics/GPUAppendConsume.cppm|Graphics.GPUAppendConsume|include/Graphics/GPUAppendConsume.ixx"
     "src/Graphics/GPUCapabilities.cpp|Graphics.GPUCapabilities|include/Graphics/GPUCapabilities.ixx"
     "src/Graphics/GPUThreadPool.cppm|Graphics.GPUThreadPool|include/Graphics/GPUThreadPool.ixx"
