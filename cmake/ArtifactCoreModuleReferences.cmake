@@ -333,7 +333,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/NLE/Core.cppm|NLE.Core|include/NLE/Core.ixx"
     "src/NLE/OTIO.cpp|NLE.OTIO|include/NLE/OTIO.ixx"
     "src/Network/CollaborationWebSocket.cpp|Network.CollaborationWebSocket|include/Network/CollaborationWebSocket.ixx"
-    "src/Network/NetworkRPCClient.cppm|NetworkRPCClient|NetworkRPCClient.ixx"
+    "src/Network/NetworkRPCClient.cpp|NetworkRPCClient|NetworkRPCClient.ixx"
     "src/Network/NetworkRPCServer.cppm|NetworkRPCServer|NetworkRPCServer.ixx"
     "src/Particle/ParticleSystem.cppm|Particle.System|include/Particle/ParticleSystem.ixx"
     "src/Physics/FluidSolver2D.cppm|Physics.Fluid|include/Physics/FluidSolver2D.ixx"
