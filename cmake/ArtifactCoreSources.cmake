@@ -1191,7 +1191,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Layer/LayerState.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Layer/LayerStrip.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Light/IESProfile.cpp"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Localization/Localization.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Localization/Localization.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Mask/DepthMask.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Mask/PathMorph.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Mask/RotoMask.cppm"

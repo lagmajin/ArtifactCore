@@ -3731,7 +3731,7 @@ set(ARTIFACTCORE_LOCALIZATION_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Localization/LocaleFormatting.ixx"
 )
 set(ARTIFACTCORE_LOCALIZATION_IMPL
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Localization/Localization.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Localization/Localization.cpp"
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_LOCALIZATION_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_LOCALIZATION_IMPL})
@@ -5678,7 +5678,7 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Source/ISource.cppm"
     APPEND PROPERTY COMPILE_OPTIONS
         "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc"
         "/reference;Utils.Id=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Id.ifc")
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Localization/Localization.cppm"
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Localization/Localization.cpp"
     APPEND PROPERTY COMPILE_OPTIONS
         "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc"
         "/reference;Event.Bus=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Event.Bus.ifc"
