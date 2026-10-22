@@ -909,7 +909,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
     elseif(_artifact_impl_relative STREQUAL "src/Image/CompressQuality.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;CompressQuality=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/CompressQuality.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/Image/Cryptomatte/CryptoExrWriter.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/Image/Cryptomatte/CryptoExrWriter.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;Image.Cryptomatte.ExrWriter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.Cryptomatte.ExrWriter.ifc"
             "/reference;Image.Cryptomatte.Image=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.Cryptomatte.Image.ifc"

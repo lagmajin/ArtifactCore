@@ -1069,7 +1069,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Image/BitmapImage.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Image/ChromaKey.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Image/CompressQuality.cpp"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Image/Cryptomatte/CryptoExrWriter.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Image/Cryptomatte/CryptoExrWriter.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Image/Cryptomatte/CryptoImage.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Image/Cryptomatte/CryptoPixel.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Image/CvMatPaintEngine.cpp"

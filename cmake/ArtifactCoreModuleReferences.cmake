@@ -204,7 +204,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/IPC/SharedMemoryRingBuffer.cppm|IPC.SharedMemoryRingBuffer|include/IPC/SharedMemoryRingBuffer.ixx"
     "src/Image/BitmapImage.cppm|Image.Bitmap|include/Image/BitmapImage.ixx"
     "src/Image/CompressQuality.cpp|CompressQuality|include/Image/CompressQuality.ixx"
-    "src/Image/Cryptomatte/CryptoExrWriter.cppm|Image.Cryptomatte.ExrWriter|include/Image/Cryptomatte/CryptoExrWriter.ixx"
+    "src/Image/Cryptomatte/CryptoExrWriter.cpp|Image.Cryptomatte.ExrWriter|include/Image/Cryptomatte/CryptoExrWriter.ixx"
     "src/Image/Cryptomatte/CryptoImage.cppm|Image.Cryptomatte.Image|include/Image/Cryptomatte/CryptoImage.ixx"
     "src/Image/Cryptomatte/CryptoPixel.cppm|Image.Cryptomatte.Pixel|include/Image/Cryptomatte/CryptoPixel.ixx"
     "src/Image/CvMatPaintEngine.cpp|Image.CvMatPaintEngine|include/Image/CvMatPaintEngine.ixx"
