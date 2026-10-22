@@ -4017,7 +4017,7 @@ set(ARTIFACTCORE_NETWORK_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Network/CollaborationWebSocket.ixx"
 )
 set(ARTIFACTCORE_NETWORK_IMPL
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Network/CollaborationWebSocket.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Network/CollaborationWebSocket.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Network/NetworkRPCClient.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Network/NetworkRPCServer.cppm"
 )

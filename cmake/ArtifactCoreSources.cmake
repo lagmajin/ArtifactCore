@@ -1213,7 +1213,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Media/MediaReader.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Media/MediaSource.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Mesh/Mesh.cppm"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Network/CollaborationWebSocket.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Network/CollaborationWebSocket.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Network/NetworkRPCClient.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Network/NetworkRPCServer.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/NLE/Core.cppm"
