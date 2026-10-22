@@ -879,7 +879,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             "/reference;CvUtils=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/CvUtils.ifc")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/ImageProcessing/OpenCV/CvUtils.ixx.obj")
-    elseif(_artifact_impl_relative STREQUAL "src/Image/DeepImageBuffer.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/Image/DeepImageBuffer.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;Image.DeepImageBuffer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.DeepImageBuffer.ifc"
             "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")

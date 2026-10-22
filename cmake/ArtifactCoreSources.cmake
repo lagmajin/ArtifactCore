@@ -1073,7 +1073,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Image/Cryptomatte/CryptoImage.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Image/Cryptomatte/CryptoPixel.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Image/CvMatPaintEngine.cpp"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Image/DeepImageBuffer.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Image/DeepImageBuffer.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Image/FFmpegAudioEncoder.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Image/FFmpegEncoder.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Image/FloatImage.cppm"

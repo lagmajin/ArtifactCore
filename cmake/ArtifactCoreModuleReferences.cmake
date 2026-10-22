@@ -208,7 +208,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/Image/Cryptomatte/CryptoImage.cppm|Image.Cryptomatte.Image|include/Image/Cryptomatte/CryptoImage.ixx"
     "src/Image/Cryptomatte/CryptoPixel.cppm|Image.Cryptomatte.Pixel|include/Image/Cryptomatte/CryptoPixel.ixx"
     "src/Image/CvMatPaintEngine.cpp|Image.CvMatPaintEngine|include/Image/CvMatPaintEngine.ixx"
-    "src/Image/DeepImageBuffer.cppm|Image.DeepImageBuffer|include/Image/DeepImageBuffer.ixx"
+    "src/Image/DeepImageBuffer.cpp|Image.DeepImageBuffer|include/Image/DeepImageBuffer.ixx"
     "src/Image/FFmpegAudioEncoder.cppm|Media.Encoder.FFmpegAudioEncoder|include/Video/FFmpegAudioEncoder.ixx"
     "src/Image/FFmpegEncoder.cppm|Encoder.FFmpegEncoder|include/Video/FFMpegEncoder.ixx"
     "src/Image/GpuImageUpload.cppm|Image.GpuImageUpload|include/Image/GpuImageUpload.ixx"
