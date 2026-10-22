@@ -2490,7 +2490,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
                 COMPILE_OPTIONS
                     "/reference;EnvironmentVariable=${_artifact_environment_ifc}")
         endif()
-    elseif(_artifact_impl_relative STREQUAL "src/Common/Point2D.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/Common/Point2D.cpp")
         # This implementation attachment is unscanned, so its primary module
         # IFC must be named explicitly despite the producer ordering edge.
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS

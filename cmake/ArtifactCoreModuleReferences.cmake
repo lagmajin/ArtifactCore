@@ -90,7 +90,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/Color/XYZColor.cpp|Color.XYZ|include/Color/XYZColor.ixx"
     "src/Command/LambdaCommand.cppm|Command.Lambda|include/Command/LambdaCommand.ixx"
     "src/Command/LayerLockManager.cppm|Command.LayerLockManager|include/Command/LayerLockManager.ixx"
-    "src/Common/Point2D.cppm|Core.Point2D|include/Core/Point2D.ixx"
+    "src/Common/Point2D.cpp|Core.Point2D|include/Core/Point2D.ixx"
     "src/Composition/CompositionBuffer2D.cppm|Composition.Buffer|include/Composition/CompositionBuffer2D.ixx"
     "src/Composition/CompositionFinalEffect.cppm|Core.Composition.FinalEffect|include/Composition/CompositionFinalEffect.ixx"
     "src/Composition/ExportMatrix.cppm|Composition.ExportMatrix|include/Composition/ExportMatrix.ixx"

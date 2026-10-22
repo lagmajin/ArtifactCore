@@ -1,5 +1,6 @@
 module;
 #include <utility>
+#include <cstdint>
 
 module Core.Point2D;
 

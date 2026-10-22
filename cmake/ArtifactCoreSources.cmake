@@ -963,7 +963,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/ColorCollection/ColorGrading.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Command/LambdaCommand.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Command/LayerLockManager.cppm"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Common/Point2D.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Common/Point2D.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Composition/CompositionBuffer2D.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Composition/CompositionFinalEffect.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Composition/CompositionRegistry.cppm"
