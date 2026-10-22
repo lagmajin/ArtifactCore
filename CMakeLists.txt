@@ -414,7 +414,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             COMPILE_OPTIONS
                 "/reference;Geometry.LayerAlignment=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Geometry.LayerAlignment.ifc"
                 "/reference;Geometry.LayerBounds=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Geometry.LayerBounds.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/Geometry/ResolutionRemap.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/Geometry/ResolutionRemap.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
                 "/reference;Geometry.ResolutionRemap=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Geometry.ResolutionRemap.ifc")
