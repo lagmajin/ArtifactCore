@@ -3490,7 +3490,7 @@ set(ARTIFACTCORE_UI_MODULES
 set(ARTIFACTCORE_UI_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/InputOperator.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/InputOperatorManager.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/LayoutState.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/LayoutState.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/RotoMaskEditor.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/SelectionManager.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/ShortcutBindings.cppm"
@@ -5586,17 +5586,14 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Export/Lottie/LottieRigExpo
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreRig.dir/include/Rig/Rig2D.ixx.obj"
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Frame/FrameRate.ixx.obj"
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Utils/UniString.ixx.obj")
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/LayoutState.cppm"
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/LayoutState.cpp"
     APPEND PROPERTY COMPILE_OPTIONS
         "/reference;UI.Layout.State=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreUI.dir/UI.Layout.State.ifc"
         "/reference;Core.FastSettingsStore=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.FastSettingsStore.ifc"
         "/reference;Serialization.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Serialization.Registry.ifc"
         "/reference;Serialization.SchemaMigration=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Serialization.SchemaMigration.ifc"
         "/reference;Serialization.ISerializable=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Serialization.ISerializable.ifc")
-set_source_files_properties(
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/LayoutState.cppm"
-    PROPERTIES CXX_SCAN_FOR_MODULES OFF)
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/LayoutState.cppm"
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/LayoutState.cpp"
     APPEND PROPERTY OBJECT_DEPENDS
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreUI.dir/include/UI/LayoutState.ixx.obj")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Control/MidiInput.cppm"

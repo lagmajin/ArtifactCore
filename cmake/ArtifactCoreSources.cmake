@@ -1303,7 +1303,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Transform/ZoomScale.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/UI/InputOperator.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/UI/InputOperatorManager.cppm"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/UI/LayoutState.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/UI/LayoutState.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/UI/RotoMaskEditor.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/UI/SelectionManager.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/UI/ShortcutBindings.cppm"
