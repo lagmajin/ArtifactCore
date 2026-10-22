@@ -896,7 +896,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Asset/AssetMetaFile.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Asset/ImageAsset.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Audio/ASIOBackendStub.cppm"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Audio/AudioAnalyzer.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Audio/AudioAnalyzer.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Audio/AudioBassTreble.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Audio/AudioBus.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Audio/AudioCache.cppm"

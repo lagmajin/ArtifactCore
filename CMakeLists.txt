@@ -3105,7 +3105,7 @@ set(ARTIFACTCORE_AUDIO_MODULES
 )
 set(ARTIFACTCORE_AUDIO_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/ASIOBackendStub.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioAnalyzer.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioAnalyzer.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioBassTreble.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioBus.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioCache.cppm"
