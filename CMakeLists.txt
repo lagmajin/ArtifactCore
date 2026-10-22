@@ -482,7 +482,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
                 "/reference;Core.Diagnostics.Snapshot=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Diagnostics.Snapshot.ifc"
                 "/reference;Utils.Result=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Result.ifc"
                 "/reference;Utils.Optional=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Optional.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/Frame/FrameOffset.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/Frame/FrameOffset.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
                 "/reference;Frame.Offset=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Offset.ifc"
