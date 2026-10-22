@@ -746,7 +746,7 @@
     <ClCompile Include="src\Frame\FrameOffset.cppm">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
-    <ClCompile Include="src\Frame\FramePosition.cppm">
+    <ClCompile Include="src\Frame\FramePosition.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
     <ClCompile Include="src\Frame\FrameRange.cpp" />

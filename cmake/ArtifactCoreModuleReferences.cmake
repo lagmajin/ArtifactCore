@@ -123,7 +123,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/File/FileInfo.cppm|File:Info|include/File/FileInfo.ixx"
     "src/File/FileTypeDetector.cpp|File.TypeDetector|include/File/FileTypeDetector.ixx"
     "src/Frame/FrameOffset.cpp|Frame.Offset|include/Frame/FrameOffset.ixx"
-    "src/Frame/FramePosition.cppm|Frame.Position|include/Frame/FramePosition.ixx"
+    "src/Frame/FramePosition.cpp|Frame.Position|include/Frame/FramePosition.ixx"
     "src/Frame/FrameRange.cppm|Frame.Range|include/Frame/FrameRange.ixx"
     "src/Frame/FrameRate.cpp|Frame.Rate|include/Frame/FrameRate.ixx"
     "src/Frame/FrameSkipTracker.cpp|Frame.SkipTracker|include/Frame/FrameSkipTracker.ixx"

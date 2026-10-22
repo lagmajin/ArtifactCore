@@ -1430,7 +1430,7 @@
     <ClCompile Include="src\Core\Position2D.cpp" />
     <ClCompile Include="src\Core\UniformScale.cpp" />
     <ClCompile Include="src\Event\EventBus.cpp" />
-    <ClCompile Include="src\Frame\FramePosition.cppm" />
+    <ClCompile Include="src\Frame\FramePosition.cpp" />
     <ClCompile Include="src\Frame\FrameRange.cpp" />
     <ClCompile Include="src\Frame\FrameTime.cpp" />
     <ClCompile Include="src\Graphics\GPUTexture.cpp" />
