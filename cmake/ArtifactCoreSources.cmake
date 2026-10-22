@@ -955,7 +955,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Color/ColorSwatch.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Color/FloatColor.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Color/FloatRGBA.cpp"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Color/LabColor.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Color/LabColor.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Color/LUTWriter.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Color/OCIOConfig.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Color/Sarturation.cppm"
