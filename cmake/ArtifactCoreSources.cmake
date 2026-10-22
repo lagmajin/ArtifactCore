@@ -1284,7 +1284,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Text/TextStyle.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Thread/PreciseTicker.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Thread/ThreadHelper.cppm"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Time/RationalTime.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Time/RationalTime.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Time/RealTime.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Time/TimeCode.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Time/TimeCodeRange.cpp"
