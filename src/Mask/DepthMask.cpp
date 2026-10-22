@@ -1,6 +1,8 @@
 module;
 #include <algorithm>
+#include <QtCore/QtGlobal>
 #include <QVector3D>
+#include <QVector4D>
 #include <QMatrix4x4>
 module Core.Mask.DepthMask;
 

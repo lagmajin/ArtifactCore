@@ -306,7 +306,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/Layer/LayerStrip.cppm|Layer.LayerStrip|include/Layer/LayerStrip.ixx"
     "src/Light/IESProfile.cppm|Light.IESProfile|include/Light/IESProfile.ixx"
     "src/Localization/Localization.cppm|Core.Localization|include/Utils/Localization.ixx"
-    "src/Mask/DepthMask.cppm|Core.Mask.DepthMask|include/Mask/DepthMask.ixx"
+    "src/Mask/DepthMask.cpp|Core.Mask.DepthMask|include/Mask/DepthMask.ixx"
     "src/Mask/PathMorph.cppm|Core.Mask.PathMorph|include/Mask/PathMorph.ixx"
     "src/Mask/RotoMask.cppm|Core.Mask.RotoMask|include/Mask/RotoMask.ixx"
     "src/Mask/VolumeMask.cppm|Core.Mask.VolumeMask|include/Mask/VolumeMask.ixx"

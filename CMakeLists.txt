@@ -3818,7 +3818,7 @@ set(ARTIFACTCORE_MASK_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Mask/VolumeMask.ixx"
 )
 set(ARTIFACTCORE_MASK_IMPL
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Mask/DepthMask.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Mask/DepthMask.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Mask/PathMorph.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Mask/RotoMask.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Mask/VolumeMask.cppm"
