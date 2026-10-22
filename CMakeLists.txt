@@ -200,9 +200,9 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
     set_source_files_properties("${_artifact_impl_file}" PROPERTIES CXX_SCAN_FOR_MODULES OFF)
     set_property(SOURCE "${_artifact_impl_file}" APPEND_STRING PROPERTY
         COMPILE_FLAGS " /TP")
-    # APIKeyManager.cppm is compiled with scanner support disabled.  Its
-    # primary interface BMI uses the module name as its output, rather than
-    # the source path spelling used by the generic mapping below.
+    # APIKeyManager is a primary-interface attachment.  Keep the initial
+    # scanner disabled for explicit MSVC references; the Clang lane enables
+    # P1689 scanning later for module implementation sources.
     if(_artifact_impl_relative STREQUAL "src/AI/CloudAgent.cppm")
         # This implementation is emitted in the split AI target.  Use
         # concrete IFC paths so the rule remains valid under Ninja/MSVC,
@@ -2495,7 +2495,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
         # IFC must be named explicitly despite the producer ordering edge.
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;Core.Point2D=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Point2D.ifc")
-    elseif(NOT _artifact_impl_relative STREQUAL "src/AI/APIKeyManager.cppm")
+    elseif(NOT _artifact_impl_relative STREQUAL "src/AI/APIKeyManager.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
                 "/reference;${_artifact_module_name}=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/${_artifact_module_name}.ifc")
@@ -3209,7 +3209,7 @@ set(ARTIFACTCORE_AI_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/UIWidgetsDescriptions.cppm"
 )
 set(ARTIFACTCORE_AI_IMPL
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/APIKeyManager.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/APIKeyManager.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/CloudAgent.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/LlamaLocalAgent.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/ObjectDetector.cppm"
@@ -5441,7 +5441,7 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/TieredAIManager.cpp"
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAI.dir/include/AI/AIContext.ixx.obj"
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAI.dir/include/AI/LocalAIAgent.ixx.obj"
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAI.dir/include/AI/ICloudAIAgent.ixx.obj")
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/APIKeyManager.cppm"
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/APIKeyManager.cpp"
     APPEND PROPERTY OBJECT_DEPENDS
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAI.dir/include/AI/ICloudAIAgent.ixx.obj"
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreConfiguration.dir/include/Configuration/ConfigLayer.ixx.obj"

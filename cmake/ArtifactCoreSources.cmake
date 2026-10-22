@@ -871,7 +871,7 @@ set(ARTIFACTCORE_MODULE_SOURCES
 
 set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../include/Image/CvMatPaintDevice.cpp"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/AI/APIKeyManager.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/AI/APIKeyManager.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/AI/CloudAgent.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/AI/LlamaLocalAgent.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/AI/ObjectDetector.cppm"
