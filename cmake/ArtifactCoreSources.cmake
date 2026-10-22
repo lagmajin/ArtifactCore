@@ -1055,7 +1055,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Graphics/MeshRenderer.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Graphics/ParticleCompute.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Graphics/ParticleRenderer.cppm"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Graphics/PSOCache.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Graphics/PSOCache.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Graphics/RayTracingManager.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Graphics/SandGPUCompute.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Graphics/MpmCompute.cppm"

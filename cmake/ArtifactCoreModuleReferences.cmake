@@ -181,7 +181,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/Graphics/GPUTextureCacheManager.cpp|Graphics.ImageCache|include/Graphics/GPUTextureCacheManager.ixx"
     "src/Graphics/LayerBlendPipeline.cppm|Graphics.LayerBlendPipeline|include/Graphics/Shader/Compute/LayerBlendPipeline.ixx"
     "src/Graphics/MeshRenderer.cppm|Graphics.MeshRenderer|include/Graphics/MeshRenderer.ixx"
-    "src/Graphics/PSOCache.cppm|Graphics.PSO.Cache|include/Graphics/PSOCache.ixx"
+    "src/Graphics/PSOCache.cpp|Graphics.PSO.Cache|include/Graphics/PSOCache.ixx"
     "src/Graphics/ParticleCompute.cppm|Graphics.ParticleCompute|include/Graphics/ParticleCompute.ixx"
     "src/Graphics/ParticleRenderer.cppm|Graphics.ParticleRenderer|include/Graphics/ParticleRenderer.ixx"
     "src/Graphics/RayTracingManager.cppm|Graphics.RayTracingManager|include/Graphics/RayTracingManager.ixx"

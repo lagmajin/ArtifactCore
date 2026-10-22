@@ -662,7 +662,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
                 "/reference;Graphics.ImageCache=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.ImageCache.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/Graphics/PSOCache.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/Graphics/PSOCache.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
                 "/reference;Graphics.PSO.Cache=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.PSO.Cache.ifc"
@@ -4199,7 +4199,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
     elseif(_artifact_impl_relative STREQUAL "src/Graphics/Shader/Compute/GPUCompressionPipeline.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Graphics/Shader/Compute/HLSL/Compression.ixx.obj")
-    elseif(_artifact_impl_relative STREQUAL "src/Graphics/PSOCache.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/Graphics/PSOCache.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Utils/Path.ixx.obj")
     elseif(_artifact_impl_relative STREQUAL "src/Graphics/RayTracingManager.cppm")
