@@ -1325,7 +1325,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Video/Stabilizer.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Video/TransitionFactory.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Video/Transitions/BlockDissolveTransition.cppm"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Video/Transitions/CrossfadeTransition.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Video/Transitions/CrossfadeTransition.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Video/Transitions/CubeTransition.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Video/Transitions/DissolveTransition.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Video/Transitions/DoorsTransition.cppm"

@@ -428,7 +428,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/Video/Stabilizer.cppm|Video.Stabilizer|include/Video/Stabilizer.ixx"
     "src/Video/TransitionFactory.cppm|Video.TransitionFactory|include/Video/TransitionFactory.ixx"
     "src/Video/Transitions/BlockDissolveTransition.cppm|Video.Transitions.BlockDissolveTransition|include/Video/Transitions/BlockDissolveTransition.ixx"
-    "src/Video/Transitions/CrossfadeTransition.cppm|Video.Transitions.CrossfadeTransition|include/Video/Transitions/CrossfadeTransition.ixx"
+    "src/Video/Transitions/CrossfadeTransition.cpp|Video.Transitions.CrossfadeTransition|include/Video/Transitions/CrossfadeTransition.ixx"
     "src/Video/Transitions/CubeTransition.cppm|Video.Transitions.CubeTransition|include/Video/Transitions/CubeTransition.ixx"
     "src/Video/Transitions/DissolveTransition.cppm|Video.Transitions.DissolveTransition|include/Video/Transitions/DissolveTransition.ixx"
     "src/Video/Transitions/DoorsTransition.cppm|Video.Transitions.DoorsTransition|include/Video/Transitions/DoorsTransition.ixx"

@@ -3269,7 +3269,7 @@ set(ARTIFACTCORE_VIDEO_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/TransitionFactory.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Codec/GStreamerDecoder.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Transitions/BlockDissolveTransition.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Transitions/CrossfadeTransition.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Transitions/CrossfadeTransition.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Transitions/CubeTransition.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Transitions/DissolveTransition.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Transitions/DoorsTransition.cppm"
