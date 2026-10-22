@@ -3538,7 +3538,7 @@ set(ARTIFACTCORE_ASSET_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Asset/AssetDatabase.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Asset/AssetImporter.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Asset/AssetManager.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Asset/AssetMetaFile.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Asset/AssetMetaFile.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Asset/ImageAsset.cppm"
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_ASSET_MODULES})
