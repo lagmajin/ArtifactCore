@@ -3111,7 +3111,7 @@ set(ARTIFACTCORE_AUDIO_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioCache.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioChorus.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioCompressor.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioDecibels.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioDecibels.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioDelay.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioDownMixer.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioHighLowPass.cppm"
