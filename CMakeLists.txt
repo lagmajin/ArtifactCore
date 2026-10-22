@@ -355,7 +355,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
     elseif(_artifact_impl_relative STREQUAL "src/Color/AutoColorMatch.cppm")
         # Use CMake-generated provider references; duplicate aggregate-target
         # aliases cause MSVC C7684 for the same module names.
-    elseif(_artifact_impl_relative STREQUAL "src/Diagnostics/CrashHandler.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/Diagnostics/CrashHandler.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
                 "/reference;Diagnostics.CrashHandler=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Diagnostics.CrashHandler.ifc"

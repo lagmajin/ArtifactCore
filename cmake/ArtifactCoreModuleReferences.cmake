@@ -110,7 +110,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/Core/Position2D.cpp|Core.Position2D|include/Core/Position2D.ixx"
     "src/Core/UniformScale.cpp|Core.UniformScale|include/Core/UniformScale.ixx"
     "src/Database/Database.cpp|Core.Database|include/Database/Database.ixx"
-    "src/Diagnostics/CrashHandler.cppm|Diagnostics.CrashHandler|include/Diagnostics/CrashHandler.ixx"
+    "src/Diagnostics/CrashHandler.cpp|Diagnostics.CrashHandler|include/Diagnostics/CrashHandler.ixx"
     "src/Diagnostics/DiagnosticEngine.cpp|Core.Diagnostics.DiagnosticEngine|include/Diagnostics/DiagnosticEngine.ixx"
     "src/Diagnostics/FallbackPolicy.cpp|Core.Diagnostics.FallbackPolicy|include/Diagnostics/FallbackPolicy.ixx"
     "src/Diagnostics/Logger.cppm|Diagnostics.Logger|include/Diagnostics/Logger.ixx"
