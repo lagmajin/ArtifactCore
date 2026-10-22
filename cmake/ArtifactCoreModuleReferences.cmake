@@ -210,7 +210,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/Image/FFmpegEncoder.cppm|Encoder.FFmpegEncoder|include/Video/FFMpegEncoder.ixx"
     "src/Image/GpuImageUpload.cppm|Image.GpuImageUpload|include/Image/GpuImageUpload.ixx"
     "src/Image/ImageF16x4.cppm|Image.ImageF16x4|include/Image/ImageF16x4.ixx"
-    "src/Image/ImageF32x4.cppm|ImageF32x4|include/Image/ImageF32x4.ixx"
+    "src/Image/ImageF32x4.cpp|ImageF32x4|include/Image/ImageF32x4.ixx"
     "src/Image/ImageF32x4_RGBA.cppm|Image.ImageF32x4_RGBA|include/Image/ImageF32x4_RGBA.ixx"
     "src/Image/ImageF32x4_With_Cache.cppm|Image.ImageF32x4RGBAWithCache|include/Image/ImageF32x4_With_Cache.ixx"
     "src/Image/ImageYUV420.cppm|Image.ImageYUV420|include/Image/ImageYUV420.ixx"

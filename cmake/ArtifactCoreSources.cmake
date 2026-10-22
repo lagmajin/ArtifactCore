@@ -1082,7 +1082,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Image/ImageF16x4.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Image/ImageF32x4_RGBA.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Image/ImageF32x4_With_Cache.cppm"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Image/ImageF32x4.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Image/ImageF32x4.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Image/ImageYUV420.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Image/JPEGImage.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Image/OpenCV/ImageTransformCV.cppm"
