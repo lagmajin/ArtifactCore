@@ -988,7 +988,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Database/Database.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Diagnostics/CrashHandler.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Diagnostics/DiagnosticEngine.cppm"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Diagnostics/FallbackPolicy.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Diagnostics/FallbackPolicy.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Diagnostics/Logger.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Diagnostics/ProjectDiagnostic.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/EnvironmentVariable/EnvironmentVariable.cpp"
