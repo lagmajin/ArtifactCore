@@ -182,7 +182,7 @@ set_source_files_properties(
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Export/Lottie/LottieExporter.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Export/Lottie/LottieRigExporter.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Plugin/PluginCommon.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Plugin/PluginRegistry.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Plugin/PluginRegistry.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Control/OscInput.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Control/MidiInput.cppm"
     PROPERTIES CXX_SCAN_FOR_MODULES OFF)
@@ -3784,7 +3784,7 @@ set(ARTIFACTCORE_PLUGIN_MODULES
 )
 set(ARTIFACTCORE_PLUGIN_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Plugin/PluginCommon.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Plugin/PluginRegistry.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Plugin/PluginRegistry.cpp"
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_PLUGIN_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_PLUGIN_IMPL})
@@ -5517,7 +5517,7 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Plugin/PluginCommon.cppm"
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Plugin/PluginCommon.cppm"
     APPEND PROPERTY OBJECT_DEPENDS
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCorePlugin.dir/include/Plugin/PluginCommon.ixx.obj")
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Plugin/PluginRegistry.cppm"
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Plugin/PluginRegistry.cpp"
     APPEND PROPERTY COMPILE_OPTIONS
         "/reference;ArtifactCore.Plugin.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCorePlugin.dir/ArtifactCore.Plugin.Registry.ifc"
         "/reference;ArtifactCore.Plugin.Common=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCorePlugin.dir/ArtifactCore.Plugin.Common.ifc"
@@ -5525,7 +5525,7 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Plugin/PluginRegistry.cppm"
         "/reference;Container.Debug.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.Registry.ifc"
         "/reference;Utils.Optional=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Optional.ifc"
         "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc")
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Plugin/PluginRegistry.cppm"
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Plugin/PluginRegistry.cpp"
     APPEND PROPERTY OBJECT_DEPENDS
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCorePlugin.dir/include/Plugin/PluginRegistry.ixx.obj"
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCorePlugin.dir/include/Plugin/PluginCommon.ixx.obj")
@@ -6848,7 +6848,7 @@ foreach(_artifact_namedvector_impl IN ITEMS
         "${CMAKE_CURRENT_SOURCE_DIR}/src/Analyze/SmartPaletteAnalyzer.cppm"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/Export/Lottie/LottieExporter.cppm"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/Export/Lottie/LottieRigExporter.cppm"
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/Plugin/PluginRegistry.cppm"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/Plugin/PluginRegistry.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/Tracking/MotionTracker.cppm")
     set_property(SOURCE "${_artifact_namedvector_impl}" APPEND PROPERTY COMPILE_OPTIONS
         "/reference;Container.NamedVector=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.NamedVector.ifc"

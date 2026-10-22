@@ -1230,7 +1230,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Platform/ShellUtils.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Playback/PlaybackClock.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Plugin/PluginCommon.cppm"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Plugin/PluginRegistry.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Plugin/PluginRegistry.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Preview/PreviewQuality.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Preview/PreviewSettings.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Property/AbstractProperty.cppm"
