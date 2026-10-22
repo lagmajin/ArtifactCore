@@ -305,7 +305,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/Layer/Layer2D.cppm|Layer2D|include/Layer/Layer2D.ixx"
     "src/Layer/LayerMatte.cppm|Layer.Matte|include/Layer/LayerMatte.ixx"
     "src/Layer/LayerState.cppm|Layer.State|include/Layer/LayerState.ixx"
-    "src/Layer/LayerStrip.cppm|Layer.LayerStrip|include/Layer/LayerStrip.ixx"
+    "src/Layer/LayerStrip.cpp|Layer.LayerStrip|include/Layer/LayerStrip.ixx"
     "src/Light/IESProfile.cppm|Light.IESProfile|include/Light/IESProfile.ixx"
     "src/Localization/Localization.cppm|Core.Localization|include/Utils/Localization.ixx"
     "src/Mask/DepthMask.cpp|Core.Mask.DepthMask|include/Mask/DepthMask.ixx"
