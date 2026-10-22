@@ -156,7 +156,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/Graphics/Effect/ColorVibranceEffect.cppm|Graphics.Effect.Creative.ColorVibrance|include/Graphics/Effect/ColorVibranceEffect.ixx"
     "src/Graphics/Effect/CreativeEffect.cpp|Graphics.Effect.Creative|include/Graphics/Effect/CreativeEffect.ixx"
     "src/Graphics/Effect/CreativeEffectFactory.cppm|Graphics.Effect.Creative.Factory|include/Graphics/Effect/CreativeEffectFactory.ixx"
-    "src/Graphics/Effect/CreativeEffectManager.cppm|Graphics.Effect.Creative.Manager|include/Graphics/Effect/CreativeEffectManager.ixx"
+    "src/Graphics/Effect/CreativeEffectManager.cpp|Graphics.Effect.Creative.Manager|include/Graphics/Effect/CreativeEffectManager.ixx"
     "src/Graphics/Effect/DepthMeltEffect.cppm|Graphics.Effect.Creative.DepthMelt|include/Graphics/Effect/DepthMeltEffect.ixx"
     "src/Graphics/Effect/EdgeEchoEffect.cppm|Graphics.Effect.Creative.EdgeEcho|include/Graphics/Effect/EdgeEchoEffect.ixx"
     "src/Graphics/Effect/EmbossEffect.cppm|Graphics.Effect.Creative.Emboss|include/Graphics/Effect/EmbossEffect.ixx"
