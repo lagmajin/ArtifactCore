@@ -622,4 +622,3 @@ int EncoderSettings::getRecommendedAudioBitrate() const
 }
 
 }
-

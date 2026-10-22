@@ -246,7 +246,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
     elseif(_artifact_impl_relative STREQUAL "src/Animation/AnimatableTransform3D.cppm")
         # CMake already adds the provider IFCs to the MSVC compile command.
         # Duplicate aggregate-target references make MSVC report C7684.
-    elseif(_artifact_impl_relative STREQUAL "src/Codec/EncoderSetting.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/Codec/EncoderSetting.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;Codec.Encoder.Setting=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreVideo.dir/Codec.Encoder.Setting.ifc"
             "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc")
@@ -3260,7 +3260,7 @@ set(ARTIFACTCORE_VIDEO_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/FFmpegEncoder.Helpers.cppm"
 )
 set(ARTIFACTCORE_VIDEO_IMPL
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Codec/EncoderSetting.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Codec/EncoderSetting.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/FFmpegAudioEncoder.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/FFmpegEncoder.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/AbstractEncoder.cpp"
