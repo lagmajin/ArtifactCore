@@ -319,7 +319,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/Media/ImageSequenceSource.cppm|Media.ImageSequenceSource|include/Media/ImageSequenceSource.ixx"
     "src/Media/MediaAudioDecoder.cppm|MediaAudioDecoder|include/Media/MediaAudioDecoder.ixx"
     "src/Media/MediaEditorController.cppm|MediaEditorController|include/Media/MediaEditorController.ixx"
-    "src/Media/MediaFrame.cppm|Media.MediaFrame|include/Media/MediaFrame.ixx"
+    "src/Media/MediaFrame.cpp|Media.MediaFrame|include/Media/MediaFrame.ixx"
     "src/Media/MediaImageFrameDecoder.cppm|MediaImageFrameDecoder|include/Media/MediaImageFrameDecoder.ixx"
     "src/Media/MediaInfo.cppm|Media.Info|include/Media/MediaInfo.ixx"
     "src/Media/MediaPlaybackController.cppm|MediaPlaybackController|include/Media/MediaPlaybackController.ixx"

@@ -1,4 +1,5 @@
 module;
+#include <memory>
 #include <utility>
 #include <QString>
 module Media.MediaFrame;
