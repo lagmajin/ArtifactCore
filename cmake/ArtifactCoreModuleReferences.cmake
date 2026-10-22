@@ -85,7 +85,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/Color/FloatRGBA.cpp|FloatRGBA|include/Color/FloatRGBA.ixx"
     "src/Color/LUTWriter.cpp|Color.LUTWriter|include/Color/LUTWriter.ixx"
     "src/Color/LabColor.cppm|Color.Lab|include/Color/LabColor.ixx"
-    "src/Color/OCIOConfig.cppm|Color.OCIOConfig|include/Color/OCIOConfig.ixx"
+    "src/Color/OCIOConfig.cpp|Color.OCIOConfig|include/Color/OCIOConfig.ixx"
     "src/Color/Sarturation.cppm|Color.Saturation|include/Image/Sarturation.ixx"
     "src/Color/XYZColor.cpp|Color.XYZ|include/Color/XYZColor.ixx"
     "src/Command/LambdaCommand.cpp|Command.Lambda|include/Command/LambdaCommand.ixx"

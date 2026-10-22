@@ -316,7 +316,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             COMPILE_OPTIONS
                 "/reference;Color.LUTWriter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.LUTWriter.ifc"
                 "/reference;Color.LUT=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.LUT.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/Color/OCIOConfig.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/Color/OCIOConfig.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
                 "/reference;Color.OCIOConfig=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.OCIOConfig.ifc")
