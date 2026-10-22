@@ -1,4 +1,7 @@
 module;
+#include <QList>
+#include <QObject>
+#include <QString>
 #include <QHash>
 #include <QDateTime>
 #include <QDebug>
