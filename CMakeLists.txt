@@ -3382,7 +3382,7 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Media/MediaSource.cppm" APP
     "/reference;Utils.Optional=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Optional.ifc")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Media/MediaReader.cppm" APPEND PROPERTY COMPILE_OPTIONS
     "/reference;MediaSource=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreMedia.dir/MediaSource.ifc")
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Network/NetworkRPCServer.cppm" APPEND PROPERTY COMPILE_OPTIONS
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Network/NetworkRPCServer.cpp" APPEND PROPERTY COMPILE_OPTIONS
     "/reference;Container.NamedVector=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.NamedVector.ifc"
     "/reference;Container.Debug=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.ifc"
     "/reference;Container.Debug.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.Registry.ifc")
@@ -4019,18 +4019,18 @@ set(ARTIFACTCORE_NETWORK_MODULES
 set(ARTIFACTCORE_NETWORK_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Network/CollaborationWebSocket.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Network/NetworkRPCClient.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Network/NetworkRPCServer.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Network/NetworkRPCServer.cpp"
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_NETWORK_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_NETWORK_IMPL})
 list(REMOVE_ITEM ARTIFACTCORE_NETWORK_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/NetworkRPCServer.ixx")
 list(REMOVE_ITEM ARTIFACTCORE_NETWORK_IMPL
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Network/NetworkRPCServer.cppm")
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Network/NetworkRPCServer.cpp")
 list(APPEND CORE_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/NetworkRPCServer.ixx")
 list(APPEND CORE_IMPL
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Network/NetworkRPCServer.cppm")
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Network/NetworkRPCServer.cpp")
 
 set(ARTIFACTCORE_COLLABORATE_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Collaborate/CollaborationProtocol.cppm"

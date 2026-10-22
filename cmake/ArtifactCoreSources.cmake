@@ -1215,7 +1215,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Mesh/Mesh.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Network/CollaborationWebSocket.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Network/NetworkRPCClient.cpp"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Network/NetworkRPCServer.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Network/NetworkRPCServer.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/NLE/Core.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/NLE/OTIO.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Particle/ParticleSystem.cppm"
