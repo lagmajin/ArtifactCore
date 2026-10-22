@@ -406,7 +406,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/Transform/Camera.cppm|Core.Camera|include/Transform/Camera.ixx"
     "src/Transform/Light.cppm|Core.Light|include/Transform/Light.ixx"
     "src/Transform/Scale2D.cppm|Transform.Scale2D|include/Transform/Scale2D.ixx"
-    "src/Transform/StaticTransform2D.cppm|Transform._2D|include/Transform/StaticTransform2D.ixx"
+    "src/Transform/StaticTransform2D.cpp|Transform._2D|include/Transform/StaticTransform2D.ixx"
     "src/Transform/StaticTransform3D.cpp|Transform._3D|include/Transform/StaticTransform3D.ixx"
     "src/Transform/TransformHelper.cppm|Transform.Hlper|include/Transform/TransformHelper.ixx"
     "src/Transform/ViewportTransformer.cppm|Core.Transform.Viewport|include/Transform/ViewportTransformer.ixx"
