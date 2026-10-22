@@ -3641,7 +3641,7 @@ set(ARTIFACTCORE_ANALYZE_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Analyze/Histgram.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Analyze/ImageAnalyzer.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Analyze/OpenCV/OptifalFlowResult.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Analyze/SmartPaletteAnalyzer.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Analyze/SmartPaletteAnalyzer.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Time/TimeRemap.cppm"
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_ANALYZE_MODULES})
@@ -5459,7 +5459,7 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Time/TimeRemap.cppm"
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Time/TimeRemap.cppm"
     APPEND PROPERTY OBJECT_DEPENDS
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAnalyze.dir/include/Analyze/OpenCV/OptifalFlowResult.ixx.obj")
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Analyze/SmartPaletteAnalyzer.cppm"
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Analyze/SmartPaletteAnalyzer.cpp"
     APPEND PROPERTY COMPILE_OPTIONS
         "/reference;Color.Float=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Float.ifc"
         "/reference;Image.Raw=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.Raw.ifc"
@@ -6842,7 +6842,7 @@ foreach(_artifact_namedvector_impl IN ITEMS
         "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/TieredAIManager.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/ObjectDetector.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/Analyze/Histgram.cpp"
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/Analyze/SmartPaletteAnalyzer.cppm"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/Analyze/SmartPaletteAnalyzer.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/Export/Lottie/LottieExporter.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/Export/Lottie/LottieRigExporter.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/Plugin/PluginRegistry.cpp"
