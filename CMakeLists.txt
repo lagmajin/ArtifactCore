@@ -342,7 +342,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             COMPILE_OPTIONS
                 "/reference;Core.FastSettingsStore=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.FastSettingsStore.ifc"
                 [=[/reference;std=CMakeFiles\\__cmake_cxx23.dir\\artifact_std.ifc]=])
-    elseif(_artifact_impl_relative STREQUAL "src/Color/ColorSwatch.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/Color/ColorSwatch.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
                 "/reference;Color.Swatch=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Swatch.ifc"
@@ -4178,7 +4178,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/src/Memory/TrackedPtr.cppm.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/ContainerDebugRegistry.ixx.obj")
-    elseif(_artifact_impl_relative STREQUAL "src/Color/ColorSwatch.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/Color/ColorSwatch.cpp")
         # ColorSwatch's attached interface uses the container debug registry
         # while MSVC instantiates its implementation-side standard containers.
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
