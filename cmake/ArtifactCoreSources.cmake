@@ -933,7 +933,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Audio/AudioWaveform.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Audio/AudioWriter.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Audio/FormantExtractor.cppm"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Audio/LipSyncTrack.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Audio/LipSyncTrack.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Audio/SimpleWav.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Audio/WASAPIBackend.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Channel/Channel.cpp"
