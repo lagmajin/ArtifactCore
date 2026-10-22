@@ -1,5 +1,6 @@
 module;
 #include <utility>
+#include <cstddef>
 #include <vector>
 #include <algorithm>
 #include <map>
@@ -13,7 +14,7 @@ namespace ArtifactCore {
 
 VideoChannel::VideoChannel(int width, int height)
     : width_(std::max(0, width)), height_(std::max(0, height)) {
-    data_.resize(static_cast<size_t>(width_) * static_cast<size_t>(height_), 0.0f);
+    data_.resize(static_cast<std::size_t>(width_) * static_cast<std::size_t>(height_), 0.0f);
 }
 
 VideoChannel::~VideoChannel() = default;
@@ -21,7 +22,7 @@ VideoChannel::~VideoChannel() = default;
 void VideoChannel::resize(int width, int height) {
     width_ = std::max(0, width);
     height_ = std::max(0, height);
-    data_.resize(static_cast<size_t>(width_) * static_cast<size_t>(height_));
+    data_.resize(static_cast<std::size_t>(width_) * static_cast<std::size_t>(height_));
 }
 
 void VideoChannel::clear(float value) {

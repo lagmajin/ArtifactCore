@@ -259,7 +259,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
     elseif(_artifact_impl_relative STREQUAL "src/Animation/AnimationDynamics.cppm")
         # Use the CMake-generated provider references; manual aggregate paths
         # duplicate the same module IFCs and trigger MSVC C7684.
-    elseif(_artifact_impl_relative STREQUAL "src/Channel/Channel.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/Channel/Channel.cpp")
         # Use the CMake-generated provider references to avoid duplicate IFC
         # names from the aggregate-target paths (MSVC C7684).
     elseif(_artifact_impl_relative MATCHES "^src/Graphics/GPU(Algorithms|AppendConsume|Capabilities|ThreadPool)\\.cppm$")

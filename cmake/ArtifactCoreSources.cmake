@@ -936,7 +936,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Audio/LipSyncTrack.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Audio/SimpleWav.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Audio/WASAPIBackend.cppm"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Channel/Channel.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Channel/Channel.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/CLAP/CLAPHost.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Codec/EncoderSetting.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Codec/FFMpegAudioDecoder.cppm"
