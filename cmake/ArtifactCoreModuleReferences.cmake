@@ -2,7 +2,7 @@
 # Keep this file in sync with ArtifactCoreSources.cmake when adding module implementations.
 
 set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
-    "src/AI/CloudAgent.cppm|Core.AI.CloudAgent|include/AI/ICloudAIAgent.ixx"
+    "src/AI/CloudAgent.cpp|Core.AI.CloudAgent|include/AI/ICloudAIAgent.ixx"
     "src/AI/APIKeyManager.cpp|Core.AI.APIKeyManager|include/AI/APIKeyManager.ixx"
     "src/AI/LlamaLocalAgent.cppm|Core.AI.LlamaAgent|include/AI/LlamaLocalAgent.ixx"
     "src/AI/OnnxImageSegmenter.cppm|Core.AI.OnnxImageSegmenter|include/AI/OnnxImageSegmenter.ixx"
@@ -553,8 +553,8 @@ set(ARTIFACTCORE_IMPLEMENTATION_IMPORTED_MODULE_REFERENCES
     "src/Core/AspectRatio.cpp|Utils.String.UniString|include/Utils/UniString.ixx"
     "src/Core/KeyFrame.cppm|Frame.Position|include/Frame/FramePosition.ixx"
     "src/Core/KeyFrame.cppm|Math.Interpolate|include/Geometry/Interpolate.ixx"
-    "src/AI/CloudAgent.cppm|Core.AI.Context|include/AI/AIContext.ixx"
-    "src/AI/CloudAgent.cppm|Memory.SharedPtr|src/Memory/SharedPtr.cppm"
+    "src/AI/CloudAgent.cpp|Core.AI.Context|include/AI/AIContext.ixx"
+    "src/AI/CloudAgent.cpp|Memory.SharedPtr|src/Memory/SharedPtr.cppm"
     "src/AI/APIKeyManager.cpp|Core.AI.Context|include/AI/AIContext.ixx"
     "src/AI/LlamaLocalAgent.cppm|Core.AI.Context|include/AI/AIContext.ixx"
     "src/AI/LlamaLocalAgent.cppm|Core.AI.LocalAgent|include/AI/LocalAIAgent.ixx"

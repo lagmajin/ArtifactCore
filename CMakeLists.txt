@@ -203,7 +203,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
     # APIKeyManager is a primary-interface attachment.  Keep the initial
     # scanner disabled for explicit MSVC references; the Clang lane enables
     # P1689 scanning later for module implementation sources.
-    if(_artifact_impl_relative STREQUAL "src/AI/CloudAgent.cppm")
+    if(_artifact_impl_relative STREQUAL "src/AI/CloudAgent.cpp")
         # This implementation is emitted in the split AI target.  Use
         # concrete IFC paths so the rule remains valid under Ninja/MSVC,
         # where $(IntDir) is not expanded by CMake-generated compile rules.
@@ -3210,7 +3210,7 @@ set(ARTIFACTCORE_AI_MODULES
 )
 set(ARTIFACTCORE_AI_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/APIKeyManager.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/CloudAgent.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/CloudAgent.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/LlamaLocalAgent.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/ObjectDetector.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/OnnxDmlLocalAgent.cppm"
