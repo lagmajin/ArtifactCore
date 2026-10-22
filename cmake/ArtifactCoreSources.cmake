@@ -940,7 +940,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/CLAP/CLAPHost.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Codec/EncoderSetting.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Codec/FFMpegAudioDecoder.cppm"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Codec/FFmpegThumbnailExtractor.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Codec/FFmpegThumbnailExtractor.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Codec/FFMpegVideoDecoder.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Codec/GStreamerDecoder.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Codec/MFEncoder.cppm"

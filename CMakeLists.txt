@@ -3329,7 +3329,7 @@ set(ARTIFACTCORE_MEDIA_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Media/MediaReader.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Media/MediaSource.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/MediaTimeStamp.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Codec/FFmpegThumbnailExtractor.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Codec/FFmpegThumbnailExtractor.cpp"
 )
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Media/ImageSequenceSource.cppm"
     PROPERTY COMPILE_OPTIONS
@@ -4608,7 +4608,7 @@ list(REMOVE_ITEM CORE_MODULES
 list(REMOVE_ITEM CORE_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/EnvironmentVariable/EnvironmentVariable.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Playback/PlaybackClock.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Codec/FFmpegThumbnailExtractor.cppm")
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Codec/FFmpegThumbnailExtractor.cpp")
 target_sources(ArtifactCore
     PRIVATE ${CORE_IMPL}
     PUBLIC FILE_SET CXX_MODULES FILES ${CORE_MODULES}
