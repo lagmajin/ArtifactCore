@@ -3876,7 +3876,7 @@ set(ARTIFACTCORE_SIMULATION_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Simulation/OpenVDBVolumeReference.ixx"
 )
 set(ARTIFACTCORE_SIMULATION_IMPL
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Simulation/OpenVDBVolumeReference.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Simulation/OpenVDBVolumeReference.cpp"
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_SIMULATION_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_SIMULATION_IMPL})
@@ -5647,7 +5647,7 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Database/Database.cpp"
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Database/Database.cpp"
     APPEND PROPERTY OBJECT_DEPENDS
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreDatabase.dir/include/Database/DatabaseTypes.ixx.obj")
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Simulation/OpenVDBVolumeReference.cppm"
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Simulation/OpenVDBVolumeReference.cpp"
     APPEND PROPERTY COMPILE_OPTIONS
         "/reference;Core.Simulation.Pyro=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Simulation.Pyro.ifc"
         "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc")

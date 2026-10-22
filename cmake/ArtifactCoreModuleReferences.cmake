@@ -385,7 +385,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/Script/Python/PythonEngine.cppm|Script.Python.Engine|include/Script/Python/PythonEngine.ixx"
     "src/Script/ScriptRuntime.cppm|Script.Runtime|include/Script/ScriptRuntime.ixx"
     "src/ShaderNode/ArtifactShaderNode.cppm|Artifact.ShaderNode.Core|include/ShaderNode/ArtifactShaderNode.ixx"
-    "src/Simulation/OpenVDBVolumeReference.cppm|Core.Simulation.OpenVDBVolumeReference|include/Simulation/OpenVDBVolumeReference.ixx"
+    "src/Simulation/OpenVDBVolumeReference.cpp|Core.Simulation.OpenVDBVolumeReference|include/Simulation/OpenVDBVolumeReference.ixx"
     "src/Simulation/PyroSimulation.cppm|Core.Simulation.Pyro|include/Simulation/PyroSimulation.ixx"
     "src/Source/ISource.cppm|Source.ISource|include/Source/ISource.ixx"
     "src/Text/GlyphAtlas.cppm|Text.GlyphAtlas|include/Text/GlyphAtlas.ixx"

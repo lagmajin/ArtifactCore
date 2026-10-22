@@ -1,5 +1,6 @@
 module;
 #include <QString>
+#include <cstddef>
 #include <exception>
 #include <algorithm>
 #include <cmath>

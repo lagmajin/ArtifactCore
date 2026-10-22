@@ -1274,7 +1274,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Script/Python/PythonEngine.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Script/ScriptRuntime.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/ShaderNode/ArtifactShaderNode.cppm"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Simulation/OpenVDBVolumeReference.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Simulation/OpenVDBVolumeReference.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Simulation/PyroSimulation.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Source/ISource.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Text/GlyphAtlas.cppm"
