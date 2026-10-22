@@ -3867,7 +3867,7 @@ set(ARTIFACTCORE_GENERATE_MODULES
 )
 set(ARTIFACTCORE_GENERATE_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Generate/GenerateTestImage.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Generate/StarfieldGenerator.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Generate/StarfieldGenerator.cpp"
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_GENERATE_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_GENERATE_IMPL})
@@ -5637,7 +5637,7 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Render/RendererQueueManager
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Generate/GenerateTestImage.cpp"
     APPEND PROPERTY COMPILE_OPTIONS
         "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Generate/StarfieldGenerator.cppm"
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Generate/StarfieldGenerator.cpp"
     APPEND PROPERTY COMPILE_OPTIONS
         "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc"
         "/reference;Math.Random=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Math.Random.ifc")

@@ -1005,7 +1005,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Frame/FrameSkipTracker.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Frame/FrameTime.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Generate/GenerateTestImage.cpp"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Generate/StarfieldGenerator.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Generate/StarfieldGenerator.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Geometry/BezierCalculator.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Geometry/BezierPathSampler.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Geometry/Fracture.cppm"

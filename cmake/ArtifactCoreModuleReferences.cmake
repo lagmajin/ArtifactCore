@@ -134,7 +134,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/Graphics/GPUThreadPool.cppm|Graphics.GPUThreadPool|include/Graphics/GPUThreadPool.ixx"
     "src/GPU/GPUInfo.cpp|Graphics.GPU.Info|include/Graphics/GPUInfo.ixx"
     "src/Generate/GenerateTestImage.cpp|GenerateTestImage|include/Generate/GenerateTestImage.ixx"
-    "src/Generate/StarfieldGenerator.cppm|StarfieldGenerator|include/Generate/StarfieldGenerator.ixx"
+    "src/Generate/StarfieldGenerator.cpp|StarfieldGenerator|include/Generate/StarfieldGenerator.ixx"
     "src/Geometry/BezierCalculator.cpp|Math.Bezier|include/Geometry/BezierCalculator.ixx"
     "src/Geometry/BezierPathSampler.cppm|Math.Bezier.Sampler|include/Geometry/BezierPathSampler.ixx"
     "src/Geometry/Fracture.cppm|Geometry.Fracture|include/Geometry/Fracture.ixx"
