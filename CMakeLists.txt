@@ -2217,7 +2217,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
     elseif(_artifact_impl_relative MATCHES "^src/Audio/" OR
            _artifact_impl_relative STREQUAL "src/Codec/FFMpegAudioDecoder.cppm" OR
            _artifact_impl_relative STREQUAL "src/CLAP/CLAPHost.cppm" OR
-           _artifact_impl_relative STREQUAL "src/Animation/KeyframeEditingTools.cppm")
+           _artifact_impl_relative STREQUAL "src/Animation/KeyframeEditingTools.cpp")
         # Audio is a split target.  Its scanner-disabled implementation units
         # must use the Audio target's primary IFC and imported Audio-domain
         # interfaces, not the aggregate Core output directory.
@@ -3150,7 +3150,7 @@ set(ARTIFACTCORE_AUDIO_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Codec/FFMpegAudioDecoder.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Particle/ParticleSystem.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/CLAP/CLAPHost.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Animation/KeyframeEditingTools.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Animation/KeyframeEditingTools.cpp"
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_AUDIO_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_AUDIO_IMPL})
@@ -4319,7 +4319,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
     elseif(_artifact_impl_relative MATCHES "^src/Audio/" OR
            _artifact_impl_relative STREQUAL "src/Codec/FFMpegAudioDecoder.cppm" OR
            _artifact_impl_relative STREQUAL "src/CLAP/CLAPHost.cppm" OR
-           _artifact_impl_relative STREQUAL "src/Animation/KeyframeEditingTools.cppm")
+           _artifact_impl_relative STREQUAL "src/Animation/KeyframeEditingTools.cpp")
         # Order every Audio-domain interface before scanner-disabled Audio
         # implementations.  This keeps all imported Audio IFCS in the split
         # target and avoids races against the aggregate Core target.
