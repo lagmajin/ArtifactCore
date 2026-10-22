@@ -1267,7 +1267,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             "/reference;Image.PSDDocument=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.PSDDocument.ifc"
             "/reference;Image.Raw=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.Raw.ifc"
             "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/IO/Image/ImageExporter.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/IO/Image/ImageExporter.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;IO.ImageExporter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/IO.ImageExporter.ifc"
             "/reference;Image.ExportOptions=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ExportOptions.ifc"
@@ -4359,7 +4359,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/ContainerDebug.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/ContainerDebugRegistry.ixx.obj")
-    elseif(_artifact_impl_relative STREQUAL "src/IO/Image/ImageExporter.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/IO/Image/ImageExporter.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Image/ImageUtils.ixx.obj")
     elseif(_artifact_impl_relative STREQUAL "src/Script/Engine/Enviroment/EnvironmentManager.cpp")

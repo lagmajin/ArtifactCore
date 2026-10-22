@@ -195,7 +195,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/Graphics/Shader/Compute/MaskPathRasterizerPipeline.cppm|Graphics.Shader.Compute.MaskPathRasterizer|include/Graphics/Shader/Compute/MaskPathRasterizerPipeline.ixx"
     "src/Graphics/Texture/TextureManager.cppm|Graphics.Texture.Manager|include/Graphics/Texture/TextureManager.ixx"
     "src/IO/Image/AsyncImageWriterManager.cppm|IO.Async.ImageWriterManager|include/IO/Image/AsyncImageWriterManager.ixx"
-    "src/IO/Image/ImageExporter.cppm|IO.ImageExporter|include/IO/Image/ImageExporter.ixx"
+    "src/IO/Image/ImageExporter.cpp|IO.ImageExporter|include/IO/Image/ImageExporter.ixx"
     "src/IO/Image/ImageImporter.cpp|IO.ImageImporter|include/IO/Image/ImageImporter.ixx"
     "src/IO/VectorExport.cpp|IO.VectorExport|include/IO/VectorExport.ixx"
     "src/IO/asio_async_file_writer.cpp|asio_async_file_writer|include/IO/asio_async_file_writer.ixx"
