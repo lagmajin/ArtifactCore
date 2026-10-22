@@ -2,6 +2,8 @@ module;
 #include <QKeySequence>
 #include <QKeyEvent>
 #include <QJsonObject>
+#include <array>
+#include <cstddef>
 #include <QString>
 #include <utility>
 

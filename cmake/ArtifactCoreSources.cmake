@@ -1306,7 +1306,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/UI/LayoutState.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/UI/RotoMaskEditor.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/UI/SelectionManager.cppm"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/UI/ShortcutBindings.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/UI/ShortcutBindings.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/UI/ViewOrientationNavigator.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/UI/ViewportOperator.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Utils/AssetFingerprint.cpp"

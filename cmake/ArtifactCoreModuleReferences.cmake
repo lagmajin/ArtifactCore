@@ -101,6 +101,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/Configuration/ConfigSchema.cpp|Configuration.ConfigSchema|include/Configuration/ConfigSchema.ixx"
     "src/Configuration/LayeredConfigStore.cpp|Configuration.LayeredConfigStore|include/Configuration/LayeredConfigStore.ixx"
     "src/UI/LayoutState.cpp|UI.Layout.State|include/UI/LayoutState.ixx"
+    "src/UI/ShortcutBindings.cpp|UI.ShortcutBindings|include/UI/ShortcutBindings.ixx"
     "src/Coordinate/CoordinateProfile.cpp|Coordinate.Profile|include/Coordinate/CoordinateProfile.ixx"
     "src/Core/AspectRatio.cpp|Core.AspectRatio|include/Core/AspectRatio.ixx"
     "src/Core/FastSettingsStore.cpp|Core.FastSettingsStore|include/Core/FastSettingsStore.ixx"

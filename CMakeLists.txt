@@ -3493,7 +3493,7 @@ set(ARTIFACTCORE_UI_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/LayoutState.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/RotoMaskEditor.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/SelectionManager.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/ShortcutBindings.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/ShortcutBindings.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/ViewOrientationNavigator.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/ViewportOperator.cppm"
 )
@@ -5704,13 +5704,10 @@ set_source_files_properties(
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/SelectionManager.cppm"
     APPEND PROPERTY OBJECT_DEPENDS
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreUI.dir/include/UI/SelectionManager.ixx.obj")
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/ShortcutBindings.cppm"
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/ShortcutBindings.cpp"
     PROPERTY COMPILE_OPTIONS
         "/reference;UI.ShortcutBindings=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreUI.dir/UI.ShortcutBindings.ifc")
-set_source_files_properties(
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/ShortcutBindings.cppm"
-    PROPERTIES CXX_SCAN_FOR_MODULES OFF)
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/ShortcutBindings.cppm"
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/ShortcutBindings.cpp"
     APPEND PROPERTY OBJECT_DEPENDS
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreUI.dir/include/UI/ShortcutBindings.ixx.obj")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/ViewOrientationNavigator.cppm"
