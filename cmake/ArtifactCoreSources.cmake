@@ -1263,7 +1263,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Script/CSharpScriptEngine.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Script/Engine/BultinScriptVM/BuiltinScriptVM.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Script/Engine/Context/ScriptContext.cppm"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Script/Engine/Enviroment/EnvironmentManager.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Script/Engine/Enviroment/EnvironmentManager.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Script/Engine/Func/BuiltinManager.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Script/Engine/Func/ExprIntrinsics.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Script/Engine/Syntax/ASTNode.cppm"

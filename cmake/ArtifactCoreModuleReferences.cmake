@@ -374,7 +374,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/Script/CSharpScriptEngine.cppm|Script.CSharp.Engine|include/Script/CSharpScriptEngine.ixx"
     "src/Script/Engine/BultinScriptVM/BuiltinScriptVM.cppm|Script.Engine.BuiltinVM|include/Script/Engine/BuiltinScriptVM.ixx"
     "src/Script/Engine/Context/ScriptContext.cppm|Script.Engine.Context|include/Script/Engine/Context/ScriptContext.ixx"
-    "src/Script/Engine/Enviroment/EnvironmentManager.cppm|Script.Enviroment|include/Script/Engine/Enviroment/EnvironmentManager.ixx"
+    "src/Script/Engine/Enviroment/EnvironmentManager.cpp|Script.Enviroment|include/Script/Engine/Enviroment/EnvironmentManager.ixx"
     "src/Script/Engine/Func/BuiltinManager.cpp|Script.Builtin.Manager|include/Script/Engine/Func/BuiltinManager.ixx"
     "src/Script/Engine/Func/ExprIntrinsics.cpp|Script.Intrinsics|include/Script/Engine/Func/ExprIntrinsics.ixx"
     "src/Script/Engine/Syntax/ASTNode.cppm|ASTNode|include/Script/Engine/Syntax/ASTNode.ixx"
