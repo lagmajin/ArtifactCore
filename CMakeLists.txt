@@ -3740,7 +3740,7 @@ set(ARTIFACTCORE_COORDINATE_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Coordinate/CoordinateProfile.ixx"
 )
 set(ARTIFACTCORE_COORDINATE_IMPL
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Coordinate/CoordinateProfile.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Coordinate/CoordinateProfile.cpp"
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_COORDINATE_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_COORDINATE_IMPL})
@@ -5668,7 +5668,7 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Track/NccTracker.cppm"
         "/reference;Image.ImageSurfaceView=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageSurfaceView.ifc"
         "/reference;Graphics.SurfaceColorContract=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.SurfaceColorContract.ifc"
         "/reference;Color.TransferFunction=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.TransferFunction.ifc")
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Coordinate/CoordinateProfile.cppm"
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Coordinate/CoordinateProfile.cpp"
     APPEND PROPERTY COMPILE_OPTIONS
         "/reference;Serialization.JsonAdapter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Serialization.JsonAdapter.ifc"
         "/reference;Serialization.SchemaMigration=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Serialization.SchemaMigration.ifc"
