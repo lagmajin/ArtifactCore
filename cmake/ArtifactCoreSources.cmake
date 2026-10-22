@@ -1257,7 +1257,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Render/VolumeRenderer.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Rig/Rig2D.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Scene/SceneNode.cppm"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Script/AngelScript/AngelScriptBehaviour.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Script/AngelScript/AngelScriptBehaviour.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Script/AngelScript/AngelScriptEngine.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Script/ArtifactScript/ArtifactScript.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Script/CSharpScriptEngine.cppm"

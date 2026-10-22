@@ -366,7 +366,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/Render/VolumePostProcess.cppm|Render.VolumePostProcess|include/Render/VolumePostProcess.ixx"
     "src/Render/VolumeRenderer.cppm|Render.VolumeRenderer|include/Render/VolumeRenderer.ixx"
     "src/Scene/SceneNode.cppm|Scene.SceneNode|include/Scene/SceneNode.ixx"
-    "src/Script/AngelScript/AngelScriptBehaviour.cppm|Script.AngelScript.Behaviour|include/Script/AngelScript/AngelScriptBehaviour.ixx"
+    "src/Script/AngelScript/AngelScriptBehaviour.cpp|Script.AngelScript.Behaviour|include/Script/AngelScript/AngelScriptBehaviour.ixx"
     "src/Script/AngelScript/AngelScriptEngine.cppm|Script.AngelScript.Engine|include/Script/AngelScript/AngelScriptEngine.ixx"
     "src/Script/ArtifactScript/ArtifactScript.cppm|Script.ArtifactScript|include/Script/ArtifactScript/ArtifactScript.ixx"
     "src/Script/CSharpScriptEngine.cppm|Script.CSharp.Engine|include/Script/CSharpScriptEngine.ixx"

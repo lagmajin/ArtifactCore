@@ -952,7 +952,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/NamedVector.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/ContainerDebugRegistry.ixx.obj")
-    elseif(_artifact_impl_relative STREQUAL "src/Script/AngelScript/AngelScriptBehaviour.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/Script/AngelScript/AngelScriptBehaviour.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;Script.AngelScript.Behaviour=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Script.AngelScript.Behaviour.ifc"
             "/reference;Script.AngelScript.Engine=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Script.AngelScript.Engine.ifc")
