@@ -970,7 +970,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Composition/ExportMatrix.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Composition/OpenCVCompositionBuffer2D.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Composition/ParametricComposition.cppm"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Composition/PreCompose.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Composition/PreCompose.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Composition/TemplateLock.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Composition/TemplateSlot.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Configuration/ConfigSchema.cpp"

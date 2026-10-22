@@ -3425,15 +3425,15 @@ set(ARTIFACTCORE_COMPOSITION_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Composition/ExportMatrix.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Composition/OpenCVCompositionBuffer2D.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Composition/ParametricComposition.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Composition/PreCompose.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Composition/PreCompose.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Composition/TemplateLock.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Composition/TemplateSlot.cpp"
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_COMPOSITION_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_COMPOSITION_IMPL})
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Composition/PreCompose.cppm" APPEND PROPERTY COMPILE_OPTIONS
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Composition/PreCompose.cpp" APPEND PROPERTY COMPILE_OPTIONS
     "/reference;Composition.PreCompose=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreComposition.dir/Composition.PreCompose.ifc")
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Composition/PreCompose.cppm" APPEND PROPERTY OBJECT_DEPENDS
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Composition/PreCompose.cpp" APPEND PROPERTY OBJECT_DEPENDS
     "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreComposition.dir/include/Composition/PreCompose.ixx.obj")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Composition/CompositionFinalEffect.cppm" APPEND PROPERTY COMPILE_OPTIONS
     "/reference;Container.NamedVector=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.NamedVector.ifc"
