@@ -394,7 +394,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/Text/TextShapingBackend.cppm|Text.ShapingBackend|include/Text/TextShapingBackend.ixx"
     "src/Text/TextStyle.cpp|Text.Style|include/Text/TextStyle.ixx"
     "src/Thread/PreciseTicker.cppm|Thread.PreciseTicker|include/Thread/PreciseTicker.ixx"
-    "src/Thread/ThreadHelper.cppm|Thread.Helper|include/Thread/ThreadHelper.ixx"
+    "src/Thread/ThreadHelper.cpp|Thread.Helper|include/Thread/ThreadHelper.ixx"
     "src/Time/RationalTime.cpp|Time.Rational|include/Time/RationalTime.ixx"
     "src/Time/RealTime.cpp|Time.Real|include/Time/RealTime.ixx"
     "src/Time/TimeCode.cpp|Time.Code|include/Time/TimeCode.ixx"

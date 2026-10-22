@@ -2990,9 +2990,9 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/NLE/OTIO.cpp" PROPERTY COMP
     "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Thread/PreciseTicker.cppm" PROPERTY COMPILE_OPTIONS
     "/reference;Thread.PreciseTicker=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreThread.dir/Thread.PreciseTicker.ifc")
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Thread/ThreadHelper.cppm" PROPERTY COMPILE_OPTIONS
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Thread/ThreadHelper.cpp" PROPERTY COMPILE_OPTIONS
     "/reference;Thread.Helper=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreThread.dir/Thread.Helper.ifc")
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Thread/ThreadHelper.cppm"
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Thread/ThreadHelper.cpp"
     APPEND PROPERTY OBJECT_DEPENDS
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreThread.dir/include/Thread/ThreadHelper.ixx.obj")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Stabilizer.cppm" PROPERTY COMPILE_OPTIONS
@@ -3624,7 +3624,7 @@ set(ARTIFACTCORE_THREAD_MODULES
 )
 set(ARTIFACTCORE_THREAD_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Thread/PreciseTicker.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Thread/ThreadHelper.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Thread/ThreadHelper.cpp"
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_THREAD_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_THREAD_IMPL})
