@@ -3427,7 +3427,7 @@ set(ARTIFACTCORE_COMPOSITION_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Composition/ParametricComposition.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Composition/PreCompose.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Composition/TemplateLock.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Composition/TemplateSlot.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Composition/TemplateSlot.cpp"
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_COMPOSITION_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_COMPOSITION_IMPL})
