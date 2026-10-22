@@ -1224,7 +1224,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Physics/MpmSolver2D.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Physics/Physics2D.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Physics/SandSim2D.cppm"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Platform/Platform.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Platform/Platform.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Platform/Power.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Platform/ProcessHelperWin.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Platform/ShellUtils.cpp"

@@ -3606,7 +3606,7 @@ set(ARTIFACTCORE_PLATFORM_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Platform/SystemUsage.ixx"
 )
 set(ARTIFACTCORE_PLATFORM_IMPL
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Platform/Platform.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Platform/Platform.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Platform/Power.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Platform/ProcessHelperWin.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Platform/ShellUtils.cpp"
