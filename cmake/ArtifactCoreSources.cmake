@@ -1180,7 +1180,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/IO/Image/AsyncImageWriterManager.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/IO/Image/ImageExporter.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/IO/Image/ImageImporter.cpp"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/IO/Image/StbImageImplementation.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/IO/Image/StbImageImplementation.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/IO/VectorExport.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/IPC/IPCChannel.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/IPC/RenderFarmSharedBuffer.cppm"
