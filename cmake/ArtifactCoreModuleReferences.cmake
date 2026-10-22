@@ -102,7 +102,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/Configuration/LayeredConfigStore.cpp|Configuration.LayeredConfigStore|include/Configuration/LayeredConfigStore.ixx"
     "src/Coordinate/CoordinateProfile.cppm|Coordinate.Profile|include/Coordinate/CoordinateProfile.ixx"
     "src/Core/AspectRatio.cppm|Core.AspectRatio|include/Core/AspectRatio.ixx"
-    "src/Core/FastSettingsStore.cppm|Core.FastSettingsStore|include/Core/FastSettingsStore.ixx"
+    "src/Core/FastSettingsStore.cpp|Core.FastSettingsStore|include/Core/FastSettingsStore.ixx"
     "src/Core/KeyFrame.cppm|Core.KeyFrame|include/Core/KeyFrame.ixx"
     "src/Core/Opacity.cppm|Core.Opacity|include/Layer/Opacity.ixx"
     "src/Core/Parallel.cppm|Core.Parallel|include/Common/Parallel.ixx"
