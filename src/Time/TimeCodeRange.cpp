@@ -1,6 +1,7 @@
 // ReSharper disable CppMemberFunctionMayBeStatic
 module;
 #include <utility>
+#include <cstdint>
 
 module TimeCodeRange;
 
