@@ -375,4 +375,3 @@ bool extrudeContourMesh(const std::vector<std::vector<QPointF>>& contours,
 
 
 } // namespace ArtifactCore
-

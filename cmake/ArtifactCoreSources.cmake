@@ -1016,7 +1016,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Geometry/MeshImporter.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Geometry/Procedural3DGenerators.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Geometry/ResolutionRemap.cpp"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Geometry/ShapeExtrude.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Geometry/ShapeExtrude.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/GPU/GPUInfo.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Graphics/BoidsCompute.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Graphics/Compute.cppm"

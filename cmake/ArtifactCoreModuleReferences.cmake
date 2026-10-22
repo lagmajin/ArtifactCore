@@ -144,7 +144,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/Geometry/MeshImporter.cpp|MeshImporter|include/Geometry/MeshImporter.ixx"
     "src/Geometry/Procedural3DGenerators.cpp|Procedural3DGenerators|include/Geometry/Procedural3DGenerators.ixx"
     "src/Geometry/ResolutionRemap.cpp|Geometry.ResolutionRemap|include/Geometry/ResolutionRemap.ixx"
-    "src/Geometry/ShapeExtrude.cppm|Geometry.ShapeExtrude|include/Geometry/ShapeExtrude.ixx"
+    "src/Geometry/ShapeExtrude.cpp|Geometry.ShapeExtrude|include/Geometry/ShapeExtrude.ixx"
     "src/Graphics/BoidsCompute.cppm|Graphics.BoidsCompute|include/Graphics/BoidsCompute.ixx"
     "src/Graphics/Compute.cppm|Graphics.Compute|include/Graphics/Shader/Compute/Compute.ixx"
     "src/Graphics/Compute/CurveComputer.cppm|Graphics.Compute.CurveComputer|include/Graphics/Compute/CurveComputer.ixx"
