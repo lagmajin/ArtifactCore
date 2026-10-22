@@ -1,6 +1,7 @@
 module;
 
 #include <vector>
+#include <QMetaType>
 #include <QVariant>
 #include <QColor>
 
