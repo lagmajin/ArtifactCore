@@ -81,7 +81,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/Color/ColorLuminance.cpp|Color.Luminance|include/Color/ColorLuminance.ixx"
     "src/Color/ColorSpace.cppm|Color.ColorSpace|include/Color/ColorSpace.ixx"
     "src/Color/ColorSwatch.cpp|Color.Swatch|include/Color/ColorSwatch.ixx"
-    "src/Color/FloatColor.cppm|Color.Float|include/Color/FloatColor.ixx"
+    "src/Color/FloatColor.cpp|Color.Float|include/Color/FloatColor.ixx"
     "src/Color/FloatRGBA.cpp|FloatRGBA|include/Color/FloatRGBA.ixx"
     "src/Color/LUTWriter.cpp|Color.LUTWriter|include/Color/LUTWriter.ixx"
     "src/Color/LabColor.cpp|Color.Lab|include/Color/LabColor.ixx"
