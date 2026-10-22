@@ -178,7 +178,7 @@ list(REMOVE_ITEM _artifact_scanned_impl
 set_source_files_properties(${_artifact_scanned_impl} PROPERTIES CXX_SCAN_FOR_MODULES ON)
 set_source_files_properties(
     "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/OnnxDmlLocalAgent.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/TieredAIManager.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/TieredAIManager.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Export/Lottie/LottieExporter.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Export/Lottie/LottieRigExporter.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Plugin/PluginCommon.cppm"
@@ -3216,7 +3216,7 @@ set(ARTIFACTCORE_AI_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/OnnxDmlLocalAgent.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/OnnxImageSegmenter.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/RotoBrushImageSegmenter.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/TieredAIManager.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/TieredAIManager.cpp"
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_AI_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_AI_IMPL})
@@ -5420,7 +5420,7 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/ObjectDetector.cppm"
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Image/DepthMap.ixx.obj"
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Color/FloatColor.ixx.obj")
 foreach(_artifact_ai_impl IN ITEMS
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/TieredAIManager.cppm"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/TieredAIManager.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/OnnxDmlLocalAgent.cppm")
     set_source_files_properties("${_artifact_ai_impl}" PROPERTIES CXX_SCAN_FOR_MODULES OFF)
     set_property(SOURCE "${_artifact_ai_impl}" APPEND PROPERTY COMPILE_OPTIONS
@@ -5435,7 +5435,7 @@ foreach(_artifact_ai_impl IN ITEMS
         "/reference;Container.Debug=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.ifc"
         "/reference;Container.Debug.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.Registry.ifc")
 endforeach()
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/TieredAIManager.cppm"
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/TieredAIManager.cpp"
     APPEND PROPERTY OBJECT_DEPENDS
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAI.dir/include/AI/TieredAIManager.ixx.obj"
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAI.dir/include/AI/AIContext.ixx.obj"
@@ -6842,7 +6842,7 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/Fracture.cppm"
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/ContainerDebugRegistry.ixx.obj")
 
 foreach(_artifact_namedvector_impl IN ITEMS
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/TieredAIManager.cppm"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/TieredAIManager.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/ObjectDetector.cppm"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/Analyze/Histgram.cppm"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/Analyze/SmartPaletteAnalyzer.cppm"

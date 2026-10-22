@@ -1,6 +1,6 @@
 # ArtifactCore AI Feature Map
 
-最終更新日: 2026-04-10
+**最終更新:** 2026-10-22
 
 このドキュメントは、Artifact の AI システムが
 「何を知れるか」「何を読めるか」「今後どう拡張するか」を整理するための機能表です。
@@ -15,7 +15,7 @@
 
 ### 1. 文脈収集
 
-- `ArtifactCore/src/AI/TieredAIManager.cppm`
+- `ArtifactCore/src/AI/TieredAIManager.cpp`
   - `globalContext()` を持つ
   - 背景分析で `AIContext` の `projectSummary` を更新できる
 - `Artifact/src/AI/AIClient.cppm`
