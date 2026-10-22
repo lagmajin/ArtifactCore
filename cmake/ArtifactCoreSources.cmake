@@ -1339,5 +1339,5 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Video/Transitions/SlideTransition.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Video/Transitions/WipeTransition.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Video/Transitions/ZoomTransition.cppm"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/VST3/VST3Loader.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/VST3/VST3Loader.cpp"
 )

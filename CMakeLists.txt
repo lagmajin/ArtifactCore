@@ -3722,7 +3722,7 @@ set(ARTIFACTCORE_VST3_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/VST3/VST3Interfaces.ixx"
 )
 set(ARTIFACTCORE_VST3_IMPL
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/VST3/VST3Loader.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/VST3/VST3Loader.cpp"
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_VST3_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_VST3_IMPL})
@@ -4008,7 +4008,7 @@ list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_ICON_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_ICON_IMPL})
 
 # include/VST/ の VSTHost.ixx / VSTEffect.ixx は中身ゼロの空スタブで、
-# 実装は VST3/VST3Interfaces.ixx + src/VST3/VST3Loader.cppm が担う。
+# 実装は VST3/VST3Interfaces.ixx + src/VST3/VST3Loader.cpp が担う。
 # 旧 ArtifactCoreVST ターゲットごと削除した（references も不要）。
 
 set(ARTIFACTCORE_NETWORK_MODULES
@@ -5657,7 +5657,7 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Simulation/PyroSimulation.c
         "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc"
         "/reference;Float3=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Float3.ifc"
         "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/VST3/VST3Loader.cppm"
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/VST3/VST3Loader.cpp"
     APPEND PROPERTY COMPILE_OPTIONS
         "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Track/NccTracker.cppm"

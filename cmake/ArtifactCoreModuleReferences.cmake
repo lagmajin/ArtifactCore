@@ -420,7 +420,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/Utils/Path.cpp|Utils.Path|include/Utils/Path.ixx"
     "src/Utils/Tag.cpp|Utils.Tag|include/Utils/Tag.ixx"
     "src/Utils/UniString.cppm|Utils.String.UniString|include/Utils/UniString.ixx"
-    "src/VST3/VST3Loader.cppm|VST3.Interfaces|include/VST3/VST3Interfaces.ixx"
+    "src/VST3/VST3Loader.cpp|VST3.Interfaces|include/VST3/VST3Interfaces.ixx"
     "src/Video/AbstractEncoder.cpp|Codec.AbstractEncoder|include/Video/AbstractEncoder.ixx"
     "src/Video/MediaTimeStamp.cpp|Media.TimeStamp|include/Media/MediaTimeStamp.ixx"
     "src/Video/PlaybackManager.cppm|Video.PlaybackManager|include/Video/PlaybackManager.ixx"
