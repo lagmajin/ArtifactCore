@@ -180,7 +180,7 @@ set_source_files_properties(
     "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/OnnxDmlLocalAgent.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/TieredAIManager.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Export/Lottie/LottieExporter.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Export/Lottie/LottieRigExporter.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Export/Lottie/LottieRigExporter.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Plugin/PluginCommon.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Plugin/PluginRegistry.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Control/OscInput.cppm"
@@ -3713,7 +3713,7 @@ set(ARTIFACTCORE_EXPORT_MODULES
 )
 set(ARTIFACTCORE_EXPORT_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Export/Lottie/LottieExporter.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Export/Lottie/LottieRigExporter.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Export/Lottie/LottieRigExporter.cpp"
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_EXPORT_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_EXPORT_IMPL})
@@ -5541,7 +5541,7 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Control/MidiInput.cppm"
         "/reference;Control.Midi.Input=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreControl.dir/Control.Midi.Input.ifc"
         "/reference;Container.Debug.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.Registry.ifc"
         "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc")
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Export/Lottie/LottieRigExporter.cppm"
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Export/Lottie/LottieRigExporter.cpp"
     APPEND PROPERTY OBJECT_DEPENDS
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/NamedVector.ixx.obj"
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreRig.dir/include/Rig/Rig2D.ixx.obj")
@@ -5551,7 +5551,7 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Export/Lottie/LottieExporte
         "/reference;Export.Lottie.Types=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreExport.dir/Export.Lottie.Types.ifc"
         "/reference;Container.NamedVector=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.NamedVector.ifc"
         "/reference;Container.Debug.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.Registry.ifc")
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Export/Lottie/LottieRigExporter.cppm"
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Export/Lottie/LottieRigExporter.cpp"
     APPEND PROPERTY COMPILE_OPTIONS
         "/reference;Export.Lottie.RigExporter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreExport.dir/Export.Lottie.RigExporter.ifc"
         "/reference;ArtifactCore.Rig2D=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreRig.dir/ArtifactCore.Rig2D.ifc"
@@ -5578,7 +5578,7 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Export/Lottie/LottieExporte
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Export/Lottie/LottieExporter.cpp"
     APPEND PROPERTY OBJECT_DEPENDS
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreExport.dir/include/Export/Lottie/LottieTypes.ixx.obj")
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Export/Lottie/LottieRigExporter.cppm"
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Export/Lottie/LottieRigExporter.cpp"
     APPEND PROPERTY OBJECT_DEPENDS
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreExport.dir/include/Export/Lottie/LottieRigExporter.ixx.obj"
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreExport.dir/src/Export/Lottie/LottieExporter.cpp.obj"
@@ -6844,7 +6844,7 @@ foreach(_artifact_namedvector_impl IN ITEMS
         "${CMAKE_CURRENT_SOURCE_DIR}/src/Analyze/Histgram.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/Analyze/SmartPaletteAnalyzer.cppm"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/Export/Lottie/LottieExporter.cpp"
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/Export/Lottie/LottieRigExporter.cppm"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/Export/Lottie/LottieRigExporter.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/Plugin/PluginRegistry.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/Tracking/MotionTracker.cppm")
     set_property(SOURCE "${_artifact_namedvector_impl}" APPEND PROPERTY COMPILE_OPTIONS

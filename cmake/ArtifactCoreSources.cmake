@@ -995,7 +995,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Event/EventBus.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Event/EventBusDebugger.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Export/Lottie/LottieExporter.cpp"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Export/Lottie/LottieRigExporter.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Export/Lottie/LottieRigExporter.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/File/FileInfo.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/File/FileTypeDetector.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Frame/FrameOffset.cpp"
