@@ -1234,7 +1234,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Preview/PreviewQuality.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Preview/PreviewSettings.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Property/AbstractProperty.cppm"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Property/PropertyGroup.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Property/PropertyGroup.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Property/PropertyLinkManager.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Reactive/ReactiveEvents.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Render/AtmosphereFog.cppm"
