@@ -132,7 +132,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/GPU/GPUInfo.cpp|Graphics.GPU.Info|include/Graphics/GPUInfo.ixx"
     "src/Generate/GenerateTestImage.cppm|GenerateTestImage|include/Generate/GenerateTestImage.ixx"
     "src/Generate/StarfieldGenerator.cppm|StarfieldGenerator|include/Generate/StarfieldGenerator.ixx"
-    "src/Geometry/BezierCalculator.cppm|Math.Bezier|include/Geometry/BezierCalculator.ixx"
+    "src/Geometry/BezierCalculator.cpp|Math.Bezier|include/Geometry/BezierCalculator.ixx"
     "src/Geometry/BezierPathSampler.cppm|Math.Bezier.Sampler|include/Geometry/BezierPathSampler.ixx"
     "src/Geometry/Fracture.cppm|Geometry.Fracture|include/Geometry/Fracture.ixx"
     "src/Geometry/LayerAlignment.cppm|Geometry.LayerAlignment|include/Geometry/LayerAlignment.ixx"
