@@ -142,7 +142,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/Geometry/LayerBoundsCalculator.cpp|Geometry.LayerBounds|include/Geometry/LayerBoundsCalculator.ixx"
     "src/Geometry/MeshDeform.cppm|Geometry.MeshDeform|include/Geometry/MeshDeform.ixx"
     "src/Geometry/MeshImporter.cpp|MeshImporter|include/Geometry/MeshImporter.ixx"
-    "src/Geometry/Procedural3DGenerators.cppm|Procedural3DGenerators|include/Geometry/Procedural3DGenerators.ixx"
+    "src/Geometry/Procedural3DGenerators.cpp|Procedural3DGenerators|include/Geometry/Procedural3DGenerators.ixx"
     "src/Geometry/ResolutionRemap.cpp|Geometry.ResolutionRemap|include/Geometry/ResolutionRemap.ixx"
     "src/Geometry/ShapeExtrude.cppm|Geometry.ShapeExtrude|include/Geometry/ShapeExtrude.ixx"
     "src/Graphics/BoidsCompute.cppm|Graphics.BoidsCompute|include/Graphics/BoidsCompute.ixx"

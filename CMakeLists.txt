@@ -553,7 +553,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
                 "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/ContainerDebugRegistry.ixx.obj"
                 "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/NamedVector.ixx.obj"
                 "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Mesh/Mesh.ixx.obj")
-    elseif(_artifact_impl_relative STREQUAL "src/Geometry/Procedural3DGenerators.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/Geometry/Procedural3DGenerators.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
                 "/reference;Procedural3DGenerators=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Procedural3DGenerators.ifc"
@@ -3003,11 +3003,11 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Stabilizer.cppm" PROP
     "/reference;Frame.Rate=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Rate.ifc"
     "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc")
 
-# Procedural3DGenerators.cppm is the implementation unit for the explicitly
+# Procedural3DGenerators.cpp is the implementation unit for the explicitly
 # registered public generator module above.
-list(FIND CORE_IMPL "${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/Procedural3DGenerators.cppm" _procedural_3d_impl_idx)
+list(FIND CORE_IMPL "${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/Procedural3DGenerators.cpp" _procedural_3d_impl_idx)
 if(_procedural_3d_impl_idx EQUAL -1)
-    list(APPEND CORE_IMPL "${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/Procedural3DGenerators.cppm")
+    list(APPEND CORE_IMPL "${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/Procedural3DGenerators.cpp")
 endif()
 
 # LUT3DComputer.cppm is the implementation unit for the interface declared in
@@ -4129,10 +4129,11 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
     endif()
     set_property(SOURCE "${_artifact_impl_file}" PROPERTY OBJECT_DEPENDS
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/${_artifact_owner_target_dir}/${_artifact_interface_relative}.obj")
-    if(_artifact_impl_relative STREQUAL "src/Geometry/Procedural3DGenerators.cppm")
+    if(_artifact_impl_relative STREQUAL "src/Geometry/Procedural3DGenerators.cpp")
         # The earlier source-specific dependency is replaced by the generic
         # interface attachment above.  Restore the imported ShapeExtrude BMI
-        # producer ordering for this unscanned implementation unit.
+        # producer ordering for this source. MSVC scanning remains disabled
+        # for explicit references; the Clang lanes enable P1689 scanning below.
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Geometry/ShapeExtrude.ixx.obj")
     elseif(_artifact_impl_relative STREQUAL "src/Animation/AnimatableTransform2D.cppm")
