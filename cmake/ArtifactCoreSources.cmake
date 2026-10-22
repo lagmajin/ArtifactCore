@@ -1232,7 +1232,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Plugin/PluginCommon.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Plugin/PluginRegistry.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Preview/PreviewQuality.cppm"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Preview/PreviewSettings.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Preview/PreviewSettings.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Property/AbstractProperty.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Property/PropertyGroup.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Property/PropertyLinkManager.cpp"

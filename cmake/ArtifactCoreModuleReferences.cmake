@@ -344,7 +344,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/Platform/ProcessHelperWin.cpp|Platform.Windows.Process|include/Platform/ProcessHelperWin.ixx"
     "src/Platform/ShellUtils.cpp|Platform.ShellUtils|include/Platform/ShellUtils.ixx"
     "src/Preview/PreviewQuality.cppm|Preview.Quality|include/Preview/PreviewQuality.ixx"
-    "src/Preview/PreviewSettings.cppm|Preview.Settings|include/Preview/PreviewSettings.ixx"
+    "src/Preview/PreviewSettings.cpp|Preview.Settings|include/Preview/PreviewSettings.ixx"
     "src/Property/AbstractProperty.cppm|Property.Abstract|include/Property/AbstractProperty.ixx"
     "src/Property/PropertyGroup.cppm|Property.Group|include/Property/PropertyGroup.ixx"
     "src/Property/PropertyLinkManager.cpp|Property.LinkManager|include/Property/PropertyLinkManager.ixx"
