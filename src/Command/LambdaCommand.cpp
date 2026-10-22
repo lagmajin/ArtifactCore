@@ -1,6 +1,7 @@
 module;
 #include <QString>
-#include <QUndoStack>
+#include <QUndoCommand>
+#include <utility>
 #include <iostream>
 #include <vector>
 #include <string>

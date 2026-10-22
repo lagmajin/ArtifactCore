@@ -3554,7 +3554,7 @@ set(ARTIFACTCORE_COMMAND_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Command/SerializableCommand.ixx"
 )
 set(ARTIFACTCORE_COMMAND_IMPL
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Command/LambdaCommand.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Command/LambdaCommand.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Command/LayerLockManager.cpp"
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_COMMAND_MODULES})
