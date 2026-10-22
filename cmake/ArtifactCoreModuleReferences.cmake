@@ -219,7 +219,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/Image/OpenEXR.cppm|Image.OpenEXR|include/Image/OpenEXR.ixx"
     "src/Image/PSDDocument.cppm|Image.PSDDocument|include/Image/PSDDocument.ixx"
     "src/Image/RawImage.cppm|Image.Raw|include/Image/RawImage.ixx"
-    "src/ImageProcessing/AbstractImageEffect.cppm|ImageProcessing|include/ImageProcessing/AbstractImageEffect.ixx"
+    "src/ImageProcessing/AbstractImageEffect.cpp|ImageProcessing|include/ImageProcessing/AbstractImageEffect.ixx"
     "src/ImageProcessing/AnamorphicFlare.cppm|ImageProcessing|include/ImageProcessing/AbstractImageEffect.ixx"
     "src/ImageProcessing/AnisotropicFlowBlur.cppm|ImageProcessing|include/ImageProcessing/AbstractImageEffect.ixx"
     "src/ImageProcessing/BroadcastColors.cppm|ImageProcessing|include/ImageProcessing/AbstractImageEffect.ixx"

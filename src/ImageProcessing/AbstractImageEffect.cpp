@@ -1,6 +1,7 @@
 module;
 
 #include <string>
+#include <cstddef>
 #include <utility>
 #include <vector>
 #include <algorithm>
@@ -16,7 +17,7 @@ std::vector<EffectParamDef> AbstractImageEffect::parameters() const {
 }
 
 void AbstractImageEffect::setParam(const std::string& name, double value) {
-    size_t idx = 0;
+    std::size_t idx = 0;
     if (findParamIndex(name, idx)) {
         const auto defs = parameters();
         if (idx >= defs.size() || !std::isfinite(value)) return;
@@ -28,7 +29,7 @@ void AbstractImageEffect::setParam(const std::string& name, double value) {
 }
 
 double AbstractImageEffect::getParam(const std::string& name) const {
-    size_t idx = 0;
+    std::size_t idx = 0;
     if (findParamIndex(name, idx)) {
         return paramValues_[idx].second;
     }
@@ -46,18 +47,18 @@ void AbstractImageEffect::chainProcess(ImageF32x4_RGBA& image) {
     }
 }
 
-bool AbstractImageEffect::findParamIndex(const std::string& name, size_t& idx) const {
+bool AbstractImageEffect::findParamIndex(const std::string& name, std::size_t& idx) const {
     const auto& params = const_cast<AbstractImageEffect*>(this)->parameters();
     if (params.empty()) return false;
     if (paramValues_.size() != params.size()) {
         auto* self = const_cast<AbstractImageEffect*>(this);
         self->paramValues_.resize(params.size());
-        for (size_t i = 0; i < params.size(); ++i) {
+        for (std::size_t i = 0; i < params.size(); ++i) {
             self->paramValues_[i].first = params[i].name;
             self->paramValues_[i].second = params[i].defaultValue;
         }
     }
-    for (size_t i = 0; i < paramValues_.size(); ++i) {
+    for (std::size_t i = 0; i < paramValues_.size(); ++i) {
         if (paramValues_[i].first == name) {
             idx = i;
             return true;

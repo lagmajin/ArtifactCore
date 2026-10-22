@@ -1090,7 +1090,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Image/PNGImage.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Image/PSDDocument.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Image/RawImage.cppm"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/ImageProcessing/AbstractImageEffect.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/ImageProcessing/AbstractImageEffect.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/ImageProcessing/Affine.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/ImageProcessing/AnisotropicFlowBlur.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/ImageProcessing/Blur.cppm"
