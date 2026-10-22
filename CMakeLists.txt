@@ -460,7 +460,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
                 "/reference;Serialization.ISerializable=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Serialization.ISerializable.ifc"
                 "/reference;Serialization.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Serialization.Registry.ifc"
                 "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/Diagnostics/ProjectDiagnostic.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/Diagnostics/ProjectDiagnostic.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
                 "/reference;Container.NamedVector=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.NamedVector.ifc"
@@ -6826,7 +6826,7 @@ endif()
 # interface object dependency explicit so MSVC has the IFC before compiling
 # the implementation unit.
 foreach(_artifact_namedvector_consumer IN ITEMS
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/Diagnostics/ProjectDiagnostic.cppm"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/Diagnostics/ProjectDiagnostic.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/Color/ColorLUT.cppm")
     # Visual Studio supplies the provider IFC for these imports. Keep only
     # the ordering dependency here to avoid a second alias for the same IFC.
