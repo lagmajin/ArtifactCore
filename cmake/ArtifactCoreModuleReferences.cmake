@@ -18,7 +18,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/Animation/KeyframeEditingTools.cppm|Animation.KeyframeEditingTools|include/Animation/KeyframeEditingTools.ixx"
     "src/Application/ArtifactAppSettings.cppm|Application.AppSettings|include/Application/ArtifactAppSettings.ixx"
     "src/Asset/AbstractAssetFile.cppm|Asset.File|include/Asset/AbstractAssetFile.ixx"
-    "src/Asset/AssetConverter.cppm|AssetConverter|include/Asset/AssetConverter.ixx"
+    "src/Asset/AssetConverter.cpp|AssetConverter|include/Asset/AssetConverter.ixx"
     "src/Asset/AssetDatabase.cppm|Asset.Database|include/Asset/AssetDatabase.ixx"
     "src/Asset/AssetImporter.cppm|Asset.Importer|include/Asset/AssetImporter.ixx"
     "src/Asset/AssetManager.cppm|Asset.Manager|include/Utils/AssetManager.ixx"

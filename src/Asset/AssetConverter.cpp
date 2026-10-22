@@ -1,6 +1,11 @@
 module;
 #include <algorithm>
+#include <memory>
+#include <utility>
 #include <QDateTime>
+#include <QByteArray>
+#include <QSize>
+#include <QString>
 #include <QDir>
 #include <QFileInfo>
 #include <OpenImageIO/imagebuf.h>

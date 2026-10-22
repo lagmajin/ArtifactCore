@@ -3534,7 +3534,7 @@ set(ARTIFACTCORE_ASSET_MODULES
 )
 set(ARTIFACTCORE_ASSET_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Asset/AbstractAssetFile.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Asset/AssetConverter.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Asset/AssetConverter.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Asset/AssetDatabase.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Asset/AssetImporter.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Asset/AssetManager.cppm"

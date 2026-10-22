@@ -889,7 +889,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Animation/KeyframeEditingTools.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Application/ArtifactAppSettings.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Asset/AbstractAssetFile.cppm"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Asset/AssetConverter.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Asset/AssetConverter.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Asset/AssetDatabase.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Asset/AssetImporter.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Asset/AssetManager.cppm"
