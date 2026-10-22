@@ -3834,7 +3834,7 @@ set(ARTIFACTCORE_CONFIGURATION_MODULES
 )
 set(ARTIFACTCORE_CONFIGURATION_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Configuration/ConfigSchema.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Configuration/LayeredConfigStore.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Configuration/LayeredConfigStore.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Application/ArtifactAppSettings.cppm"
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_CONFIGURATION_MODULES})
