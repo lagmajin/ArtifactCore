@@ -427,7 +427,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
                 "/reference;Math.Bezier=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Math.Bezier.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/Geometry/MeshImporter.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/Geometry/MeshImporter.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
                 "/reference;MeshImporter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/MeshImporter.ifc"
@@ -5009,7 +5009,7 @@ if(TARGET usd AND TARGET usdGeom AND TARGET usdShade)
         "${CMAKE_BINARY_DIR}/libs/openusd/include"
         "${CMAKE_SOURCE_DIR}/libs/openusd")
     target_compile_definitions(ArtifactCore PRIVATE ARTIFACT_WITH_OPENUSD)
-    set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/MeshImporter.cppm"
+    set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/MeshImporter.cpp"
         APPEND PROPERTY OBJECT_DEPENDS
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/CXX.dd")
     message(STATUS "ArtifactCore: OpenUSD stage import enabled")

@@ -1013,7 +1013,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Geometry/LayerBoundsCalculator.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Geometry/MeshDeform.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Geometry/MeshEncoder.cppm"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Geometry/MeshImporter.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Geometry/MeshImporter.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Geometry/Procedural3DGenerators.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Geometry/ResolutionRemap.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Geometry/ShapeExtrude.cppm"
