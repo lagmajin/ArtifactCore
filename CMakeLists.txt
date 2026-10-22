@@ -89,7 +89,7 @@ set(CORE_IMPL ${_artifact_normalized_core_impl})
 # name as a second provider and emits duplicate IFC rules, so keep the source
 # private and let MSVC compile it without a separate dyndep scan.
 set_source_files_properties(
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/File/FileInfo.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/File/FileInfo.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/OpenEXR.cppm"
     PROPERTIES CXX_SCAN_FOR_MODULES OFF
 )
@@ -145,7 +145,7 @@ if(MSVC)
             "/reference;ImageProcessing:AntiAliasing=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-AntiAliasing.ifc"
             "/reference;Particle=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Particle.ifc")
     set_source_files_properties(
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/File/FileInfo.cppm"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/File/FileInfo.cpp"
         PROPERTIES
             OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreFile.dir/include/File/FileInfo.ixx.obj"
     )
@@ -172,7 +172,7 @@ if(ARTIFACT_COMPILER_CLANG_GNU)
 endif()
 set(_artifact_scanned_impl ${CORE_IMPL})
 list(REMOVE_ITEM _artifact_scanned_impl
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/File/FileInfo.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/File/FileInfo.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/OpenEXR.cppm"
 )
 set_source_files_properties(${_artifact_scanned_impl} PROPERTIES CXX_SCAN_FOR_MODULES ON)
@@ -2291,7 +2291,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
                 "/reference;Property.Types=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Property.Types.ifc"
                 "/reference;FloatRGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/FloatRGBA.ifc"
                 "/reference;Container.Debug.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.Registry.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/File/FileInfo.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/File/FileInfo.cpp")
         # FileInfo is compiled by the split File target.  Its partition IFC
         # must not resolve to the aggregate Core output directory.
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
@@ -3771,7 +3771,7 @@ set(ARTIFACTCORE_FILE_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/File/PreviewDescriptor.ixx"
 )
 set(ARTIFACTCORE_FILE_IMPL
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/File/FileInfo.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/File/FileInfo.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/File/FileTypeDetector.cpp"
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_FILE_MODULES})

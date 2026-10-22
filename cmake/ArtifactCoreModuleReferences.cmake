@@ -120,7 +120,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/EnvironmentVariable/EnvironmentVariable.cpp|EnvironmentVariable|include/EnvironmentVariable/EnvironmentVariable.ixx"
     "src/Event/EventBus.cppm|Event.Bus|include/Event/EventBus.ixx"
     "src/Event/EventBusDebugger.cppm|ArtifactCore.Event.EventBusDebugger|include/Event/EventBusDebugger.ixx"
-    "src/File/FileInfo.cppm|File:Info|include/File/FileInfo.ixx"
+    "src/File/FileInfo.cpp|File:Info|include/File/FileInfo.ixx"
     "src/File/FileTypeDetector.cpp|File.TypeDetector|include/File/FileTypeDetector.ixx"
     "src/Frame/FrameOffset.cpp|Frame.Offset|include/Frame/FrameOffset.ixx"
     "src/Frame/FramePosition.cpp|Frame.Position|include/Frame/FramePosition.ixx"
