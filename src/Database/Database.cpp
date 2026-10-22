@@ -1,12 +1,17 @@
 module;
 #include <QDir>
 #include <QFileInfo>
-#include <QSaveFile>
+#include <QByteArray>
+#include <QString>
+#include <QStringList>
+#include <QVariant>
+#include <QSqlDatabase>
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QSqlRecord>
 #include <QDateTime>
 #include <algorithm>
+#include <utility>
 
 module Core.Database;
 

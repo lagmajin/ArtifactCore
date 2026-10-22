@@ -3806,7 +3806,7 @@ set(ARTIFACTCORE_DATABASE_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Database/DatabaseTypes.ixx"
 )
 set(ARTIFACTCORE_DATABASE_IMPL
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Database/Database.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Database/Database.cpp"
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_DATABASE_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_DATABASE_IMPL})
@@ -5641,10 +5641,10 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Generate/StarfieldGenerator
     APPEND PROPERTY COMPILE_OPTIONS
         "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc"
         "/reference;Math.Random=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Math.Random.ifc")
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Database/Database.cppm"
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Database/Database.cpp"
     APPEND PROPERTY COMPILE_OPTIONS
         "/reference;Core.Database.Types=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreDatabase.dir/Core.Database.Types.ifc")
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Database/Database.cppm"
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Database/Database.cpp"
     APPEND PROPERTY OBJECT_DEPENDS
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreDatabase.dir/include/Database/DatabaseTypes.ixx.obj")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Simulation/OpenVDBVolumeReference.cppm"

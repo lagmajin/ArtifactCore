@@ -985,7 +985,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Core/Parallel.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Core/Position2D.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Core/UniformScale.cppm"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Database/Database.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Database/Database.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Diagnostics/CrashHandler.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Diagnostics/DiagnosticEngine.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Diagnostics/FallbackPolicy.cpp"
