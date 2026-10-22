@@ -2298,7 +2298,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             COMPILE_OPTIONS
                 "/reference;File:Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreFile.dir/File-Info.ifc")
     elseif(_artifact_impl_relative MATCHES "^src/Configuration/" OR
-           _artifact_impl_relative STREQUAL "src/Application/ArtifactAppSettings.cppm")
+           _artifact_impl_relative STREQUAL "src/Application/ArtifactAppSettings.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
                 "/reference;${_artifact_module_name}=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreConfiguration.dir/${_artifact_module_name}.ifc"
@@ -3462,7 +3462,7 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Text/TextAnimator.cppm" APP
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Text/TextShapingBackend.cppm" APPEND PROPERTY COMPILE_OPTIONS
     "/reference;Container.NamedVector=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.NamedVector.ifc"
     "/reference;Container.Debug=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.ifc")
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Application/ArtifactAppSettings.cppm" APPEND PROPERTY COMPILE_OPTIONS
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Application/ArtifactAppSettings.cpp" APPEND PROPERTY COMPILE_OPTIONS
     "/reference;Event.Bus=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Event.Bus.ifc"
     "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc")
 
@@ -3835,7 +3835,7 @@ set(ARTIFACTCORE_CONFIGURATION_MODULES
 set(ARTIFACTCORE_CONFIGURATION_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Configuration/ConfigSchema.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Configuration/LayeredConfigStore.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Application/ArtifactAppSettings.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Application/ArtifactAppSettings.cpp"
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_CONFIGURATION_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_CONFIGURATION_IMPL})
@@ -4275,7 +4275,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreShape.dir/include/Shape/ShapeTypes.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Property/PropertyTypes.ixx.obj")
     elseif(_artifact_impl_relative MATCHES "^src/Configuration/" OR
-           _artifact_impl_relative STREQUAL "src/Application/ArtifactAppSettings.cppm")
+           _artifact_impl_relative STREQUAL "src/Application/ArtifactAppSettings.cpp")
         set(_artifact_configuration_interface_objects)
         foreach(_artifact_configuration_interface IN LISTS ARTIFACTCORE_CONFIGURATION_MODULES)
             if(_artifact_configuration_interface MATCHES "\\.ixx$")

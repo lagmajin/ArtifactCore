@@ -887,7 +887,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Animation/AnimatableTransform3D.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Animation/AnimationDynamics.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Animation/KeyframeEditingTools.cpp"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Application/ArtifactAppSettings.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Application/ArtifactAppSettings.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Asset/AbstractAssetFile.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Asset/AssetConverter.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Asset/AssetDatabase.cpp"
