@@ -3145,7 +3145,7 @@ set(ARTIFACTCORE_AUDIO_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/Spatial/SpeakerLayout.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/FormantExtractor.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/LipSyncTrack.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/SimpleWav.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/SimpleWav.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/WASAPIBackend.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Codec/FFMpegAudioDecoder.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Particle/ParticleSystem.cppm"
