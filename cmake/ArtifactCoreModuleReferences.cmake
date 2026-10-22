@@ -154,7 +154,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/Graphics/Compute/ScopeComputer.cppm|Graphics.Compute.ScopeComputer|include/Graphics/Compute/ScopeComputer.ixx"
     "src/Graphics/Effect/ChromaticAberrationEffect.cppm|Graphics.Effect.Creative.ChromaticAberration|include/Graphics/Effect/ChromaticAberrationEffect.ixx"
     "src/Graphics/Effect/ColorVibranceEffect.cppm|Graphics.Effect.Creative.ColorVibrance|include/Graphics/Effect/ColorVibranceEffect.ixx"
-    "src/Graphics/Effect/CreativeEffect.cppm|Graphics.Effect.Creative|include/Graphics/Effect/CreativeEffect.ixx"
+    "src/Graphics/Effect/CreativeEffect.cpp|Graphics.Effect.Creative|include/Graphics/Effect/CreativeEffect.ixx"
     "src/Graphics/Effect/CreativeEffectFactory.cppm|Graphics.Effect.Creative.Factory|include/Graphics/Effect/CreativeEffectFactory.ixx"
     "src/Graphics/Effect/CreativeEffectManager.cppm|Graphics.Effect.Creative.Manager|include/Graphics/Effect/CreativeEffectManager.ixx"
     "src/Graphics/Effect/DepthMeltEffect.cppm|Graphics.Effect.Creative.DepthMelt|include/Graphics/Effect/DepthMeltEffect.ixx"

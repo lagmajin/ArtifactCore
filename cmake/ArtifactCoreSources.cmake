@@ -1025,7 +1025,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Graphics/Compute/ScopeComputer.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Graphics/Effect/ChromaticAberrationEffect.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Graphics/Effect/ColorVibranceEffect.cppm"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Graphics/Effect/CreativeEffect.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Graphics/Effect/CreativeEffect.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Graphics/Effect/CreativeEffectFactory.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Graphics/Effect/CreativeEffectManager.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Graphics/Effect/DepthMeltEffect.cppm"
