@@ -880,7 +880,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/AI/RotoBrushImageSegmenter.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/AI/TieredAIManager.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Analyze/Histgram.cpp"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Analyze/ImageAnalyzer.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Analyze/ImageAnalyzer.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Analyze/OpenCV/OptifalFlowResult.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Analyze/SmartPaletteAnalyzer.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Animation/AnimatableTransform2D.cppm"

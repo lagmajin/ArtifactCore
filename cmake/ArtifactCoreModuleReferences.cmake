@@ -8,7 +8,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/AI/OnnxImageSegmenter.cppm|Core.AI.OnnxImageSegmenter|include/AI/OnnxImageSegmenter.ixx"
     "src/AI/RotoBrushImageSegmenter.cppm|Core.AI.RotoBrushImageSegmenter|include/AI/RotoBrushImageSegmenter.ixx"
     "src/Analyze/Histgram.cpp|Analyze.Histgram|include/Analyze/Histgram.ixx"
-    "src/Analyze/ImageAnalyzer.cppm|Analyze.Histogram|include/Analyze/ImageAnalyzer.ixx"
+    "src/Analyze/ImageAnalyzer.cpp|Analyze.Histogram|include/Analyze/ImageAnalyzer.ixx"
     "src/Analyze/OpenCV/OptifalFlowResult.cpp|Analyze.OpticalFlow|include/Analyze/OpenCV/OptifalFlowResult.ixx"
     "src/Analyze/SmartPaletteAnalyzer.cppm|Analyze.SmartPalette|include/Analyze/SmartPaletteAnalyzer.ixx"
     "src/Animation/AnimatableTransform2D.cppm|Animation.Transform2D|include/Animation/AnimatableTransform2D.ixx"

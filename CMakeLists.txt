@@ -3639,7 +3639,7 @@ set(ARTIFACTCORE_ANALYZE_MODULES
 )
 set(ARTIFACTCORE_ANALYZE_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Analyze/Histgram.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Analyze/ImageAnalyzer.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Analyze/ImageAnalyzer.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Analyze/OpenCV/OptifalFlowResult.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Analyze/SmartPaletteAnalyzer.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Time/TimeRemap.cppm"
@@ -5465,7 +5465,7 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Analyze/SmartPaletteAnalyze
         "/reference;Image.Raw=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.Raw.ifc"
         "/reference;Container.Debug=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.ifc"
         "/reference;Container.Debug.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.Registry.ifc")
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Analyze/ImageAnalyzer.cppm"
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Analyze/ImageAnalyzer.cpp"
     APPEND PROPERTY COMPILE_OPTIONS
         "/reference;Image.ImageSurfaceView=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageSurfaceView.ifc"
         "/reference;Graphics.SurfaceColorContract=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.SurfaceColorContract.ifc"
@@ -5474,7 +5474,7 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Analyze/Histgram.cpp" APPEN
     "/reference;Container.NamedVector=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.NamedVector.ifc"
     "/reference;Container.Debug=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.ifc"
     "/reference;Container.Debug.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.Registry.ifc")
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Analyze/ImageAnalyzer.cppm"
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Analyze/ImageAnalyzer.cpp"
     APPEND PROPERTY OBJECT_DEPENDS
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Image/ImageSurfaceView.ixx.obj"
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Graphics/SurfaceColorContract.ixx.obj"
