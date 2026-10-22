@@ -136,7 +136,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/Geometry/BezierPathSampler.cppm|Math.Bezier.Sampler|include/Geometry/BezierPathSampler.ixx"
     "src/Geometry/Fracture.cppm|Geometry.Fracture|include/Geometry/Fracture.ixx"
     "src/Geometry/LayerAlignment.cppm|Geometry.LayerAlignment|include/Geometry/LayerAlignment.ixx"
-    "src/Geometry/LayerBoundsCalculator.cppm|Geometry.LayerBounds|include/Geometry/LayerBoundsCalculator.ixx"
+    "src/Geometry/LayerBoundsCalculator.cpp|Geometry.LayerBounds|include/Geometry/LayerBoundsCalculator.ixx"
     "src/Geometry/MeshDeform.cppm|Geometry.MeshDeform|include/Geometry/MeshDeform.ixx"
     "src/Geometry/MeshImporter.cppm|MeshImporter|include/Geometry/MeshImporter.ixx"
     "src/Geometry/Procedural3DGenerators.cppm|Procedural3DGenerators|include/Geometry/Procedural3DGenerators.ixx"

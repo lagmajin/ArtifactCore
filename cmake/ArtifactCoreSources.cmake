@@ -1010,7 +1010,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Geometry/BezierPathSampler.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Geometry/Fracture.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Geometry/LayerAlignment.cppm"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Geometry/LayerBoundsCalculator.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Geometry/LayerBoundsCalculator.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Geometry/MeshDeform.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Geometry/MeshEncoder.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Geometry/MeshImporter.cppm"
