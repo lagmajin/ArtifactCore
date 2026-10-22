@@ -2,6 +2,11 @@ module;
 
 #include <QFile>
 #include <QFileInfo>
+#include <QByteArray>
+#include <QDateTime>
+#include <QSize>
+#include <QString>
+#include <QtGlobal>
 #include <QMimeDatabase>
 #include <QUrl>
 #include <utility>

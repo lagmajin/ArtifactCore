@@ -3895,7 +3895,7 @@ set(ARTIFACTCORE_SOURCE_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Source/ISource.ixx"
 )
 set(ARTIFACTCORE_SOURCE_IMPL
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Source/ISource.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Source/ISource.cpp"
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_SOURCE_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_SOURCE_IMPL})
@@ -5674,7 +5674,7 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Coordinate/CoordinateProfil
         "/reference;Serialization.SchemaMigration=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Serialization.SchemaMigration.ifc"
         "/reference;Serialization.ISerializable=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Serialization.ISerializable.ifc"
         "/reference;Serialization.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Serialization.Registry.ifc")
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Source/ISource.cppm"
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Source/ISource.cpp"
     APPEND PROPERTY COMPILE_OPTIONS
         "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc"
         "/reference;Utils.Id=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Id.ifc")
