@@ -2978,7 +2978,7 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Transitions/CubeTrans
     "/reference;Video.Transitions.CubeTransition=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreVideo.dir/Video.Transitions.CubeTransition.ifc"
     "/reference;NLE.Core=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreNLE.dir/NLE.Core.ifc"
     "/reference;Video.TransitionFactory=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreVideo.dir/Video.TransitionFactory.ifc")
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/NLE/OTIO.cppm" PROPERTY COMPILE_OPTIONS
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/NLE/OTIO.cpp" PROPERTY COMPILE_OPTIONS
     "/reference;NLE.OTIO=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreNLE.dir/NLE.OTIO.ifc"
     "/reference;NLE.Core=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreNLE.dir/NLE.Core.ifc"
     "/reference;Frame.Position=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Position.ifc"
@@ -3678,7 +3678,7 @@ set(ARTIFACTCORE_NLE_MODULES
 )
 set(ARTIFACTCORE_NLE_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/NLE/Core.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/NLE/OTIO.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/NLE/OTIO.cpp"
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_NLE_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_NLE_IMPL})
@@ -4407,7 +4407,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreNLE.dir/include/NLE/Core.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreVideo.dir/include/Video/TransitionFactory.ixx.obj")
-    elseif(_artifact_impl_relative STREQUAL "src/NLE/OTIO.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/NLE/OTIO.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreNLE.dir/include/NLE/Core.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Frame/FrameRange.ixx.obj"

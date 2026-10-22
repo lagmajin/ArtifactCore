@@ -330,7 +330,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/Media/MediaSource.cppm|MediaSource|include/Media/MediaSource.ixx"
     "src/Mesh/Mesh.cppm|Mesh|include/Mesh/Mesh.ixx"
     "src/NLE/Core.cppm|NLE.Core|include/NLE/Core.ixx"
-    "src/NLE/OTIO.cppm|NLE.OTIO|include/NLE/OTIO.ixx"
+    "src/NLE/OTIO.cpp|NLE.OTIO|include/NLE/OTIO.ixx"
     "src/Network/CollaborationWebSocket.cppm|Network.CollaborationWebSocket|include/Network/CollaborationWebSocket.ixx"
     "src/Network/NetworkRPCClient.cppm|NetworkRPCClient|NetworkRPCClient.ixx"
     "src/Network/NetworkRPCServer.cppm|NetworkRPCServer|NetworkRPCServer.ixx"

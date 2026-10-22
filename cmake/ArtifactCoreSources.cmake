@@ -1217,7 +1217,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Network/NetworkRPCClient.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Network/NetworkRPCServer.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/NLE/Core.cppm"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/NLE/OTIO.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/NLE/OTIO.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Particle/ParticleSystem.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Physics/FluidSolver2D.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Physics/FractureEngine.cppm"
