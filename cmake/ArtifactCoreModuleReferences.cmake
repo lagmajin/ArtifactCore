@@ -197,7 +197,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/IO/Image/ImageExporter.cppm|IO.ImageExporter|include/IO/Image/ImageExporter.ixx"
     "src/IO/Image/ImageImporter.cppm|IO.ImageImporter|include/IO/Image/ImageImporter.ixx"
     "src/IO/VectorExport.cppm|IO.VectorExport|include/IO/VectorExport.ixx"
-    "src/IO/asio_async_file_writer.cppm|asio_async_file_writer|include/IO/asio_async_file_writer.ixx"
+    "src/IO/asio_async_file_writer.cpp|asio_async_file_writer|include/IO/asio_async_file_writer.ixx"
     "src/IPC/IPCChannel.cppm|IPC.IPCChannel|include/IPC/IPCChannel.ixx"
     "src/IPC/RenderFarmSharedBuffer.cppm|IPC.RenderFarmSharedBuffer|include/IPC/RenderFarmSharedBuffer.ixx"
     "src/IPC/SharedMemoryRingBuffer.cppm|IPC.SharedMemoryRingBuffer|include/IPC/SharedMemoryRingBuffer.ixx"

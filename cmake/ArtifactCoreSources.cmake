@@ -1176,7 +1176,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/ImageProcessing/TiltShift.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/ImageProcessing/VectorFlowGlitch.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/ImageProcessing/WireRemove.cppm"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/IO/asio_async_file_writer.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/IO/asio_async_file_writer.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/IO/Image/AsyncImageWriterManager.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/IO/Image/ImageExporter.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/IO/Image/ImageImporter.cppm"
