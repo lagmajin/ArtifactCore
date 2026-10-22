@@ -196,7 +196,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/Graphics/Texture/TextureManager.cppm|Graphics.Texture.Manager|include/Graphics/Texture/TextureManager.ixx"
     "src/IO/Image/AsyncImageWriterManager.cppm|IO.Async.ImageWriterManager|include/IO/Image/AsyncImageWriterManager.ixx"
     "src/IO/Image/ImageExporter.cppm|IO.ImageExporter|include/IO/Image/ImageExporter.ixx"
-    "src/IO/Image/ImageImporter.cppm|IO.ImageImporter|include/IO/Image/ImageImporter.ixx"
+    "src/IO/Image/ImageImporter.cpp|IO.ImageImporter|include/IO/Image/ImageImporter.ixx"
     "src/IO/VectorExport.cppm|IO.VectorExport|include/IO/VectorExport.ixx"
     "src/IO/asio_async_file_writer.cpp|asio_async_file_writer|include/IO/asio_async_file_writer.ixx"
     "src/IPC/IPCChannel.cppm|IPC.IPCChannel|include/IPC/IPCChannel.ixx"

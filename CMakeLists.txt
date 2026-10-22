@@ -1214,7 +1214,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/NamedVector.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/ContainerDebug.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/ContainerDebugRegistry.ixx.obj")
-    elseif(_artifact_impl_relative STREQUAL "src/IO/Image/ImageImporter.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/IO/Image/ImageImporter.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;IO.ImageImporter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/IO.ImageImporter.ifc"
             "/reference;Image.Raw=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.Raw.ifc"
@@ -6862,7 +6862,7 @@ set_property(SOURCE ${_artifact_video_transition_impls} APPEND PROPERTY OBJECT_D
 
 # ImageImporter imports the PSD implementation interface directly.  Keep the
 # producer object ordered before the implementation unit for MSVC dyndep.
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/IO/Image/ImageImporter.cppm"
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/IO/Image/ImageImporter.cpp"
     APPEND PROPERTY OBJECT_DEPENDS
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Image/PSDDocument.ixx.obj")
 
