@@ -276,7 +276,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             COMPILE_OPTIONS
                 "/reference;Color.Conversion=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Conversion.ifc"
                 "/reference;Color.Float=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Float.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/Color/ColorHarmonizer.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/Color/ColorHarmonizer.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
                 "/reference;Color.Harmonizer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Harmonizer.ifc"

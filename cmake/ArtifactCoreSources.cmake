@@ -948,7 +948,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Color/AutoColorMatch.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Color/ColorBlendMode.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Color/ColorConversion.cppm"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Color/ColorHarmonizer.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Color/ColorHarmonizer.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Color/ColorLuminance.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Color/ColorLUT.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Color/ColorSpace.cppm"
