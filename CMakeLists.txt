@@ -2208,7 +2208,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
     elseif(_artifact_impl_relative STREQUAL "src/Scene/SceneNode.cppm")
         # SceneNode is emitted by ArtifactCoreScene; its split-target
         # references are declared with the other Scene properties below.
-    elseif(_artifact_impl_relative STREQUAL "src/IO/VectorExport.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/IO/VectorExport.cpp")
         # VectorExport is compiled by ArtifactCoreShape; the source manifest
         # is declared later, so resolve its primary IFC here.
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
@@ -3592,7 +3592,7 @@ set(ARTIFACTCORE_SHAPE_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Shape/ShapePath.cppm"
 )
 set(ARTIFACTCORE_SHAPE_IMPL
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/IO/VectorExport.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/IO/VectorExport.cpp"
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_SHAPE_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_SHAPE_IMPL})

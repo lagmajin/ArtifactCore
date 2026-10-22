@@ -197,7 +197,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/IO/Image/AsyncImageWriterManager.cppm|IO.Async.ImageWriterManager|include/IO/Image/AsyncImageWriterManager.ixx"
     "src/IO/Image/ImageExporter.cppm|IO.ImageExporter|include/IO/Image/ImageExporter.ixx"
     "src/IO/Image/ImageImporter.cpp|IO.ImageImporter|include/IO/Image/ImageImporter.ixx"
-    "src/IO/VectorExport.cppm|IO.VectorExport|include/IO/VectorExport.ixx"
+    "src/IO/VectorExport.cpp|IO.VectorExport|include/IO/VectorExport.ixx"
     "src/IO/asio_async_file_writer.cpp|asio_async_file_writer|include/IO/asio_async_file_writer.ixx"
     "src/IPC/IPCChannel.cppm|IPC.IPCChannel|include/IPC/IPCChannel.ixx"
     "src/IPC/RenderFarmSharedBuffer.cppm|IPC.RenderFarmSharedBuffer|include/IPC/RenderFarmSharedBuffer.ixx"
@@ -449,12 +449,12 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
 # disabled below. Keep these explicit so MSVC receives both the BMI reference
 # and the producing interface-object dependency.
 set(ARTIFACTCORE_IMPLEMENTATION_IMPORTED_MODULE_REFERENCES
-    "src/IO/VectorExport.cppm|Shape.Layer|include/Shape/ShapeLayer.ixx"
-    "src/IO/VectorExport.cppm|Shape.Path|include/Shape/ShapePath.ixx"
-    "src/IO/VectorExport.cppm|Shape.Types|include/Shape/ShapeTypes.ixx"
-    "src/IO/VectorExport.cppm|Shape.Group|include/Shape/ShapeGroup.ixx"
-    "src/IO/VectorExport.cppm|Shape.Operator|include/Shape/ShapeOperator.ixx"
-    "src/IO/VectorExport.cppm|Property.Types|include/Property/PropertyTypes.ixx"
+    "src/IO/VectorExport.cpp|Shape.Layer|include/Shape/ShapeLayer.ixx"
+    "src/IO/VectorExport.cpp|Shape.Path|include/Shape/ShapePath.ixx"
+    "src/IO/VectorExport.cpp|Shape.Types|include/Shape/ShapeTypes.ixx"
+    "src/IO/VectorExport.cpp|Shape.Group|include/Shape/ShapeGroup.ixx"
+    "src/IO/VectorExport.cpp|Shape.Operator|include/Shape/ShapeOperator.ixx"
+    "src/IO/VectorExport.cpp|Property.Types|include/Property/PropertyTypes.ixx"
     "src/AI/APIKeyManager.cpp|Core.AI.CloudAgent|include/AI/ICloudAIAgent.ixx"
     "src/AI/APIKeyManager.cpp|Configuration.ConfigLayer|include/Configuration/ConfigLayer.ixx"
     "src/AI/APIKeyManager.cpp|Configuration.LayeredConfigStore|include/Configuration/LayeredConfigStore.ixx"
