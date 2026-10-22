@@ -418,7 +418,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
                 "/reference;Geometry.ResolutionRemap=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Geometry.ResolutionRemap.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/Geometry/BezierPathSampler.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/Geometry/BezierPathSampler.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
                 "/reference;Math.Bezier.Sampler=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Math.Bezier.Sampler.ifc"

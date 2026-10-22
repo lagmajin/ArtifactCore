@@ -1007,7 +1007,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Generate/GenerateTestImage.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Generate/StarfieldGenerator.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Geometry/BezierCalculator.cpp"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Geometry/BezierPathSampler.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Geometry/BezierPathSampler.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Geometry/Fracture.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Geometry/LayerAlignment.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Geometry/LayerBoundsCalculator.cpp"
