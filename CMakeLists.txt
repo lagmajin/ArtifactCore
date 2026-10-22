@@ -3866,7 +3866,7 @@ set(ARTIFACTCORE_GENERATE_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Generate/StarfieldGenerator.ixx"
 )
 set(ARTIFACTCORE_GENERATE_IMPL
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Generate/GenerateTestImage.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Generate/GenerateTestImage.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Generate/StarfieldGenerator.cppm"
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_GENERATE_MODULES})
@@ -5634,7 +5634,7 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Render/RendererQueueManager
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Render/MFR/MFRJob.ixx.obj"
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Render/MFR/MFRDispatcher.ixx.obj"
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/ContainerDebugRegistry.ixx.obj")
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Generate/GenerateTestImage.cppm"
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Generate/GenerateTestImage.cpp"
     APPEND PROPERTY COMPILE_OPTIONS
         "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Generate/StarfieldGenerator.cppm"
