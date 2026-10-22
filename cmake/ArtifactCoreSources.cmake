@@ -1300,7 +1300,7 @@ set(ARTIFACTCORE_IMPL_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Transform/StaticTransform3D.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Transform/TransformHelper.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Transform/ViewportTransformer.cppm"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Transform/ZoomScale.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Transform/ZoomScale.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../src/UI/InputOperator.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/UI/InputOperatorManager.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/UI/LayoutState.cpp"

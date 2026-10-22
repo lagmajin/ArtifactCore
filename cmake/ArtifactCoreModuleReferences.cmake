@@ -411,7 +411,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/Transform/StaticTransform3D.cpp|Transform._3D|include/Transform/StaticTransform3D.ixx"
     "src/Transform/TransformHelper.cppm|Transform.Hlper|include/Transform/TransformHelper.ixx"
     "src/Transform/ViewportTransformer.cppm|Core.Transform.Viewport|include/Transform/ViewportTransformer.ixx"
-    "src/Transform/ZoomScale.cppm|Core.Scale.Zoom|include/Transform/ZoomScale.ixx"
+    "src/Transform/ZoomScale.cpp|Core.Scale.Zoom|include/Transform/ZoomScale.ixx"
     "src/Utils/AssetFingerprint.cpp|Utils.Fingerprint|include/Utils/AssetFingerprint.ixx"
     "src/Utils/ExplorerUtils.cpp|Utils.ExplorerUtils|include/Utils/ExplorerUtils.ixx"
     "src/Utils/HashValue.cpp|Utils.HashValue|include/Utils/HashValue.ixx"
