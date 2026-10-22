@@ -671,7 +671,7 @@
     <ClCompile Include="NetworkRPCServer.ixx">
       <CompileAs>CompileAsCppModule</CompileAs>
     </ClCompile>
-    <ClCompile Include="src\Analyze\Histgram.cppm">
+    <ClCompile Include="src\Analyze\Histgram.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
     <ClCompile Include="src\Analyze\OpenCV\OptifalFlowResult.cppm">

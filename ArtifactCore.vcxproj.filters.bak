@@ -1385,7 +1385,7 @@
     <ClCompile Include="include\UI\RotateOperator.ixx" />
     <ClCompile Include="include\UI\ScaleOperator.ixx" />
     <ClCompile Include="include\UI\SelectOperator.ixx" />
-    <ClCompile Include="src\Analyze\Histgram.cppm" />
+    <ClCompile Include="src\Analyze\Histgram.cpp" />
     <ClCompile Include="src\Codec\MFFrameExtractor.cppm" />
     <ClCompile Include="src\Color\XYZColor.cppm" />
     <ClCompile Include="src\File\FileTypeDetector.cppm" />

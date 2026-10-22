@@ -7,7 +7,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/AI/LlamaLocalAgent.cppm|Core.AI.LlamaAgent|include/AI/LlamaLocalAgent.ixx"
     "src/AI/OnnxImageSegmenter.cppm|Core.AI.OnnxImageSegmenter|include/AI/OnnxImageSegmenter.ixx"
     "src/AI/RotoBrushImageSegmenter.cppm|Core.AI.RotoBrushImageSegmenter|include/AI/RotoBrushImageSegmenter.ixx"
-    "src/Analyze/Histgram.cppm|Analyze.Histgram|include/Analyze/Histgram.ixx"
+    "src/Analyze/Histgram.cpp|Analyze.Histgram|include/Analyze/Histgram.ixx"
     "src/Analyze/ImageAnalyzer.cppm|Analyze.Histogram|include/Analyze/ImageAnalyzer.ixx"
     "src/Analyze/OpenCV/OptifalFlowResult.cpp|Analyze.OpticalFlow|include/Analyze/OpenCV/OptifalFlowResult.ixx"
     "src/Analyze/SmartPaletteAnalyzer.cppm|Analyze.SmartPalette|include/Analyze/SmartPaletteAnalyzer.ixx"
