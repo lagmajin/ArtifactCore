@@ -3700,7 +3700,7 @@ set(ARTIFACTCORE_PREVIEW_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Preview/PreviewSettings.ixx"
 )
 set(ARTIFACTCORE_PREVIEW_IMPL
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Preview/PreviewQuality.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Preview/PreviewQuality.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Preview/PreviewSettings.cpp"
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_PREVIEW_MODULES})
