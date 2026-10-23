@@ -100,10 +100,10 @@ if(MSVC)
         set(_artifact_object_dir "${CMAKE_CURRENT_BINARY_DIR}/ArtifactCore.dir/$<CONFIG>")
     endif()
     set_property(SOURCE
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/ImageProcessing/BroadcastColors.cppm"
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/ImageProcessing/ChromaKey.cppm"
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/ImageProcessing/ChromaSpread.cppm"
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/ImageProcessing/ChromaSpreadGlow.cppm"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/ImageProcessing/BroadcastColors.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/ImageProcessing/ChromaKey.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/ImageProcessing/ChromaSpread.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/ImageProcessing/ChromaSpreadGlow.cpp"
         APPEND PROPERTY COMPILE_OPTIONS
             "/reference;Color.GamutConversion=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.GamutConversion.ifc"
             "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc"
@@ -181,7 +181,7 @@ set_source_files_properties(
     "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/TieredAIManager.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Export/Lottie/LottieExporter.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Export/Lottie/LottieRigExporter.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Plugin/PluginCommon.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Plugin/PluginCommon.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Plugin/PluginRegistry.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Control/OscInput.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Control/MidiInput.cppm"
@@ -320,7 +320,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
                 "/reference;Color.OCIOConfig=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.OCIOConfig.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/Color/Sarturation.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/Color/Sarturation.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
                 "/reference;Color.Saturation=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Saturation.ifc"
@@ -721,16 +721,16 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             "/reference;Graphics.GPUcomputeContext=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPUcomputeContext.ifc"
             "/reference;Graphics.GPU.Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPU.Info.ifc"
             "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/DirectCompute/BroadcastColorsCS.cppm" OR
-           _artifact_impl_relative STREQUAL "src/ImageProcessing/DirectCompute/ChromaKeyCS.cppm" OR
-           _artifact_impl_relative STREQUAL "src/ImageProcessing/DirectCompute/EmbossCS.cppm" OR
-           _artifact_impl_relative STREQUAL "src/ImageProcessing/DirectCompute/LeaveColorCS.cppm" OR
-           _artifact_impl_relative STREQUAL "src/ImageProcessing/DirectCompute/LumaKeyCS.cppm" OR
-           _artifact_impl_relative STREQUAL "src/ImageProcessing/DirectCompute/MedianCS.cppm" OR
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/DirectCompute/BroadcastColorsCS.cpp" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/DirectCompute/ChromaKeyCS.cpp" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/DirectCompute/EmbossCS.cpp" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/DirectCompute/LeaveColorCS.cpp" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/DirectCompute/LumaKeyCS.cpp" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/DirectCompute/MedianCS.cpp" OR
            _artifact_impl_relative STREQUAL "src/ImageProcessing/DirectCompute/NegateCS.cppm" OR
-           _artifact_impl_relative STREQUAL "src/ImageProcessing/DirectCompute/ScatterCS.cppm" OR
-           _artifact_impl_relative STREQUAL "src/ImageProcessing/DirectCompute/SimpleChokerCS.cppm" OR
-           _artifact_impl_relative STREQUAL "src/ImageProcessing/DirectCompute/ThresholdCS.cppm")
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/DirectCompute/ScatterCS.cpp" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/DirectCompute/SimpleChokerCS.cpp" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/DirectCompute/ThresholdCS.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;Channel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Channel.ifc"
             "/reference;Image=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ifc"
@@ -795,12 +795,12 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             "/reference;Graphics.Effect.Creative.Posterize=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.Posterize.ifc"
             "/reference;Graphics.Effect.Creative.SurfaceMemory=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.SurfaceMemory.ifc"
             "/reference;Graphics.Effect.Creative.TemporalFossil=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.TemporalFossil.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/Draw.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/Draw.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;Draw=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Draw.ifc"
             "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc"
             "/reference;Graphics.GPU.Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPU.Info.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/FaceDetectionEngine.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/FaceDetectionEngine.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;ArtifactCore.ImageProcessing.FaceDetection=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ArtifactCore.ImageProcessing.FaceDetection.ifc"
             "/reference;CvUtils=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/CvUtils.ifc"
@@ -813,7 +813,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/ImageProcessing/OpenCV/FaceDetectionEngine.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/NamedVector.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/ContainerDebugRegistry.ixx.obj")
-    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/FaceTracker.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/FaceTracker.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;ArtifactCore.ImageProcessing.FaceTracker=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ArtifactCore.ImageProcessing.FaceTracker.ifc"
             "/reference;ArtifactCore.ImageProcessing.FaceDetection=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ArtifactCore.ImageProcessing.FaceDetection.ifc"
@@ -821,12 +821,12 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             "/reference;Container.NamedVector=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.NamedVector.ifc"
             "/reference;Container.Debug=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.ifc"
             "/reference;Container.Debug.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.Registry.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/GlitchCV.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/GlitchCV.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;ImageProcessing.GlitchCV=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.GlitchCV.ifc"
             "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc"
             "/reference;Math.Random=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Math.Random.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/Glow.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/Glow.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;Glow=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Glow.ifc"
             "/reference;Image=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ifc"
@@ -843,23 +843,23 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             "/reference;Image.Raw=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.Raw.ifc"
             "/reference;Channel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Channel.ifc"
             "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/Noise.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/Noise.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;Noise=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Noise.ifc"
             "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc"
             "/reference;Math.Random=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Math.Random.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/OpenCVPuppetEngine.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/OpenCVPuppetEngine.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;ArtifactCore.ImageProcessing.OpenCV.PuppetEngine=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ArtifactCore.ImageProcessing.OpenCV.PuppetEngine.ifc"
             "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/LiftCV.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/LiftCV.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;LiftCV=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/LiftCV.ifc"
             "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/SepiaCV.cppm" OR
-           _artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/VHS_CV.cppm" OR
-           _artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/SpectralGlowCV.cppm" OR
-           _artifact_impl_relative STREQUAL "src/ImageProcessing/SharpenDirectionalBlur.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/SepiaCV.cpp" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/VHS_CV.cpp" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/SpectralGlowCV.cpp" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/SharpenDirectionalBlur.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;${_artifact_module_name}=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/${_artifact_module_name}.ifc"
             "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc"
@@ -870,7 +870,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
     elseif(_artifact_impl_relative STREQUAL "src/Graphics/Shader/BasicVertexShader.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;Graphics.Shader.HLSL.Basics.Vertex=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Shader.HLSL.Basics.Vertex.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/Image/BitmapImage.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/Image/BitmapImage.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;Image.Bitmap=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.Bitmap.ifc")
     elseif(_artifact_impl_relative STREQUAL "src/Image/ImageF32x4.cpp")
@@ -886,10 +886,10 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
     elseif(_artifact_impl_relative STREQUAL "src/Image/PNGImage.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;Image.Png=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.Png.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/Image/Cryptomatte/CryptoPixel.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/Image/Cryptomatte/CryptoPixel.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;Image.Cryptomatte.Pixel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.Cryptomatte.Pixel.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/Image/Cryptomatte/CryptoImage.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/Image/Cryptomatte/CryptoImage.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;Image.Cryptomatte.Image=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.Cryptomatte.Image.ifc"
             "/reference;Image.Cryptomatte.Pixel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.Cryptomatte.Pixel.ifc")
@@ -1074,7 +1074,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             "/reference;Size=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Size.ifc"
             "/reference;FloatRGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/FloatRGBA.ifc"
             "/reference;Color.Float=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Float.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/AnisotropicFlowBlur.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/AnisotropicFlowBlur.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;ImageProcessing=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ifc"
             "/reference;ImageProcessing:DifferenceKey=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-DifferenceKey.ifc"
@@ -1323,7 +1323,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             "/reference;Image.ImageSurfaceView=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageSurfaceView.ifc"
             "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc"
             "/reference;Color.TransferFunction=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.TransferFunction.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/Distortion.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/Distortion.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;ImageProcessing.Distortion=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.Distortion.ifc"
             "/reference;FloatRGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/FloatRGBA.ifc"
@@ -1352,7 +1352,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             "/reference;Graphics.SurfaceColorContract=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.SurfaceColorContract.ifc"
             "/reference;Color.TransferFunction=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.TransferFunction.ifc"
             "/reference;Graphics.GPU.Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPU.Info.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/Image/ImageF16x4.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/Image/ImageF16x4.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;Image.ImageF16x4=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageF16x4.ifc"
             "/reference;Graphics.SurfaceColorContract=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.SurfaceColorContract.ifc"
@@ -1443,52 +1443,52 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             "/reference;Graphics.GPUcomputeContext=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPUcomputeContext.ifc"
             "/reference;Graphics.Shader.Compute.HLSL.MaskPathRasterizer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Shader.Compute.HLSL.MaskPathRasterizer.ifc"
             "/reference;Graphics.GPU.Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPU.Info.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ColorTransform/ChannelMixer.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ColorTransform/ChannelMixer.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;ImageProcessing.ColorTransform.ChannelMixer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.ChannelMixer.ifc"
             "/reference;Color.GamutConversion=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.GamutConversion.ifc"
             "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ColorTransform/ColorBalance.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ColorTransform/ColorBalance.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;ImageProcessing.ColorTransform.ColorBalance=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.ColorBalance.ifc"
             "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ColorTransform/Fill.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ColorTransform/Fill.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;ImageProcessing.ColorTransform.Fill=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.Fill.ifc"
             "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ColorTransform/FilmCurve.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ColorTransform/FilmCurve.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;ImageProcessing.ColorTransform.FilmCurve=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.FilmCurve.ifc"
             "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ColorTransform/GradientRamp.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ColorTransform/GradientRamp.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;ImageProcessing.ColorTransform.GradientRamp=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.GradientRamp.ifc"
             "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ColorTransform/HueSaturation.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ColorTransform/HueSaturation.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;ImageProcessing.ColorTransform.HueSaturation=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.HueSaturation.ifc"
             "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ColorTransform/HueVsCurves.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ColorTransform/HueVsCurves.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;ImageProcessing.ColorTransform.HueVsCurves=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.HueVsCurves.ifc"
             "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ColorTransform/LevelsCurves.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ColorTransform/LevelsCurves.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;ImageProcessing.ColorTransform.LevelsCurves=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.LevelsCurves.ifc"
             "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ColorTransform/PhotoFilter.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ColorTransform/PhotoFilter.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;ImageProcessing.ColorTransform.PhotoFilter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.PhotoFilter.ifc"
             "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ColorTransform/SelectiveColor.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ColorTransform/SelectiveColor.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;ImageProcessing.ColorTransform.SelectiveColor=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.SelectiveColor.ifc"
             "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ColorTransform/TonalSplit.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ColorTransform/TonalSplit.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;ImageProcessing.ColorTransform.TonalSplit=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.TonalSplit.ifc"
             "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ColorTransform/TriChromaticShift.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ColorTransform/TriChromaticShift.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;ImageProcessing.ColorTransform.TriChromaticShift=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.TriChromaticShift.ifc"
             "/reference;Particle=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Particle.ifc"
@@ -1499,15 +1499,15 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             "/reference;Graphics.SurfaceColorContract=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.SurfaceColorContract.ifc"
             "/reference;Color.TransferFunction=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.TransferFunction.ifc"
             "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ColorTransform/Tritone.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ColorTransform/Tritone.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;ImageProcessing.ColorTransform.Tritone=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.Tritone.ifc"
             "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ColorTransform/Colorama.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ColorTransform/Colorama.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;ImageProcessing.ColorTransform.Colorama=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.Colorama.ifc"
             "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ColorTransform/TriChromaticShift.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ColorTransform/TriChromaticShift.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;ImageProcessing.ColorTransform.TriChromaticShift=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.TriChromaticShift.ifc"
             "/reference;Particle=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Particle.ifc"
@@ -1517,7 +1517,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             "/reference;Image.ImageSurfaceView=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageSurfaceView.ifc"
             "/reference;Graphics.SurfaceColorContract=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.SurfaceColorContract.ifc"
             "/reference;Color.TransferFunction=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.TransferFunction.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/FluidVisualizer.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/FluidVisualizer.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;ImageProcessing.FluidVisualizer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.FluidVisualizer.ifc"
             "/reference;Particle=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Particle.ifc"
@@ -1640,7 +1640,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;Utils.Path=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Path.ifc"
             "/reference;Utils.String.Like=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.Like.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/Render/RendererQueueSetting.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/Render/RendererQueueSetting.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;RendererQueueSetting=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/RendererQueueSetting.ifc"
             "/reference;Utils=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.ifc"
@@ -1704,7 +1704,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc"
             "/reference;Container.NamedVector=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.NamedVector.ifc"
             "/reference;Container.Debug=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/Script/Engine/Syntax/ASTNode.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/Script/Engine/Syntax/ASTNode.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;ASTNode=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ASTNode.ifc"
             "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc")
@@ -1783,7 +1783,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             "/reference;Particle=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Particle.ifc"
             "/reference;Graphics.SurfaceColorContract=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.SurfaceColorContract.ifc"
             "/reference;Color.TransferFunction=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.TransferFunction.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ChromaKey.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ChromaKey.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;ImageProcessing=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ifc"
             "/reference;ImageProcessing:DifferenceKey=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-DifferenceKey.ifc"
@@ -1849,7 +1849,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             "/reference;ImageProcessing.ColorTransform.SelectiveColor=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.SelectiveColor.ifc"
             "/reference;ImageProcessing.ColorTransform.Tritone=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.Tritone.ifc"
             "/reference;Particle=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Particle.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/BroadcastColors.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/BroadcastColors.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;ImageProcessing=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ifc"
             "/reference;ImageProcessing:DifferenceKey=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-DifferenceKey.ifc"
@@ -1901,7 +1901,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             "/reference;ImageProcessing:AnisotropicFlowBlur=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-AnisotropicFlowBlur.ifc"
             "/reference;ImageProcessing:AntiAliasing=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-AntiAliasing.ifc"
             "/reference;Particle=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Particle.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ChromaSpread.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ChromaSpread.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;ImageProcessing=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ifc"
             "/reference;ImageProcessing:DifferenceKey=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-DifferenceKey.ifc"
@@ -1959,37 +1959,37 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             "/reference;ImageProcessing:ChromaSpreadGlow=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-ChromaSpreadGlow.ifc"
             "/reference;FloatRGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/FloatRGBA.ifc"
             "/reference;Particle=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Particle.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/OpenCVRotoBrushEngine.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/OpenCVRotoBrushEngine.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;ArtifactCore.ImageProcessing.OpenCV.RotoBrushEngine=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ArtifactCore.ImageProcessing.OpenCV.RotoBrushEngine.ifc"
             "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ChromaSpreadGlow.cppm" OR
-           _artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/AffineCV.cppm" OR
-           _artifact_impl_relative STREQUAL "src/ImageProcessing/Duotone.cppm" OR
-           _artifact_impl_relative STREQUAL "src/ImageProcessing/Echo.cppm" OR
-           _artifact_impl_relative STREQUAL "src/ImageProcessing/EdgeEcho.cppm" OR
-           _artifact_impl_relative STREQUAL "src/ImageProcessing/Emboss.cppm" OR
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ChromaSpreadGlow.cpp" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/AffineCV.cpp" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/Duotone.cpp" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/Echo.cpp" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/EdgeEcho.cpp" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/Emboss.cpp" OR
            _artifact_impl_relative STREQUAL "src/ImageProcessing/Keying/IBKKeyer.cppm" OR
-           _artifact_impl_relative STREQUAL "src/ImageProcessing/Halftone.cppm" OR
-           _artifact_impl_relative STREQUAL "src/ImageProcessing/LumaKey.cppm" OR
-           _artifact_impl_relative STREQUAL "src/ImageProcessing/LeaveColor.cppm" OR
-           _artifact_impl_relative STREQUAL "src/ImageProcessing/MotionTrail.cppm" OR
-           _artifact_impl_relative STREQUAL "src/ImageProcessing/Median.cppm" OR
-           _artifact_impl_relative STREQUAL "src/ImageProcessing/NegativeCV.cppm" OR
-           _artifact_impl_relative STREQUAL "src/ImageProcessing/NeuromorphicDisplace.cppm" OR
-           _artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/Monochrome.cppm" OR
-           _artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/Posterize.cppm" OR
-           _artifact_impl_relative STREQUAL "src/ImageProcessing/PosterizeTime.cppm" OR
-           _artifact_impl_relative STREQUAL "src/ImageProcessing/Scatter.cppm" OR
-           _artifact_impl_relative STREQUAL "src/ImageProcessing/SimpleChoker.cppm" OR
-           _artifact_impl_relative STREQUAL "src/ImageProcessing/StructureTensor.cppm" OR
-           _artifact_impl_relative STREQUAL "src/ImageProcessing/StrobeLight.cppm" OR
-           _artifact_impl_relative STREQUAL "src/ImageProcessing/Threshold.cppm" OR
-            _artifact_impl_relative STREQUAL "src/ImageProcessing/TiltShift.cppm" OR
-            _artifact_impl_relative STREQUAL "src/ImageProcessing/VectorFlowGlitch.cppm" OR
-            _artifact_impl_relative STREQUAL "src/ImageProcessing/FilmRepair.cppm" OR
-            _artifact_impl_relative STREQUAL "src/ImageProcessing/DifferenceKey.cppm" OR
-            _artifact_impl_relative STREQUAL "src/ImageProcessing/WireRemove.cppm")
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/Halftone.cpp" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/LumaKey.cpp" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/LeaveColor.cpp" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/MotionTrail.cpp" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/Median.cpp" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/NegativeCV.cpp" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/NeuromorphicDisplace.cpp" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/Monochrome.cpp" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/Posterize.cpp" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/PosterizeTime.cpp" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/Scatter.cpp" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/SimpleChoker.cpp" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/StructureTensor.cpp" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/StrobeLight.cpp" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/Threshold.cpp" OR
+            _artifact_impl_relative STREQUAL "src/ImageProcessing/TiltShift.cpp" OR
+            _artifact_impl_relative STREQUAL "src/ImageProcessing/VectorFlowGlitch.cpp" OR
+            _artifact_impl_relative STREQUAL "src/ImageProcessing/FilmRepair.cpp" OR
+            _artifact_impl_relative STREQUAL "src/ImageProcessing/DifferenceKey.cpp" OR
+            _artifact_impl_relative STREQUAL "src/ImageProcessing/WireRemove.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;ImageProcessing:NeuromorphicDisplace=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-NeuromorphicDisplace.ifc")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
@@ -3106,40 +3106,40 @@ set(ARTIFACTCORE_AUDIO_MODULES
 set(ARTIFACTCORE_AUDIO_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/ASIOBackendStub.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioAnalyzer.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioBassTreble.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioBassTreble.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioBus.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioCache.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioChorus.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioCompressor.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioChorus.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioCompressor.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioDecibels.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioDelay.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioDownMixer.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioHighLowPass.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioDelay.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioDownMixer.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioHighLowPass.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioMixer.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioPanner.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioParametricEQ.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioPanner.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioParametricEQ.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioRasterizer.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioRenderer.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioReverb.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioPlateReverb.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioBitCrusher.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioDCBlocker.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioDeEsser.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioExpander.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioPhaser.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioPingPongDelay.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioSpringReverb.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioStereoWidener.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioTapeSaturation.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioTransientShaper.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioTremolo.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioVibrato.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioReverb.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioPlateReverb.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioBitCrusher.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioDCBlocker.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioDeEsser.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioExpander.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioPhaser.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioPingPongDelay.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioSpringReverb.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioStereoWidener.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioTapeSaturation.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioTransientShaper.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioTremolo.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioVibrato.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioRingBuffer.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioSpectrum.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioStereoMixer.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioTone.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioStereoMixer.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioTone.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioVolume.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioWaveform.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioWaveform.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioWriter.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/Spatial/SpatialRenderer.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/Spatial/SpeakerLayout.cppm"
@@ -3268,7 +3268,7 @@ set(ARTIFACTCORE_VIDEO_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Stabilizer.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/TransitionFactory.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Codec/GStreamerDecoder.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Transitions/BlockDissolveTransition.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Transitions/BlockDissolveTransition.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Transitions/CrossfadeTransition.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Transitions/CubeTransition.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Transitions/DissolveTransition.cppm"
@@ -3783,7 +3783,7 @@ set(ARTIFACTCORE_PLUGIN_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Plugin/PluginRegistry.ixx"
 )
 set(ARTIFACTCORE_PLUGIN_IMPL
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Plugin/PluginCommon.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Plugin/PluginCommon.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Plugin/PluginRegistry.cpp"
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_PLUGIN_MODULES})
@@ -4218,13 +4218,13 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
         # assignment above, which otherwise overwrites earlier attachments.
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Image/SurfacePixelConversion.ixx.obj")
-    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/EdgeEcho.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/EdgeEcho.cpp")
         # EdgeEcho imports the DirectCompute SimpleChoker interface.  The
         # compile option alone does not order its IFC producer in MSVC.
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/ImageProcessing/DirectCompute/SimpleChokerCS.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/ContainerDebugRegistry.ixx.obj")
-    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/NeuromorphicDisplace.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/NeuromorphicDisplace.cpp")
         # This implementation unit explicitly imports its own partition;
         # order the partition interface object before compiling it.
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
@@ -4339,16 +4339,16 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Utils/Id.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Utils/SizeLike.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Geometry/Interpolate.ixx.obj")
-    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/FaceDetectionEngine.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/FaceDetectionEngine.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/ImageProcessing/OpenCV/CvUtils.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/NamedVector.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/ContainerDebugRegistry.ixx.obj")
-    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/FaceTracker.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/FaceTracker.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/NamedVector.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/ContainerDebugRegistry.ixx.obj")
-    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/Glow.cppm")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/Glow.cpp")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Image/Image.ixx.obj")
     elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ProceduralTexture.cppm")
@@ -4531,6 +4531,54 @@ if(MSVC AND CMAKE_GENERATOR MATCHES "Visual Studio")
             endforeach()
             set_property(SOURCE "${_artifact_impl}" PROPERTY COMPILE_OPTIONS
                 "${_artifact_filtered_options}")
+        endif()
+    endforeach()
+endif()
+
+# Some source-local MSVC module maps include std.ifc explicitly. clang-cl uses
+# the MSVC command-line frontend but has no MSVC std.ifc producer; strip only
+# those std references and dependencies when the explicit producer is absent.
+if(NOT TARGET ArtifactStdModule)
+    foreach(_artifact_std_source IN LISTS CORE_IMPL)
+        get_source_file_property(_artifact_std_options
+            "${_artifact_std_source}" COMPILE_OPTIONS)
+        if(_artifact_std_options AND
+           NOT _artifact_std_options STREQUAL "NOTFOUND")
+            set(_artifact_filtered_options)
+            set(_artifact_skip_reference_value OFF)
+            foreach(_artifact_option IN LISTS _artifact_std_options)
+                if(_artifact_skip_reference_value)
+                    set(_artifact_skip_reference_value OFF)
+                    if(NOT _artifact_option MATCHES "^std=")
+                        list(APPEND _artifact_filtered_options
+                            "/reference" "${_artifact_option}")
+                    endif()
+                elseif(_artifact_option STREQUAL "/reference")
+                    set(_artifact_skip_reference_value ON)
+                elseif(_artifact_option MATCHES "^/reference;std=")
+                    # A semicolon-packed std reference is removed as one item.
+                else()
+                    list(APPEND _artifact_filtered_options
+                        "${_artifact_option}")
+                endif()
+            endforeach()
+            set_property(SOURCE "${_artifact_std_source}" PROPERTY
+                COMPILE_OPTIONS "${_artifact_filtered_options}")
+        endif()
+
+        get_source_file_property(_artifact_std_dependencies
+            "${_artifact_std_source}" OBJECT_DEPENDS)
+        if(_artifact_std_dependencies AND
+           NOT _artifact_std_dependencies STREQUAL "NOTFOUND")
+            set(_artifact_filtered_dependencies)
+            foreach(_artifact_dependency IN LISTS _artifact_std_dependencies)
+                if(NOT _artifact_dependency MATCHES "artifact_std\\.ifc$")
+                    list(APPEND _artifact_filtered_dependencies
+                        "${_artifact_dependency}")
+                endif()
+            endforeach()
+            set_property(SOURCE "${_artifact_std_source}" PROPERTY
+                OBJECT_DEPENDS "${_artifact_filtered_dependencies}")
         endif()
     endforeach()
 endif()
@@ -5161,7 +5209,7 @@ set_target_properties(ArtifactCoreAudio PROPERTIES
     CXX_EXTENSIONS OFF
     FOLDER "ArtifactCore/Libraries"
 )
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCoreAudio PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreAudio PROPERTY CXX_MODULE_STD OFF)
@@ -5198,7 +5246,7 @@ set_target_properties(ArtifactCoreAI PROPERTIES
     CXX_EXTENSIONS OFF
     FOLDER "ArtifactCore/Libraries"
 )
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCoreAI PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreAI PROPERTY CXX_MODULE_STD OFF)
@@ -5241,7 +5289,7 @@ set_target_properties(ArtifactCoreVideo PROPERTIES
     CXX_EXTENSIONS OFF
     FOLDER "ArtifactCore/Libraries"
 )
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCoreVideo PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreVideo PROPERTY CXX_MODULE_STD OFF)
@@ -5275,7 +5323,7 @@ set_target_properties(ArtifactCoreMedia PROPERTIES
     CXX_EXTENSIONS OFF
     FOLDER "ArtifactCore/Libraries"
 )
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCoreMedia PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreMedia PROPERTY CXX_MODULE_STD OFF)
@@ -5309,7 +5357,7 @@ set_target_properties(ArtifactCoreComposition PROPERTIES
     CXX_EXTENSIONS OFF
     FOLDER "ArtifactCore/Libraries"
 )
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCoreComposition PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreComposition PROPERTY CXX_MODULE_STD OFF)
@@ -5343,7 +5391,7 @@ set_target_properties(ArtifactCoreUI PROPERTIES
     CXX_EXTENSIONS OFF
     FOLDER "ArtifactCore/Libraries"
 )
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCoreUI PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreUI PROPERTY CXX_MODULE_STD OFF)
@@ -5511,11 +5559,11 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/IPC/IPCChannel.cppm"
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/IPC/IPCChannel.cppm"
     APPEND PROPERTY OBJECT_DEPENDS
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreIPC.dir/include/IPC/SharedMemoryRingBuffer.ixx.obj")
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Plugin/PluginCommon.cppm"
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Plugin/PluginCommon.cpp"
     APPEND PROPERTY COMPILE_OPTIONS
         "/reference;ArtifactCore.Plugin.Common=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCorePlugin.dir/ArtifactCore.Plugin.Common.ifc"
         "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc")
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Plugin/PluginCommon.cppm"
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Plugin/PluginCommon.cpp"
     APPEND PROPERTY OBJECT_DEPENDS
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCorePlugin.dir/include/Plugin/PluginCommon.ixx.obj")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Plugin/PluginRegistry.cpp"
@@ -5745,7 +5793,7 @@ set_target_properties(ArtifactCoreData PROPERTIES
     CXX_EXTENSIONS OFF
     FOLDER "ArtifactCore/Libraries"
 )
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCoreData PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreData PROPERTY CXX_MODULE_STD OFF)
@@ -5779,7 +5827,7 @@ set_target_properties(ArtifactCoreCommand PROPERTIES
     CXX_EXTENSIONS OFF
     FOLDER "ArtifactCore/Libraries"
 )
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCoreCommand PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreCommand PROPERTY CXX_MODULE_STD OFF)
@@ -5845,7 +5893,7 @@ set_target_properties(ArtifactCoreAcoustic PROPERTIES
     CXX_EXTENSIONS OFF
     FOLDER "ArtifactCore/Libraries"
 )
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCoreAcoustic PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreAcoustic PROPERTY CXX_MODULE_STD OFF)
@@ -5879,7 +5927,7 @@ set_target_properties(ArtifactCoreShape PROPERTIES
     CXX_EXTENSIONS OFF
     FOLDER "ArtifactCore/Libraries"
 )
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCoreShape PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreShape PROPERTY CXX_MODULE_STD OFF)
@@ -5913,7 +5961,7 @@ set_target_properties(ArtifactCorePlatform PROPERTIES
     CXX_EXTENSIONS OFF
     FOLDER "ArtifactCore/Libraries"
 )
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCorePlatform PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCorePlatform PROPERTY CXX_MODULE_STD OFF)
@@ -5984,7 +6032,7 @@ set_target_properties(ArtifactCoreAnalyze PROPERTIES
     CXX_EXTENSIONS OFF
     FOLDER "ArtifactCore/Libraries"
 )
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCoreAnalyze PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreAnalyze PROPERTY CXX_MODULE_STD OFF)
@@ -6018,7 +6066,7 @@ set_target_properties(ArtifactCoreTracking PROPERTIES
     CXX_EXTENSIONS OFF
     FOLDER "ArtifactCore/Libraries"
 )
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCoreTracking PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreTracking PROPERTY CXX_MODULE_STD OFF)
@@ -6052,7 +6100,7 @@ set_target_properties(ArtifactCoreIPC PROPERTIES
     CXX_EXTENSIONS OFF
     FOLDER "ArtifactCore/Libraries"
 )
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCoreIPC PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreIPC PROPERTY CXX_MODULE_STD OFF)
@@ -6086,7 +6134,7 @@ set_target_properties(ArtifactCoreNLE PROPERTIES
     CXX_EXTENSIONS OFF
     FOLDER "ArtifactCore/Libraries"
 )
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCoreNLE PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreNLE PROPERTY CXX_MODULE_STD OFF)
@@ -6120,7 +6168,7 @@ set_target_properties(ArtifactCorePlayback PROPERTIES
     CXX_EXTENSIONS OFF
     FOLDER "ArtifactCore/Libraries"
 )
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCorePlayback PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCorePlayback PROPERTY CXX_MODULE_STD OFF)
@@ -6154,7 +6202,7 @@ set_target_properties(ArtifactCorePreview PROPERTIES
     CXX_EXTENSIONS OFF
     FOLDER "ArtifactCore/Libraries"
 )
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCorePreview PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCorePreview PROPERTY CXX_MODULE_STD OFF)
@@ -6230,7 +6278,7 @@ set_target_properties(ArtifactCoreExport PROPERTIES
     CXX_EXTENSIONS OFF
     FOLDER "ArtifactCore/Libraries"
 )
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCoreExport PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreExport PROPERTY CXX_MODULE_STD OFF)
@@ -6243,7 +6291,7 @@ set_target_properties(ArtifactCoreEvent PROPERTIES
     CXX_EXTENSIONS OFF
     FOLDER "ArtifactCore/Libraries"
 )
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCoreEvent PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreEvent PROPERTY CXX_MODULE_STD OFF)
@@ -6269,7 +6317,7 @@ set_target_properties(ArtifactCoreFile PROPERTIES
     CXX_EXTENSIONS OFF
     FOLDER "ArtifactCore/Libraries"
 )
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCoreFile PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreFile PROPERTY CXX_MODULE_STD OFF)
@@ -6295,7 +6343,7 @@ set_target_properties(ArtifactCorePlugin PROPERTIES
     CXX_EXTENSIONS OFF
     FOLDER "ArtifactCore/Libraries"
 )
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCorePlugin PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCorePlugin PROPERTY CXX_MODULE_STD OFF)
@@ -6321,7 +6369,7 @@ set_target_properties(ArtifactCoreControl PROPERTIES
     CXX_EXTENSIONS OFF
     FOLDER "ArtifactCore/Libraries"
 )
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCoreControl PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreControl PROPERTY CXX_MODULE_STD OFF)
@@ -6347,7 +6395,7 @@ set_target_properties(ArtifactCoreDatabase PROPERTIES
     CXX_EXTENSIONS OFF
     FOLDER "ArtifactCore/Libraries"
 )
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCoreDatabase PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreDatabase PROPERTY CXX_MODULE_STD OFF)
@@ -6377,7 +6425,7 @@ set_target_properties(ArtifactCoreMask PROPERTIES
     CXX_EXTENSIONS OFF
     FOLDER "ArtifactCore/Libraries"
 )
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCoreMask PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreMask PROPERTY CXX_MODULE_STD OFF)
@@ -6406,7 +6454,7 @@ set_target_properties(ArtifactCoreConfiguration PROPERTIES
     CXX_EXTENSIONS OFF
     FOLDER "ArtifactCore/Libraries"
 )
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCoreConfiguration PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreConfiguration PROPERTY CXX_MODULE_STD OFF)
@@ -6490,7 +6538,7 @@ endif()
 
 add_library(ArtifactCoreRig STATIC)
 set_target_properties(ArtifactCoreRig PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCoreRig PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreRig PROPERTY CXX_MODULE_STD OFF)
@@ -6504,7 +6552,7 @@ endif()
 
 add_library(ArtifactCoreGrid STATIC)
 set_target_properties(ArtifactCoreGrid PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCoreGrid PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreGrid PROPERTY CXX_MODULE_STD OFF)
@@ -6518,7 +6566,7 @@ endif()
 
 add_library(ArtifactCoreColorCollection STATIC)
 set_target_properties(ArtifactCoreColorCollection PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCoreColorCollection PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreColorCollection PROPERTY CXX_MODULE_STD OFF)
@@ -6532,7 +6580,7 @@ endif()
 
 add_library(ArtifactCoreSound STATIC)
 set_target_properties(ArtifactCoreSound PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCoreSound PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreSound PROPERTY CXX_MODULE_STD OFF)
@@ -6543,7 +6591,7 @@ target_include_directories(ArtifactCoreSound PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}
 
 add_library(ArtifactCoreSequence STATIC)
 set_target_properties(ArtifactCoreSequence PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCoreSequence PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreSequence PROPERTY CXX_MODULE_STD OFF)
@@ -6570,7 +6618,7 @@ target_include_directories(ArtifactCoreMaterial PUBLIC "${CMAKE_CURRENT_SOURCE_D
 
 add_library(ArtifactCoreEnvironment STATIC)
 set_target_properties(ArtifactCoreEnvironment PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCoreEnvironment PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreEnvironment PROPERTY CXX_MODULE_STD OFF)
@@ -6586,7 +6634,7 @@ target_link_libraries(ArtifactCore PUBLIC ArtifactCoreEnvironment)
 
 add_library(ArtifactCoreLight STATIC)
 set_target_properties(ArtifactCoreLight PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCoreLight PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreLight PROPERTY CXX_MODULE_STD OFF)
@@ -6597,7 +6645,7 @@ target_include_directories(ArtifactCoreLight PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}
 
 add_library(ArtifactCoreCrowd STATIC)
 set_target_properties(ArtifactCoreCrowd PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCoreCrowd PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreCrowd PROPERTY CXX_MODULE_STD OFF)
@@ -6627,7 +6675,7 @@ target_include_directories(ArtifactCoreIcon PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/
 
 add_library(ArtifactCoreNetwork STATIC)
 set_target_properties(ArtifactCoreNetwork PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCoreNetwork PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreNetwork PROPERTY CXX_MODULE_STD OFF)
@@ -6638,7 +6686,7 @@ target_include_directories(ArtifactCoreNetwork PUBLIC "${CMAKE_CURRENT_SOURCE_DI
 
 add_library(ArtifactCoreCollaborate STATIC)
 set_target_properties(ArtifactCoreCollaborate PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCoreCollaborate PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreCollaborate PROPERTY CXX_MODULE_STD OFF)
@@ -6649,7 +6697,7 @@ target_include_directories(ArtifactCoreCollaborate PUBLIC "${CMAKE_CURRENT_SOURC
 
 add_library(ArtifactCoreGenerate STATIC)
 set_target_properties(ArtifactCoreGenerate PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCoreGenerate PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreGenerate PROPERTY CXX_MODULE_STD OFF)
@@ -6663,7 +6711,7 @@ endif()
 
 add_library(ArtifactCoreSimulation STATIC)
 set_target_properties(ArtifactCoreSimulation PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCoreSimulation PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreSimulation PROPERTY CXX_MODULE_STD OFF)
@@ -6677,7 +6725,7 @@ endif()
 
 add_library(ArtifactCoreTrack STATIC)
 set_target_properties(ArtifactCoreTrack PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCoreTrack PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreTrack PROPERTY CXX_MODULE_STD OFF)
@@ -6691,7 +6739,7 @@ endif()
 
 add_library(ArtifactCoreSource STATIC)
 set_target_properties(ArtifactCoreSource PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCoreSource PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreSource PROPERTY CXX_MODULE_STD OFF)
@@ -6705,7 +6753,7 @@ endif()
 
 add_library(ArtifactCoreProject STATIC)
 set_target_properties(ArtifactCoreProject PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCoreProject PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreProject PROPERTY CXX_MODULE_STD OFF)
@@ -6724,7 +6772,7 @@ set_target_properties(ArtifactCoreVST3 PROPERTIES
     CXX_EXTENSIONS OFF
     FOLDER "ArtifactCore/Libraries"
 )
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCoreVST3 PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreVST3 PROPERTY CXX_MODULE_STD OFF)
@@ -6758,7 +6806,7 @@ set_target_properties(ArtifactCoreLocalization PROPERTIES
     CXX_EXTENSIONS OFF
     FOLDER "ArtifactCore/Libraries"
 )
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCoreLocalization PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreLocalization PROPERTY CXX_MODULE_STD OFF)
@@ -6793,7 +6841,7 @@ set_target_properties(ArtifactCoreCoordinate PROPERTIES
     CXX_EXTENSIONS OFF
     FOLDER "ArtifactCore/Libraries"
 )
-if(TARGET __CMAKE::CXX23)
+if(ARTIFACT_CXX23_MODULE_STD_AVAILABLE AND TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCoreCoordinate PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreCoordinate PROPERTY CXX_MODULE_STD OFF)

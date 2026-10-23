@@ -1,3 +1,5 @@
+**最終更新:** 2026-10-23
+
 # Creative Effects Implementation Memo (Kaleidoscope & Halftone)
 
 ## 1. Kaleidoscope (万華鏡) Effect
@@ -22,7 +24,7 @@ Given a target output coordinate $(x, y)$ and center $(cx, cy)$:
 
 ### Implementation Details
 - Declared in: [Distortion.ixx](file:///x:/Dev/ArtifactStudio/ArtifactCore/include/ImageProcessing/Distortion.ixx)
-- Implemented in: [Distortion.cppm](file:///x:/Dev/ArtifactStudio/ArtifactCore/src/ImageProcessing/Distortion.cppm)
+- Implemented in: [Distortion.cpp](../src/ImageProcessing/Distortion.cpp)
 - Integrated into `makeKaleidoscope(...)` and available as a standard `DisplacementFunc`.
 
 ---
