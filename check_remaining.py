@@ -61,7 +61,7 @@ def main():
         r"X:\dev\ArtifactStudio\ArtifactCore\include\Script\Engine\Value\Value.ixx",
         r"X:\dev\ArtifactStudio\ArtifactCore\include\Video\AbstractEncoder.ixx",
         r"X:\dev\ArtifactStudio\ArtifactCore\include\Video\Stabilizer.ixx",
-        r"X:\dev\ArtifactStudio\ArtifactCore\src\ImageProcessing\Halide\MonochromeHalide.cppm",
+        r"X:\dev\ArtifactStudio\ArtifactCore\src\ImageProcessing\Halide\MonochromeHalide.cpp",
         r"X:\dev\ArtifactStudio\ArtifactCore\src\ImageProcessing\OpenCV\AddBlockNoise.cppm",
         r"X:\dev\ArtifactStudio\ArtifactCore\src\ImageProcessing\OpenCV\Monochrome.ixx",
         r"X:\dev\ArtifactStudio\ArtifactCore\src\Time\TimeCodeRange.cpp",

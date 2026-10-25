@@ -2,6 +2,7 @@ module;
 #include <cmath>
 #include <cstring>
 #include <algorithm>
+#include <vector>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h>

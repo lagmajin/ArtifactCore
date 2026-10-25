@@ -1,5 +1,6 @@
 module;
 #include <cstring>
+#include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h>
@@ -156,7 +157,7 @@ void EdgeEchoGPUComputer::ensureTextures(IDeviceContext *pContext, int width, in
         desc.Type = RESOURCE_DIM_TEX_2D;
         desc.Width = static_cast<Uint32>(width);
         desc.Height = static_cast<Uint32>(height);
-        desc.Format = TEX_FORMAT_R32G32B32A32_FLOAT;
+        desc.Format = TEX_FORMAT_RGBA32_FLOAT;
         desc.Usage = USAGE_DEFAULT;
         desc.BindFlags = BIND_UNORDERED_ACCESS | BIND_SHADER_RESOURCE;
 

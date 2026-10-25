@@ -63,6 +63,13 @@ module MediaPlaybackController;
 
 import Core.ArtifactArray;
 import ArtifactCore.Utils.PerformanceProfiler;
+import MediaSource;
+import MediaReader;
+import MediaImageFrameDecoder;
+import MediaAudioDecoder;
+import Codec.MFFrameExtractor;
+import Media.MetaData;
+import Playback.State;
 import Video.VideoFrame;
 
 namespace ArtifactCore {

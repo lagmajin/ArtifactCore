@@ -12,10 +12,9 @@ module;
 export module Animation.KeyframePatternGenerator;
 
 import Time.Rational;
+import Math.Interpolate;
 
 export namespace ArtifactCore {
-
-enum class InterpolationType : int;
 
 enum class KeyframePatternPreset {
   Stagger,

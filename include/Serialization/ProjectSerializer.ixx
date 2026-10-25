@@ -10,8 +10,6 @@ module;
 export module Serialization.ProjectSerializer;
 
 import Serialization.Document;
-import Serialization.SplitDocumentStore;
-import Serialization.Envelope;
 import Serialization.ISerializable;
 
 export namespace ArtifactCore::Serialization {
@@ -20,78 +18,24 @@ export namespace ArtifactCore::Serialization {
 class ProjectSerializer {
 public:
     // Detects single-document JSON/CBOR. Use isSplitDirectory() for split projects.
-    static SerializationFormat detectFormat(const QString& path)
-    {
-        return SerializationDocument::detectFile(path);
-    }
-
-    static bool isSplitDirectory(const QString& path)
-    {
-        const QDir root(path);
-        return root.exists() &&
-               (QFile::exists(root.filePath(QStringLiteral("manifest.json"))) ||
-                QFile::exists(root.filePath(QStringLiteral("manifest.cbor"))));
-    }
-
+    static SerializationFormat detectFormat(const QString& path);
+    static bool isSplitDirectory(const QString& path);
     static bool save(const QString& path, const QJsonObject& project,
-                     SerializationFormat format = SerializationFormat::Json)
-    {
-        return SerializationDocument::writeFile(path, project, format);
-    }
-
+                     SerializationFormat format = SerializationFormat::Json);
     static bool saveSerializable(const QString& path, const ISerializable& value,
-                                 SerializationFormat format = SerializationFormat::Json)
-    {
-        return save(path, makeEnvelope(value), format);
-    }
-
-    static bool saveArtifact(const QString& path, const QJsonObject& project)
-    {
-        return save(path, project, SerializationFormat::Cbor);
-    }
-
-    static bool load(const QString& path, QJsonObject& project)
-    {
-        return SerializationDocument::readFile(path, project);
-    }
-
+                                SerializationFormat format = SerializationFormat::Json);
+    static bool saveArtifact(const QString& path, const QJsonObject& project);
+    static bool load(const QString& path, QJsonObject& project);
     static bool load(const QString& path, QJsonObject& project,
-                     QString* errorMessage)
-    {
-        return SerializationDocument::readFile(path, project,
-                                                SerializationFormat::Unknown,
-                                                errorMessage);
-    }
-
-    static std::unique_ptr<ISerializable> loadSerializable(const QString& path)
-    {
-        QJsonObject envelope;
-        if (!load(path, envelope)) {
-            return nullptr;
-        }
-        return deserializeEnvelope(envelope);
-    }
-
+                     QString* errorMessage);
+    static std::unique_ptr<ISerializable> loadSerializable(const QString& path);
     static bool loadArtifact(const QString& path, QJsonObject& project,
-                            QString* errorMessage = nullptr)
-    {
-        return SerializationDocument::readFile(path, project,
-                                                SerializationFormat::Cbor,
-                                                errorMessage);
-    }
-
+                             QString* errorMessage = nullptr);
     static bool saveSplit(const QString& directory, const QJsonObject& manifest,
                           const QMap<QString, QJsonObject>& documents,
-                          SerializationFormat format = SerializationFormat::Cbor)
-    {
-        return SplitDocumentStore::save(directory, manifest, documents, format);
-    }
-
+                          SerializationFormat format = SerializationFormat::Cbor);
     static bool loadSplit(const QString& directory, QJsonObject& manifest,
-                          QMap<QString, QJsonObject>& documents)
-    {
-        return SplitDocumentStore::load(directory, manifest, documents);
-    }
+                          QMap<QString, QJsonObject>& documents);
 };
 
 } // namespace ArtifactCore::Serialization
