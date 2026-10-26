@@ -24,6 +24,15 @@ struct IBKParams {
 };
 
 struct IBKGpuParams {
+    // The current compute shader's fixed sampling window supports radii up to 8.
+    // Larger values remain valid for the CPU implementation and must bypass GPU.
+    static constexpr int MaxGpuMorphologyRadius = 8;
+
+    static constexpr bool hasGpuSupportedMorphologyRadius(const IBKParams& source) {
+        return source.erodePixels <= MaxGpuMorphologyRadius &&
+               source.dilatePixels <= MaxGpuMorphologyRadius;
+    }
+
     float screenCorrection = 1.0f;
     float coreMatteClip = 0.5f;
     float edgeMatteSoftness = 0.2f;

@@ -178,6 +178,10 @@ bool autoGenerateCleanPlate(const std::vector<ImageF32x4_RGBA>& frames,
     }
     });
     outCleanPlate.setFromRGBA32F(result.data(), width, height);
+    auto cleanPlateDescriptor =
+        ArtifactCore::SurfaceColorDescriptor::canonicalLinearPremultiplied();
+    cleanPlateDescriptor.alphaMode = SurfaceAlphaMode::Straight;
+    outCleanPlate.setColorDescriptor(cleanPlateDescriptor);
     return true;
 }
 

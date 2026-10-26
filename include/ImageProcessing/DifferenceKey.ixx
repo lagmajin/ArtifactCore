@@ -27,9 +27,12 @@ struct DifferenceKeyBuffers {
     int width = 0;
     int height = 0;
     SurfaceChannelOrder channelOrder = SurfaceChannelOrder::RGBA;
+    SurfaceAlphaMode alphaMode = SurfaceAlphaMode::Straight;
 };
 
 // src and dst must be distinct tightly packed RGBA/BGRA buffers in channelOrder.
+// Premultiplied RGB is unassociated for distance evaluation and associated
+// again using the keyed output alpha. Other alpha modes use straight RGB storage.
 // Returns false for invalid order, dimensions, or missing buffers.
 bool processDifferenceKey(const DifferenceKeyBuffers& buffers,
                           const DifferenceKeyParams& params = {});

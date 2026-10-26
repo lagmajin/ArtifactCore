@@ -58,8 +58,21 @@ bool processLumaKey(const LumaKeyBuffers& buffers, const LumaKeyParams& inputPar
                 const std::size_t i = static_cast<std::size_t>(y) * width +
                     static_cast<std::size_t>(x);
                 const float* s = buffers.src + i * 4;
-                const float luma = s[rIndex] * 0.2126f + s[gIndex] * 0.7152f +
-                                   s[bIndex] * 0.0722f;
+                const float sourceAlpha = std::clamp(
+                    std::isfinite(s[3]) ? s[3] : 0.0f, 0.0f, 1.0f);
+                float r = s[rIndex];
+                float g = s[gIndex];
+                float b = s[bIndex];
+                if (buffers.alphaMode == SurfaceAlphaMode::Premultiplied) {
+                    if (sourceAlpha > 1.0e-6f) {
+                        r /= sourceAlpha;
+                        g /= sourceAlpha;
+                        b /= sourceAlpha;
+                    } else {
+                        r = g = b = 0.0f;
+                    }
+                }
+                const float luma = r * 0.2126f + g * 0.7152f + b * 0.0722f;
                 if (!std::isfinite(luma) || !std::isfinite(s[3])) {
                     matte[i] = 0.0f;
                     continue;
@@ -133,10 +146,23 @@ bool processLumaKey(const LumaKeyBuffers& buffers, const LumaKeyParams& inputPar
                     d[rIndex] = d[gIndex] = d[bIndex] = alpha;
                     d[3] = 1.0f;
                 } else {
-                    d[rIndex] = s[rIndex];
-                    d[gIndex] = s[gIndex];
-                    d[bIndex] = s[bIndex];
-                    d[3] = std::clamp(s[3] * alpha, 0.0f, 1.0f);
+                    const float sourceAlpha = std::clamp(
+                        std::isfinite(s[3]) ? s[3] : 0.0f, 0.0f, 1.0f);
+                    const float outputAlpha = sourceAlpha * alpha;
+                    const float sourceR = std::isfinite(s[rIndex]) ? s[rIndex] : 0.0f;
+                    const float sourceG = std::isfinite(s[gIndex]) ? s[gIndex] : 0.0f;
+                    const float sourceB = std::isfinite(s[bIndex]) ? s[bIndex] : 0.0f;
+                    if (buffers.alphaMode == SurfaceAlphaMode::Premultiplied) {
+                        const float matteScale = sourceAlpha > 1.0e-6f ? alpha : 0.0f;
+                        d[rIndex] = sourceR * matteScale;
+                        d[gIndex] = sourceG * matteScale;
+                        d[bIndex] = sourceB * matteScale;
+                    } else {
+                        d[rIndex] = sourceR;
+                        d[gIndex] = sourceG;
+                        d[bIndex] = sourceB;
+                    }
+                    d[3] = outputAlpha;
                 }
             }
         }

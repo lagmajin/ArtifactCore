@@ -34,7 +34,8 @@ struct ChromaKeyGpuParams {
     float keyR = 0.0f;
     float keyG = 1.0f;
     float keyB = 0.0f;
-    float pad0 = 0.0f;
+    // 1 when source RGB is premultiplied by source alpha; 0 otherwise.
+    float sourcePremultiplied = 0.0f;
     float hueTolerance = 0.28f;
     float edgeSoftness = 0.12f;
     float clipBlack = 0.0f;
@@ -48,7 +49,9 @@ struct ChromaKeyGpuParams {
     float lightWrapIntensity = 0.0f;
     float lightWrapWidth = 4.0f;
 
-    static ChromaKeyGpuParams fromParams(const ChromaKeyParams& source);
+    static ChromaKeyGpuParams fromParams(
+        const ChromaKeyParams& source,
+        SurfaceAlphaMode sourceAlphaMode = SurfaceAlphaMode::Straight);
 };
 
 static_assert(sizeof(ChromaKeyGpuParams) == 64,
@@ -60,10 +63,14 @@ struct ChromaKeyBuffers {
     int width = 0;
     int height = 0;
     SurfaceChannelOrder channelOrder = SurfaceChannelOrder::RGBA;
+    SurfaceAlphaMode alphaMode = SurfaceAlphaMode::Straight;
 };
 
 // Processes tightly packed RGBA/BGRA float32 buffers as specified by
-// channelOrder. Returns false for invalid order, dimensions, or missing buffers.
+// channelOrder. alphaMode describes source RGB storage; Premultiplied inputs are
+// keyed in straight color and written back in the same premultiplied convention.
+// Unknown, Opaque, Straight, and Coverage inputs use straight RGB storage.
+// Returns false for invalid order, dimensions, or missing buffers.
 bool processChromaKey(const ChromaKeyBuffers& buffers, const ChromaKeyParams& params = {});
 
 } // namespace ArtifactCore::Keying

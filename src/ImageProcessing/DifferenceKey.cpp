@@ -57,9 +57,23 @@ bool processDifferenceKey(const DifferenceKeyBuffers& buffers,
                 const std::size_t i = static_cast<std::size_t>(y) * width +
                     static_cast<std::size_t>(x);
                 const float* s = buffers.src + i * 4;
-                const float dr = s[rIndex] - p.refR;
-                const float dg = s[gIndex] - p.refG;
-                const float db = s[bIndex] - p.refB;
+                const float sourceAlpha = std::clamp(
+                    std::isfinite(s[3]) ? s[3] : 0.0f, 0.0f, 1.0f);
+                float r = s[rIndex];
+                float g = s[gIndex];
+                float b = s[bIndex];
+                if (buffers.alphaMode == SurfaceAlphaMode::Premultiplied) {
+                    if (sourceAlpha > 1.0e-6f) {
+                        r /= sourceAlpha;
+                        g /= sourceAlpha;
+                        b /= sourceAlpha;
+                    } else {
+                        r = g = b = 0.0f;
+                    }
+                }
+                const float dr = r - p.refR;
+                const float dg = g - p.refG;
+                const float db = b - p.refB;
                 const float distance = std::sqrt(dr * dr + dg * dg + db * db);
                 if (!std::isfinite(distance) || !std::isfinite(s[3])) {
                     matte[i] = 0.0f;
@@ -133,10 +147,23 @@ bool processDifferenceKey(const DifferenceKeyBuffers& buffers,
                     d[rIndex] = d[gIndex] = d[bIndex] = alpha;
                     d[3] = 1.0f;
                 } else {
-                    d[rIndex] = s[rIndex];
-                    d[gIndex] = s[gIndex];
-                    d[bIndex] = s[bIndex];
-                    d[3] = std::clamp(s[3] * alpha, 0.0f, 1.0f);
+                    const float sourceAlpha = std::clamp(
+                        std::isfinite(s[3]) ? s[3] : 0.0f, 0.0f, 1.0f);
+                    const float outputAlpha = sourceAlpha * alpha;
+                    const float sourceR = std::isfinite(s[rIndex]) ? s[rIndex] : 0.0f;
+                    const float sourceG = std::isfinite(s[gIndex]) ? s[gIndex] : 0.0f;
+                    const float sourceB = std::isfinite(s[bIndex]) ? s[bIndex] : 0.0f;
+                    if (buffers.alphaMode == SurfaceAlphaMode::Premultiplied) {
+                        const float matteScale = sourceAlpha > 1.0e-6f ? alpha : 0.0f;
+                        d[rIndex] = sourceR * matteScale;
+                        d[gIndex] = sourceG * matteScale;
+                        d[bIndex] = sourceB * matteScale;
+                    } else {
+                        d[rIndex] = sourceR;
+                        d[gIndex] = sourceG;
+                        d[bIndex] = sourceB;
+                    }
+                    d[3] = outputAlpha;
                 }
             }
         }

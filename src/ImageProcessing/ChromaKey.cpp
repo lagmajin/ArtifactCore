@@ -93,12 +93,14 @@ void despillPixel(float& r, float& g, float& b, float kr, float kg, float kb,
 
 } // namespace
 
-ChromaKeyGpuParams ChromaKeyGpuParams::fromParams(const ChromaKeyParams& source) {
+ChromaKeyGpuParams ChromaKeyGpuParams::fromParams(
+    const ChromaKeyParams& source, SurfaceAlphaMode sourceAlphaMode) {
     ChromaKeyGpuParams result;
     result.keyR = std::clamp(finiteOr(source.keyColor.x, 0.0f), 0.0f, 1.0f);
     result.keyG = std::clamp(finiteOr(source.keyColor.y, 1.0f), 0.0f, 1.0f);
     result.keyB = std::clamp(finiteOr(source.keyColor.z, 0.0f), 0.0f, 1.0f);
-    result.pad0 = 0.0f;
+    result.sourcePremultiplied =
+        sourceAlphaMode == SurfaceAlphaMode::Premultiplied ? 1.0f : 0.0f;
     result.hueTolerance = std::clamp(finiteOr(source.hueTolerance, 0.28f), 0.0f, 1.0f);
     result.edgeSoftness = std::max(1.0e-4f, finiteOr(source.edgeSoftness, 0.12f));
     result.clipBlack = std::clamp(finiteOr(source.clipBlack, 0.0f), 0.0f, 1.0f);
@@ -153,6 +155,12 @@ bool processChromaKey(const ChromaKeyBuffers& buffers, const ChromaKeyParams& in
     p.detailRecovery = std::clamp(finiteOr(p.detailRecovery, 0.0f), 0.0f, 1.0f);
     p.lightWrapIntensity = std::clamp(finiteOr(p.lightWrapIntensity, 0.0f), 0.0f, 1.0f);
     p.lightWrapWidth = std::clamp(finiteOr(p.lightWrapWidth, 4.0f), 1.0f, 16.0f);
+    const bool needChoke = std::abs(p.choke) > 1.0e-4f;
+    const bool needBlur = p.matteBlur > 1.0e-4f;
+    const bool needLightWrap = p.lightWrapIntensity > 1.0e-4f;
+    const bool needsPostprocess = needChoke || needBlur || needLightWrap;
+    const bool outputPremultiplied =
+        buffers.alphaMode == SurfaceAlphaMode::Premultiplied;
 
     const YCbCr key = rgbToYCbCr(p.keyColor.x, p.keyColor.y, p.keyColor.z);
     const int w = buffers.width;
@@ -165,11 +173,20 @@ bool processChromaKey(const ChromaKeyBuffers& buffers, const ChromaKeyParams& in
                 const std::size_t i = static_cast<std::size_t>(y) * width + static_cast<std::size_t>(x);
                 const float* s = buffers.src + i * 4;
                 float* d = buffers.dst + i * 4;
-                float r = s[rIndex], g = s[gIndex], b = s[bIndex];
                 const float srcA = std::clamp(std::isfinite(s[3]) ? s[3] : 0.0f, 0.0f, 1.0f);
+                float r = s[rIndex], g = s[gIndex], b = s[bIndex];
                 if (!std::isfinite(r) || !std::isfinite(g) || !std::isfinite(b)) {
                     d[0] = d[1] = d[2] = d[3] = 0.0f;
                     continue;
+                }
+                if (buffers.alphaMode == SurfaceAlphaMode::Premultiplied) {
+                    if (srcA > 1.0e-6f) {
+                        r /= srcA;
+                        g /= srcA;
+                        b /= srcA;
+                    } else {
+                        r = g = b = 0.0f;
+                    }
                 }
                 float alpha = baseAlphaFor(r, g, b, key, p.hueTolerance,
                                            p.edgeSoftness, p.clipBlack, p.clipWhite);
@@ -196,9 +213,11 @@ bool processChromaKey(const ChromaKeyBuffers& buffers, const ChromaKeyParams& in
                     d[bIndex] = 0.15f * (1.0f - std::abs(alpha * 2.0f - 1.0f));
                     d[3] = 1.0f;
                 } else {
-                    d[rIndex] = r;
-                    d[gIndex] = g;
-                    d[bIndex] = b;
+                    const float outputScale =
+                        outputPremultiplied && !needsPostprocess ? outA : 1.0f;
+                    d[rIndex] = r * outputScale;
+                    d[gIndex] = g * outputScale;
+                    d[bIndex] = b * outputScale;
                     d[3] = outA;
                 }
             }
@@ -209,10 +228,7 @@ bool processChromaKey(const ChromaKeyBuffers& buffers, const ChromaKeyParams& in
         return true;
 
     // Pass 2: edge finishing on the alpha plane only.
-    const bool needChoke = std::abs(p.choke) > 1.0e-4f;
-    const bool needBlur = p.matteBlur > 1.0e-4f;
-    const bool needLightWrap = p.lightWrapIntensity > 1.0e-4f;
-    if (!needChoke && !needBlur && !needLightWrap)
+    if (!needsPostprocess)
         return true;
 
     std::vector<float> matte(pixelCount);
@@ -288,10 +304,31 @@ bool processChromaKey(const ChromaKeyBuffers& buffers, const ChromaKeyParams& in
                         for (int dx = -wrapRadius; dx <= wrapRadius; dx += 2) {
                             const int sx = std::clamp(x + dx, 0, w - 1);
                             const int sy = std::clamp(y + dy, 0, h - 1);
-                            const std::size_t sidx = static_cast<std::size_t>(sy) * width + static_cast<std::size_t>(sx);
-                            ambR += buffers.dst[sidx * 4 + rIndex];
-                            ambG += buffers.dst[sidx * 4 + gIndex];
-                            ambB += buffers.dst[sidx * 4 + bIndex];
+                            const std::size_t sidx =
+                                static_cast<std::size_t>(sy) * width +
+                                static_cast<std::size_t>(sx);
+                            const float* sample = buffers.src + sidx * 4;
+                            const float sampleAlpha = std::clamp(
+                                std::isfinite(sample[3]) ? sample[3] : 0.0f,
+                                0.0f, 1.0f);
+                            float sampleR = sample[rIndex];
+                            float sampleG = sample[gIndex];
+                            float sampleB = sample[bIndex];
+                            if (!std::isfinite(sampleR) || !std::isfinite(sampleG) ||
+                                !std::isfinite(sampleB)) {
+                                sampleR = sampleG = sampleB = 0.0f;
+                            } else if (outputPremultiplied) {
+                                if (sampleAlpha > 1.0e-6f) {
+                                    sampleR /= sampleAlpha;
+                                    sampleG /= sampleAlpha;
+                                    sampleB /= sampleAlpha;
+                                } else {
+                                    sampleR = sampleG = sampleB = 0.0f;
+                                }
+                            }
+                            ambR += sampleR;
+                            ambG += sampleG;
+                            ambB += sampleB;
                             ++count;
                         }
                     }
@@ -301,6 +338,22 @@ bool processChromaKey(const ChromaKeyBuffers& buffers, const ChromaKeyParams& in
                         d[gIndex] = std::max(0.0f, d[gIndex] + (ambG - d[gIndex]) * edgeWeight);
                         d[bIndex] = std::max(0.0f, d[bIndex] + (ambB - d[bIndex]) * edgeWeight);
                     }
+                }
+            }
+        });
+    }
+
+    if (outputPremultiplied && needsPostprocess) {
+        Parallel::ForTiles(w, h, 32, 32, [&](int x0, int y0, int x1, int y1) {
+            for (int y = y0; y < y1; ++y) {
+                for (int x = x0; x < x1; ++x) {
+                    const std::size_t i =
+                        (static_cast<std::size_t>(y) * width +
+                         static_cast<std::size_t>(x)) * 4;
+                    const float alpha = buffers.dst[i + 3];
+                    buffers.dst[i + rIndex] *= alpha;
+                    buffers.dst[i + gIndex] *= alpha;
+                    buffers.dst[i + bIndex] *= alpha;
                 }
             }
         });
@@ -351,6 +404,7 @@ void ChromaKey::process(ImageF32x4_RGBA& image, const ChromaKeySettings& setting
     params.despillMode = 2;
     Keying::ChromaKeyBuffers buffers{
         data, data, width, height, image.colorDescriptor().channelOrder};
+    buffers.alphaMode = image.colorDescriptor().alphaMode;
     const std::size_t count = static_cast<std::size_t>(width) *
                               static_cast<std::size_t>(height) * 4;
     std::vector<float> snapshot(count);
