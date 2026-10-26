@@ -90,6 +90,7 @@ void PyroFieldSet::resize(PyroResolution resolution) {
     density_.assign(count, 0.0f);
     temperature_.assign(count, 0.0f);
     fuel_.assign(count, 0.0f);
+    reaction_.assign(count, 0.0f);
     pressure_.assign(count, 0.0f);
     divergence_.assign(count, 0.0f);
     velocity_.assign(count, {});
@@ -99,6 +100,7 @@ void PyroFieldSet::clear() {
     std::fill(density_.begin(), density_.end(), 0.0f);
     std::fill(temperature_.begin(), temperature_.end(), 0.0f);
     std::fill(fuel_.begin(), fuel_.end(), 0.0f);
+    std::fill(reaction_.begin(), reaction_.end(), 0.0f);
     std::fill(pressure_.begin(), pressure_.end(), 0.0f);
     std::fill(divergence_.begin(), divergence_.end(), 0.0f);
     std::fill(velocity_.begin(), velocity_.end(), PyroVec3{});
@@ -119,6 +121,8 @@ PyroScalarFieldView PyroFieldSet::temperatureView() noexcept { return {std::span
 PyroConstScalarFieldView PyroFieldSet::temperatureView() const noexcept { return {std::span<const float>(temperature_), resolution_}; }
 PyroScalarFieldView PyroFieldSet::fuelView() noexcept { return {std::span<float>(fuel_), resolution_}; }
 PyroConstScalarFieldView PyroFieldSet::fuelView() const noexcept { return {std::span<const float>(fuel_), resolution_}; }
+PyroScalarFieldView PyroFieldSet::reactionView() noexcept { return {std::span<float>(reaction_), resolution_}; }
+PyroConstScalarFieldView PyroFieldSet::reactionView() const noexcept { return {std::span<const float>(reaction_), resolution_}; }
 PyroScalarFieldView PyroFieldSet::pressureView() noexcept { return {std::span<float>(pressure_), resolution_}; }
 PyroConstScalarFieldView PyroFieldSet::pressureView() const noexcept { return {std::span<const float>(pressure_), resolution_}; }
 PyroScalarFieldView PyroFieldSet::divergenceView() noexcept { return {std::span<float>(divergence_), resolution_}; }
@@ -133,11 +137,12 @@ PyroMemoryEstimate PyroFieldSet::estimateMemory() const noexcept {
     estimate.densityBytes = count * sizeof(float);
     estimate.temperatureBytes = count * sizeof(float);
     estimate.fuelBytes = count * sizeof(float);
+    estimate.reactionBytes = count * sizeof(float);
     estimate.pressureBytes = count * sizeof(float);
     estimate.divergenceBytes = count * sizeof(float);
     estimate.velocityBytes = count * sizeof(PyroVec3);
     estimate.totalBytes = estimate.densityBytes + estimate.temperatureBytes + estimate.fuelBytes +
-        estimate.pressureBytes + estimate.divergenceBytes + estimate.velocityBytes;
+        estimate.pressureBytes + estimate.divergenceBytes + estimate.velocityBytes + estimate.reactionBytes;
     return estimate;
 }
 
@@ -334,6 +339,7 @@ void PyroSimulation::storeCheckpoint() {
     snapshot.density = fields_.densityStorage();
     snapshot.temperature = fields_.temperatureStorage();
     snapshot.fuel = fields_.fuelStorage();
+    snapshot.reaction = fields_.reactionStorage();
     snapshot.pressure = fields_.pressureStorage();
     snapshot.divergence = fields_.divergenceStorage();
     snapshot.velocity = fields_.velocityStorage();
@@ -356,7 +362,7 @@ bool PyroSimulation::saveCheckpointSnapshot(const PyroFieldSnapshot& snapshot, c
     }
 
     const std::uint32_t magic = 0x5059524Fu; // PYRO
-    const std::uint32_t version = 1;
+    const std::uint32_t version = 2;
     out.write(reinterpret_cast<const char*>(&magic), sizeof(magic));
     out.write(reinterpret_cast<const char*>(&version), sizeof(version));
     out.write(reinterpret_cast<const char*>(&snapshot.resolution), sizeof(snapshot.resolution));
@@ -371,6 +377,7 @@ bool PyroSimulation::saveCheckpointSnapshot(const PyroFieldSnapshot& snapshot, c
     writeVector(snapshot.density);
     writeVector(snapshot.temperature);
     writeVector(snapshot.fuel);
+    writeVector(snapshot.reaction);
     writeVector(snapshot.pressure);
     writeVector(snapshot.divergence);
     writeVector(snapshot.velocity);
@@ -387,7 +394,7 @@ bool PyroSimulation::loadCheckpointSnapshot(PyroFieldSnapshot& snapshot, const s
     std::uint32_t version = 0;
     in.read(reinterpret_cast<char*>(&magic), sizeof(magic));
     in.read(reinterpret_cast<char*>(&version), sizeof(version));
-    if (!in || magic != 0x5059524Fu || version != 1) {
+    if (!in || magic != 0x5059524Fu || (version != 1 && version != 2)) {
         return false;
     }
 
@@ -409,10 +416,19 @@ bool PyroSimulation::loadCheckpointSnapshot(PyroFieldSnapshot& snapshot, const s
         return static_cast<bool>(in);
     };
 
-    return readVector(snapshot.density)
-        && readVector(snapshot.temperature)
-        && readVector(snapshot.fuel)
-        && readVector(snapshot.pressure)
+    if (!readVector(snapshot.density)
+        || !readVector(snapshot.temperature)
+        || !readVector(snapshot.fuel)) {
+        return false;
+    }
+    if (version >= 2) {
+        if (!readVector(snapshot.reaction)) {
+            return false;
+        }
+    } else {
+        snapshot.reaction.assign(snapshot.density.size(), 0.0f);
+    }
+    return readVector(snapshot.pressure)
         && readVector(snapshot.divergence)
         && readVector(snapshot.velocity);
 }
@@ -459,6 +475,7 @@ PyroCacheStatus PyroSimulation::loadCheckpointFromDisk(std::uint64_t frameIndex)
     fields_.densityStorage() = std::move(snapshot.density);
     fields_.temperatureStorage() = std::move(snapshot.temperature);
     fields_.fuelStorage() = std::move(snapshot.fuel);
+    fields_.reactionStorage() = std::move(snapshot.reaction);
     fields_.pressureStorage() = std::move(snapshot.pressure);
     fields_.divergenceStorage() = std::move(snapshot.divergence);
     fields_.velocityStorage() = std::move(snapshot.velocity);
@@ -470,7 +487,8 @@ PyroCacheStatus PyroSimulation::loadCheckpointFromDisk(std::uint64_t frameIndex)
         .fuel = fields_.fuelStorage(),
         .pressure = fields_.pressureStorage(),
         .divergence = fields_.divergenceStorage(),
-        .velocity = fields_.velocityStorage()
+        .velocity = fields_.velocityStorage(),
+        .reaction = fields_.reactionStorage()
     };
     return status;
 }
@@ -489,6 +507,7 @@ bool PyroSimulation::restoreCheckpoint(std::uint64_t frameIndex) {
     fields_.densityStorage() = snapshot.density;
     fields_.temperatureStorage() = snapshot.temperature;
     fields_.fuelStorage() = snapshot.fuel;
+    fields_.reactionStorage() = snapshot.reaction;
     fields_.pressureStorage() = snapshot.pressure;
     fields_.divergenceStorage() = snapshot.divergence;
     fields_.velocityStorage() = snapshot.velocity;
@@ -520,6 +539,7 @@ void PyroSimulation::applyColliders() {
     auto density = fields_.densityView();
     auto temperature = fields_.temperatureView();
     auto fuel = fields_.fuelView();
+    auto reaction = fields_.reactionView();
 
     for (const auto& collider : colliders_) {
         if (!collider.enabled) {
@@ -548,6 +568,7 @@ void PyroSimulation::applyColliders() {
                     density.values[idx] = 0.0f;
                     temperature.values[idx] = 0.0f;
                     fuel.values[idx] = 0.0f;
+                    reaction.values[idx] = 0.0f;
                     if (collider.noSlip) {
                         velocity.values[idx] = collider.velocity;
                     }
@@ -566,6 +587,7 @@ void PyroSimulation::applyCombustion(float deltaSeconds) {
     auto density = fields_.densityView();
     auto temperature = fields_.temperatureView();
     auto fuel = fields_.fuelView();
+    auto reaction = fields_.reactionView();
     auto velocity = fields_.velocityView();
 
     const float dt = deltaSeconds;
@@ -573,6 +595,8 @@ void PyroSimulation::applyCombustion(float deltaSeconds) {
     const float burnRate = 0.65f;
     const float heatRelease = 1.4f;
     const float smokeYield = 0.9f;
+
+    std::fill(reaction.values.begin(), reaction.values.end(), 0.0f);
 
     Parallel::ForVolumeSlices(resolution.width, resolution.height, resolution.depth, [&](int z) {
         for (int y = 0; y < resolution.height; ++y) {
@@ -583,6 +607,7 @@ void PyroSimulation::applyCombustion(float deltaSeconds) {
                 if (burned <= 0.0f) {
                     continue;
                 }
+                reaction.values[idx] = burned / dt;
                 fuel.values[idx] -= burned;
                 temperature.values[idx] += burned * heatRelease;
                 density.values[idx] += burned * smokeYield;
@@ -686,6 +711,9 @@ void PyroSimulation::integrateStep(float deltaSeconds) {
     if (resolution.width <= 0 || resolution.height <= 0 || resolution.depth <= 0) {
         return;
     }
+    if (reactionScratch_.size() != fields_.cellCount()) {
+        reactionScratch_.resize(fields_.cellCount());
+    }
 
     const float dt = static_cast<float>(deltaSeconds);
     auto density = fields_.densityView();
@@ -694,6 +722,7 @@ void PyroSimulation::integrateStep(float deltaSeconds) {
     auto pressure = fields_.pressureView();
     auto divergence = fields_.divergenceView();
     auto velocity = fields_.velocityView();
+    auto reaction = fields_.reactionView();
 
     Parallel::ForVolumeSlices(resolution.width, resolution.height, resolution.depth, [&](int z) {
         for (int y = 0; y < resolution.height; ++y) {
@@ -763,6 +792,7 @@ void PyroSimulation::integrateStep(float deltaSeconds) {
     const auto temperaturePrev = fields_.temperatureStorage();
     const auto fuelPrev = fields_.fuelStorage();
     const auto velocityPrev = fields_.velocityStorage();
+    std::copy(reaction.values.begin(), reaction.values.end(), reactionScratch_.begin());
 
     Parallel::ForVolumeSlices(resolution.width, resolution.height, resolution.depth, [&](int z) {
         for (int y = 0; y < resolution.height; ++y) {
@@ -781,6 +811,7 @@ void PyroSimulation::integrateStep(float deltaSeconds) {
                 density.values[idx] = fields_.sampleScalar({std::span<const float>(densityPrev), resolution}, backtrace, domain_.boundaryMode);
                 temperature.values[idx] = fields_.sampleScalar({std::span<const float>(temperaturePrev), resolution}, backtrace, domain_.boundaryMode);
                 fuel.values[idx] = fields_.sampleScalar({std::span<const float>(fuelPrev), resolution}, backtrace, domain_.boundaryMode);
+                reaction.values[idx] = fields_.sampleScalar({std::span<const float>(reactionScratch_), resolution}, backtrace, domain_.boundaryMode);
                 velocity.values[idx] = fields_.sampleVector({std::span<const PyroVec3>(velocityPrev), resolution}, backtrace, domain_.boundaryMode);
                 divergence.values[idx] = 0.0f;
                 pressure.values[idx] = 0.0f;
@@ -918,13 +949,14 @@ PyroFrameSnapshot PyroSimulation::snapshot() const {
     snapshot.timeSeconds = timeSeconds_;
     snapshot.resolution = fields_.resolution();
     snapshot.availableFields = PyroFieldMask::Density | PyroFieldMask::Temperature | PyroFieldMask::Fuel |
-        PyroFieldMask::Pressure | PyroFieldMask::Divergence | PyroFieldMask::Velocity;
+        PyroFieldMask::Reaction | PyroFieldMask::Pressure | PyroFieldMask::Divergence | PyroFieldMask::Velocity;
     snapshot.backend = backend_;
     snapshot.settingsHash = hashSettings(settings_);
     snapshot.deterministic = backend_ == PyroBackendKind::CPUReference;
     snapshot.density = fields_.densityView();
     snapshot.temperature = fields_.temperatureView();
     snapshot.fuel = fields_.fuelView();
+    snapshot.reaction = fields_.reactionView();
     snapshot.pressure = fields_.pressureView();
     snapshot.divergence = fields_.divergenceView();
     snapshot.velocity = fields_.velocityView();
@@ -958,6 +990,7 @@ String toString(PyroFieldChannel channel) {
     case PyroFieldChannel::Divergence: return "divergence";
     case PyroFieldChannel::Velocity: return "velocity";
     case PyroFieldChannel::Color: return "color";
+    case PyroFieldChannel::Reaction: return "reaction";
     }
     return "unknown";
 }

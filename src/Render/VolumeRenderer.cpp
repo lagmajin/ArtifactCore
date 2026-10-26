@@ -358,7 +358,15 @@ Color CPUVolumeRenderer::raymarch(const Ray& ray) const noexcept {
             temperature = fields.temperature.sampleTrilinear(voxelCoord);
         }
 
-        const auto tfSample = transferFunction_.evaluate(density * settings.densityScale, temperature);
+        auto tfSample = transferFunction_.evaluate(density * settings.densityScale, temperature);
+        if (transferFunction_.kind == TransferFunctionKind::Fire && !fields.reaction.empty()) {
+            const float reactionGate = clamp01(
+                fields.reaction.sampleTrilinear(voxelCoord) * settings.fireReactionScale);
+            tfSample.emission.x *= reactionGate;
+            tfSample.emission.y *= reactionGate;
+            tfSample.emission.z *= reactionGate;
+            tfSample.absorption *= reactionGate;
+        }
         const float absorption = tfSample.absorption * settings.stepSize;
 
         const float ambient = std::clamp(settings.ambientLightIntensity, 0.0f, 1.0f);

@@ -106,6 +106,7 @@ struct VolumeFieldSet {
     VolumeScalarField density;
     VolumeScalarField temperature;
     VolumeScalarField fuel;
+    VolumeScalarField reaction;
     VolumeVectorField velocity;
 };
 
@@ -160,6 +161,7 @@ struct TransferFunction {
 struct VolumeRenderSettings {
     float stepSize = 0.05f;
     float densityScale = 1.0f;
+    float fireReactionScale = 1.5f;
     int maxSteps = 2048;
     Color backgroundColor{0.0f, 0.0f, 0.0f};
     bool useTemperatureEmission = true;

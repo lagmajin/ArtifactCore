@@ -21,7 +21,7 @@ export namespace ArtifactCore {
 enum class PyroBoundaryMode : std::uint8_t { Open = 0, Closed = 1 };
 enum class PyroBackendKind : std::uint8_t { CPUReference = 0, GPUCompute = 1 };
 enum class PyroFieldChannel : std::uint8_t {
-    Density = 0, Temperature = 1, Fuel = 2, Pressure = 3, Divergence = 4, Velocity = 5, Color = 6
+    Density = 0, Temperature = 1, Fuel = 2, Pressure = 3, Divergence = 4, Velocity = 5, Color = 6, Reaction = 7
 };
 
 enum class PyroFieldMask : std::uint32_t {
@@ -33,7 +33,8 @@ enum class PyroFieldMask : std::uint32_t {
     Divergence = 1u << 4,
     Velocity = 1u << 5,
     Color = 1u << 6,
-    All = 0x7Fu
+    Reaction = 1u << 7,
+    All = 0xFFu
 };
 
 constexpr inline PyroFieldMask operator|(PyroFieldMask lhs, PyroFieldMask rhs) noexcept {
@@ -87,6 +88,7 @@ struct PyroMemoryEstimate {
     std::size_t divergenceBytes = 0;
     std::size_t velocityBytes = 0;
     std::size_t colorBytes = 0;
+    std::size_t reactionBytes = 0;
     std::size_t totalBytes = 0;
 };
 
@@ -98,6 +100,7 @@ struct PyroFieldSnapshot {
     std::vector<float> pressure;
     std::vector<float> divergence;
     std::vector<PyroVec3> velocity;
+    std::vector<float> reaction;
 };
 
 struct PyroCacheStatus {
@@ -200,6 +203,7 @@ struct PyroFrameSnapshot {
     PyroConstScalarFieldView density{};
     PyroConstScalarFieldView temperature{};
     PyroConstScalarFieldView fuel{};
+    PyroConstScalarFieldView reaction{};
     PyroConstScalarFieldView pressure{};
     PyroConstScalarFieldView divergence{};
     PyroConstVectorFieldView velocity{};
@@ -218,6 +222,8 @@ public:
     [[nodiscard]] PyroConstScalarFieldView temperatureView() const noexcept;
     [[nodiscard]] PyroScalarFieldView fuelView() noexcept;
     [[nodiscard]] PyroConstScalarFieldView fuelView() const noexcept;
+    [[nodiscard]] PyroScalarFieldView reactionView() noexcept;
+    [[nodiscard]] PyroConstScalarFieldView reactionView() const noexcept;
     [[nodiscard]] PyroScalarFieldView pressureView() noexcept;
     [[nodiscard]] PyroConstScalarFieldView pressureView() const noexcept;
     [[nodiscard]] PyroScalarFieldView divergenceView() noexcept;
@@ -230,6 +236,8 @@ public:
     [[nodiscard]] const std::vector<float>& temperatureStorage() const noexcept { return temperature_; }
     [[nodiscard]] std::vector<float>& fuelStorage() noexcept { return fuel_; }
     [[nodiscard]] const std::vector<float>& fuelStorage() const noexcept { return fuel_; }
+    [[nodiscard]] std::vector<float>& reactionStorage() noexcept { return reaction_; }
+    [[nodiscard]] const std::vector<float>& reactionStorage() const noexcept { return reaction_; }
     [[nodiscard]] std::vector<float>& pressureStorage() noexcept { return pressure_; }
     [[nodiscard]] const std::vector<float>& pressureStorage() const noexcept { return pressure_; }
     [[nodiscard]] std::vector<float>& divergenceStorage() noexcept { return divergence_; }
@@ -248,6 +256,7 @@ private:
     std::vector<float> density_;
     std::vector<float> temperature_;
     std::vector<float> fuel_;
+    std::vector<float> reaction_;
     std::vector<float> pressure_;
     std::vector<float> divergence_;
     std::vector<PyroVec3> velocity_;
@@ -294,6 +303,7 @@ private:
     PyroDomain domain_{};
     PyroSimulationSettings settings_{};
     PyroFieldSet fields_{};
+    std::vector<float> reactionScratch_;
     PyroBackendKind backend_ = PyroBackendKind::CPUReference;
     bool paused_ = false;
     std::uint64_t frameIndex_ = 0;
