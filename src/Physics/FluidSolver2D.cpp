@@ -8,6 +8,9 @@ module;
 #include <map>
 #include <set>
 #include <numbers>
+#if defined(ARTIFACT_SMOKE_RUNTIME_RND)
+#include "SmokeRuntimeProjectionObserver.h"
+#endif
 
 module Physics.Fluid;
 
@@ -424,15 +427,39 @@ void FluidSolver2D::update(float dt) {
     diffuse(2, vyPrev_, vy_, viscosity_, dt);
     
     project(vxPrev_, vyPrev_, vx_, vy_);
+
+#if defined(ARTIFACT_SMOKE_RUNTIME_RND)
+    artifactSmokeRuntimeRndObserve(1, width_, height_,
+                                   computeSolverIterations(), density_.data(),
+                                   vxPrev_.data(), vyPrev_.data());
+#endif
     
     advect(1, vx_, vxPrev_, vxPrev_, vyPrev_, dt);
     advect(2, vy_, vyPrev_, vxPrev_, vyPrev_, dt);
+
+#if defined(ARTIFACT_SMOKE_RUNTIME_RND)
+    artifactSmokeRuntimeRndObserve(2, width_, height_,
+                                   computeSolverIterations(), density_.data(),
+                                   vx_.data(), vy_.data());
+#endif
     
     project(vx_, vy_, vxPrev_, vyPrev_);
-    
+
+#if defined(ARTIFACT_SMOKE_RUNTIME_RND)
+    artifactSmokeRuntimeRndObserve(3, width_, height_,
+                                   computeSolverIterations(), density_.data(),
+                                   vx_.data(), vy_.data());
+#endif
+
     // Density Step
     diffuse(0, densityPrev_, density_, diffusion_, dt);
     advect(0, density_, densityPrev_, vx_, vy_, dt);
+
+#if defined(ARTIFACT_SMOKE_RUNTIME_RND)
+    artifactSmokeRuntimeRndObserve(4, width_, height_,
+                                   computeSolverIterations(), density_.data(),
+                                   vx_.data(), vy_.data());
+#endif
 
     // Divergence guard: replace non-finite samples with neutral values so
     // one bad advection step cannot poison subsequent solves.
@@ -442,6 +469,7 @@ void FluidSolver2D::update(float dt) {
         if (!std::isfinite(vy_[i])) vy_[i] = 0.0f;
     }
 }
+
 
 LiquidSolver2D::LiquidSolver2D() = default;
 LiquidSolver2D::~LiquidSolver2D() = default;
