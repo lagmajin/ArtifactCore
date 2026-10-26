@@ -151,7 +151,8 @@ private:
         float projMatrix[16];
         float deltaTime;
         int billboardMode;
-        float padding[2];
+        int falloffMode;
+        float padding;
     };
     ShaderConstants constants_{};
     ArtifactCore::RenderCostStats* frameCostStats_ = nullptr;

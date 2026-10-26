@@ -57,9 +57,15 @@ enum class ParticleBillboardPolicy : std::uint32_t {
     VelocityAligned = 3
 };
 
+enum class ParticleFalloffMode : std::uint32_t {
+    SoftCircle = 0,
+    GaussianDensity = 1
+};
+
 struct ParticleRenderOptions {
     ParticleBlendPolicy blend = ParticleBlendPolicy::Additive;
     ParticleBillboardPolicy billboard = ParticleBillboardPolicy::ScreenAligned;
+    ParticleFalloffMode falloff = ParticleFalloffMode::SoftCircle;
     bool depthTest = false;
     bool depthWrite = false;
 

@@ -123,7 +123,7 @@ namespace {
 
 // Bump when the embedded particle HLSL changes: backends key stored blobs
 // by bytecode too, but this retires poisoned files unconditionally.
-constexpr int kParticlePsoCacheFileVersion = 1;
+constexpr int kParticlePsoCacheFileVersion = 2;
 
 struct DevicePsoCacheEntry {
     Diligent::RefCntAutoPtr<Diligent::IPipelineStateCache> cache;
@@ -377,7 +377,8 @@ cbuffer Constants : register(b0) {
     float4 ProjRow3;
     float DeltaTime;
     int BillboardMode;
-    float2 Padding;
+    int FalloffMode;
+    float Padding;
 };
 
 struct VS_Input {
@@ -391,6 +392,7 @@ struct PS_Input {
     float4 Color : COLOR;
     // x = quad half width, y = quad half height, z = stretch factor.
     float3 Shape : TEXCOORD1;
+    nointerpolation uint Falloff : TEXCOORD2;
 };
 
 static const float2 c_Offsets[4] = {
@@ -467,6 +469,7 @@ PS_Input VSMain(VS_Input In) {
     Out.UV = c_Offsets[In.VertexID] + 0.5;
     Out.Color = p.color;
     Out.Shape = float3(halfWidth, halfHeight, max(1.0, p.stretch));
+    Out.Falloff = (uint)FalloffMode;
     
     return Out;
 }
@@ -479,6 +482,7 @@ struct PS_Input {
     float4 Color : COLOR;
     // x = quad half width, y = quad half height, z = stretch factor.
     float3 Shape : TEXCOORD1;
+    nointerpolation uint Falloff : TEXCOORD2;
 };
 
 float4 PSMain(PS_Input In) : SV_Target {
@@ -502,6 +506,21 @@ float4 PSMain(PS_Input In) : SV_Target {
     }
     float dist = length(In.UV - 0.5);
     if (dist > 0.5) discard;
+
+    if (In.Falloff == 1) {
+        // Treat the sprite as a compact density kernel. The 4.25 factor
+        // approximately preserves the disk-integrated opacity of the old
+        // flat-core profile while the Gaussian shoulder removes hard puff
+        // boundaries at the same particle count.
+        const float kGaussian = 4.0;
+        float normalizedRadius = dist * 2.0;
+        float gaussian = exp(-kGaussian * normalizedRadius * normalizedRadius);
+        float edgeValue = exp(-kGaussian);
+        float densityProfile = saturate(
+            (gaussian - edgeValue) / (1.0 - edgeValue));
+        return float4(In.Color.rgb,
+                      In.Color.a * densityProfile * 4.25);
+    }
     
     // Soft circle (edge0 < edge1 is required: reversed smoothstep args are
     // undefined behavior in HLSL and flicker/disappear on some drivers)
@@ -531,6 +550,7 @@ ParticleRenderer::~ParticleRenderer()
 void ParticleRenderer::initialize(size_t maxParticles) {
     maxParticles_ = maxParticles;
     constants_.billboardMode = static_cast<int>(renderOptions_.billboard);
+    constants_.falloffMode = static_cast<int>(renderOptions_.falloff);
     debugState_ = DebugState::Initialized;
     debugMax_ = static_cast<qulonglong>(maxParticles_);
     createBuffers();
@@ -1215,6 +1235,7 @@ void ParticleRenderer::setRenderOptions(const ParticleRenderOptions& options)
     }
     renderOptions_ = options;
     constants_.billboardMode = static_cast<int>(renderOptions_.billboard);
+    constants_.falloffMode = static_cast<int>(renderOptions_.falloff);
     // No synchronous rebuild: prepare() serves the matching cached pipeline
     // or requests an async build, so option flips never stall the GUI thread.
 }
