@@ -32,6 +32,85 @@ FluidSolver2D::FluidSolver2D(int width, int height)
 
 FluidSolver2D::~FluidSolver2D() = default;
 
+void injectSmokeEmitter2D(FluidSolver2D& solver,
+                          const SmokeEmitter2D& emitter,
+                          const float velocityScale) {
+    if (solver.width() < 3 || solver.height() < 3) return;
+    const float x = std::clamp(emitter.x, 0.0f, 1.0f);
+    const float y = std::clamp(emitter.y, 0.0f, 1.0f);
+    const float radius = std::clamp(emitter.radius, 0.0f, 1.0f);
+    const int centerX = 1 + static_cast<int>(
+        std::round(x * static_cast<float>(solver.width() - 3)));
+    const int centerY = 1 + static_cast<int>(
+        std::round(y * static_cast<float>(solver.height() - 3)));
+    const float radiusX = radius * static_cast<float>(solver.width() - 2);
+    const float radiusY = radius * static_cast<float>(solver.height() - 2);
+    const int extentX = std::max(0, static_cast<int>(std::ceil(radiusX)));
+    const int extentY = std::max(0, static_cast<int>(std::ceil(radiusY)));
+    const float safeRadiusX = std::max(radiusX, 0.5f);
+    const float safeRadiusY = std::max(radiusY, 0.5f);
+    for (int dy = -extentY; dy <= extentY; ++dy) {
+        const int gy = centerY + dy;
+        if (gy <= 0 || gy >= solver.height() - 1) continue;
+        for (int dx = -extentX; dx <= extentX; ++dx) {
+            const int gx = centerX + dx;
+            if (gx <= 0 || gx >= solver.width() - 1) continue;
+            const float nx = static_cast<float>(dx) / safeRadiusX;
+            const float ny = static_cast<float>(dy) / safeRadiusY;
+            const float distanceSquared = nx * nx + ny * ny;
+            if (distanceSquared > 1.0f) continue;
+            const float weight = (1.0f - distanceSquared) *
+                                 std::max(0.0f, emitter.density);
+            solver.addDensity(gx, gy, weight);
+            const float tangentialX = -ny * emitter.swirl;
+            const float tangentialY = nx * emitter.swirl;
+            solver.addVelocity(
+                gx, gy,
+                (emitter.velocityX + tangentialX) * velocityScale * weight,
+                (emitter.velocityY + tangentialY) * velocityScale * weight);
+        }
+    }
+}
+
+void injectSmokeStir2D(FluidSolver2D& solver, const SmokeStir2D& stir) {
+    if (solver.width() < 3 || solver.height() < 3) return;
+    if (!std::isfinite(stir.x) || !std::isfinite(stir.y) ||
+        !std::isfinite(stir.radius) || !std::isfinite(stir.velocityX) ||
+        !std::isfinite(stir.velocityY) || !std::isfinite(stir.strength)) {
+        return;
+    }
+    const float radius = std::clamp(stir.radius, 0.0f, 1.0f);
+    const int centerX = 1 + static_cast<int>(
+        std::round(std::clamp(stir.x, 0.0f, 1.0f) *
+                   static_cast<float>(solver.width() - 3)));
+    const int centerY = 1 + static_cast<int>(
+        std::round(std::clamp(stir.y, 0.0f, 1.0f) *
+                   static_cast<float>(solver.height() - 3)));
+    const float radiusX = radius * static_cast<float>(solver.width() - 2);
+    const float radiusY = radius * static_cast<float>(solver.height() - 2);
+    const int extentX = std::max(0, static_cast<int>(std::ceil(radiusX)));
+    const int extentY = std::max(0, static_cast<int>(std::ceil(radiusY)));
+    const float safeRadiusX = std::max(radiusX, 0.5f);
+    const float safeRadiusY = std::max(radiusY, 0.5f);
+    const float strength = std::clamp(stir.strength, 0.0f, 4.0f);
+    for (int dy = -extentY; dy <= extentY; ++dy) {
+        const int gy = centerY + dy;
+        if (gy <= 0 || gy >= solver.height() - 1) continue;
+        for (int dx = -extentX; dx <= extentX; ++dx) {
+            const int gx = centerX + dx;
+            if (gx <= 0 || gx >= solver.width() - 1) continue;
+            const float nx = static_cast<float>(dx) / safeRadiusX;
+            const float ny = static_cast<float>(dy) / safeRadiusY;
+            const float distanceSquared = nx * nx + ny * ny;
+            if (distanceSquared > 1.0f) continue;
+            const float falloff = 1.0f - distanceSquared;
+            const float weight = falloff * falloff * strength;
+            solver.addVelocity(gx, gy, stir.velocityX * weight,
+                               stir.velocityY * weight);
+        }
+    }
+}
+
 FluidSnapshot2D FluidSolver2D::snapshot() const {
     FluidSnapshot2D state;
     state.width = width_;
@@ -147,6 +226,14 @@ void FluidSolver2D::addDensity(int x, int y, float amount) {
     }
 }
 
+void FluidSolver2D::scaleDensity(const float factor) {
+    if (!std::isfinite(factor)) return;
+    const float boundedFactor = std::clamp(factor, 0.0f, 1.0f);
+    for (int i = 0; i < size_; ++i) {
+        density_[i] *= boundedFactor;
+    }
+}
+
 void FluidSolver2D::addVelocity(int x, int y, float vx, float vy) {
     if (x >= 0 && x < width_ && y >= 0 && y < height_) {
         vx_[IX(x, y)] += vx;
@@ -251,15 +338,20 @@ void FluidSolver2D::vorticityConfinement(NamedVector<float>& vx, NamedVector<flo
         for (int i = 1; i < width_ - 1; ++i) {
             float dv_dx = (vy[IX(i + 1, j)] - vy[IX(i - 1, j)]) * 0.5f;
             float du_dy = (vx[IX(i, j + 1)] - vx[IX(i, j - 1)]) * 0.5f;
-            curl_[IX(i, j)] = std::abs(dv_dx - du_dy);
+            // Preserve the sign of the scalar vorticity. Its magnitude is
+            // used to build the confinement direction below, but the force
+            // itself must reverse for counter-rotating regions.
+            curl_[IX(i, j)] = dv_dx - du_dy;
         }
     }
 
     // 2. Apply confinement force
     for (int j = 2; j < height_ - 2; ++j) {
         for (int i = 2; i < width_ - 2; ++i) {
-            float dx = (curl_[IX(i + 1, j)] - curl_[IX(i - 1, j)]) * 0.5f;
-            float dy = (curl_[IX(i, j + 1)] - curl_[IX(i, j - 1)]) * 0.5f;
+            float dx = (std::abs(curl_[IX(i + 1, j)]) -
+                        std::abs(curl_[IX(i - 1, j)])) * 0.5f;
+            float dy = (std::abs(curl_[IX(i, j + 1)]) -
+                        std::abs(curl_[IX(i, j - 1)])) * 0.5f;
             float len = std::sqrt(dx * dx + dy * dy) + 1e-5f;
             dx /= len;
             dy /= len;

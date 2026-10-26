@@ -10,6 +10,27 @@ import Container.Debug;
 
 export namespace ArtifactCore {
 
+struct LIBRARY_DLL_API SmokeEmitter2D {
+    float x = 0.5f;
+    float y = 0.9f;
+    float radius = 0.04f;
+    float density = 1.0f;
+    float velocityX = 0.0f;
+    float velocityY = -1.0f;
+    float swirl = 0.15f;
+};
+
+struct LIBRARY_DLL_API SmokeStir2D {
+    float x = 0.5f;
+    float y = 0.5f;
+    float radius = 0.04f;
+    float velocityX = 0.0f;
+    float velocityY = 0.0f;
+    float strength = 1.0f;
+};
+
+// Injects a bounded circular source into the solver grid. Coordinates are
+// normalized to [0,1], with y increasing downward.
 struct LIBRARY_DLL_API FluidSnapshot2D {
     int width = 0;
     int height = 0;
@@ -42,6 +63,7 @@ public:
     
     // 外部からの入力
     void addDensity(int x, int y, float amount);
+    void scaleDensity(float factor);
     void addVelocity(int x, int y, float vx, float vy);
 
     // 取得
@@ -277,5 +299,11 @@ private:
         const LiquidParticle2D& particle) const;
     void applyViscosity();
 };
+
+LIBRARY_DLL_API void injectSmokeEmitter2D(
+    FluidSolver2D& solver, const SmokeEmitter2D& emitter,
+    float velocityScale = 1.0f);
+LIBRARY_DLL_API void injectSmokeStir2D(
+    FluidSolver2D& solver, const SmokeStir2D& stir);
 
 } // namespace ArtifactCore
