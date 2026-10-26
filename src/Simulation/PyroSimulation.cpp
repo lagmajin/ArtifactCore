@@ -649,11 +649,6 @@ void PyroSimulation::integrateStep(float deltaSeconds) {
     auto divergence = fields_.divergenceView();
     auto velocity = fields_.velocityView();
 
-    const auto densityPrev = fields_.densityStorage();
-    const auto temperaturePrev = fields_.temperatureStorage();
-    const auto fuelPrev = fields_.fuelStorage();
-    const auto velocityPrev = fields_.velocityStorage();
-
     Parallel::ForVolumeSlices(resolution.width, resolution.height, resolution.depth, [&](int z) {
         for (int y = 0; y < resolution.height; ++y) {
             for (int x = 0; x < resolution.width; ++x) {
@@ -714,6 +709,14 @@ void PyroSimulation::integrateStep(float deltaSeconds) {
     });
 
     applyVorticityConfinement(dt);
+
+    // Advect from the fully sourced, force-updated state. Capturing these
+    // arrays before decay/source/force application silently discarded those
+    // changes on the write-back pass below.
+    const auto densityPrev = fields_.densityStorage();
+    const auto temperaturePrev = fields_.temperatureStorage();
+    const auto fuelPrev = fields_.fuelStorage();
+    const auto velocityPrev = fields_.velocityStorage();
 
     Parallel::ForVolumeSlices(resolution.width, resolution.height, resolution.depth, [&](int z) {
         for (int y = 0; y < resolution.height; ++y) {
@@ -803,12 +806,17 @@ void PyroSimulation::solvePressure(int iterations) {
             for (int y = 0; y < resolution.height; ++y) {
                 for (int x = 0; x < resolution.width; ++x) {
                     const auto idx = cellIndex(x, y, z);
-                    const int xm = std::max(0, x - 1);
-                    const int xp = std::min(resolution.width - 1, x + 1);
-                    const int ym = std::max(0, y - 1);
-                    const int yp = std::min(resolution.height - 1, y + 1);
-                    const int zm = std::max(0, z - 1);
-                    const int zp = std::min(resolution.depth - 1, z + 1);
+                    // projectVelocity() subtracts a centered pressure
+                    // gradient and computeDivergence() applies a centered
+                    // divergence. Their composition is a second difference
+                    // over two cells, with a -4 * p center coefficient per
+                    // axis (combined center coefficient -6).
+                    const int xm = std::max(0, x - 2);
+                    const int xp = std::min(resolution.width - 1, x + 2);
+                    const int ym = std::max(0, y - 2);
+                    const int yp = std::min(resolution.height - 1, y + 2);
+                    const int zm = std::max(0, z - 2);
+                    const int zp = std::min(resolution.depth - 1, z + 2);
                     const float neighborSum =
                         pressure.values[cellIndex(xm, y, z)] +
                         pressure.values[cellIndex(xp, y, z)] +
@@ -816,7 +824,8 @@ void PyroSimulation::solvePressure(int iterations) {
                         pressure.values[cellIndex(x, yp, z)] +
                         pressure.values[cellIndex(x, y, zm)] +
                         pressure.values[cellIndex(x, y, zp)];
-                    nextPressure[idx] = (divergence.values[idx] + neighborSum) / 6.0f;
+                    nextPressure[idx] =
+                        (neighborSum - 4.0f * divergence.values[idx]) / 6.0f;
                 }
             }
         });
