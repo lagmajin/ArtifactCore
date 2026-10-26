@@ -361,16 +361,21 @@ Color CPUVolumeRenderer::raymarch(const Ray& ray) const noexcept {
         const auto tfSample = transferFunction_.evaluate(density * settings.densityScale, temperature);
         const float absorption = tfSample.absorption * settings.stepSize;
 
+        const float ambient = std::clamp(settings.ambientLightIntensity, 0.0f, 1.0f);
         Color lighting{1.0f, 1.0f, 1.0f};
         if (settings.lightIntensity > 0.0f) {
             const auto shadow = sampleLight(voxelCoord);
+            const float shadowAmount = std::clamp(settings.shadowIntensity, 0.0f, 1.0f);
+            const float shadowFactor = 1.0f - shadowAmount * (1.0f - shadow.x);
             const float NdotL = std::max(0.0f, -settings.lightDirection.y);
             const float henyey = phaseHenyeyGreenstein(NdotL, settings.phaseAnisotropy);
             lighting = {
-                shadow.x * (0.1f + henyey * 0.9f) * settings.lightIntensity,
-                shadow.y * (0.1f + henyey * 0.9f) * settings.lightIntensity,
-                shadow.z * (0.1f + henyey * 0.9f) * settings.lightIntensity
+                ambient + shadowFactor * (0.1f + henyey * 0.9f) * settings.lightIntensity,
+                ambient + shadowFactor * (0.1f + henyey * 0.9f) * settings.lightIntensity,
+                ambient + shadowFactor * (0.1f + henyey * 0.9f) * settings.lightIntensity
             };
+        } else if (ambient > 0.0f) {
+            lighting = {ambient, ambient, ambient};
         }
 
         const auto volumetricLightContrib = evaluateVolumetricLights(worldPos, ray.dir);

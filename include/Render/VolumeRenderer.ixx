@@ -170,6 +170,7 @@ struct VolumeRenderSettings {
     float shadowIntensity = 1.0f;
     Color lightDirection{0.5f, -1.0f, 0.3f};
     float lightIntensity = 1.0f;
+    float ambientLightIntensity = 0.0f;
     float phaseAnisotropy = 0.0f;
     float multipleScatteringStrength = 0.3f;
     float multipleScatteringSpread = 0.5f;
