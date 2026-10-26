@@ -362,10 +362,16 @@ Color CPUVolumeRenderer::raymarch(const Ray& ray) const noexcept {
         if (transferFunction_.kind == TransferFunctionKind::Fire && !fields.reaction.empty()) {
             const float reactionGate = clamp01(
                 fields.reaction.sampleTrilinear(voxelCoord) * settings.fireReactionScale);
+            // Combustion controls fire emission; smoke extinction stays density-driven.
             tfSample.emission.x *= reactionGate;
             tfSample.emission.y *= reactionGate;
             tfSample.emission.z *= reactionGate;
-            tfSample.absorption *= reactionGate;
+        }
+        if (transferFunction_.kind == TransferFunctionKind::Fire) {
+            const float intensity = std::max(0.0f, settings.fireIntensityScale);
+            tfSample.emission.x *= intensity;
+            tfSample.emission.y *= intensity;
+            tfSample.emission.z *= intensity;
         }
         const float absorption = tfSample.absorption * settings.stepSize;
 

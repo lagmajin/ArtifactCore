@@ -162,6 +162,7 @@ struct VolumeRenderSettings {
     float stepSize = 0.05f;
     float densityScale = 1.0f;
     float fireReactionScale = 1.5f;
+    float fireIntensityScale = 1.0f;
     int maxSteps = 2048;
     Color backgroundColor{0.0f, 0.0f, 0.0f};
     bool useTemperatureEmission = true;
