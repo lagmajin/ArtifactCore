@@ -599,30 +599,76 @@ void PyroSimulation::applyVorticityConfinement(float deltaSeconds) {
 
     const auto resolution = fields_.resolution();
     auto velocity = fields_.velocityView();
-    const std::vector<PyroVec3> sourceVelocity(velocity.values.begin(), velocity.values.end());
+    auto density = fields_.densityView();
+    auto curlMagnitude = fields_.divergenceView();
+    std::vector<PyroVec3> sourceVelocity(velocity.values.begin(), velocity.values.end());
     const float dt = static_cast<float>(deltaSeconds);
+
+    const auto velocityAt = [&](const int x, const int y, const int z) -> const PyroVec3& {
+        return velocity.values[cellIndex(
+            std::clamp(x, 0, resolution.width - 1),
+            std::clamp(y, 0, resolution.height - 1),
+            std::clamp(z, 0, resolution.depth - 1))];
+    };
+    const auto curlAt = [&](const int x, const int y, const int z) {
+        const auto& xp = velocityAt(x + 1, y, z);
+        const auto& xm = velocityAt(x - 1, y, z);
+        const auto& yp = velocityAt(x, y + 1, z);
+        const auto& ym = velocityAt(x, y - 1, z);
+        const auto& zp = velocityAt(x, y, z + 1);
+        const auto& zm = velocityAt(x, y, z - 1);
+        return PyroVec3{
+            0.5f * ((yp.z - ym.z) - (zp.y - zm.y)),
+            0.5f * ((zp.x - zm.x) - (xp.z - xm.z)),
+            0.5f * ((xp.y - xm.y) - (yp.x - ym.x))};
+    };
 
     Parallel::ForVolumeSlices(resolution.width, resolution.height, resolution.depth, [&](int z) {
         for (int y = 0; y < resolution.height; ++y) {
             for (int x = 0; x < resolution.width; ++x) {
+                const auto omega = curlAt(x, y, z);
                 const auto idx = cellIndex(x, y, z);
+                // Reuse the velocity snapshot and divergence field as curl scratch;
+                // computeDivergence overwrites the scalar field before pressure solve.
+                sourceVelocity[idx] = omega;
+                curlMagnitude.values[idx] = std::sqrt(
+                    omega.x * omega.x + omega.y * omega.y +
+                    omega.z * omega.z);
+            }
+        }
+    });
+
+    Parallel::ForVolumeSlices(resolution.width, resolution.height, resolution.depth, [&](int z) {
+        for (int y = 0; y < resolution.height; ++y) {
+            for (int x = 0; x < resolution.width; ++x) {
                 const int xm = std::max(0, x - 1);
                 const int xp = std::min(resolution.width - 1, x + 1);
                 const int ym = std::max(0, y - 1);
                 const int yp = std::min(resolution.height - 1, y + 1);
                 const int zm = std::max(0, z - 1);
                 const int zp = std::min(resolution.depth - 1, z + 1);
-                const float wx = (sourceVelocity[cellIndex(xp, y, z)].y - sourceVelocity[cellIndex(xm, y, z)].y) * 0.5f;
-                const float wy = (sourceVelocity[cellIndex(x, yp, z)].z - sourceVelocity[cellIndex(x, ym, z)].z) * 0.5f;
-                const float wz = (sourceVelocity[cellIndex(x, y, zp)].x - sourceVelocity[cellIndex(x, y, zm)].x) * 0.5f;
-                const float len = std::sqrt(wx * wx + wy * wy + wz * wz) + 1e-5f;
-                const float nx = wx / len;
-                const float ny = wy / len;
-                const float nz = wz / len;
-                const float strength = settings_.vorticity * dt;
-                velocity.values[idx].x += (ny - nz) * strength;
-                velocity.values[idx].y += (nz - nx) * strength;
-                velocity.values[idx].z += (nx - ny) * strength;
+                const auto idx = cellIndex(x, y, z);
+                const float gx = 0.5f *
+                    (curlMagnitude.at(xp, y, z) - curlMagnitude.at(xm, y, z));
+                const float gy = 0.5f *
+                    (curlMagnitude.at(x, yp, z) - curlMagnitude.at(x, ym, z));
+                const float gz = 0.5f *
+                    (curlMagnitude.at(x, y, zp) - curlMagnitude.at(x, y, zm));
+                const float gradientLength =
+                    std::sqrt(gx * gx + gy * gy + gz * gz) + 1.0e-6f;
+                const PyroVec3 normal{
+                    gx / gradientLength, gy / gradientLength,
+                    gz / gradientLength};
+                const auto omega = sourceVelocity[idx];
+                const float smokeGate = std::clamp(
+                    density.values[idx] / 0.08f, 0.0f, 1.0f);
+                const float strength = settings_.vorticity * dt * smokeGate;
+                velocity.values[idx].x +=
+                    (normal.y * omega.z - normal.z * omega.y) * strength;
+                velocity.values[idx].y +=
+                    (normal.z * omega.x - normal.x * omega.z) * strength;
+                velocity.values[idx].z +=
+                    (normal.x * omega.y - normal.y * omega.x) * strength;
             }
         }
     });
