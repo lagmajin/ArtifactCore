@@ -412,6 +412,11 @@ void FluidSolver2D::update(float dt) {
     if (dt <= 0.0f) return;
     dt = std::min(dt, 0.05f);
 
+#if defined(ARTIFACT_SMOKE_RUNTIME_RND)
+    artifactSmokeRuntimeRndApplyPreUpdate(
+        width_, height_, dt, density_.data(), vx_.data(), vy_.data());
+#endif
+
     // Apply Buoyancy (Thermal Convection)
     if (buoyancyFactor_ != 0.0f) {
         for (int i = 0; i < size_; ++i) {
