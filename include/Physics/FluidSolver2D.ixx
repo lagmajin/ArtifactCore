@@ -18,6 +18,7 @@ struct LIBRARY_DLL_API SmokeEmitter2D {
     float velocityX = 0.0f;
     float velocityY = -1.0f;
     float swirl = 0.15f;
+    float temperature = 0.0f;
 };
 
 struct LIBRARY_DLL_API SmokeStir2D {
@@ -42,6 +43,8 @@ struct LIBRARY_DLL_API FluidSnapshot2D {
     bool adaptiveIterations = true;
     int highResThresholdCells = 512 * 512;
     int maxAdaptiveIterations = 40;
+    float thermalBuoyancy = 0.0f;
+    float temperatureDissipationPerSecond = 0.0f;
     NamedVector<float> density{ContainerName{"Physics.FluidSnapshotDensity"}};
     NamedVector<float> densityPrev{ContainerName{"Physics.FluidSnapshotDensityPrevious"}};
     NamedVector<float> velocityX{ContainerName{"Physics.FluidSnapshotVelocityX"}};
@@ -49,6 +52,8 @@ struct LIBRARY_DLL_API FluidSnapshot2D {
     NamedVector<float> velocityXPrev{ContainerName{"Physics.FluidSnapshotVelocityXPrevious"}};
     NamedVector<float> velocityYPrev{ContainerName{"Physics.FluidSnapshotVelocityYPrevious"}};
     NamedVector<float> curl{ContainerName{"Physics.FluidSnapshotCurl"}};
+    NamedVector<float> temperature{ContainerName{"Physics.FluidSnapshotTemperature"}};
+    NamedVector<float> temperaturePrev{ContainerName{"Physics.FluidSnapshotTemperaturePrevious"}};
 };
 
 class LIBRARY_DLL_API FluidSolver2D {
@@ -63,11 +68,13 @@ public:
     
     // 外部からの入力
     void addDensity(int x, int y, float amount);
+    void addTemperature(int x, int y, float amount);
     void scaleDensity(float factor);
     void addVelocity(int x, int y, float vx, float vy);
 
     // 取得
     float getDensity(int x, int y) const;
+    float getTemperature(int x, int y) const;
     void getVelocity(int x, int y, float& vx, float& vy) const;
 
     int width() const { return width_; }
@@ -80,6 +87,14 @@ public:
     float diffusion() const noexcept { return diffusion_; }
     void setBuoyancy(float b) { buoyancyFactor_ = b; }
     float buoyancy() const noexcept { return buoyancyFactor_; }
+    void setThermalBuoyancy(float b) { thermalBuoyancyFactor_ = b; }
+    float thermalBuoyancy() const noexcept { return thermalBuoyancyFactor_; }
+    void setTemperatureDissipationPerSecond(float rate) {
+        temperatureDissipationPerSecond_ = std::max(0.0f, rate);
+    }
+    float temperatureDissipationPerSecond() const noexcept {
+        return temperatureDissipationPerSecond_;
+    }
     void setVorticity(float v) { vorticityStrength_ = v; }
     float vorticity() const noexcept { return vorticityStrength_; }
     void setSolverIterations(int iterations) { solverIterations_ = std::max(1, iterations); }
@@ -101,6 +116,8 @@ private:
     float viscosity_ = 0.00001f;
     float diffusion_ = 0.00001f;
     float buoyancyFactor_ = 0.05f;
+    float thermalBuoyancyFactor_ = 0.0f;
+    float temperatureDissipationPerSecond_ = 0.0f;
     float vorticityStrength_ = 0.1f;
     int solverIterations_ = 20;
     bool adaptiveIterations_ = true;
@@ -118,6 +135,8 @@ private:
 
     // Temporary buffers for vorticity confinement
     NamedVector<float> curl_{ContainerName{"Physics.FluidCurl"}};
+    NamedVector<float> temperature_{ContainerName{"Physics.FluidTemperature"}};
+    NamedVector<float> temperaturePrev_{ContainerName{"Physics.FluidTemperaturePrevious"}};
 
     // Core solvers
     void diffuse(int b, NamedVector<float>& x, const NamedVector<float>& x0, float diff, float dt);

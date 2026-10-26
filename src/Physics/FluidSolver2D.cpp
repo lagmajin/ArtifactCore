@@ -31,6 +31,8 @@ FluidSolver2D::FluidSolver2D(int width, int height)
     initializeGrid(vxPrev_);
     initializeGrid(vyPrev_);
     initializeGrid(curl_);
+    initializeGrid(temperature_);
+    initializeGrid(temperaturePrev_);
 }
 
 FluidSolver2D::~FluidSolver2D() = default;
@@ -65,6 +67,9 @@ void injectSmokeEmitter2D(FluidSolver2D& solver,
             const float weight = (1.0f - distanceSquared) *
                                  std::max(0.0f, emitter.density);
             solver.addDensity(gx, gy, weight);
+            solver.addTemperature(
+                gx, gy, (1.0f - distanceSquared) *
+                    std::max(0.0f, emitter.temperature));
             const float tangentialX = -ny * emitter.swirl;
             const float tangentialY = nx * emitter.swirl;
             solver.addVelocity(
@@ -126,6 +131,9 @@ FluidSnapshot2D FluidSolver2D::snapshot() const {
     state.adaptiveIterations = adaptiveIterations_;
     state.highResThresholdCells = highResThresholdCells_;
     state.maxAdaptiveIterations = maxAdaptiveIterations_;
+    state.thermalBuoyancy = thermalBuoyancyFactor_;
+    state.temperatureDissipationPerSecond =
+        temperatureDissipationPerSecond_;
     state.density = density_;
     state.densityPrev = densityPrev_;
     state.velocityX = vx_;
@@ -133,6 +141,8 @@ FluidSnapshot2D FluidSolver2D::snapshot() const {
     state.velocityXPrev = vxPrev_;
     state.velocityYPrev = vyPrev_;
     state.curl = curl_;
+    state.temperature = temperature_;
+    state.temperaturePrev = temperaturePrev_;
     return state;
 }
 
@@ -149,6 +159,9 @@ bool FluidSolver2D::restoreSnapshot(const FluidSnapshot2D& state) {
     adaptiveIterations_ = state.adaptiveIterations;
     highResThresholdCells_ = std::max(1, state.highResThresholdCells);
     maxAdaptiveIterations_ = std::max(1, state.maxAdaptiveIterations);
+    thermalBuoyancyFactor_ = state.thermalBuoyancy;
+    temperatureDissipationPerSecond_ =
+        state.temperatureDissipationPerSecond;
     density_ = state.density;
     densityPrev_ = state.densityPrev;
     vx_ = state.velocityX;
@@ -156,6 +169,8 @@ bool FluidSolver2D::restoreSnapshot(const FluidSnapshot2D& state) {
     vxPrev_ = state.velocityXPrev;
     vyPrev_ = state.velocityYPrev;
     curl_ = state.curl;
+    temperature_ = state.temperature;
+    temperaturePrev_ = state.temperaturePrev;
     return true;
 }
 
@@ -169,7 +184,9 @@ bool FluidSolver2D::canRestoreSnapshot(const FluidSnapshot2D& state) const {
         state.velocityY.size() == expectedSize &&
         state.velocityXPrev.size() == expectedSize &&
         state.velocityYPrev.size() == expectedSize &&
-        state.curl.size() == expectedSize;
+        state.curl.size() == expectedSize &&
+        state.temperature.size() == expectedSize &&
+        state.temperaturePrev.size() == expectedSize;
 }
 
 void FluidSolver2D::setResolution(int width, int height) {
@@ -181,6 +198,7 @@ void FluidSolver2D::setResolution(int width, int height) {
     const auto oldDensity = density_;
     const auto oldVx = vx_;
     const auto oldVy = vy_;
+    const auto oldTemperature = temperature_;
     width_ = newWidth;
     height_ = newHeight;
     size_ = width_ * height_;
@@ -195,6 +213,8 @@ void FluidSolver2D::setResolution(int width, int height) {
     resetGrid(vxPrev_);
     resetGrid(vyPrev_);
     resetGrid(curl_);
+    resetGrid(temperature_);
+    resetGrid(temperaturePrev_);
     const auto sample = [oldWidth, oldHeight](const NamedVector<float>& field, float x, float y) {
         const int ix = std::clamp(static_cast<int>(std::lround(x)), 0, oldWidth - 1);
         const int iy = std::clamp(static_cast<int>(std::lround(y)), 0, oldHeight - 1);
@@ -210,6 +230,7 @@ void FluidSolver2D::setResolution(int width, int height) {
             density_[index] = sample(oldDensity, sourceX, sourceY);
             vx_[index] = sample(oldVx, sourceX, sourceY);
             vy_[index] = sample(oldVy, sourceX, sourceY);
+            temperature_[index] = sample(oldTemperature, sourceX, sourceY);
         }
     }
 }
@@ -221,11 +242,20 @@ void FluidSolver2D::reset() {
     std::fill(vy_.begin(), vy_.end(), 0.0f);
     std::fill(vxPrev_.begin(), vxPrev_.end(), 0.0f);
     std::fill(vyPrev_.begin(), vyPrev_.end(), 0.0f);
+    std::fill(temperature_.begin(), temperature_.end(), 0.0f);
+    std::fill(temperaturePrev_.begin(), temperaturePrev_.end(), 0.0f);
 }
 
 void FluidSolver2D::addDensity(int x, int y, float amount) {
     if (x >= 0 && x < width_ && y >= 0 && y < height_) {
         density_[IX(x, y)] += amount;
+    }
+}
+
+void FluidSolver2D::addTemperature(int x, int y, float amount) {
+    if (x >= 0 && x < width_ && y >= 0 && y < height_ &&
+        std::isfinite(amount)) {
+        temperature_[IX(x, y)] += std::max(0.0f, amount);
     }
 }
 
@@ -247,6 +277,13 @@ void FluidSolver2D::addVelocity(int x, int y, float vx, float vy) {
 float FluidSolver2D::getDensity(int x, int y) const {
     if (x >= 0 && x < width_ && y >= 0 && y < height_) {
         return density_[IX(x, y)];
+    }
+    return 0.0f;
+}
+
+float FluidSolver2D::getTemperature(int x, int y) const {
+    if (x >= 0 && x < width_ && y >= 0 && y < height_) {
+        return temperature_[IX(x, y)];
     }
     return 0.0f;
 }
@@ -424,6 +461,11 @@ void FluidSolver2D::update(float dt) {
             vy_[i] -= density_[i] * buoyancyFactor_ * dt;
         }
     }
+    if (thermalBuoyancyFactor_ != 0.0f) {
+        for (int i = 0; i < size_; ++i) {
+            vy_[i] -= temperature_[i] * thermalBuoyancyFactor_ * dt;
+        }
+    }
 
     // Velocity Step
     vorticityConfinement(vx_, vy_, dt);
@@ -460,6 +502,14 @@ void FluidSolver2D::update(float dt) {
     diffuse(0, densityPrev_, density_, diffusion_, dt);
     advect(0, density_, densityPrev_, vx_, vy_, dt);
 
+    diffuse(0, temperaturePrev_, temperature_, diffusion_, dt);
+    advect(0, temperature_, temperaturePrev_, vx_, vy_, dt);
+    const float temperatureRetention = std::exp(
+        -std::max(0.0f, temperatureDissipationPerSecond_) * dt);
+    for (int i = 0; i < size_; ++i) {
+        temperature_[i] *= temperatureRetention;
+    }
+
 #if defined(ARTIFACT_SMOKE_RUNTIME_RND)
     artifactSmokeRuntimeRndObserve(4, width_, height_,
                                    computeSolverIterations(), density_.data(),
@@ -470,6 +520,7 @@ void FluidSolver2D::update(float dt) {
     // one bad advection step cannot poison subsequent solves.
     for (int i = 0; i < size_; ++i) {
         if (!std::isfinite(density_[i])) density_[i] = 0.0f;
+        if (!std::isfinite(temperature_[i])) temperature_[i] = 0.0f;
         if (!std::isfinite(vx_[i])) vx_[i] = 0.0f;
         if (!std::isfinite(vy_[i])) vy_[i] = 0.0f;
     }
