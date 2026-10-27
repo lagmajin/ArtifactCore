@@ -591,7 +591,8 @@ LiquidSweepHit liquidSweepCircleAgainstSegment(
     const auto consider = [&](const float time,
                               const LiquidContainerPoint2D& contact,
                               LiquidSweepHit& result) {
-        if (time < 0.0f || time > 1.0f || time >= result.time) return;
+        if (time < 0.0f || time > 1.0f ||
+            (result.hit && time >= result.time)) return;
         const float centerX = start.x + moveX * time;
         const float centerY = start.y + moveY * time;
         float normalX = centerX - contact.x;
@@ -643,7 +644,8 @@ LiquidSweepHit liquidSweepCircleAgainstSegment(
         if (std::abs(distanceDelta) > 1.0e-10f) {
             for (const float side : {-1.0f, 1.0f}) {
                 const float time = (side * radius - startDistance) / distanceDelta;
-                if (time < 0.0f || time > 1.0f || time >= best.time) continue;
+                if (time < 0.0f || time > 1.0f ||
+                    (best.hit && time >= best.time)) continue;
                 const float centerX = start.x + moveX * time;
                 const float centerY = start.y + moveY * time;
                 const float along = (centerX - a.x) * tangentX +
@@ -667,7 +669,8 @@ LiquidSweepHit liquidSweepCircleAgainstSegment(
         if (discriminant < 0.0f) continue;
         const float time = (-linear - std::sqrt(discriminant)) /
                            (2.0f * moveLengthSquared);
-        if (time < 0.0f || time > 1.0f || time >= best.time) continue;
+        if (time < 0.0f || time > 1.0f ||
+            (best.hit && time >= best.time)) continue;
         const LiquidContainerPoint2D contact{endpoint.x, endpoint.y};
         consider(time, contact, best);
     }
