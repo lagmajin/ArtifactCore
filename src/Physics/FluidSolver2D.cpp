@@ -561,6 +561,119 @@ LiquidContainerPoint2D liquidClosestPointOnSegment(
     return {a.x + dx * t, a.y + dy * t};
 }
 
+struct LiquidSweepHit {
+    float time = 1.0f;
+    LiquidContainerPoint2D point;
+    LiquidContainerPoint2D normal;
+    bool hit = false;
+};
+
+LiquidSweepHit liquidSweepCircleAgainstSegment(
+    const LiquidContainerPoint2D& start,
+    const LiquidContainerPoint2D& end,
+    const LiquidContainerPoint2D& a,
+    const LiquidContainerPoint2D& b,
+    const float radius) {
+    const float moveX = end.x - start.x;
+    const float moveY = end.y - start.y;
+    const float moveLengthSquared = moveX * moveX + moveY * moveY;
+    const float edgeX = b.x - a.x;
+    const float edgeY = b.y - a.y;
+    const float edgeLength = std::hypot(edgeX, edgeY);
+    LiquidSweepHit best;
+    if (moveLengthSquared <= 1.0e-16f) return best;
+
+    const auto startClosest = liquidClosestPointOnSegment(start, a, b);
+    const float startOffsetX = start.x - startClosest.x;
+    const float startOffsetY = start.y - startClosest.y;
+    const float startDistance = std::hypot(startOffsetX, startOffsetY);
+
+    const auto consider = [&](const float time,
+                              const LiquidContainerPoint2D& contact,
+                              LiquidSweepHit& result) {
+        if (time < 0.0f || time > 1.0f || time >= result.time) return;
+        const float centerX = start.x + moveX * time;
+        const float centerY = start.y + moveY * time;
+        float normalX = centerX - contact.x;
+        float normalY = centerY - contact.y;
+        const float normalLength = std::hypot(normalX, normalY);
+        if (normalLength <= 1.0e-8f) {
+            normalX = -moveX;
+            normalY = -moveY;
+            const float fallbackLength = std::hypot(normalX, normalY);
+            if (fallbackLength <= 1.0e-8f) return;
+            normalX /= fallbackLength;
+            normalY /= fallbackLength;
+        } else {
+            normalX /= normalLength;
+            normalY /= normalLength;
+        }
+        if (moveX * normalX + moveY * normalY >= 0.0f) return;
+        result = {time, contact, {normalX, normalY}, true};
+    };
+
+    if (startDistance <= radius + 1.0e-6f) {
+        float normalX = startOffsetX;
+        float normalY = startOffsetY;
+        if (startDistance > 1.0e-8f) {
+            normalX /= startDistance;
+            normalY /= startDistance;
+        } else {
+            normalX = -moveX;
+            normalY = -moveY;
+            const float length = std::hypot(normalX, normalY);
+            if (length > 1.0e-8f) {
+                normalX /= length;
+                normalY /= length;
+            }
+        }
+        if (moveX * normalX + moveY * normalY < 0.0f) {
+            best = {0.0f, startClosest, {normalX, normalY}, true};
+        }
+    }
+
+    if (edgeLength > 1.0e-8f) {
+        const float tangentX = edgeX / edgeLength;
+        const float tangentY = edgeY / edgeLength;
+        const float normalX = -tangentY;
+        const float normalY = tangentX;
+        const float startDistance =
+            (start.x - a.x) * normalX + (start.y - a.y) * normalY;
+        const float distanceDelta = moveX * normalX + moveY * normalY;
+        if (std::abs(distanceDelta) > 1.0e-10f) {
+            for (const float side : {-1.0f, 1.0f}) {
+                const float time = (side * radius - startDistance) / distanceDelta;
+                if (time < 0.0f || time > 1.0f || time >= best.time) continue;
+                const float centerX = start.x + moveX * time;
+                const float centerY = start.y + moveY * time;
+                const float along = (centerX - a.x) * tangentX +
+                                    (centerY - a.y) * tangentY;
+                if (along < 0.0f || along > edgeLength) continue;
+                const LiquidContainerPoint2D contact{
+                    a.x + tangentX * along, a.y + tangentY * along};
+                consider(time, contact, best);
+            }
+        }
+    }
+
+    for (const LiquidContainerPoint2D endpoint : {a, b}) {
+        const float offsetX = start.x - endpoint.x;
+        const float offsetY = start.y - endpoint.y;
+        const float linear = 2.0f * (offsetX * moveX + offsetY * moveY);
+        const float constant = offsetX * offsetX + offsetY * offsetY -
+                               radius * radius;
+        const float discriminant = linear * linear -
+                                   4.0f * moveLengthSquared * constant;
+        if (discriminant < 0.0f) continue;
+        const float time = (-linear - std::sqrt(discriminant)) /
+                           (2.0f * moveLengthSquared);
+        if (time < 0.0f || time > 1.0f || time >= best.time) continue;
+        const LiquidContainerPoint2D contact{endpoint.x, endpoint.y};
+        consider(time, contact, best);
+    }
+    return best;
+}
+
 template <typename PairVisitor>
 void forEachLiquidNeighborPair(
     const NamedVector<LiquidParticle2D>& particles,
@@ -1200,7 +1313,10 @@ void LiquidSolver2D::reset(float fillAmount, float particleSpacing) {
             return !liquidPointInsidePolygon(
                 {particle.x, particle.y}, containerPolygon_);
         });
-        for (auto& particle : particles_) solveContainerBounds(particle);
+        for (std::size_t i = 0; i < particles_.size(); ++i) {
+            solveContainerBounds(particles_[i],
+                                 {particles_[i].x, particles_[i].y});
+        }
     }
 }
 
@@ -1227,7 +1343,9 @@ void LiquidSolver2D::setSolverIterations(int value) {
     solverIterations_ = std::clamp(value, 1, 12);
 }
 
-void LiquidSolver2D::solveContainerBounds(LiquidParticle2D& particle) const {
+void LiquidSolver2D::solveContainerBounds(
+    LiquidParticle2D& particle,
+    const LiquidContainerPoint2D& previousPosition) const {
     const float radius = particleSpacing_ * 0.5f;
     const float damping = 0.28f;
 
@@ -1250,31 +1368,68 @@ void LiquidSolver2D::solveContainerBounds(LiquidParticle2D& particle) const {
                 closestPoint = candidate;
             }
         }
-        if (closestEdge == openContainerEdge_) return;
-        const float distance = std::sqrt(std::max(closestDistanceSquared,
-                                                   1.0e-12f));
-        if (inside && distance >= radius) return;
+        const float distance = std::sqrt(std::max(
+            closestDistanceSquared, 1.0e-12f));
+        LiquidSweepHit sweepHit;
+        for (std::size_t i = 0; i < containerPolygon_.size(); ++i) {
+            if (i == openContainerEdge_) continue;
+            const auto& a = containerPolygon_[i];
+            const auto& b = containerPolygon_[
+                (i + 1) % containerPolygon_.size()];
+            const auto candidate = liquidSweepCircleAgainstSegment(
+                previousPosition, point, a, b, radius);
+            if (candidate.hit &&
+                (!sweepHit.hit || candidate.time < sweepHit.time)) {
+                sweepHit = candidate;
+            }
+        }
+        if (!sweepHit.hit && !inside && closestEdge == openContainerEdge_) {
+            return;
+        }
+        if (sweepHit.hit) {
+            const float moveX = point.x - previousPosition.x;
+            const float moveY = point.y - previousPosition.y;
+            const float remainingX = moveX * (1.0f - sweepHit.time);
+            const float remainingY = moveY * (1.0f - sweepHit.time);
+            const float inwardMotion = remainingX * sweepHit.normal.x +
+                                       remainingY * sweepHit.normal.y;
+            closestPoint = {
+                sweepHit.point.x + remainingX -
+                    sweepHit.normal.x * inwardMotion,
+                sweepHit.point.y + remainingY -
+                    sweepHit.normal.y * inwardMotion};
+        }
+        if (!sweepHit.hit && distance >= radius) {
+            return;
+        }
 
-        const auto& a = containerPolygon_[closestEdge];
-        const auto& b = containerPolygon_[
-            (closestEdge + 1) % containerPolygon_.size()];
-        float normalX = -(b.y - a.y);
-        float normalY = b.x - a.x;
-        const float normalLength = std::hypot(normalX, normalY);
-        if (normalLength <= 1.0e-8f) return;
-        normalX /= normalLength;
-        normalY /= normalLength;
-        const LiquidContainerPoint2D probe{
-            closestPoint.x + normalX * radius,
-            closestPoint.y + normalY * radius};
-        if (!liquidPointInsidePolygon(probe, containerPolygon_)) {
-            normalX = -normalX;
-            normalY = -normalY;
+        float normalX = 0.0f;
+        float normalY = 0.0f;
+        if (sweepHit.hit) {
+            normalX = sweepHit.normal.x;
+            normalY = sweepHit.normal.y;
+        } else {
+            const auto& normalEdgeA = containerPolygon_[closestEdge];
+            const auto& normalEdgeB = containerPolygon_[
+                (closestEdge + 1) % containerPolygon_.size()];
+            normalX = -(normalEdgeB.y - normalEdgeA.y);
+            normalY = normalEdgeB.x - normalEdgeA.x;
+            const float normalLength = std::hypot(normalX, normalY);
+            if (normalLength <= 1.0e-8f) return;
+            normalX /= normalLength;
+            normalY /= normalLength;
+            const LiquidContainerPoint2D inwardProbe{
+                closestPoint.x + normalX * radius,
+                closestPoint.y + normalY * radius};
+            if (!liquidPointInsidePolygon(inwardProbe, containerPolygon_)) {
+                normalX = -normalX;
+                normalY = -normalY;
+            }
         }
         particle.x = closestPoint.x + normalX * radius;
         particle.y = closestPoint.y + normalY * radius;
-        const float normalVelocity =
-            particle.vx * normalX + particle.vy * normalY;
+        const float normalVelocity = particle.vx * normalX +
+                                     particle.vy * normalY;
         if (normalVelocity < 0.0f) {
             particle.collisionImpact = std::max(
                 particle.collisionImpact, -normalVelocity);
@@ -1510,6 +1665,9 @@ void LiquidSolver2D::update(float dt) {
     if (previousPositions_.size() != particles_.size()) {
         previousPositions_.resize(particles_.size());
     }
+    if (constraintPreviousPositions_.size() != particles_.size()) {
+        constraintPreviousPositions_.resize(particles_.size());
+    }
     for (int substep = 0; substep < substeps_; ++substep) {
         const float impactRetention = std::exp(-6.0f * stepDt);
         for (std::size_t i = 0; i < particles_.size(); ++i) {
@@ -1524,11 +1682,18 @@ void LiquidSolver2D::update(float dt) {
             particle.vy += gravityY_ * stepDt;
             particle.x += particle.vx * stepDt;
             particle.y += particle.vy * stepDt;
-            solveContainerBounds(particle);
+            solveContainerBounds(particle, previousPositions_[i]);
         }
         for (int iteration = 0; iteration < solverIterations_; ++iteration) {
+            for (std::size_t i = 0; i < particles_.size(); ++i) {
+                constraintPreviousPositions_[i] = {
+                    particles_[i].x, particles_[i].y};
+            }
             solveDensityConstraints();
-            for (auto& particle : particles_) solveContainerBounds(particle);
+            for (std::size_t i = 0; i < particles_.size(); ++i) {
+                solveContainerBounds(
+                    particles_[i], constraintPreviousPositions_[i]);
+            }
         }
         for (std::size_t i = 0; i < particles_.size(); ++i) {
             particles_[i].vx =
