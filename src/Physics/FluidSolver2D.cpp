@@ -1456,7 +1456,7 @@ void LiquidSolver2D::solveContainerBounds(
                 particle.collisionImpact = std::max(
                     particle.collisionImpact, -particle.vx);
                 particle.vx *= -damping;
-                retainCollisionNormalVelocity(-1.0f, 0.0f);
+                retainCollisionNormalVelocity(1.0f, 0.0f);
             }
         } else if (particle.x > 1.0f - radius) {
             particle.x = 1.0f - radius;
@@ -1464,7 +1464,7 @@ void LiquidSolver2D::solveContainerBounds(
                 particle.collisionImpact = std::max(
                     particle.collisionImpact, particle.vx);
                 particle.vx *= -damping;
-                retainCollisionNormalVelocity(1.0f, 0.0f);
+                retainCollisionNormalVelocity(-1.0f, 0.0f);
             }
         }
     }
