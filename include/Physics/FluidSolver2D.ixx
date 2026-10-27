@@ -294,8 +294,10 @@ private:
         ContainerName{"Physics.LiquidGradientSumX"}};
     NamedVector<float> gradientSumY_{
         ContainerName{"Physics.LiquidGradientSumY"}};
-    NamedVector<LiquidContainerPoint2D> collisionVelocityDeltas_{
-        ContainerName{"Physics.LiquidCollisionVelocityDeltas"}};
+    NamedVector<LiquidContainerPoint2D> collisionNormals_{
+        ContainerName{"Physics.LiquidCollisionNormals"}};
+    NamedVector<float> collisionNormalVelocities_{
+        ContainerName{"Physics.LiquidCollisionNormalVelocities"}};
     NamedVector<LiquidContainerPoint2D> constraintPreviousPositions_{
         ContainerName{"Physics.LiquidConstraintPreviousPositions"}};
     NamedVector<float> gradientMagnitudeSum_
