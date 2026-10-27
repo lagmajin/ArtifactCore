@@ -1315,7 +1315,7 @@ void LiquidSolver2D::reset(float fillAmount, float particleSpacing) {
         });
         for (std::size_t i = 0; i < particles_.size(); ++i) {
             solveContainerBounds(particles_[i],
-                                 {particles_[i].x, particles_[i].y});
+                                 {particles_[i].x, particles_[i].y}, i);
         }
     }
 }
@@ -1345,7 +1345,8 @@ void LiquidSolver2D::setSolverIterations(int value) {
 
 void LiquidSolver2D::solveContainerBounds(
     LiquidParticle2D& particle,
-    const LiquidContainerPoint2D& previousPosition) const {
+    const LiquidContainerPoint2D& previousPosition,
+    std::size_t particleIndex) {
     const float radius = particleSpacing_ * 0.5f;
     const float damping = 0.28f;
 
@@ -1433,8 +1434,14 @@ void LiquidSolver2D::solveContainerBounds(
         if (normalVelocity < 0.0f) {
             particle.collisionImpact = std::max(
                 particle.collisionImpact, -normalVelocity);
+            const float previousVx = particle.vx;
+            const float previousVy = particle.vy;
             particle.vx -= (1.0f + damping) * normalVelocity * normalX;
             particle.vy -= (1.0f + damping) * normalVelocity * normalY;
+            collisionVelocityDeltas_[particleIndex].x +=
+                particle.vx - previousVx;
+            collisionVelocityDeltas_[particleIndex].y +=
+                particle.vy - previousVy;
         }
         return;
     }
@@ -1447,14 +1454,20 @@ void LiquidSolver2D::solveContainerBounds(
             if (particle.vx < 0.0f) {
                 particle.collisionImpact = std::max(
                     particle.collisionImpact, -particle.vx);
+                const float previousVx = particle.vx;
                 particle.vx *= -damping;
+                collisionVelocityDeltas_[particleIndex].x +=
+                    particle.vx - previousVx;
             }
         } else if (particle.x > 1.0f - radius) {
             particle.x = 1.0f - radius;
             if (particle.vx > 0.0f) {
                 particle.collisionImpact = std::max(
                     particle.collisionImpact, particle.vx);
+                const float previousVx = particle.vx;
                 particle.vx *= -damping;
+                collisionVelocityDeltas_[particleIndex].x +=
+                    particle.vx - previousVx;
             }
         }
     }
@@ -1463,7 +1476,10 @@ void LiquidSolver2D::solveContainerBounds(
         if (particle.vy > 0.0f) {
             particle.collisionImpact = std::max(
                 particle.collisionImpact, particle.vy);
+            const float previousVy = particle.vy;
             particle.vy *= -damping;
+            collisionVelocityDeltas_[particleIndex].y +=
+                particle.vy - previousVy;
         }
     }
 }
@@ -1668,7 +1684,12 @@ void LiquidSolver2D::update(float dt) {
     if (constraintPreviousPositions_.size() != particles_.size()) {
         constraintPreviousPositions_.resize(particles_.size());
     }
+    if (collisionVelocityDeltas_.size() != particles_.size()) {
+        collisionVelocityDeltas_.resize(particles_.size());
+    }
     for (int substep = 0; substep < substeps_; ++substep) {
+        std::fill(collisionVelocityDeltas_.begin(),
+                  collisionVelocityDeltas_.end(), LiquidContainerPoint2D{});
         const float impactRetention = std::exp(-6.0f * stepDt);
         for (std::size_t i = 0; i < particles_.size(); ++i) {
             auto& particle = particles_[i];
@@ -1682,7 +1703,7 @@ void LiquidSolver2D::update(float dt) {
             particle.vy += gravityY_ * stepDt;
             particle.x += particle.vx * stepDt;
             particle.y += particle.vy * stepDt;
-            solveContainerBounds(particle, previousPositions_[i]);
+            solveContainerBounds(particle, previousPositions_[i], i);
         }
         for (int iteration = 0; iteration < solverIterations_; ++iteration) {
             for (std::size_t i = 0; i < particles_.size(); ++i) {
@@ -1692,7 +1713,7 @@ void LiquidSolver2D::update(float dt) {
             solveDensityConstraints();
             for (std::size_t i = 0; i < particles_.size(); ++i) {
                 solveContainerBounds(
-                    particles_[i], constraintPreviousPositions_[i]);
+                    particles_[i], constraintPreviousPositions_[i], i);
             }
         }
         for (std::size_t i = 0; i < particles_.size(); ++i) {
@@ -1700,6 +1721,8 @@ void LiquidSolver2D::update(float dt) {
                 (particles_[i].x - previousPositions_[i].x) / stepDt;
             particles_[i].vy =
                 (particles_[i].y - previousPositions_[i].y) / stepDt;
+            particles_[i].vx += collisionVelocityDeltas_[i].x;
+            particles_[i].vy += collisionVelocityDeltas_[i].y;
         }
         applyViscosity();
     }

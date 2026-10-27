@@ -294,6 +294,8 @@ private:
         ContainerName{"Physics.LiquidGradientSumX"}};
     NamedVector<float> gradientSumY_{
         ContainerName{"Physics.LiquidGradientSumY"}};
+    NamedVector<LiquidContainerPoint2D> collisionVelocityDeltas_{
+        ContainerName{"Physics.LiquidCollisionVelocityDeltas"}};
     NamedVector<LiquidContainerPoint2D> constraintPreviousPositions_{
         ContainerName{"Physics.LiquidConstraintPreviousPositions"}};
     NamedVector<float> gradientMagnitudeSum_
@@ -316,7 +318,8 @@ private:
 
     void solveDensityConstraints();
     void solveContainerBounds(LiquidParticle2D& particle,
-                              const LiquidContainerPoint2D& previousPosition) const;
+                              const LiquidContainerPoint2D& previousPosition,
+                              std::size_t particleIndex);
     bool escapedThroughContainerOpening(
         const LiquidParticle2D& particle) const;
     void applyViscosity();
