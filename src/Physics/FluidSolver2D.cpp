@@ -1354,9 +1354,33 @@ void LiquidSolver2D::solveContainerBounds(
     const float damping = 0.28f;
     const auto retainCollisionNormalVelocity =
         [this, particleIndex, &particle](float normalX, float normalY) {
-            collisionNormals_[particleIndex] = {normalX, normalY};
-            collisionNormalVelocities_[particleIndex] = std::max(
-                0.0f, particle.vx * normalX + particle.vy * normalY);
+            const std::size_t firstSlot = particleIndex * 2;
+            std::size_t selectedSlot = firstSlot;
+            for (std::size_t slot = firstSlot; slot < firstSlot + 2; ++slot) {
+                const auto& retainedNormal = collisionNormals_[slot];
+                const float retainedLengthSquared =
+                    retainedNormal.x * retainedNormal.x +
+                    retainedNormal.y * retainedNormal.y;
+                if (retainedLengthSquared <= 0.5f) {
+                    selectedSlot = slot;
+                    break;
+                }
+                const float alignment = retainedNormal.x * normalX +
+                                        retainedNormal.y * normalY;
+                selectedSlot = slot;
+                if (alignment > 0.999f) break;
+            }
+            collisionNormals_[selectedSlot] = {normalX, normalY};
+            for (std::size_t slot = firstSlot; slot < firstSlot + 2; ++slot) {
+                const auto& retainedNormal = collisionNormals_[slot];
+                const float retainedLengthSquared =
+                    retainedNormal.x * retainedNormal.x +
+                    retainedNormal.y * retainedNormal.y;
+                if (retainedLengthSquared <= 0.5f) continue;
+                collisionNormalVelocities_[slot] = std::max(
+                    0.0f, particle.vx * retainedNormal.x +
+                              particle.vy * retainedNormal.y);
+            }
         };
 
     if (!containerPolygon_.empty()) {
@@ -1682,17 +1706,62 @@ void LiquidSolver2D::update(float dt) {
     if (constraintPreviousPositions_.size() != particles_.size()) {
         constraintPreviousPositions_.resize(particles_.size());
     }
-    if (collisionNormals_.size() != particles_.size()) {
-        collisionNormals_.resize(particles_.size());
+    const std::size_t collisionConstraintCount = particles_.size() * 2;
+    if (collisionNormals_.size() != collisionConstraintCount) {
+        collisionNormals_.resize(collisionConstraintCount);
     }
-    if (collisionNormalVelocities_.size() != particles_.size()) {
-        collisionNormalVelocities_.resize(particles_.size());
+    if (collisionNormalVelocities_.size() != collisionConstraintCount) {
+        collisionNormalVelocities_.resize(collisionConstraintCount);
     }
+    const auto applyCollisionVelocityConstraints =
+        [this](std::size_t particleIndex) {
+            auto& particle = particles_[particleIndex];
+            const std::size_t firstSlot = particleIndex * 2;
+            const auto& firstNormal = collisionNormals_[firstSlot];
+            const auto& secondNormal = collisionNormals_[firstSlot + 1];
+            const float firstLengthSquared =
+                firstNormal.x * firstNormal.x +
+                firstNormal.y * firstNormal.y;
+            const float secondLengthSquared =
+                secondNormal.x * secondNormal.x +
+                secondNormal.y * secondNormal.y;
+            if (firstLengthSquared > 0.5f && secondLengthSquared > 0.5f) {
+                const float determinant =
+                    firstNormal.x * secondNormal.y -
+                    firstNormal.y * secondNormal.x;
+                if (std::abs(determinant) > 0.1f) {
+                    const float firstVelocity =
+                        collisionNormalVelocities_[firstSlot];
+                    const float secondVelocity =
+                        collisionNormalVelocities_[firstSlot + 1];
+                    particle.vx = (firstVelocity * secondNormal.y -
+                                   firstNormal.y * secondVelocity) /
+                                  determinant;
+                    particle.vy = (firstNormal.x * secondVelocity -
+                                   firstVelocity * secondNormal.x) /
+                                  determinant;
+                    return;
+                }
+            }
+            for (std::size_t slot = firstSlot; slot < firstSlot + 2; ++slot) {
+                const auto& normal = collisionNormals_[slot];
+                const float lengthSquared =
+                    normal.x * normal.x + normal.y * normal.y;
+                if (lengthSquared <= 0.5f) continue;
+                const float currentVelocity =
+                    particle.vx * normal.x + particle.vy * normal.y;
+                const float correction =
+                    collisionNormalVelocities_[slot] - currentVelocity;
+                particle.vx += normal.x * correction;
+                particle.vy += normal.y * correction;
+            }
+        };
     for (int substep = 0; substep < substeps_; ++substep) {
-        std::fill(collisionNormals_.begin(), collisionNormals_.end(),
-                  LiquidContainerPoint2D{});
-        std::fill(collisionNormalVelocities_.begin(),
-                  collisionNormalVelocities_.end(), 0.0f);
+        for (std::size_t constraintIndex = 0;
+             constraintIndex < collisionConstraintCount; ++constraintIndex) {
+            collisionNormals_[constraintIndex] = {};
+            collisionNormalVelocities_[constraintIndex] = 0.0f;
+        }
         const float impactRetention = std::exp(-6.0f * stepDt);
         for (std::size_t i = 0; i < particles_.size(); ++i) {
             auto& particle = particles_[i];
@@ -1724,24 +1793,12 @@ void LiquidSolver2D::update(float dt) {
                 (particles_[i].x - previousPositions_[i].x) / stepDt;
             particles_[i].vy =
                 (particles_[i].y - previousPositions_[i].y) / stepDt;
-            const auto& collisionNormal = collisionNormals_[i];
-            const float normalLengthSquared =
-                collisionNormal.x * collisionNormal.x +
-                collisionNormal.y * collisionNormal.y;
-            if (normalLengthSquared > 0.5f) {
-                const float reconstructedNormalVelocity =
-                    particles_[i].vx * collisionNormal.x +
-                    particles_[i].vy * collisionNormal.y;
-                const float normalVelocityCorrection =
-                    collisionNormalVelocities_[i] -
-                    reconstructedNormalVelocity;
-                particles_[i].vx +=
-                    collisionNormal.x * normalVelocityCorrection;
-                particles_[i].vy +=
-                    collisionNormal.y * normalVelocityCorrection;
-            }
+            applyCollisionVelocityConstraints(i);
         }
         applyViscosity();
+        for (std::size_t i = 0; i < particles_.size(); ++i) {
+            applyCollisionVelocityConstraints(i);
+        }
     }
 
     for (auto& particle : particles_) {
