@@ -1074,6 +1074,11 @@ void LiquidSolver2D::buildSurfaceSnapshotInto(
         validSamples.reserve(validSampleCapacity);
     }
     double sizeSum = 0.0;
+    float minimumSampleX = std::numeric_limits<float>::max();
+    float minimumSampleY = std::numeric_limits<float>::max();
+    float maximumSampleX = std::numeric_limits<float>::lowest();
+    float maximumSampleY = std::numeric_limits<float>::lowest();
+    float maximumSampleSize = 0.0f;
     const std::size_t sampleStride = std::max<std::size_t>(
         1, (samples.size() + maximumDensitySamples - 1) /
                maximumDensitySamples);
@@ -1095,6 +1100,11 @@ void LiquidSolver2D::buildSurfaceSnapshotInto(
         }
         validSamples.push_back(sample);
         sizeSum += sample.size;
+        minimumSampleX = std::min(minimumSampleX, sample.x);
+        minimumSampleY = std::min(minimumSampleY, sample.y);
+        maximumSampleX = std::max(maximumSampleX, sample.x);
+        maximumSampleY = std::max(maximumSampleY, sample.y);
+        maximumSampleSize = std::max(maximumSampleSize, sample.size);
         if (validSamples.size() >= maximumDensitySamples) break;
     }
     if (validSamples.empty()) return;
@@ -1103,8 +1113,22 @@ void LiquidSolver2D::buildSurfaceSnapshotInto(
         sizeSum / static_cast<double>(validSamples.size()));
     const float lodScale = std::min(
         5.0f, std::sqrt(static_cast<float>(sampleStride)));
-    const float gridSpacing =
-        std::max(2.0f, averageSize * 0.58f * lodScale);
+    constexpr std::size_t maximumTriangles = 100000;
+    const std::size_t gridCellBudget = std::max<std::size_t>(
+        1, std::min(maximumSurfaceCells, maximumTriangles / 8));
+    const double surfaceRadius = std::max(
+        1.0, static_cast<double>(maximumSampleSize) * 1.15 * lodScale);
+    const double surfaceWidth =
+        static_cast<double>(maximumSampleX) - minimumSampleX +
+        surfaceRadius * 2.0;
+    const double surfaceHeight =
+        static_cast<double>(maximumSampleY) - minimumSampleY +
+        surfaceRadius * 2.0;
+    const float gridSpacingForBudget = static_cast<float>(std::sqrt(
+        std::max(0.0, surfaceWidth * surfaceHeight) /
+        static_cast<double>(gridCellBudget)));
+    const float gridSpacing = std::max(
+        {1.0f, averageSize * 0.32f * lodScale, gridSpacingForBudget});
     std::map<std::pair<int, int>, float> densityNodes;
     for (const auto& sample : validSamples) {
         const float radius = std::min(
@@ -1194,7 +1218,6 @@ void LiquidSolver2D::buildSurfaceSnapshotInto(
         float density = 0.0f;
     };
     constexpr float threshold = 0.34f;
-    constexpr std::size_t maximumTriangles = 100000;
     constexpr std::size_t maximumContourSegments = 20000;
     const auto interpolate = [&](const SurfaceVertex& from,
                                  const SurfaceVertex& to) {
