@@ -1536,6 +1536,78 @@ void LiquidSolver2D::solveContainerBounds(
         return;
     }
 
+    // The default rectangle has an open top and three closed sides. Sweep
+    // those sides so a particle cannot cross the whole box in one step.
+    const std::array<LiquidContainerPoint2D, 4> rectangleVertices{{
+        {0.0f, 0.0f}, {1.0f, 0.0f}, {1.0f, 1.0f}, {0.0f, 1.0f}}};
+    LiquidContainerPoint2D sweepStart = previousPosition;
+    LiquidContainerPoint2D sweepEnd = point;
+    bool sweptContact = false;
+    constexpr std::size_t maximumContactsPerMove = 4;
+    std::size_t processedContacts = 0;
+    for (std::size_t contactIndex = 0;
+         contactIndex < maximumContactsPerMove; ++contactIndex) {
+        LiquidSweepHit sweepHit;
+        for (std::size_t edge = 1; edge < rectangleVertices.size(); ++edge) {
+            const auto candidate = liquidSweepCircleAgainstSegment(
+                sweepStart, sweepEnd, rectangleVertices[edge],
+                rectangleVertices[(edge + 1) % rectangleVertices.size()],
+                radius);
+            if (candidate.hit &&
+                (!sweepHit.hit || candidate.time < sweepHit.time)) {
+                sweepHit = candidate;
+            }
+        }
+        if (!sweepHit.hit) break;
+
+        sweptContact = true;
+        ++processedContacts;
+        const float moveX = sweepEnd.x - sweepStart.x;
+        const float moveY = sweepEnd.y - sweepStart.y;
+        const float remainingX = moveX * (1.0f - sweepHit.time);
+        const float remainingY = moveY * (1.0f - sweepHit.time);
+        const float inwardMotion = remainingX * sweepHit.normal.x +
+                                   remainingY * sweepHit.normal.y;
+        sweepStart = {
+            sweepHit.point.x + sweepHit.normal.x * radius,
+            sweepHit.point.y + sweepHit.normal.y * radius};
+        sweepEnd = {
+            sweepStart.x + remainingX - sweepHit.normal.x * inwardMotion,
+            sweepStart.y + remainingY - sweepHit.normal.y * inwardMotion};
+
+        const float normalVelocity = particle.vx * sweepHit.normal.x +
+                                     particle.vy * sweepHit.normal.y;
+        if (normalVelocity < 0.0f) {
+            particle.collisionImpact = std::max(
+                particle.collisionImpact, -normalVelocity);
+            particle.vx -=
+                (1.0f + damping) * normalVelocity * sweepHit.normal.x;
+            particle.vy -=
+                (1.0f + damping) * normalVelocity * sweepHit.normal.y;
+            retainCollisionNormalVelocity(
+                sweepHit.normal.x, sweepHit.normal.y);
+        }
+    }
+    if (processedContacts == maximumContactsPerMove) {
+        bool remainingPathHitsClosedEdge = false;
+        for (std::size_t edge = 1; edge < rectangleVertices.size(); ++edge) {
+            const auto candidate = liquidSweepCircleAgainstSegment(
+                sweepStart, sweepEnd, rectangleVertices[edge],
+                rectangleVertices[(edge + 1) % rectangleVertices.size()],
+                radius);
+            if (candidate.hit) {
+                remainingPathHitsClosedEdge = true;
+                break;
+            }
+        }
+        if (remainingPathHitsClosedEdge) sweepEnd = sweepStart;
+    }
+    if (sweptContact) {
+        particle.x = sweepEnd.x;
+        particle.y = sweepEnd.y;
+        return;
+    }
+
     // Side walls end at the open top. Once a particle has crossed the lip it
     // can spill sideways instead of being trapped by an infinite wall.
     if (particle.y >= 0.0f) {
