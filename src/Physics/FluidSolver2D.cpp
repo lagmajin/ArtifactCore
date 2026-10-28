@@ -1541,6 +1541,7 @@ void LiquidSolver2D::solveContainerBounds(
 
     // The default rectangle has an open top and three closed sides. Sweep
     // those sides so a particle cannot cross the whole box in one step.
+    const LiquidContainerPoint2D point{particle.x, particle.y};
     const std::array<LiquidContainerPoint2D, 4> rectangleVertices{{
         {0.0f, 0.0f}, {1.0f, 0.0f}, {1.0f, 1.0f}, {0.0f, 1.0f}}};
     LiquidContainerPoint2D sweepStart = previousPosition;
