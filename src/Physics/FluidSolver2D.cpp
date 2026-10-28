@@ -1502,7 +1502,7 @@ void LiquidSolver2D::solveContainerBounds(
         if (!inside && closestEdge == openContainerEdge_) {
             return;
         }
-        if (distance >= radius) return;
+        if (inside && distance >= radius) return;
 
         float normalX = 0.0f;
         float normalY = 0.0f;
