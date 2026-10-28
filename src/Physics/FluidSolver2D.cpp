@@ -1404,61 +1404,83 @@ void LiquidSolver2D::solveContainerBounds(
         }
         const float distance = std::sqrt(std::max(
             closestDistanceSquared, 1.0e-12f));
-        LiquidSweepHit sweepHit;
-        for (std::size_t i = 0; i < containerPolygon_.size(); ++i) {
-            if (i == openContainerEdge_) continue;
-            const auto& a = containerPolygon_[i];
-            const auto& b = containerPolygon_[
-                (i + 1) % containerPolygon_.size()];
-            const auto candidate = liquidSweepCircleAgainstSegment(
-                previousPosition, point, a, b, radius);
-            if (candidate.hit &&
-                (!sweepHit.hit || candidate.time < sweepHit.time)) {
-                sweepHit = candidate;
+        LiquidContainerPoint2D sweepStart = previousPosition;
+        LiquidContainerPoint2D sweepEnd = point;
+        bool sweptContact = false;
+        constexpr std::size_t maximumContactsPerMove = 4;
+        for (std::size_t contactIndex = 0;
+             contactIndex < maximumContactsPerMove; ++contactIndex) {
+            LiquidSweepHit sweepHit;
+            for (std::size_t i = 0; i < containerPolygon_.size(); ++i) {
+                if (i == openContainerEdge_) continue;
+                const auto& a = containerPolygon_[i];
+                const auto& b = containerPolygon_[
+                    (i + 1) % containerPolygon_.size()];
+                const auto candidate = liquidSweepCircleAgainstSegment(
+                    sweepStart, sweepEnd, a, b, radius);
+                if (candidate.hit &&
+                    (!sweepHit.hit || candidate.time < sweepHit.time)) {
+                    sweepHit = candidate;
+                }
             }
-        }
-        if (!sweepHit.hit && !inside && closestEdge == openContainerEdge_) {
-            return;
-        }
-        if (sweepHit.hit) {
-            const float moveX = point.x - previousPosition.x;
-            const float moveY = point.y - previousPosition.y;
+            if (!sweepHit.hit) break;
+
+            sweptContact = true;
+            const float moveX = sweepEnd.x - sweepStart.x;
+            const float moveY = sweepEnd.y - sweepStart.y;
             const float remainingX = moveX * (1.0f - sweepHit.time);
             const float remainingY = moveY * (1.0f - sweepHit.time);
             const float inwardMotion = remainingX * sweepHit.normal.x +
                                        remainingY * sweepHit.normal.y;
-            closestPoint = {
-                sweepHit.point.x + remainingX -
+            sweepStart = {
+                sweepHit.point.x + sweepHit.normal.x * radius,
+                sweepHit.point.y + sweepHit.normal.y * radius};
+            sweepEnd = {
+                sweepStart.x + remainingX -
                     sweepHit.normal.x * inwardMotion,
-                sweepHit.point.y + remainingY -
+                sweepStart.y + remainingY -
                     sweepHit.normal.y * inwardMotion};
+
+            const float normalVelocity = particle.vx * sweepHit.normal.x +
+                                         particle.vy * sweepHit.normal.y;
+            if (normalVelocity < 0.0f) {
+                particle.collisionImpact = std::max(
+                    particle.collisionImpact, -normalVelocity);
+                particle.vx -=
+                    (1.0f + damping) * normalVelocity * sweepHit.normal.x;
+                particle.vy -=
+                    (1.0f + damping) * normalVelocity * sweepHit.normal.y;
+                retainCollisionNormalVelocity(
+                    sweepHit.normal.x, sweepHit.normal.y);
+            }
         }
-        if (!sweepHit.hit && distance >= radius) {
+        if (sweptContact) {
+            particle.x = sweepEnd.x;
+            particle.y = sweepEnd.y;
             return;
         }
+        if (!inside && closestEdge == openContainerEdge_) {
+            return;
+        }
+        if (distance >= radius) return;
 
         float normalX = 0.0f;
         float normalY = 0.0f;
-        if (sweepHit.hit) {
-            normalX = sweepHit.normal.x;
-            normalY = sweepHit.normal.y;
-        } else {
-            const auto& normalEdgeA = containerPolygon_[closestEdge];
-            const auto& normalEdgeB = containerPolygon_[
-                (closestEdge + 1) % containerPolygon_.size()];
-            normalX = -(normalEdgeB.y - normalEdgeA.y);
-            normalY = normalEdgeB.x - normalEdgeA.x;
-            const float normalLength = std::hypot(normalX, normalY);
-            if (normalLength <= 1.0e-8f) return;
-            normalX /= normalLength;
-            normalY /= normalLength;
-            const LiquidContainerPoint2D inwardProbe{
-                closestPoint.x + normalX * radius,
-                closestPoint.y + normalY * radius};
-            if (!liquidPointInsidePolygon(inwardProbe, containerPolygon_)) {
-                normalX = -normalX;
-                normalY = -normalY;
-            }
+        const auto& normalEdgeA = containerPolygon_[closestEdge];
+        const auto& normalEdgeB = containerPolygon_[
+            (closestEdge + 1) % containerPolygon_.size()];
+        normalX = -(normalEdgeB.y - normalEdgeA.y);
+        normalY = normalEdgeB.x - normalEdgeA.x;
+        const float normalLength = std::hypot(normalX, normalY);
+        if (normalLength <= 1.0e-8f) return;
+        normalX /= normalLength;
+        normalY /= normalLength;
+        const LiquidContainerPoint2D inwardProbe{
+            closestPoint.x + normalX * radius,
+            closestPoint.y + normalY * radius};
+        if (!liquidPointInsidePolygon(inwardProbe, containerPolygon_)) {
+            normalX = -normalX;
+            normalY = -normalY;
         }
         particle.x = closestPoint.x + normalX * radius;
         particle.y = closestPoint.y + normalY * radius;
