@@ -1124,9 +1124,17 @@ void LiquidSolver2D::buildSurfaceSnapshotInto(
     const double surfaceHeight =
         static_cast<double>(maximumSampleY) - minimumSampleY +
         surfaceRadius * 2.0;
-    const float gridSpacingForBudget = static_cast<float>(std::sqrt(
-        std::max(0.0, surfaceWidth * surfaceHeight) /
-        static_cast<double>(gridCellBudget)));
+    const double budgetCellCount = static_cast<double>(gridCellBudget);
+    constexpr double cellBoundaryMargin = 16.0;
+    const double adjustedCellBudget = std::max(
+        1.0, budgetCellCount - cellBoundaryMargin);
+    const double surfacePerimeter = surfaceWidth + surfaceHeight;
+    const double spacingNumerator = std::sqrt(
+        4.0 * surfacePerimeter * surfacePerimeter +
+        surfaceWidth * surfaceHeight * adjustedCellBudget) +
+        2.0 * surfacePerimeter;
+    const float gridSpacingForBudget = static_cast<float>(
+        spacingNumerator / adjustedCellBudget);
     const float gridSpacing = std::max(
         {1.0f, averageSize * 0.32f * lodScale, gridSpacingForBudget});
     std::map<std::pair<int, int>, float> densityNodes;
