@@ -1431,6 +1431,7 @@ void LiquidSolver2D::solveContainerBounds(
         LiquidContainerPoint2D sweepEnd = point;
         bool sweptContact = false;
         constexpr std::size_t maximumContactsPerMove = 4;
+        std::size_t processedContacts = 0;
         for (std::size_t contactIndex = 0;
              contactIndex < maximumContactsPerMove; ++contactIndex) {
             LiquidSweepHit sweepHit;
@@ -1449,6 +1450,7 @@ void LiquidSolver2D::solveContainerBounds(
             if (!sweepHit.hit) break;
 
             sweptContact = true;
+            ++processedContacts;
             const float moveX = sweepEnd.x - sweepStart.x;
             const float moveY = sweepEnd.y - sweepStart.y;
             const float remainingX = moveX * (1.0f - sweepHit.time);
@@ -1476,6 +1478,21 @@ void LiquidSolver2D::solveContainerBounds(
                 retainCollisionNormalVelocity(
                     sweepHit.normal.x, sweepHit.normal.y);
             }
+        }
+        if (processedContacts == maximumContactsPerMove) {
+            bool remainingPathHitsClosedEdge = false;
+            for (std::size_t i = 0; i < containerPolygon_.size(); ++i) {
+                if (i == openContainerEdge_) continue;
+                const auto candidate = liquidSweepCircleAgainstSegment(
+                    sweepStart, sweepEnd, containerPolygon_[i],
+                    containerPolygon_[(i + 1) % containerPolygon_.size()],
+                    radius);
+                if (candidate.hit) {
+                    remainingPathHitsClosedEdge = true;
+                    break;
+                }
+            }
+            if (remainingPathHitsClosedEdge) sweepEnd = sweepStart;
         }
         if (sweptContact) {
             particle.x = sweepEnd.x;
