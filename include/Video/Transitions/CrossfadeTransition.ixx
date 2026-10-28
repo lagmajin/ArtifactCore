@@ -50,3 +50,10 @@ public:
 };
 
 }
+
+// Explicit registration hook: a static-library consumer cannot
+// rely on the initializer of this implementation unit to run, so a
+// host may register the creator deterministically instead.
+export namespace ArtifactCore {
+void registerCrossfadeTransition();
+}

@@ -20,8 +20,10 @@ cv::Mat vhsEffect(const cv::Mat& input, const VHSParams& params) {
     }
 
     cv::Mat result = src.clone();
-    auto rng = ArtifactCore::makeRandomStream(
-        static_cast<std::uint64_t>(params.seed));
+    const int frameKey = static_cast<int>(std::floor(params.evolution * 29.97f));
+    const std::uint64_t combinedSeed = static_cast<std::uint64_t>(params.seed) ^
+        (static_cast<std::uint64_t>(frameKey) * 0x9e3779b97f4a7c15ULL);
+    auto rng = ArtifactCore::makeRandomStream(combinedSeed);
 
     // 1. Color bleed: blur chroma channels (YCrCb space)
     if (params.colorBleed > 0.0f) {
@@ -88,17 +90,27 @@ cv::Mat vhsEffect(const cv::Mat& input, const VHSParams& params) {
         }
     }
 
-    // 3. Horizontal line wobble (tracking error simulation)
-    if (params.wobble > 0.0f || params.trackingError > 0.0f) {
+    // 3. Horizontal line wobble & tracking error & head switching
+    if (params.wobble > 0.0f || params.trackingError > 0.0f || params.bottomJitter > 0.0f) {
         cv::Mat wobbled = result.clone();
         std::vector<int> shifts(result.rows, 0);
+        const float timePhase = params.evolution * 12.0f;
+        const int bottomLines = static_cast<int>(result.rows * 0.05f * std::clamp(params.bottomJitter, 0.0f, 2.0f));
+
         for (int y = 0; y < result.rows; ++y) {
-            float wobbleOffset = std::sin(y * 0.03f + rng.unitFloat() * 6.28f) * params.wobble * 3.0f;
+            float wobbleOffset = std::sin(y * 0.04f + timePhase + rng.unitFloat() * 1.57f) * params.wobble * 3.0f;
             float trackingOffset = 0.0f;
 
             // Random tracking error bands
-            if (rng.unitFloat() < params.trackingError * 0.05f) {
-                trackingOffset = (rng.unitFloat() - 0.5f) * params.trackingError * 30.0f;
+            if (rng.unitFloat() < params.trackingError * 0.06f) {
+                trackingOffset = (rng.unitFloat() - 0.5f) * params.trackingError * 40.0f;
+            }
+
+            // Head switching noise at bottom of frame (classic VCR sync jitter)
+            if (params.bottomJitter > 0.0f && y >= result.rows - bottomLines) {
+                const float distFromBottom = static_cast<float>(result.rows - 1 - y);
+                const float headSwitch = (1.0f - distFromBottom / std::max(1.0f, static_cast<float>(bottomLines)));
+                trackingOffset += headSwitch * (rng.unitFloat() * 25.0f * params.bottomJitter);
             }
 
             shifts[y] = static_cast<int>(wobbleOffset + trackingOffset);
@@ -129,7 +141,9 @@ cv::Mat vhsEffect(const cv::Mat& input, const VHSParams& params) {
     }
 
     // 5. Scanlines
-    result = scanlineOverlay(result, params.scanlineGap, 0.2f);
+    if (params.scanlineIntensity > 0.0f) {
+        result = scanlineOverlay(result, params.scanlineGap, params.scanlineIntensity);
+    }
 
     // 6. Sharpness reduction
     if (params.sharpness < 1.0f) {
@@ -137,6 +151,43 @@ cv::Mat vhsEffect(const cv::Mat& input, const VHSParams& params) {
         float sigma = (1.0f - params.sharpness) * 2.0f;
         cv::GaussianBlur(result, blurred, cv::Size(0, 0), sigma);
         result = result * params.sharpness + blurred * (1.0f - params.sharpness);
+    }
+
+    // 7. VHS OSD (On-Screen Display overlay)
+    if (params.showOsd) {
+        const int totalSeconds = static_cast<int>(std::max(0.0f, params.evolution));
+        const int hours = (totalSeconds / 3600) % 24;
+        const int minutes = (totalSeconds / 60) % 60;
+        const int seconds = totalSeconds % 60;
+        const int frames = static_cast<int>((params.evolution - std::floor(params.evolution)) * 30.0f);
+
+        char timeBuf[64];
+        std::snprintf(timeBuf, sizeof(timeBuf), "SP  %02d:%02d:%02d:%02d", hours, minutes, seconds, frames);
+
+        const char* statusStr = "PLAY >";
+        if (params.osdMode == 1) {
+            statusStr = "REC *";
+        } else if (params.osdMode == 2) {
+            statusStr = "PAUSE ||";
+        } else if (params.osdMode == 3) {
+            statusStr = "AUTO TRACK";
+        }
+
+        const int fontFace = cv::FONT_HERSHEY_PLAIN;
+        const double fontScale = std::clamp(static_cast<double>(result.rows) / 480.0 * 1.5, 0.8, 4.0);
+        const int thickness = std::max(1, static_cast<int>(fontScale * 1.5));
+        const cv::Scalar osdColor(0.85, 0.95, 0.85, 1.0);
+        const cv::Scalar shadowColor(0.05, 0.05, 0.05, 1.0);
+
+        const int topMargin = static_cast<int>(result.rows * 0.12f);
+        const int leftMargin = static_cast<int>(result.cols * 0.08f);
+        const int bottomMargin = static_cast<int>(result.rows * 0.90f);
+
+        cv::putText(result, statusStr, cv::Point(leftMargin + 2, topMargin + 2), fontFace, fontScale, shadowColor, thickness + 2, cv::LINE_AA);
+        cv::putText(result, statusStr, cv::Point(leftMargin, topMargin), fontFace, fontScale, osdColor, thickness, cv::LINE_AA);
+
+        cv::putText(result, timeBuf, cv::Point(leftMargin + 2, bottomMargin + 2), fontFace, fontScale, shadowColor, thickness + 2, cv::LINE_AA);
+        cv::putText(result, timeBuf, cv::Point(leftMargin, bottomMargin), fontFace, fontScale, osdColor, thickness, cv::LINE_AA);
     }
 
     // Clamp

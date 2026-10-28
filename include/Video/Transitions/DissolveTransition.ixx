@@ -29,7 +29,7 @@ public:
 
         const int width = std::min(left.width(), right.width());
         const int height = std::min(left.height(), right.height());
-        const float threshold = static_cast<float>(ctx.progress) * 255.0f;
+        const float threshold = static_cast<float>(ctx.progress) * 256.0f;
 
         const std::uint32_t seed = static_cast<std::uint32_t>(ctx.frameIndex) + static_cast<std::uint32_t>(ctx.fps);
         auto hash = [seed](int x, int y) {
@@ -45,7 +45,7 @@ public:
 
             for (int x = 0; x < width; ++x) {
                 const float noise = hash(x, y);
-                const bool useRight = noise <= threshold;
+                const bool useRight = noise < threshold;
                 const std::uint8_t* src = useRight ? rightScan : leftScan;
                 for (int c = 0; c < 4; ++c) {
                     outScan[static_cast<std::size_t>(x) * 4u + static_cast<std::size_t>(c)] =
@@ -56,4 +56,11 @@ public:
     }
 };
 
+}
+
+// Explicit registration hook: a static-library consumer cannot
+// rely on the initializer of this implementation unit to run, so a
+// host may register the creator deterministically instead.
+export namespace ArtifactCore {
+void registerDissolveTransition();
 }

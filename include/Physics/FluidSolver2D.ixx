@@ -45,6 +45,13 @@ struct LIBRARY_DLL_API FluidSnapshot2D {
     int maxAdaptiveIterations = 40;
     float thermalBuoyancy = 0.0f;
     float temperatureDissipationPerSecond = 0.0f;
+    float smokeTurbulence = 0.0f;
+    float flameTurbulence = 0.0f;
+    float smokeTurbulenceScale = 18.0f;
+    float flameTurbulenceScale = 7.0f;
+    int smokeTurbulenceOctaves = 1;
+    bool highOrderDensityAdvection = false;
+    float elapsedSeconds = 0.0f;
     NamedVector<float> density{ContainerName{"Physics.FluidSnapshotDensity"}};
     NamedVector<float> densityPrev{ContainerName{"Physics.FluidSnapshotDensityPrevious"}};
     NamedVector<float> velocityX{ContainerName{"Physics.FluidSnapshotVelocityX"}};
@@ -77,6 +84,14 @@ public:
     float getTemperature(int x, int y) const;
     void getVelocity(int x, int y, float& vx, float& vy) const;
 
+    // Non-owning views for renderers that upload scalar fields without
+    // allocating a snapshot. Pointers remain valid until setResolution().
+    const float* densityFieldData() const noexcept { return density_.constData(); }
+    const float* temperatureFieldData() const noexcept { return temperature_.constData(); }
+    std::size_t fieldElementCount() const noexcept {
+        return static_cast<std::size_t>(size_);
+    }
+
     int width() const { return width_; }
     int height() const { return height_; }
     void setResolution(int width, int height);
@@ -97,6 +112,15 @@ public:
     }
     void setVorticity(float v) { vorticityStrength_ = v; }
     float vorticity() const noexcept { return vorticityStrength_; }
+    void setCurlNoise(float smokeStrength, float flameStrength,
+                      float smokeScale, float flameScale,
+                      int smokeOctaves = 1);
+    void setHighOrderDensityAdvection(bool enabled) {
+        highOrderDensityAdvection_ = enabled;
+    }
+    bool highOrderDensityAdvection() const noexcept {
+        return highOrderDensityAdvection_;
+    }
     void setSolverIterations(int iterations) { solverIterations_ = std::max(1, iterations); }
     int solverIterations() const noexcept { return solverIterations_; }
     void setAdaptiveIterations(bool enabled) { adaptiveIterations_ = enabled; }
@@ -119,6 +143,13 @@ private:
     float thermalBuoyancyFactor_ = 0.0f;
     float temperatureDissipationPerSecond_ = 0.0f;
     float vorticityStrength_ = 0.1f;
+    float smokeTurbulence_ = 0.0f;
+    float flameTurbulence_ = 0.0f;
+    float smokeTurbulenceScale_ = 18.0f;
+    float flameTurbulenceScale_ = 7.0f;
+    int smokeTurbulenceOctaves_ = 1;
+    bool highOrderDensityAdvection_ = false;
+    float elapsedSeconds_ = 0.0f;
     int solverIterations_ = 20;
     bool adaptiveIterations_ = true;
     int highResThresholdCells_ = 512 * 512;
@@ -127,6 +158,8 @@ private:
     // Grid data
     NamedVector<float> density_{ContainerName{"Physics.FluidDensity"}};
     NamedVector<float> densityPrev_{ContainerName{"Physics.FluidDensityPrevious"}};
+    NamedVector<float> densityAdvectionScratch_{
+        ContainerName{"Physics.FluidDensityAdvectionScratch"}};
     
     NamedVector<float> vx_{ContainerName{"Physics.FluidVelocityX"}};
     NamedVector<float> vy_{ContainerName{"Physics.FluidVelocityY"}};
@@ -137,12 +170,21 @@ private:
     NamedVector<float> curl_{ContainerName{"Physics.FluidCurl"}};
     NamedVector<float> temperature_{ContainerName{"Physics.FluidTemperature"}};
     NamedVector<float> temperaturePrev_{ContainerName{"Physics.FluidTemperaturePrevious"}};
+    NamedVector<float> smokeCurlSinX_{ContainerName{"Physics.FluidSmokeCurlSinX"}};
+    NamedVector<float> smokeCurlCosX_{ContainerName{"Physics.FluidSmokeCurlCosX"}};
+    NamedVector<float> smokeCurlSinY_{ContainerName{"Physics.FluidSmokeCurlSinY"}};
+    NamedVector<float> smokeCurlCosY_{ContainerName{"Physics.FluidSmokeCurlCosY"}};
+    NamedVector<float> flameCurlSinX_{ContainerName{"Physics.FluidFlameCurlSinX"}};
+    NamedVector<float> flameCurlCosX_{ContainerName{"Physics.FluidFlameCurlCosX"}};
+    NamedVector<float> flameCurlSinY_{ContainerName{"Physics.FluidFlameCurlSinY"}};
+    NamedVector<float> flameCurlCosY_{ContainerName{"Physics.FluidFlameCurlCosY"}};
 
     // Core solvers
     void diffuse(int b, NamedVector<float>& x, const NamedVector<float>& x0, float diff, float dt);
-    void advect(int b, NamedVector<float>& d, const NamedVector<float>& d0, const NamedVector<float>& vx, const NamedVector<float>& vy, float dt);
+    void advect(int b, NamedVector<float>& d, const NamedVector<float>& d0, const NamedVector<float>& vx, const NamedVector<float>& vy, float dt, bool highOrderCorrection = false);
     void project(NamedVector<float>& vx, NamedVector<float>& vy, NamedVector<float>& p, NamedVector<float>& div);
     void vorticityConfinement(NamedVector<float>& vx, NamedVector<float>& vy, float dt);
+    void applyCurlNoise(float dt);
     
     void setBoundary(int b, NamedVector<float>& x);
     void linSolve(int b, NamedVector<float>& x, const NamedVector<float>& x0, float a, float c);
@@ -286,6 +328,12 @@ private:
         ContainerName{"Physics.LiquidParticles"}};
     NamedVector<LiquidContainerPoint2D> previousPositions_{
         ContainerName{"Physics.LiquidPreviousPositions"}};
+    NamedVector<LiquidContainerPoint2D> constraintPreviousPositions_{
+        ContainerName{"Physics.LiquidConstraintPreviousPositions"}};
+    NamedVector<LiquidContainerPoint2D> collisionNormals_{
+        ContainerName{"Physics.LiquidCollisionNormals"}};
+    NamedVector<float> collisionNormalVelocities_{
+        ContainerName{"Physics.LiquidCollisionNormalVelocities"}};
     NamedVector<float> particleDensities_{
         ContainerName{"Physics.LiquidParticleDensities"}};
     NamedVector<float> particleLambdas_{
@@ -294,12 +342,6 @@ private:
         ContainerName{"Physics.LiquidGradientSumX"}};
     NamedVector<float> gradientSumY_{
         ContainerName{"Physics.LiquidGradientSumY"}};
-    NamedVector<LiquidContainerPoint2D> collisionNormals_{
-        ContainerName{"Physics.LiquidCollisionNormals"}};
-    NamedVector<float> collisionNormalVelocities_{
-        ContainerName{"Physics.LiquidCollisionNormalVelocities"}};
-    NamedVector<LiquidContainerPoint2D> constraintPreviousPositions_{
-        ContainerName{"Physics.LiquidConstraintPreviousPositions"}};
     NamedVector<float> gradientMagnitudeSum_
         {ContainerName{"Physics.LiquidGradientMagnitudeSum"}};
     NamedVector<LiquidContainerPoint2D> positionCorrections_{

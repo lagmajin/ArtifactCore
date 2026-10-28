@@ -22,3 +22,12 @@ static GradientWipeRegistrar registrar;
 }
 
 }
+
+namespace ArtifactCore {
+void registerGradientWipeTransition()
+{
+    TransitionFactory::instance().registerCreator(TransitionKind::GradientWipe, []() {
+        return new GradientWipeTransition();
+    });
+}
+}

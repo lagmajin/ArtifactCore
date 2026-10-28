@@ -557,6 +557,7 @@ set(ARTIFACTCORE_MODULE_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../include/Math/NoiseGenerator.ixx"
     "${CMAKE_CURRENT_LIST_DIR}/../include/Math/Quaternion.ixx"
     "${CMAKE_CURRENT_LIST_DIR}/../include/Math/Random.ixx"
+    "${CMAKE_CURRENT_LIST_DIR}/../include/Math/RandomStream.ixx"
     "${CMAKE_CURRENT_LIST_DIR}/../include/Math/Rotation.ixx"
     "${CMAKE_CURRENT_LIST_DIR}/../include/Math/SpatialGrid.ixx"
     "${CMAKE_CURRENT_LIST_DIR}/../include/Math/Vec.ixx"

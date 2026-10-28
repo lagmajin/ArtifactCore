@@ -32,7 +32,7 @@ module;
 #include <random>
 export module Particle;
 
-export import Math.Random;
+export import Math.RandomStream;
 
 export namespace ArtifactCore
 {

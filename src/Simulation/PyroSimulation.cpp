@@ -51,6 +51,17 @@ inline float cellToWorldStep(const PyroResolution& resolution, float domainExten
     return domainExtent / static_cast<float>(cells);
 }
 
+inline float sourceFalloff(float dx, float dy, float dz, const PyroVec3& extent) noexcept {
+    if (extent.x == extent.y && extent.y == extent.z) {
+        return std::clamp(1.0f - std::sqrt(dx * dx + dy * dy + dz * dz) /
+            std::max(extent.x, 1.0e-6f), 0.0f, 1.0f);
+    }
+    const float x = dx / std::max(extent.x, 1.0e-6f);
+    const float y = dy / std::max(extent.y, 1.0e-6f);
+    const float z = dz / std::max(extent.z, 1.0e-6f);
+    return std::clamp(1.0f - std::sqrt(x * x + y * y + z * z), 0.0f, 1.0f);
+}
+
 }
 
 PyroResolution PyroDomain::resolution() const noexcept {
@@ -83,6 +94,76 @@ PyroVec3& PyroVectorFieldView::at(int x, int y, int z) const { return values[ind
 bool PyroConstVectorFieldView::empty() const noexcept { return values.empty(); }
 std::size_t PyroConstVectorFieldView::size() const noexcept { return values.size(); }
 const PyroVec3& PyroConstVectorFieldView::at(int x, int y, int z) const { return values[indexOf(resolution, x, y, z)]; }
+
+PyroEffectProfile makePyroEffectProfile(
+    PyroEffectKind kind, PyroResolution resolution) noexcept {
+    PyroEffectProfile profile{};
+    const float domainHeightCells = static_cast<float>(
+        std::max(1, resolution.height));
+    const float maximumAxisCells = static_cast<float>(
+        std::max({1, resolution.width, resolution.height, resolution.depth}));
+    profile.source.extent = {0.25f, 0.25f, 0.25f};
+
+    switch (kind) {
+    case PyroEffectKind::Smoke:
+        profile.simulation.vorticity = 0.18f;
+        profile.simulation.buoyancy = 0.45f;
+        profile.simulation.coolingRate = 0.12f;
+        profile.source.extent = {0.18f, 0.18f, 0.18f};
+        profile.source.density = 1.0f;
+        profile.source.temperature = 0.55f;
+        profile.source.fuel = 0.0f;
+        profile.source.velocity = {0.0f, 0.25f * domainHeightCells, 0.0f};
+        profile.sourceDurationSeconds = 2.0f;
+        break;
+    case PyroEffectKind::Fire:
+        profile.simulation.vorticity = 0.4f;
+        profile.simulation.buoyancy = 0.65f;
+        profile.simulation.coolingRate = 0.16f;
+        profile.source.extent = {0.16f, 0.16f, 0.16f};
+        profile.source.density = 1.0f;
+        profile.source.temperature = 4.5f;
+        profile.source.fuel = 5.5f;
+        profile.source.velocity = {0.0f, 0.3f * domainHeightCells, 0.0f};
+        profile.sourceDurationSeconds = 1.5f;
+        break;
+    case PyroEffectKind::Explosion:
+        profile.simulation.buoyancy = 0.25f;
+        profile.simulation.coolingRate = 0.22f;
+        profile.simulation.vorticity = 0.35f;
+        profile.source.extent = {0.45f, 0.45f, 0.45f};
+        profile.source.density = 1.4f;
+        profile.source.temperature = 5.0f;
+        profile.source.fuel = 4.0f;
+        profile.source.velocity = {0.0f, 0.8f * domainHeightCells, 0.0f};
+        profile.source.radialVelocity = 0.8f * maximumAxisCells;
+        profile.sourceDurationSeconds = 0.12f;
+        break;
+    case PyroEffectKind::Steam:
+        profile.simulation.vorticity = 0.15f;
+        profile.simulation.buoyancy = 0.9f;
+        profile.simulation.coolingRate = 0.08f;
+        profile.source.extent = {0.2f, 0.2f, 0.2f};
+        profile.source.density = 0.85f;
+        profile.source.temperature = 0.8f;
+        profile.source.fuel = 0.0f;
+        profile.source.velocity = {0.0f, 0.2f * domainHeightCells, 0.0f};
+        profile.sourceDurationSeconds = 1.0f;
+        break;
+    case PyroEffectKind::Fog:
+        profile.simulation.buoyancy = 0.03f;
+        profile.simulation.coolingRate = 0.0f;
+        profile.simulation.dissipation = 0.003f;
+        profile.source.extent = {0.5f, 0.18f, 0.5f};
+        profile.source.density = 0.28f;
+        profile.source.temperature = 0.0f;
+        profile.source.fuel = 0.0f;
+        profile.source.velocity = {};
+        profile.sourceDurationSeconds = 3.0f;
+        break;
+    }
+    return profile;
+}
 
 void PyroFieldSet::resize(PyroResolution resolution) {
     resolution_ = resolution;
@@ -280,16 +361,57 @@ PyroSimulation::PyroSimulation(PyroDomain domain) { setDomain(domain); }
 void PyroSimulation::setDomain(PyroDomain domain) {
     domain_ = domain;
     fields_.resize(domain_.resolution());
+    const auto cellCount = fields_.cellCount();
+    densityPrev_.resize(cellCount);
+    temperaturePrev_.resize(cellCount);
+    fuelPrev_.resize(cellCount);
+    velocityPrev_.resize(cellCount);
+    reactionScratch_.resize(cellCount);
+    vorticityScratch_.resize(cellCount);
+    if (settings_.highOrderDensityAdvection) densityAdvectionScratch_.resize(cellCount);
 }
 
-void PyroSimulation::setSettings(PyroSimulationSettings settings) { settings_ = settings; }
+void PyroSimulation::setSettings(PyroSimulationSettings settings) {
+    settings.smokeTurbulence = std::isfinite(settings.smokeTurbulence)
+        ? std::clamp(settings.smokeTurbulence, 0.0f, 10.0f) : 0.0f;
+    settings.flameTurbulence = std::isfinite(settings.flameTurbulence)
+        ? std::clamp(settings.flameTurbulence, 0.0f, 10.0f) : 0.0f;
+    settings.smokeDisturbance = std::isfinite(settings.smokeDisturbance)
+        ? std::clamp(settings.smokeDisturbance, 0.0f, 10.0f) : 0.0f;
+    settings.smokeTurbulenceScale =
+        std::isfinite(settings.smokeTurbulenceScale)
+        ? std::clamp(settings.smokeTurbulenceScale, 2.0f, 512.0f) : 18.0f;
+    settings.flameTurbulenceScale =
+        std::isfinite(settings.flameTurbulenceScale)
+        ? std::clamp(settings.flameTurbulenceScale, 2.0f, 512.0f) : 7.0f;
+    settings.smokeDisturbanceScale =
+        std::isfinite(settings.smokeDisturbanceScale)
+        ? std::clamp(settings.smokeDisturbanceScale, 2.0f, 64.0f) : 6.0f;
+    settings.smokeTurbulenceOctaves = std::clamp<std::uint8_t>(
+        settings.smokeTurbulenceOctaves, 1, 4);
+    if (settings.highOrderDensityAdvection != settings_.highOrderDensityAdvection
+        || settings.smokeTurbulence != settings_.smokeTurbulence
+        || settings.smokeDisturbance != settings_.smokeDisturbance
+        || settings.smokeDisturbanceScale != settings_.smokeDisturbanceScale
+        || settings.flameTurbulence != settings_.flameTurbulence
+        || settings.smokeTurbulenceScale != settings_.smokeTurbulenceScale
+        || settings.flameTurbulenceScale != settings_.flameTurbulenceScale
+        || settings.smokeTurbulenceOctaves !=
+            settings_.smokeTurbulenceOctaves) {
+        checkpointCache_.clear();
+    }
+    settings_ = settings;
+    if (settings_.highOrderDensityAdvection && !fields_.empty()) {
+        densityAdvectionScratch_.resize(fields_.cellCount());
+    }
+}
 
 void PyroSimulation::setFixedTimeStep(double fixedTimeStep) noexcept {
     fixedTimeStep_ = fixedTimeStep > 0.0 ? fixedTimeStep : 1.0 / 60.0;
 }
 
 void PyroSimulation::setCacheInterval(std::uint64_t cacheInterval) noexcept {
-    cacheInterval_ = cacheInterval == 0 ? 1 : cacheInterval;
+    cacheInterval_ = cacheInterval;
 }
 
 void PyroSimulation::setCacheDirectory(std::filesystem::path cacheDirectory) {
@@ -345,7 +467,8 @@ void PyroSimulation::storeCheckpoint() {
     snapshot.velocity = fields_.velocityStorage();
     checkpointCache_[frameIndex_] = std::move(snapshot);
     if (!cacheDirectory_.empty()) {
-        const auto path = cacheDirectory_ / (std::to_string(frameIndex_) + ".pyroc");
+        const auto path = cacheDirectory_ / (std::to_string(frameIndex_) +
+            (settings_.highOrderDensityAdvection ? ".v3.density-high-order.pyroc" : ".v3.pyroc"));
         saveCheckpointSnapshot(checkpointCache_[frameIndex_], path);
     }
 }
@@ -362,7 +485,7 @@ bool PyroSimulation::saveCheckpointSnapshot(const PyroFieldSnapshot& snapshot, c
     }
 
     const std::uint32_t magic = 0x5059524Fu; // PYRO
-    const std::uint32_t version = 2;
+    const std::uint32_t version = 3;
     out.write(reinterpret_cast<const char*>(&magic), sizeof(magic));
     out.write(reinterpret_cast<const char*>(&version), sizeof(version));
     out.write(reinterpret_cast<const char*>(&snapshot.resolution), sizeof(snapshot.resolution));
@@ -394,7 +517,7 @@ bool PyroSimulation::loadCheckpointSnapshot(PyroFieldSnapshot& snapshot, const s
     std::uint32_t version = 0;
     in.read(reinterpret_cast<char*>(&magic), sizeof(magic));
     in.read(reinterpret_cast<char*>(&version), sizeof(version));
-    if (!in || magic != 0x5059524Fu || (version != 1 && version != 2)) {
+    if (!in || magic != 0x5059524Fu || version != 3) {
         return false;
     }
 
@@ -421,12 +544,8 @@ bool PyroSimulation::loadCheckpointSnapshot(PyroFieldSnapshot& snapshot, const s
         || !readVector(snapshot.fuel)) {
         return false;
     }
-    if (version >= 2) {
-        if (!readVector(snapshot.reaction)) {
-            return false;
-        }
-    } else {
-        snapshot.reaction.assign(snapshot.density.size(), 0.0f);
+    if (!readVector(snapshot.reaction)) {
+        return false;
     }
     return readVector(snapshot.pressure)
         && readVector(snapshot.divergence)
@@ -447,7 +566,8 @@ PyroCacheStatus PyroSimulation::saveCheckpointToDisk(std::uint64_t frameIndex) c
         return status;
     }
 
-    const auto path = cacheDirectory_ / (std::to_string(frameIndex) + ".pyroc");
+    const auto path = cacheDirectory_ / (std::to_string(frameIndex) +
+        (settings_.highOrderDensityAdvection ? ".v3.density-high-order.pyroc" : ".v3.pyroc"));
     status.loaded = saveCheckpointSnapshot(it->second, path);
     if (!status.loaded) {
         status.reason = "failed to write checkpoint";
@@ -464,7 +584,8 @@ PyroCacheStatus PyroSimulation::loadCheckpointFromDisk(std::uint64_t frameIndex)
     }
 
     PyroFieldSnapshot snapshot{};
-    const auto path = cacheDirectory_ / (std::to_string(frameIndex) + ".pyroc");
+    const auto path = cacheDirectory_ / (std::to_string(frameIndex) +
+        (settings_.highOrderDensityAdvection ? ".v3.density-high-order.pyroc" : ".v3.pyroc"));
     status.loaded = loadCheckpointSnapshot(snapshot, path);
     if (!status.loaded) {
         status.reason = "failed to read checkpoint";
@@ -617,6 +738,118 @@ void PyroSimulation::applyCombustion(float deltaSeconds) {
     });
 }
 
+void PyroSimulation::applyCurlNoise(float deltaSeconds) {
+    if (deltaSeconds <= 0.0f ||
+        (settings_.smokeTurbulence <= 0.0f &&
+         settings_.flameTurbulence <= 0.0f &&
+         settings_.smokeDisturbance <= 0.0f)) {
+        return;
+    }
+
+    const auto resolution = fields_.resolution();
+    auto velocity = fields_.velocityView();
+    const auto density = fields_.densityView();
+    const auto reaction = fields_.reactionView();
+    const float time = static_cast<float>(timeSeconds_);
+    const float dt = static_cast<float>(deltaSeconds);
+    const auto curlAt = [time](const float x, const float y, const float z,
+                               const float scale) {
+        const float waveNumber = 6.28318530718f / scale;
+        const float qx = waveNumber * (x + 0.31f * time);
+        const float qy = waveNumber * (y - 0.23f * time);
+        const float qz = waveNumber * (z + 0.19f * time);
+        const float sinX = std::sin(qx);
+        const float sinY = std::sin(qy);
+        const float sinZ = std::sin(qz);
+        return PyroVec3{
+            waveNumber * (sinX * std::cos(qy + 4.2f) -
+                std::cos(qz) * std::sin(qx + 2.1f)),
+            waveNumber * (sinY * std::cos(qz + 0.7f) -
+                std::cos(qx) * std::sin(qy + 4.2f)),
+            waveNumber * (sinZ * std::cos(qx + 2.1f) -
+                std::cos(qy) * std::sin(qz + 0.7f))};
+    };
+
+    Parallel::ForVolumeSlices(resolution.width, resolution.height,
+        resolution.depth, [&](const int z) {
+            for (int y = 0; y < resolution.height; ++y) {
+                for (int x = 0; x < resolution.width; ++x) {
+                    const auto idx = cellIndex(x, y, z);
+                    const float smokeGate = std::clamp(
+                        density.values[idx] / 0.08f, 0.0f, 1.0f);
+                    const float flameGate = std::clamp(
+                        reaction.values[idx] / 0.2f, 0.0f, 1.0f);
+                    const auto applyForce = [&](const float strength,
+                                                const float gate,
+                                                const float scale,
+                                                const std::uint8_t octaves) {
+                        if (strength <= 0.0f || gate <= 0.0f) return;
+                        float octaveScale = scale;
+                        float octaveWeight = 1.0f;
+                        for (std::uint8_t octave = 0; octave < octaves;
+                             ++octave, octaveScale *= 0.5f,
+                             octaveWeight *= 0.5f) {
+                            // Avoid injecting frequencies the grid cannot
+                            // represent. This also keeps the force bounded
+                            // when the base scale is near the minimum.
+                            if (octave > 0 && octaveScale < 4.0f) break;
+                            const auto curl = curlAt(static_cast<float>(x),
+                                static_cast<float>(y), static_cast<float>(z),
+                                octaveScale);
+                            const float magnitude = std::sqrt(
+                                curl.x * curl.x + curl.y * curl.y +
+                                curl.z * curl.z);
+                            if (magnitude <= 1.0e-6f) continue;
+                            const float impulse = strength * gate * dt *
+                                octaveWeight / magnitude;
+                            velocity.values[idx].x += curl.x * impulse;
+                            velocity.values[idx].y += curl.y * impulse;
+                            velocity.values[idx].z += curl.z * impulse;
+                        }
+                    };
+                    applyForce(settings_.smokeTurbulence, smokeGate,
+                        settings_.smokeTurbulenceScale,
+                        settings_.smokeTurbulenceOctaves);
+                    applyForce(settings_.flameTurbulence, flameGate,
+                        settings_.flameTurbulenceScale, 1);
+                    if (settings_.smokeDisturbance > 0.0f && smokeGate > 0.0f) {
+                        const float gx = 0.5f * (
+                            density.at(std::min(x + 1, resolution.width - 1), y, z) -
+                            density.at(std::max(x - 1, 0), y, z));
+                        const float gy = 0.5f * (
+                            density.at(x, std::min(y + 1, resolution.height - 1), z) -
+                            density.at(x, std::max(y - 1, 0), z));
+                        const float gz = 0.5f * (
+                            density.at(x, y, std::min(z + 1, resolution.depth - 1)) -
+                            density.at(x, y, std::max(z - 1, 0)));
+                        const float gradientMagnitude = std::sqrt(
+                            gx * gx + gy * gy + gz * gz);
+                        // Restrict the short-wave force to the density edge;
+                        // a smooth threshold avoids a hard band in the field.
+                        const float edgeGate = std::clamp(
+                            gradientMagnitude * 8.0f, 0.0f, 1.0f);
+                        if (edgeGate > 0.0f) {
+                            const auto curl = curlAt(
+                                static_cast<float>(x), static_cast<float>(y),
+                                static_cast<float>(z),
+                                settings_.smokeDisturbanceScale);
+                            const float magnitude = std::sqrt(
+                                curl.x * curl.x + curl.y * curl.y +
+                                curl.z * curl.z);
+                            if (magnitude > 1.0e-6f) {
+                                const float impulse = settings_.smokeDisturbance *
+                                    smokeGate * edgeGate * dt / magnitude;
+                                velocity.values[idx].x += curl.x * impulse;
+                                velocity.values[idx].y += curl.y * impulse;
+                                velocity.values[idx].z += curl.z * impulse;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+}
+
 void PyroSimulation::applyVorticityConfinement(float deltaSeconds) {
     if (settings_.vorticity <= 0.0f || deltaSeconds <= 0.0f) {
         return;
@@ -626,7 +859,11 @@ void PyroSimulation::applyVorticityConfinement(float deltaSeconds) {
     auto velocity = fields_.velocityView();
     auto density = fields_.densityView();
     auto curlMagnitude = fields_.divergenceView();
-    std::vector<PyroVec3> sourceVelocity(velocity.values.begin(), velocity.values.end());
+    if (vorticityScratch_.size() != velocity.values.size()) {
+        vorticityScratch_.resize(velocity.values.size());
+    }
+    auto& sourceVelocity = vorticityScratch_;
+    std::copy(velocity.values.begin(), velocity.values.end(), sourceVelocity.begin());
     const float dt = static_cast<float>(deltaSeconds);
 
     const auto velocityAt = [&](const int x, const int y, const int z) -> const PyroVec3& {
@@ -714,6 +951,19 @@ void PyroSimulation::integrateStep(float deltaSeconds) {
     if (reactionScratch_.size() != fields_.cellCount()) {
         reactionScratch_.resize(fields_.cellCount());
     }
+    if (vorticityScratch_.size() != fields_.cellCount()) {
+        vorticityScratch_.resize(fields_.cellCount());
+    }
+    if (densityPrev_.size() != fields_.cellCount()) {
+        densityPrev_.resize(fields_.cellCount());
+        temperaturePrev_.resize(fields_.cellCount());
+        fuelPrev_.resize(fields_.cellCount());
+        velocityPrev_.resize(fields_.cellCount());
+    }
+    // This fallback is needed only for lazy initialization or external field resize.
+    if (settings_.highOrderDensityAdvection && densityAdvectionScratch_.size() != fields_.cellCount()) {
+        densityAdvectionScratch_.resize(fields_.cellCount());
+    }
 
     const float dt = static_cast<float>(deltaSeconds);
     auto density = fields_.densityView();
@@ -750,7 +1000,6 @@ void PyroSimulation::integrateStep(float deltaSeconds) {
         const auto radiusX = std::max(0, static_cast<int>(std::ceil(source.extent.x / std::max(domain_.voxelSize, 1e-6f))));
         const auto radiusY = std::max(0, static_cast<int>(std::ceil(source.extent.y / std::max(domain_.voxelSize, 1e-6f))));
         const auto radiusZ = std::max(0, static_cast<int>(std::ceil(source.extent.z / std::max(domain_.voxelSize, 1e-6f))));
-        const float extentMax = std::max({source.extent.x, source.extent.y, source.extent.z, 1e-6f});
 
         for (int z = std::max(0, centerZ - radiusZ); z <= std::min(resolution.depth - 1, centerZ + radiusZ); ++z) {
             for (int y = std::max(0, centerY - radiusY); y <= std::min(resolution.height - 1, centerY + radiusY); ++y) {
@@ -759,7 +1008,7 @@ void PyroSimulation::integrateStep(float deltaSeconds) {
                     const float dx = (static_cast<float>(x) + 0.5f) * domain_.voxelSize + domain_.min.x - source.position.x;
                     const float dy = (static_cast<float>(y) + 0.5f) * domain_.voxelSize + domain_.min.y - source.position.y;
                     const float dz = (static_cast<float>(z) + 0.5f) * domain_.voxelSize + domain_.min.z - source.position.z;
-                    const float falloff = std::clamp(1.0f - std::sqrt(dx * dx + dy * dy + dz * dz) / extentMax, 0.0f, 1.0f);
+                    const float falloff = sourceFalloff(dx, dy, dz, source.extent);
                     const float strength = falloff * dt;
                     density.values[idx] = std::clamp(density.values[idx] + source.density * settings_.sourceDensity * strength, 0.0f, 1e6f);
                     temperature.values[idx] = std::clamp(temperature.values[idx] + source.temperature * settings_.sourceTemperature * strength, 0.0f, 1e6f);
@@ -783,15 +1032,20 @@ void PyroSimulation::integrateStep(float deltaSeconds) {
         }
     });
 
+    applyCurlNoise(dt);
     applyVorticityConfinement(dt);
 
     // Advect from the fully sourced, force-updated state. Capturing these
     // arrays before decay/source/force application silently discarded those
     // changes on the write-back pass below.
-    const auto densityPrev = fields_.densityStorage();
-    const auto temperaturePrev = fields_.temperatureStorage();
-    const auto fuelPrev = fields_.fuelStorage();
-    const auto velocityPrev = fields_.velocityStorage();
+    std::copy(density.values.begin(), density.values.end(), densityPrev_.begin());
+    std::copy(temperature.values.begin(), temperature.values.end(), temperaturePrev_.begin());
+    std::copy(fuel.values.begin(), fuel.values.end(), fuelPrev_.begin());
+    std::copy(velocity.values.begin(), velocity.values.end(), velocityPrev_.begin());
+    const auto densityPrev = std::span<const float>(densityPrev_.data(), densityPrev_.size());
+    const auto temperaturePrev = std::span<const float>(temperaturePrev_.data(), temperaturePrev_.size());
+    const auto fuelPrev = std::span<const float>(fuelPrev_.data(), fuelPrev_.size());
+    const auto velocityPrev = std::span<const PyroVec3>(velocityPrev_.data(), velocityPrev_.size());
     std::copy(reaction.values.begin(), reaction.values.end(), reactionScratch_.begin());
 
     Parallel::ForVolumeSlices(resolution.width, resolution.height, resolution.depth, [&](int z) {
@@ -819,10 +1073,116 @@ void PyroSimulation::integrateStep(float deltaSeconds) {
         }
     });
 
+    if (settings_.highOrderDensityAdvection) {
+        std::copy(density.values.begin(), density.values.end(), densityAdvectionScratch_.begin());
+        const PyroConstScalarFieldView forwardDensity{
+            std::span<const float>(densityAdvectionScratch_.data(), densityAdvectionScratch_.size()), resolution};
+        const auto outside = [&](const PyroVec3& p) {
+            return p.x < 0.0f || p.y < 0.0f || p.z < 0.0f ||
+                p.x > static_cast<float>(resolution.width - 1) ||
+                p.y > static_cast<float>(resolution.height - 1) ||
+                p.z > static_cast<float>(resolution.depth - 1);
+        };
+        Parallel::ForVolumeSlices(resolution.width, resolution.height, resolution.depth, [&](int z) {
+            for (int y = 0; y < resolution.height; ++y) {
+                for (int x = 0; x < resolution.width; ++x) {
+                    const auto idx = cellIndex(x, y, z);
+                    const auto v = velocityPrev[idx];
+                    const PyroVec3 back{static_cast<float>(x) - v.x * dt,
+                                        static_cast<float>(y) - v.y * dt,
+                                        static_cast<float>(z) - v.z * dt};
+                    const PyroVec3 ahead{static_cast<float>(x) + v.x * dt,
+                                         static_cast<float>(y) + v.y * dt,
+                                         static_cast<float>(z) + v.z * dt};
+                    if (domain_.boundaryMode == PyroBoundaryMode::Open &&
+                        (outside(back) || outside(ahead))) continue;
+                    const float bx = std::clamp(back.x, 0.0f, static_cast<float>(resolution.width - 1));
+                    const float by = std::clamp(back.y, 0.0f, static_cast<float>(resolution.height - 1));
+                    const float bz = std::clamp(back.z, 0.0f, static_cast<float>(resolution.depth - 1));
+                    const int x0 = static_cast<int>(std::floor(bx));
+                    const int y0 = static_cast<int>(std::floor(by));
+                    const int z0 = static_cast<int>(std::floor(bz));
+                    float low = densityPrev[cellIndex(x0, y0, z0)];
+                    float high = low;
+                    for (int dz = 0; dz <= 1; ++dz)
+                        for (int dy = 0; dy <= 1; ++dy)
+                            for (int dx = 0; dx <= 1; ++dx) {
+                                const float value = densityPrev[cellIndex(
+                                    std::min(x0 + dx, resolution.width - 1),
+                                    std::min(y0 + dy, resolution.height - 1),
+                                    std::min(z0 + dz, resolution.depth - 1))];
+                                low = std::min(low, value);
+                                high = std::max(high, value);
+                            }
+                    const float reverse = fields_.sampleScalar(forwardDensity, ahead, domain_.boundaryMode);
+                    density.values[idx] = std::clamp(
+                        densityAdvectionScratch_[idx] + 0.5f * (densityPrev[idx] - reverse), low, high);
+                }
+            }
+        });
+    }
+
     computeDivergence();
     solvePressure(std::max(1, static_cast<int>(settings_.pressureIterations)));
     projectVelocity();
     applyColliders();
+
+    bool injectedRadialExpansion = false;
+    for (const auto& source : sources_) {
+        if (!source.enabled || !(source.radialVelocity > 0.0f) ||
+            !std::isfinite(source.radialVelocity) ||
+            !isInsideDomain(source.position)) {
+            continue;
+        }
+        const int centerX = static_cast<int>(
+            (source.position.x - domain_.min.x) / domain_.voxelSize);
+        const int centerY = static_cast<int>(
+            (source.position.y - domain_.min.y) / domain_.voxelSize);
+        const int centerZ = static_cast<int>(
+            (source.position.z - domain_.min.z) / domain_.voxelSize);
+        const int radiusX = std::max(0, static_cast<int>(std::ceil(
+            source.extent.x / std::max(domain_.voxelSize, 1.0e-6f))));
+        const int radiusY = std::max(0, static_cast<int>(std::ceil(
+            source.extent.y / std::max(domain_.voxelSize, 1.0e-6f))));
+        const int radiusZ = std::max(0, static_cast<int>(std::ceil(
+            source.extent.z / std::max(domain_.voxelSize, 1.0e-6f))));
+
+        for (int z = std::max(0, centerZ - radiusZ);
+             z <= std::min(resolution.depth - 1, centerZ + radiusZ); ++z) {
+            for (int y = std::max(0, centerY - radiusY);
+                 y <= std::min(resolution.height - 1, centerY + radiusY); ++y) {
+                for (int x = std::max(0, centerX - radiusX);
+                     x <= std::min(resolution.width - 1, centerX + radiusX); ++x) {
+                    const float dx = (static_cast<float>(x) + 0.5f) *
+                        domain_.voxelSize + domain_.min.x - source.position.x;
+                    const float dy = (static_cast<float>(y) + 0.5f) *
+                        domain_.voxelSize + domain_.min.y - source.position.y;
+                    const float dz = (static_cast<float>(z) + 0.5f) *
+                        domain_.voxelSize + domain_.min.z - source.position.z;
+                    const float distance = std::sqrt(dx * dx + dy * dy + dz * dz);
+                    if (distance <= 1.0e-6f) {
+                        continue;
+                    }
+                    const float falloff = sourceFalloff(dx, dy, dz, source.extent);
+                    if (falloff <= 0.0f) {
+                        continue;
+                    }
+                    const float impulse = source.radialVelocity * falloff * dt /
+                        distance;
+                    auto& cellVelocity = velocity.values[cellIndex(x, y, z)];
+                    cellVelocity.x += dx * impulse;
+                    cellVelocity.y += dy * impulse;
+                    cellVelocity.z += dz * impulse;
+                    injectedRadialExpansion = true;
+                }
+            }
+        }
+    }
+    if (injectedRadialExpansion) {
+        // This source is intentionally compressible. Refresh the exposed field
+        // after the divergence-free pressure projection and emitter impulses.
+        computeDivergence();
+    }
 }
 
 void PyroSimulation::step(double deltaSeconds) {
@@ -1006,6 +1366,14 @@ std::uint64_t hashSettings(const PyroSimulationSettings& settings) noexcept {
     hashAppendFloat(seed, settings.vorticity);
     hashAppendFloat(seed, settings.pressureIterations);
     hashAppendFloat(seed, settings.advectionClamp);
+    hashAppendFloat(seed, settings.smokeTurbulence);
+    hashAppendFloat(seed, settings.smokeDisturbance);
+    hashAppendFloat(seed, settings.smokeDisturbanceScale);
+    hashAppendFloat(seed, settings.flameTurbulence);
+    hashAppendFloat(seed, settings.smokeTurbulenceScale);
+    hashAppendFloat(seed, settings.flameTurbulenceScale);
+    hashAppend(seed, settings.smokeTurbulenceOctaves);
+    if (settings.highOrderDensityAdvection) hashAppend(seed, 1u);
     return seed;
 }
 
@@ -1016,7 +1384,8 @@ std::uint64_t estimatePyroMemoryBytes(const PyroResolution& resolution) noexcept
     const std::size_t count = static_cast<std::size_t>(resolution.width)
         * static_cast<std::size_t>(resolution.height)
         * static_cast<std::size_t>(resolution.depth);
-    return static_cast<std::uint64_t>(count * (5u * sizeof(float) + sizeof(PyroVec3)));
+    // density, temperature, fuel, reaction, pressure and divergence
+    return static_cast<std::uint64_t>(count * (6u * sizeof(float) + sizeof(PyroVec3)));
 }
 
 PyroVec3 clampToDomain(const PyroDomain& domain, const PyroVec3& position) noexcept {

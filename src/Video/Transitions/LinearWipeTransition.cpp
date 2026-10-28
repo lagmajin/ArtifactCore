@@ -22,3 +22,12 @@ static LinearWipeRegistrar registrar;
 }
 
 }
+
+namespace ArtifactCore {
+void registerLinearWipeTransition()
+{
+    TransitionFactory::instance().registerCreator(TransitionKind::LinearWipe, []() {
+        return new LinearWipeTransition();
+    });
+}
+}

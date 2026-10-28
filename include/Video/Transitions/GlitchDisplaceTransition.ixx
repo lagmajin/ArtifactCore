@@ -66,7 +66,9 @@ public:
         const int height = std::min(left.height(), right.height());
         const float p = static_cast<float>(ctx.progress);
         const float intensity = std::min(p * 2.0f, 1.0f);
-        const float rgbShift = intensity * 6.0f;
+        // The channel split and row displacement fade out as the transition
+        // completes, so p=0 is exactly the left frame and p=1 the right frame.
+        const float rgbShift = intensity * 6.0f * (1.0f - p);
 
         const std::array<GlitchRow, 4> rows = buildGlitchRows(height, width, intensity);
 
@@ -86,7 +88,7 @@ public:
                     int bx = std::clamp(x - static_cast<int>(rgbShift), 0, width - 1);
 
                     const float rChannel = rightScan[static_cast<std::size_t>(rx) * 4u];
-                    const float gChannel = leftScan[static_cast<std::size_t>(x) * 4u + 1u];
+                    const float gChannel = rightScan[static_cast<std::size_t>(x) * 4u + 1u];
                     const float bChannel = rightScan[static_cast<std::size_t>(bx) * 4u + 2u];
                     const float aChannel = leftScan[static_cast<std::size_t>(x) * 4u + 3u];
 
@@ -105,8 +107,9 @@ public:
             }
 
             for (const GlitchRow& row : rows) {
-                if (std::abs(y - row.y) <= row.length / 2) {
-                    const int offset = static_cast<int>(intensity * static_cast<float>(row.offsetX));
+                if (row.length > 0 && std::abs(y - row.y) <= row.length / 2) {
+                    const int offset = static_cast<int>(
+                        intensity * static_cast<float>(row.offsetX) * (1.0f - p));
                     for (int x = 0; x < width; ++x) {
                         const int srcX = x - offset;
                         if (srcX >= 0 && srcX < width) {
@@ -123,4 +126,11 @@ public:
     }
 };
 
+}
+
+// Explicit registration hook: a static-library consumer cannot
+// rely on the initializer of this implementation unit to run, so a
+// host may register the creator deterministically instead.
+export namespace ArtifactCore {
+void registerGlitchDisplaceTransition();
 }

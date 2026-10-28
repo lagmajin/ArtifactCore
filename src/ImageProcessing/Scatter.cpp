@@ -5,7 +5,7 @@ module;
 module ImageProcessing;
 import :Scatter;
 import Core.Parallel;
-import Math.Random;
+import Math.RandomStream;
 
 namespace ArtifactCore {
 

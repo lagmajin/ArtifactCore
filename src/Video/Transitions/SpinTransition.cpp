@@ -27,3 +27,12 @@ static SpinRegistrar registrar;
 }
 
 }
+
+namespace ArtifactCore {
+void registerSpinTransition()
+{
+    TransitionFactory::instance().registerCreator(TransitionKind::Spin, []() {
+        return new SpinTransition();
+    });
+}
+}

@@ -22,3 +22,12 @@ static CubeRegistrar registrar;
 }
 
 }
+
+namespace ArtifactCore {
+void registerCubeTransition()
+{
+    TransitionFactory::instance().registerCreator(TransitionKind::Cube, []() {
+        return new CubeTransition();
+    });
+}
+}

@@ -23,3 +23,12 @@ static WipeRegistrar registrar;
 }
 
 }
+
+namespace ArtifactCore {
+void registerWipeTransition()
+{
+    TransitionFactory::instance().registerCreator(TransitionKind::Wipe, []() {
+        return new WipeTransition();
+    });
+}
+}

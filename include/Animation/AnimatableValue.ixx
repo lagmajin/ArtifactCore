@@ -4,13 +4,13 @@ module;
 #include <cmath>
 #include <cstdint>
 #include <iterator>
+#include <functional>
 #include <limits>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
-#include <shared_mutex>
-#include <mutex>
+#include <QReadWriteLock>
 #include <type_traits>
 #include <QJsonArray>
 #include <QJsonObject>
@@ -89,30 +89,40 @@ struct SpringState {
   NamedVector<KeyFrameT<T>> keyframes_{
     makeNamedVector<KeyFrameT<T>>(ContainerName{"AnimatableValueKeyframes"})};
   T currentValue_{};
-  mutable std::shared_mutex mutex_;
+  mutable QReadWriteLock mutex_;
  public:
   AnimatableValueT() = default;
   explicit AnimatableValueT(const T& initial) : currentValue_(initial) {}
   AnimatableValueT(const AnimatableValueT& other) {
-   std::shared_lock lock(other.mutex_);
+   QReadLocker lock(&other.mutex_);
    keyframes_ = other.keyframes_;
    currentValue_ = other.currentValue_;
   }
   AnimatableValueT& operator=(const AnimatableValueT& other) {
    if (this == &other) return *this;
-   std::scoped_lock lock(mutex_, other.mutex_);
+   auto* firstLock = &mutex_;
+   auto* secondLock = &other.mutex_;
+   if (std::less<QReadWriteLock*>{}(secondLock, firstLock))
+    std::swap(firstLock, secondLock);
+   QWriteLocker first(firstLock);
+   QWriteLocker second(secondLock);
    keyframes_ = other.keyframes_;
    currentValue_ = other.currentValue_;
    return *this;
   }
   AnimatableValueT(AnimatableValueT&& other) noexcept {
-   std::unique_lock lock(other.mutex_);
+   QWriteLocker lock(&other.mutex_);
    keyframes_ = std::move(other.keyframes_);
    currentValue_ = std::move(other.currentValue_);
   }
   AnimatableValueT& operator=(AnimatableValueT&& other) noexcept {
    if (this == &other) return *this;
-   std::scoped_lock lock(mutex_, other.mutex_);
+   auto* firstLock = &mutex_;
+   auto* secondLock = &other.mutex_;
+   if (std::less<QReadWriteLock*>{}(secondLock, firstLock))
+    std::swap(firstLock, secondLock);
+   QWriteLocker first(firstLock);
+   QWriteLocker second(secondLock);
    keyframes_ = std::move(other.keyframes_);
    currentValue_ = std::move(other.currentValue_);
    return *this;
@@ -120,17 +130,17 @@ struct SpringState {
 
   // ݒliL[t[Ȃj
   void setCurrent(const T& v) {
-   std::unique_lock lock(mutex_);
+   QWriteLocker lock(&mutex_);
    currentValue_ = v;
   }
 
   T current() const {
-   std::shared_lock lock(mutex_);
+   QReadLocker lock(&mutex_);
    return currentValue_;
   }
 
   T at(const FramePosition& frame) const {
-   std::shared_lock lock(mutex_);
+   QReadLocker lock(&mutex_);
    if (keyframes_.isEmpty()) return currentValue_; // NamedVector API
    if (keyframes_.size() == 1) return keyframes_.at(0)->value;
 
@@ -201,7 +211,7 @@ struct SpringState {
   }
 
   void addKeyFrame(const FramePosition& frame, const T& value) {
-   std::unique_lock lock(mutex_);
+   QWriteLocker lock(&mutex_);
    // Keep the same invariant as AbstractProperty: one keyframe per time.
    // Replacing in place also preserves the existing interpolation mode
    // and Bezier handles (same as AbstractProperty's value-only update).
@@ -218,7 +228,7 @@ struct SpringState {
   void addKeyFrame(const FramePosition& frame, const T& value,
                    InterpolationType interpolation,
                    float cp1_x, float cp1_y, float cp2_x, float cp2_y) {
-   std::unique_lock lock(mutex_);
+   QWriteLocker lock(&mutex_);
    auto existing = std::find_if(keyframes_.begin(), keyframes_.end(),
     [&frame](const auto& kf) { return kf.frame == frame; });
    if (existing != keyframes_.end()) {
@@ -246,7 +256,7 @@ struct SpringState {
   
   // �w��t���[���ɃL�[�t���[�������݂��邩
   bool hasKeyFrameAt(const FramePosition& frame) const {
-   std::shared_lock lock(mutex_);
+   QReadLocker lock(&mutex_);
    auto it = std::find_if(keyframes_.begin(), keyframes_.end(),
     [&frame](const auto& kf) { return kf.frame == frame; });
    return it != keyframes_.end();
@@ -254,13 +264,13 @@ struct SpringState {
   
   // �w��t���[���̃L�[�t���[�����폜
   void removeKeyFrameAt(const FramePosition& frame) {
-   std::unique_lock lock(mutex_);
+   QWriteLocker lock(&mutex_);
    keyframes_.removeIf(
     [&frame](const auto& kf) { return kf.frame == frame; });
   }
 
   bool moveKeyFrame(const FramePosition& from, const FramePosition& to) {
-   std::unique_lock lock(mutex_);
+   QWriteLocker lock(&mutex_);
    if (from == to) {
     return std::find_if(keyframes_.begin(), keyframes_.end(),
       [&from](const auto& kf) { return kf.frame == from; }) != keyframes_.end();
@@ -284,7 +294,7 @@ struct SpringState {
   }
 
   bool setKeyFrameInterpolationAt(const FramePosition& frame, InterpolationType interpolation) {
-   std::unique_lock lock(mutex_);
+   QWriteLocker lock(&mutex_);
    auto it = std::find_if(keyframes_.begin(), keyframes_.end(),
     [&frame](const auto& kf) { return kf.frame == frame; });
    if (it == keyframes_.end()) return false;
@@ -293,7 +303,7 @@ struct SpringState {
   }
 
   bool setKeyFrameValueAt(const FramePosition& frame, const T& value) {
-   std::unique_lock lock(mutex_);
+   QWriteLocker lock(&mutex_);
    auto it = std::find_if(keyframes_.begin(), keyframes_.end(),
     [&frame](const auto& kf) { return kf.frame == frame; });
    if (it == keyframes_.end()) return false;
@@ -303,7 +313,7 @@ struct SpringState {
 
   bool setKeyFrameBezierAt(const FramePosition& frame,
                            float cp1_x, float cp1_y, float cp2_x, float cp2_y) {
-   std::unique_lock lock(mutex_);
+   QWriteLocker lock(&mutex_);
    auto it = std::find_if(keyframes_.begin(), keyframes_.end(),
     [&frame](const auto& kf) { return kf.frame == frame; });
    if (it == keyframes_.end()) return false;
@@ -315,7 +325,7 @@ struct SpringState {
   }
 
   InterpolationType getKeyFrameInterpolationAt(const FramePosition& frame) const {
-   std::shared_lock lock(mutex_);
+   QReadLocker lock(&mutex_);
    auto it = std::find_if(keyframes_.begin(), keyframes_.end(),
     [&frame](const auto& kf) { return kf.frame == frame; });
    if (it == keyframes_.end()) return static_cast<InterpolationType>(0);
@@ -324,24 +334,24 @@ struct SpringState {
   
   // ���ׂẴL�[�t���[�����N���A
   void clearKeyFrames() {
-   std::unique_lock lock(mutex_);
+   QWriteLocker lock(&mutex_);
    keyframes_.clear();
   }
   
   // �L�[�t���[�������擾
   size_t getKeyFrameCount() const {
-   std::shared_lock lock(mutex_);
+   QReadLocker lock(&mutex_);
    return keyframes_.size();
   }
   
   // ���ׂẴL�[�t���[�����擾�i�ǂݎ���p�j
   std::vector<KeyFrameT<T>> getKeyFrames() const {
-   std::shared_lock lock(mutex_);
+   QReadLocker lock(&mutex_);
    return keyframes_.toStdVector();
   }
 
   std::vector<FramePosition> getKeyFrameFrames() const {
-   std::shared_lock lock(mutex_);
+   QReadLocker lock(&mutex_);
    std::vector<FramePosition> frames;
    frames.reserve(keyframes_.size());
    for (const auto& kf : keyframes_) {

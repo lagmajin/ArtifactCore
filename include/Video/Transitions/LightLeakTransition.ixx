@@ -47,8 +47,12 @@ public:
                 float mask = 1.0f - (dist / maxDist);
                 mask = std::pow(std::clamp(mask, 0.0f, 1.0f), 2.0f);
 
-                float leak = mask * p;
-                float rightWeight = std::clamp(leak, 0.0f, 1.0f);
+                // The radial mask alone never reaches the incoming frame at the
+                // edges, so the base crossfade guarantees a complete transition
+                // (p=1 is the right frame) while the mask still brightens the
+                // centre earlier.
+                float rightWeight = std::clamp(
+                    p + (1.0f - p) * mask * p, 0.0f, 1.0f);
                 float leftWeight = 1.0f - rightWeight;
 
                 for (int c = 0; c < 3; ++c) {
@@ -64,4 +68,11 @@ public:
     }
 };
 
+}
+
+// Explicit registration hook: a static-library consumer cannot
+// rely on the initializer of this implementation unit to run, so a
+// host may register the creator deterministically instead.
+export namespace ArtifactCore {
+void registerLightLeakTransition();
 }

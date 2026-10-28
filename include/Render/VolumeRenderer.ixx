@@ -6,6 +6,9 @@ module;
 #include <limits>
 #include <utility>
 #include <vector>
+#include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
+#include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
+#include <DiligentCore/Graphics/GraphicsEngine/interface/Texture.h>
 
 export module Render.VolumeRenderer;
 
@@ -134,13 +137,16 @@ enum class TransferFunctionKind : std::uint8_t {
     Smoke = 1,
     Steam = 2,
     Explosion = 3,
-    Custom = 4
+    Custom = 4,
+    Fog = 5,
+    FireAndSmoke = 6
 };
 
 struct TransferFunctionSample {
     float densityValue = 0.0f;
     Color emission{};
     float absorption = 1.0f;
+    Color fireEmission{};
 };
 
 using TransferFunctionCallback = std::function<TransferFunctionSample(float density, float temperature)>;
@@ -156,6 +162,8 @@ struct TransferFunction {
     static TransferFunction makeSmoke();
     static TransferFunction makeSteam();
     static TransferFunction makeExplosion();
+    static TransferFunction makeFog();
+    static TransferFunction makeFireAndSmoke();
 };
 
 struct VolumeRenderSettings {
@@ -178,6 +186,59 @@ struct VolumeRenderSettings {
     float multipleScatteringStrength = 0.3f;
     float multipleScatteringSpread = 0.5f;
     int multipleScatteringOctaves = 3;
+};
+
+struct GpuVolumeRenderSettings {
+    int outputWidth = 256;
+    int outputHeight = 256;
+    int raySteps = 96;
+    float densityScale = 1.0f;
+    float temperatureScale = 1.0f;
+    float opacity = 1.0f;
+    float fireReactionScale = 1.5f;
+    float detailStrength = 0.0f;
+    float detailScale = 12.0f;
+    float detailTimeSeconds = 0.0f;
+    std::uint32_t detailSeed = 0;
+    // Experimental directional smoke lighting; zero preserves the unlit look.
+    float smokeLightingStrength = 0.0f;
+    float smokeShadowDensity = 20.0f;
+    // Normalized domain rectangle, fixed for the render rather than auto-tracked.
+    float viewCenterX = 0.5f;
+    float viewCenterY = 0.5f;
+    float viewScaleX = 1.0f;
+    float viewScaleY = 1.0f;
+    // Normalized domain-space offset for a caller-supplied uniform detail translation.
+    float detailOffsetX = 0.0f;
+    float detailOffsetY = 0.0f;
+    float detailOffsetZ = 0.0f;
+};
+
+// Backend-neutral Diligent compute raymarcher for application volume fields.
+// Resource allocation happens during initialize/resize; render reuses textures.
+class GpuVolumeRenderer {
+public:
+    GpuVolumeRenderer() noexcept;
+    ~GpuVolumeRenderer();
+    GpuVolumeRenderer(const GpuVolumeRenderer&) = delete;
+    GpuVolumeRenderer& operator=(const GpuVolumeRenderer&) = delete;
+
+    bool initialize(Diligent::IRenderDevice* device,
+                    Diligent::IDeviceContext* context);
+    bool render(Diligent::IDeviceContext* context,
+                const VolumeFieldSet& fields,
+                const TransferFunction& transfer,
+                const GpuVolumeRenderSettings& settings);
+    // Borrowed view of the reusable output. A subsequent render can overwrite
+    // its contents; resizing or destroying this renderer invalidates the view.
+    // Submit queued consumers before reuse, or give concurrently queued
+    // volumes separate renderer/output resources on the same device.
+    [[nodiscard]] Diligent::ITextureView* outputSRV() const noexcept;
+    [[nodiscard]] bool ready() const noexcept;
+
+private:
+    struct Impl;
+    Impl* impl_ = nullptr;
 };
 
 class CPUVolumeRenderer {

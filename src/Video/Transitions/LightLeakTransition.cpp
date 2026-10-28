@@ -22,3 +22,12 @@ static LightLeakRegistrar registrar;
 }
 
 }
+
+namespace ArtifactCore {
+void registerLightLeakTransition()
+{
+    TransitionFactory::instance().registerCreator(TransitionKind::LightLeak, []() {
+        return new LightLeakTransition();
+    });
+}
+}

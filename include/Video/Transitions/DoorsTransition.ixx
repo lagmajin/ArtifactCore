@@ -2,6 +2,7 @@ module;
 
 #include <cstdint>
 #include <algorithm>
+#include <cmath>
 
 export module Video.Transitions.DoorsTransition;
 import Video.VideoFrame;
@@ -38,8 +39,11 @@ public:
             std::uint8_t* outScan = const_cast<std::uint8_t*>(leftScan);
 
             for (int x = 0; x < width; ++x) {
-                const float u = static_cast<float>(x) / cx;
-                const bool useRight = u >= p;
+                // Normalised distance from the centre: 0 in the middle, 1 at the
+                // side edges. Progress opens the incoming frame outward, so p=0
+                // is the left frame and p=1 the right frame.
+                const float d = std::fabs((static_cast<float>(x) + 0.5f) - cx) / cx;
+                const bool useRight = d < p;
                 const std::uint8_t* src = useRight ? rightScan : leftScan;
                 for (int c = 0; c < 4; ++c) {
                     outScan[static_cast<std::size_t>(x) * 4u + static_cast<std::size_t>(c)] =
@@ -50,4 +54,11 @@ public:
     }
 };
 
+}
+
+// Explicit registration hook: a static-library consumer cannot
+// rely on the initializer of this implementation unit to run, so a
+// host may register the creator deterministically instead.
+export namespace ArtifactCore {
+void registerDoorsTransition();
 }

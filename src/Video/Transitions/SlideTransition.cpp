@@ -23,3 +23,12 @@ static SlideRegistrar registrar;
 }
 
 }
+
+namespace ArtifactCore {
+void registerSlideTransition()
+{
+    TransitionFactory::instance().registerCreator(TransitionKind::Slide, []() {
+        return new SlideTransition();
+    });
+}
+}

@@ -1,6 +1,6 @@
 module;
 #include <algorithm>
-#include <condition_variable>
+#include <atomic>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -125,7 +125,12 @@ public:
     }
     std::unique_lock lock(entry->inspectionMutex);
     entry->retiring = true;
-    entry->activeUsesSettled.wait(lock, [&entry]() { return entry->activeUses == 0; });
+    lock.unlock();
+    auto activeUses = entry->activeUses.load(std::memory_order_acquire);
+    while (activeUses != 0) {
+      entry->activeUses.wait(activeUses, std::memory_order_acquire);
+      activeUses = entry->activeUses.load(std::memory_order_acquire);
+    }
     return true;
   }
 
@@ -142,7 +147,7 @@ public:
     {
       std::lock_guard lock(entry->inspectionMutex);
       if (entry->retiring) return false;
-      ++entry->activeUses;
+      entry->activeUses.fetch_add(1, std::memory_order_relaxed);
     }
     try {
       out = entry->reader();
@@ -176,7 +181,7 @@ public:
     {
       std::lock_guard lock(entry->inspectionMutex);
       if (entry->retiring || !entry->noteWriter) return false;
-      ++entry->activeUses;
+      entry->activeUses.fetch_add(1, std::memory_order_relaxed);
     }
     try {
       const bool written = entry->noteWriter(std::move(text), severity, author);
@@ -222,16 +227,15 @@ private:
     SnapshotReader reader;
     DebugNoteWriter noteWriter;
     std::mutex inspectionMutex;
-    std::condition_variable activeUsesSettled;
     bool retiring = false;
-    std::size_t activeUses = 0;
+    std::atomic<std::size_t> activeUses{0};
   };
 
   static void finishInspection(const std::shared_ptr<Entry>& entry) noexcept
   {
-    std::lock_guard lock(entry->inspectionMutex);
-    --entry->activeUses;
-    if (entry->activeUses == 0) entry->activeUsesSettled.notify_all();
+    if (entry->activeUses.fetch_sub(1, std::memory_order_release) == 1) {
+      entry->activeUses.notify_all();
+    }
   }
 
   std::vector<std::shared_ptr<Entry>> entries_;

@@ -25,22 +25,14 @@ struct Interval
 {
     float min, max;
 
-    Interval() : min(0), max(0) {}
-    Interval(float min_, float max_) : min(min_), max(max_) {}
+    constexpr Interval() : min(0), max(0) {}
+    constexpr Interval(float min_, float max_) : min(min_), max(max_) {}
 
     float clamp(float x) const
     {
         return x < min ? min : (x > max ? max : x);
     }
-
-    static const Interval empty;
-    static const Interval universe;
 };
-
-inline const Interval Interval::empty = Interval(std::numeric_limits<float>::infinity(),
-                                              -std::numeric_limits<float>::infinity());
-inline const Interval Interval::universe = Interval(-std::numeric_limits<float>::infinity(),
-                                                  std::numeric_limits<float>::infinity());
 
 struct HitRecord
 {

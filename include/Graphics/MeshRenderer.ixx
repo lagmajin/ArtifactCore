@@ -307,6 +307,9 @@ public:
     // device does not expose mesh shaders or meshlet resources are absent.
     void prepareMeshShader(IDeviceContext* pContext, size_t lodIndex = 0);
     void drawMeshlets(IDeviceContext* pContext, size_t lodIndex = 0);
+    bool prepareMeshShaderForProjectedSize(IDeviceContext* pContext,
+                                           float projectedRadiusPixels);
+    bool drawMeshletsGpuDriven(IDeviceContext* pContext);
     bool meshShaderReady() const noexcept;
     size_t chooseMeshletLOD(float projectedRadiusPixels) const noexcept;
     void setMeshletMatrices(const float* viewMatrix,

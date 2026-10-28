@@ -3042,13 +3042,22 @@ struct MeshletGpu {
 StructuredBuffer<MeshletGpu> g_Meshlets : register(t0);
 StructuredBuffer<uint> g_MeshletIndices : register(t1);
 StructuredBuffer<float3> g_Positions : register(t2);
+struct MeshletLodGpu {
+    uint meshletOffset;
+    uint meshletCount;
+    float switchPixels;
+    uint reserved;
+};
+StructuredBuffer<MeshletLodGpu> g_MeshletLods : register(t3);
 
 cbuffer MeshletConstants : register(b0) {
     float4x4 g_View;
     float4x4 g_Projection;
     float4x4 g_Model;
     uint g_MeshletBase;
-    uint3 g_MeshletPadding;
+    float g_ProjectedRadiusPixels;
+    uint g_MeshletLodCount;
+    uint g_MeshletPadding;
 };
 
 struct MSVertex {
@@ -3060,7 +3069,18 @@ struct MSVertex {
 void MSMain(uint3 groupId : SV_GroupID, uint groupIndex : SV_GroupIndex,
             out vertices MSVertex vertices[192],
             out indices uint3 triangles[64]) {
-    MeshletGpu meshlet = g_Meshlets[g_MeshletBase + groupId.x];
+    uint meshletIndex = g_MeshletBase + groupId.x;
+    if (g_MeshletLodCount > 0u) {
+        uint selectedLod = 0u;
+        for (uint lodIndex = 0u; lodIndex < g_MeshletLodCount; ++lodIndex) {
+            if (g_ProjectedRadiusPixels <= g_MeshletLods[lodIndex].switchPixels) {
+                selectedLod = lodIndex;
+            }
+        }
+        MeshletLodGpu lod = g_MeshletLods[selectedLod];
+        meshletIndex = lod.meshletOffset + groupId.x;
+    }
+    MeshletGpu meshlet = g_Meshlets[meshletIndex];
     uint triangleCount = min(meshlet.indexCount / 3u, 64u);
     SetMeshOutputCounts(min(meshlet.indexCount, 192u), triangleCount);
 
@@ -3074,6 +3094,41 @@ void MSMain(uint3 groupId : SV_GroupID, uint groupIndex : SV_GroupIndex,
         uint baseIndex = i * 3u;
         triangles[i] = uint3(baseIndex, baseIndex + 1u, baseIndex + 2u);
     }
+}
+)";
+
+const char* MeshletLodSelectCSSource = R"(
+struct MeshletLodGpu {
+    uint meshletOffset;
+    uint meshletCount;
+    float switchPixels;
+    uint reserved;
+};
+
+StructuredBuffer<MeshletLodGpu> g_MeshletLods : register(t0);
+RWStructuredBuffer<uint> g_DrawArgs : register(u0);
+
+cbuffer MeshletLodSelectionConstants : register(b0) {
+    float g_ProjectedRadiusPixels;
+    uint g_MeshletLodCount;
+    uint2 g_Padding;
+};
+
+[numthreads(1, 1, 1)]
+void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID) {
+    if (dispatchThreadId.x != 0u) {
+        return;
+    }
+    uint selectedLod = 0u;
+    for (uint lodIndex = 0u; lodIndex < g_MeshletLodCount; ++lodIndex) {
+        if (g_ProjectedRadiusPixels <= g_MeshletLods[lodIndex].switchPixels) {
+            selectedLod = lodIndex;
+        }
+    }
+    g_DrawArgs[0] = g_MeshletLods[selectedLod].meshletCount;
+    // Diligent's Vulkan backend forwards the three-group-count command layout.
+    g_DrawArgs[1] = 1u;
+    g_DrawArgs[2] = 1u;
 }
 )";
 
@@ -3117,7 +3172,15 @@ struct MeshRenderer::Impl {
         float projection[16] = {};
         float model[16] = {};
         std::uint32_t meshletBase = 0;
-        std::uint32_t padding[3] = {};
+        float projectedRadiusPixels = 0.0f;
+        std::uint32_t lodCount = 0;
+        std::uint32_t padding = 0;
+    };
+
+    struct MeshletLodSelectionConstants {
+        float projectedRadiusPixels = 0.0f;
+        std::uint32_t lodCount = 0;
+        std::uint32_t padding[2] = {};
     };
 
     static_assert(sizeof(SceneLightGpu) == sizeof(float) * 24);
@@ -3125,6 +3188,7 @@ struct MeshRenderer::Impl {
                   sizeof(SceneLightGpu) * MaxSceneLights + sizeof(float) * 8);
     static_assert(sizeof(MaterialConstants) == sizeof(float) * 172);
     static_assert(sizeof(MeshletConstants) == sizeof(float) * 52);
+    static_assert(sizeof(MeshletLodSelectionConstants) == sizeof(float) * 4);
 
     Diligent::RefCntAutoPtr<Diligent::IPipelineStateCache>    pPSOCache_;
     // Blender-style material graph splices (compileMaterialGraph output).
@@ -3165,8 +3229,15 @@ struct MeshRenderer::Impl {
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pMeshletIndexBuffer_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pMeshletLodBuffer_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pMeshletConstantsBuffer_;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer>                pMeshletLodSelectionConstantsBuffer_;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer>                pMeshletLodIndirectArgsBuffer_;
+    std::unique_ptr<ComputeExecutor>                           pMeshletLodExecutor_;
     std::vector<MeshRenderer::MeshletLodGpu>                  meshletLods_;
     size_t                                                     meshletCount_ = 0;
+    bool                                                       meshletLodsWithinDispatchLimit_ = false;
+    float meshletProjectedRadiusPixels_ = 0.0f;
+    bool meshletGpuDrivenSelection_ = false;
+    bool meshletGpuDrivenPrepared_ = false;
     float meshletView_[16] = {};
     float meshletProjection_[16] = {};
     float meshletModel_[16] = {};
@@ -3234,6 +3305,7 @@ struct MeshRenderer::Impl {
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pCullConstantsBuffer_;
     std::unique_ptr<ComputeExecutor>                           pCullExecutor_;
     bool indirectDrawSupported_ = false;
+    bool meshletIndirectSupported_ = false;
     bool gpuCullReady_ = false;
     bool gpuCullActive_ = false;
     size_t uploadedInstanceCount_ = 0;
@@ -3305,6 +3377,7 @@ MeshRenderer::MeshRenderer(GpuContext& context)
     : context_(context), pImpl_(new Impl())
 {
     pImpl_->pCullExecutor_ = std::make_unique<ComputeExecutor>(context_);
+    pImpl_->pMeshletLodExecutor_ = std::make_unique<ComputeExecutor>(context_);
     static const float identity[16] = {
         1, 0, 0, 0,
         0, 1, 0, 0,
@@ -3388,8 +3461,13 @@ void MeshRenderer::createBuffers()
     pImpl_->pMeshletIndexBuffer_.Release();
     pImpl_->pMeshletLodBuffer_.Release();
     pImpl_->pMeshletConstantsBuffer_.Release();
+    pImpl_->pMeshletLodSelectionConstantsBuffer_.Release();
+    pImpl_->pMeshletLodIndirectArgsBuffer_.Release();
     pImpl_->meshletLods_.clear();
     pImpl_->meshletCount_ = 0;
+    pImpl_->meshletGpuDrivenPrepared_ = false;
+    pImpl_->meshletIndirectSupported_ = false;
+    pImpl_->meshletLodsWithinDispatchLimit_ = false;
     pImpl_->pInstanceBuffer_.Release();
     pImpl_->pCompactedInstanceBuffer_.Release();
     pImpl_->pIndirectArgsBuffer_.Release();
@@ -3546,6 +3624,22 @@ void MeshRenderer::createBuffers()
         pImpl_->indirectDrawSupported_ =
             pImpl_->pIndirectArgsBuffer_ != nullptr;
     }
+    if ((pDevice->GetAdapterInfo().DrawCommand.CapFlags &
+         DRAW_COMMAND_CAP_FLAG_DRAW_INDIRECT) != 0) {
+        BufferDesc meshletArgsDesc;
+        meshletArgsDesc.Name = "Meshlet LOD Indirect Draw Args";
+        meshletArgsDesc.Usage = USAGE_DEFAULT;
+        meshletArgsDesc.Size = sizeof(Uint32) * 3;
+        meshletArgsDesc.BindFlags =
+            BIND_INDIRECT_DRAW_ARGS | BIND_UNORDERED_ACCESS;
+        meshletArgsDesc.CPUAccessFlags = CPU_ACCESS_NONE;
+        meshletArgsDesc.Mode = BUFFER_MODE_STRUCTURED;
+        meshletArgsDesc.ElementByteStride = sizeof(Uint32);
+        pDevice->CreateBuffer(meshletArgsDesc, nullptr,
+                              &pImpl_->pMeshletLodIndirectArgsBuffer_);
+        pImpl_->meshletIndirectSupported_ =
+            pImpl_->pMeshletLodIndirectArgsBuffer_ != nullptr;
+    }
     {
         BufferDesc BuffDesc;
         BuffDesc.Name = "Mesh Cull Constants";
@@ -3564,6 +3658,17 @@ void MeshRenderer::createBuffers()
         BuffDesc.BindFlags = BIND_UNIFORM_BUFFER;
         BuffDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
         pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pMeshletConstantsBuffer_);
+    }
+    {
+        BufferDesc BuffDesc;
+        BuffDesc.Name = "Meshlet LOD Selection Constants";
+        BuffDesc.Usage = USAGE_DYNAMIC;
+        BuffDesc.Size = sizeof(Impl::MeshletLodSelectionConstants);
+        BuffDesc.BindFlags = BIND_UNIFORM_BUFFER;
+        BuffDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
+        pDevice->CreateBuffer(
+            BuffDesc, nullptr,
+            &pImpl_->pMeshletLodSelectionConstantsBuffer_);
     }
     
     // 6. Constant buffer
@@ -4114,10 +4219,11 @@ void MeshRenderer::createPSO()
                                    "PSMain", &meshPixelShader)) {
             meshPSOInfo.pMS = meshShader;
             meshPSOInfo.pPS = meshPixelShader;
-            std::array<ShaderResourceVariableDesc, 4> meshVars = {{
+            std::array<ShaderResourceVariableDesc, 5> meshVars = {{
                 {SHADER_TYPE_MESH, "g_Meshlets", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
                 {SHADER_TYPE_MESH, "g_MeshletIndices", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
                 {SHADER_TYPE_MESH, "g_Positions", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+                {SHADER_TYPE_MESH, "g_MeshletLods", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
                 {SHADER_TYPE_MESH, "MeshletConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
             }};
             meshPSOInfo.PSODesc.ResourceLayout.DefaultVariableType =
@@ -4134,6 +4240,31 @@ void MeshRenderer::createPSO()
                 if (pImpl_->pMeshletPSO_) {
                     pImpl_->pMeshletPSO_->CreateShaderResourceBinding(
                         &pImpl_->pMeshletSRB_, true);
+                }
+                if (pImpl_->pMeshletPSO_ && pImpl_->meshletIndirectSupported_ &&
+                    pImpl_->pMeshletLodExecutor_) {
+                    const std::array<ShaderResourceVariableDesc, 3> lodVars{{
+                        {SHADER_TYPE_COMPUTE, "g_MeshletLods",
+                         SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+                        {SHADER_TYPE_COMPUTE, "g_DrawArgs",
+                         SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+                        {SHADER_TYPE_COMPUTE, "MeshletLodSelectionConstants",
+                         SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
+                    }};
+                    ComputePipelineDesc lodSelectDesc;
+                    lodSelectDesc.name = "Meshlet GPU LOD Indirect Selection";
+                    lodSelectDesc.shaderSource = MeshletLodSelectCSSource;
+                    lodSelectDesc.entryPoint = "CSMain";
+                    lodSelectDesc.variables = lodVars.data();
+                    lodSelectDesc.variableCount =
+                        static_cast<Uint32>(lodVars.size());
+                    lodSelectDesc.defaultVariableType =
+                        SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
+                    lodSelectDesc.psoCache = pImpl_->pPSOCache_.RawPtr();
+                    if (pImpl_->pMeshletLodExecutor_->build(lodSelectDesc)) {
+                        pImpl_->pMeshletLodExecutor_->createShaderResourceBinding(
+                            true);
+                    }
                 }
             } catch (const std::exception& error) {
                 pImpl_->pMeshletSRB_.Release();
@@ -4397,14 +4528,31 @@ void MeshRenderer::updateMeshletGeometry(
     pImpl_->meshletCount_ = meshletCount;
     if (lods && lodCount > 0) {
         pImpl_->meshletLods_.assign(lods, lods + lodCount);
+    } else {
+        pImpl_->meshletLods_.clear();
+    }
+    if (!pImpl_->meshletLods_.empty()) {
+        const auto& meshLimits = device->GetAdapterInfo().MeshShader;
+        const size_t dispatchLimit = std::min<size_t>(
+            meshLimits.MaxThreadGroupCountX,
+            meshLimits.MaxThreadGroupTotalCount);
+        pImpl_->meshletLodsWithinDispatchLimit_ = std::all_of(
+            pImpl_->meshletLods_.begin(), pImpl_->meshletLods_.end(),
+            [dispatchLimit](const MeshletLodGpu& level) {
+                return level.meshletCount <= dispatchLimit;
+            });
+    } else {
+        pImpl_->meshletLodsWithinDispatchLimit_ = false;
     }
 }
 
 void MeshRenderer::prepareMeshShader(IDeviceContext* pContext, size_t lodIndex)
 {
+    pImpl_->meshletGpuDrivenPrepared_ = false;
     if (!pContext || !pImpl_->pMeshletPSO_ || !pImpl_->pMeshletSRB_ ||
         !pImpl_->pMeshletBuffer_ || !pImpl_->pMeshletIndexBuffer_ ||
-        !pImpl_->pPositionBuffer_ || pImpl_->meshletCount_ == 0) {
+        !pImpl_->pPositionBuffer_ || !pImpl_->pMeshletLodBuffer_ ||
+        pImpl_->meshletCount_ == 0) {
         return;
     }
     IBuffer* meshShaderPositionBuffer = pImpl_->pPositionBuffer_.RawPtr();
@@ -4420,9 +4568,11 @@ void MeshRenderer::prepareMeshShader(IDeviceContext* pContext, size_t lodIndex)
         SHADER_TYPE_MESH, "g_MeshletIndices");
     auto* positionVar = pImpl_->pMeshletSRB_->GetVariableByName(
         SHADER_TYPE_MESH, "g_Positions");
+    auto* lodVar = pImpl_->pMeshletSRB_->GetVariableByName(
+        SHADER_TYPE_MESH, "g_MeshletLods");
     auto* constantsVar = pImpl_->pMeshletSRB_->GetVariableByName(
         SHADER_TYPE_MESH, "MeshletConstants");
-    if (!meshVar || !indexVar || !positionVar || !constantsVar ||
+    if (!meshVar || !indexVar || !positionVar || !lodVar || !constantsVar ||
         !pImpl_->pMeshletConstantsBuffer_) {
         return;
     }
@@ -4430,19 +4580,72 @@ void MeshRenderer::prepareMeshShader(IDeviceContext* pContext, size_t lodIndex)
     indexVar->Set(pImpl_->pMeshletIndexBuffer_->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE));
     positionVar->Set(meshShaderPositionBuffer->GetDefaultView(
         BUFFER_VIEW_SHADER_RESOURCE));
+    lodVar->Set(pImpl_->pMeshletLodBuffer_->GetDefaultView(
+        BUFFER_VIEW_SHADER_RESOURCE));
     MeshRenderer::Impl::MeshletConstants constants;
     std::memcpy(constants.view, pImpl_->meshletView_, sizeof(constants.view));
     std::memcpy(constants.projection, pImpl_->meshletProjection_, sizeof(constants.projection));
     std::memcpy(constants.model, pImpl_->meshletModel_, sizeof(constants.model));
-    constants.meshletBase = lod.meshletOffset;
+    constants.meshletBase = pImpl_->meshletGpuDrivenSelection_
+        ? 0u : static_cast<std::uint32_t>(lod.meshletOffset);
+    constants.projectedRadiusPixels = pImpl_->meshletProjectedRadiusPixels_;
+    constants.lodCount = pImpl_->meshletGpuDrivenSelection_
+        ? static_cast<std::uint32_t>(pImpl_->meshletLods_.size()) : 0u;
     pContext->UpdateBuffer(pImpl_->pMeshletConstantsBuffer_, 0,
                            sizeof(constants), &constants,
                            RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     constantsVar->Set(pImpl_->pMeshletConstantsBuffer_);
+    if (pImpl_->meshletGpuDrivenSelection_) {
+        if (!pImpl_->pMeshletLodExecutor_ ||
+            !pImpl_->pMeshletLodExecutor_->ready() ||
+            !pImpl_->pMeshletLodSelectionConstantsBuffer_ ||
+            !pImpl_->pMeshletLodIndirectArgsBuffer_) {
+            return;
+        }
+        MeshRenderer::Impl::MeshletLodSelectionConstants selectionConstants;
+        selectionConstants.projectedRadiusPixels =
+            pImpl_->meshletProjectedRadiusPixels_;
+        selectionConstants.lodCount =
+            static_cast<std::uint32_t>(pImpl_->meshletLods_.size());
+        pContext->UpdateBuffer(
+            pImpl_->pMeshletLodSelectionConstantsBuffer_, 0,
+            sizeof(selectionConstants), &selectionConstants,
+            RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        const bool lodBufferBound = pImpl_->pMeshletLodExecutor_->setBufferView(
+            "g_MeshletLods", pImpl_->pMeshletLodBuffer_->GetDefaultView(
+                BUFFER_VIEW_SHADER_RESOURCE));
+        const bool argsBufferBound = pImpl_->pMeshletLodExecutor_->setBufferView(
+            "g_DrawArgs", pImpl_->pMeshletLodIndirectArgsBuffer_->GetDefaultView(
+                BUFFER_VIEW_UNORDERED_ACCESS));
+        const bool constantsBound = pImpl_->pMeshletLodExecutor_->setBuffer(
+            "MeshletLodSelectionConstants",
+            pImpl_->pMeshletLodSelectionConstantsBuffer_);
+        if (!lodBufferBound || !argsBufferBound || !constantsBound) {
+            return;
+        }
+        DispatchComputeAttribs dispatch;
+        dispatch.ThreadGroupCountX = 1;
+        dispatch.ThreadGroupCountY = 1;
+        dispatch.ThreadGroupCountZ = 1;
+        pImpl_->pMeshletLodExecutor_->dispatch(
+            pContext, dispatch, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        pImpl_->meshletGpuDrivenPrepared_ = true;
+    }
     pContext->SetPipelineState(pImpl_->pMeshletPSO_);
     pContext->CommitShaderResources(pImpl_->pMeshletSRB_,
                                     RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     (void)lod;
+}
+
+bool MeshRenderer::prepareMeshShaderForProjectedSize(
+    IDeviceContext* pContext, const float projectedRadiusPixels)
+{
+    pImpl_->meshletGpuDrivenPrepared_ = false;
+    pImpl_->meshletProjectedRadiusPixels_ = projectedRadiusPixels;
+    pImpl_->meshletGpuDrivenSelection_ = true;
+    prepareMeshShader(pContext, 0);
+    pImpl_->meshletGpuDrivenSelection_ = false;
+    return pImpl_->meshletGpuDrivenPrepared_;
 }
 
 void MeshRenderer::setMeshletMatrices(const float* viewMatrix,
@@ -4480,6 +4683,24 @@ void MeshRenderer::drawMeshlets(IDeviceContext* pContext, size_t lodIndex)
     pContext->DrawMesh(drawAttrs);
 }
 
+bool MeshRenderer::drawMeshletsGpuDriven(IDeviceContext* pContext)
+{
+    if (!pContext || !pImpl_->meshletGpuDrivenPrepared_ ||
+        !pImpl_->pMeshletLodIndirectArgsBuffer_) {
+        pImpl_->meshletGpuDrivenPrepared_ = false;
+        return false;
+    }
+    DrawMeshIndirectAttribs drawAttrs;
+    drawAttrs.pAttribsBuffer = pImpl_->pMeshletLodIndirectArgsBuffer_;
+    drawAttrs.DrawArgsOffset = 0;
+    drawAttrs.CommandCount = 1;
+    drawAttrs.AttribsBufferStateTransitionMode =
+        RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+    pContext->DrawMeshIndirect(drawAttrs);
+    pImpl_->meshletGpuDrivenPrepared_ = false;
+    return true;
+}
+
 bool MeshRenderer::meshShaderReady() const noexcept
 {
     const auto* device = context_.RenderDevice();
@@ -4489,8 +4710,15 @@ bool MeshRenderer::meshShaderReady() const noexcept
     return meshShadersSupported && pImpl_ && pImpl_->pMeshletPSO_ &&
            pImpl_->pMeshletSRB_ &&
            pImpl_->pMeshletBuffer_ && pImpl_->pMeshletIndexBuffer_ &&
+           pImpl_->pMeshletLodBuffer_ &&
            pImpl_->pPositionBuffer_ && pImpl_->pMeshletConstantsBuffer_ &&
-           pImpl_->meshletCount_ > 0 && !pImpl_->meshletLods_.empty();
+           pImpl_->pMeshletLodExecutor_ &&
+           pImpl_->pMeshletLodExecutor_->ready() &&
+           pImpl_->pMeshletLodSelectionConstantsBuffer_ &&
+           pImpl_->pMeshletLodIndirectArgsBuffer_ &&
+           pImpl_->meshletIndirectSupported_ && pImpl_->meshletCount_ > 0 &&
+           pImpl_->meshletLodsWithinDispatchLimit_ &&
+           !pImpl_->meshletLods_.empty();
 }
 
 size_t MeshRenderer::chooseMeshletLOD(float projectedRadiusPixels) const noexcept

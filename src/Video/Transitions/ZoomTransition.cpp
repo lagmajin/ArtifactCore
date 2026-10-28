@@ -23,3 +23,12 @@ static ZoomRegistrar registrar;
 }
 
 }
+
+namespace ArtifactCore {
+void registerZoomTransition()
+{
+    TransitionFactory::instance().registerCreator(TransitionKind::Zoom, []() {
+        return new ZoomTransition();
+    });
+}
+}

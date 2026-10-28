@@ -31,7 +31,6 @@ module;
 #include <tuple>
 #include <numeric>
 #include <regex>
-#include <random>
 #include <QHashFunctions>
 #include <QString>
 #include <wobjectdefs.h>
@@ -101,3 +100,5 @@ export namespace ArtifactCore {
  }
 
 };
+
+W_REGISTER_ARGTYPE(ArtifactCore::FramePosition)

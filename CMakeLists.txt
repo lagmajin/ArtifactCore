@@ -190,6 +190,27 @@ set_source_files_properties(
     PROPERTIES CXX_SCAN_FOR_MODULES OFF)
 
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/ArtifactCoreModuleReferences.cmake")
+# Math.Random re-exports Math.RandomStream (`export import`), so an
+# implementation unit that reaches Math.Random through an intermediate module
+# (Particle, Graphics.Compute, ...) needs the transitive IFC reference as well.
+# Only the scanner-disabled attachments below need it injected: scanned units
+# already get it from CMake's dyndep pass, and adding an OBJECT_DEPENDS edge to a
+# module interface object on those would make ninja report a dependency cycle
+# through CXX.dd.
+foreach(_artifact_random_import_reference IN LISTS
+        ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES)
+    string(REPLACE "|" ";" _artifact_random_fields
+        "${_artifact_random_import_reference}")
+    list(GET _artifact_random_fields 0 _artifact_random_relative)
+    set(_artifact_random_source
+        "${CMAKE_CURRENT_SOURCE_DIR}/${_artifact_random_relative}")
+    set_property(SOURCE "${_artifact_random_source}" APPEND PROPERTY
+        COMPILE_OPTIONS
+            "/reference;Math.RandomStream=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Math.RandomStream.ifc")
+    set_property(SOURCE "${_artifact_random_source}" APPEND PROPERTY
+        OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Math/RandomStream.ixx.obj")
+endforeach()
 foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES)
     string(REPLACE "|" ";" _artifact_module_fields "${_artifact_module_reference}")
     list(GET _artifact_module_fields 0 _artifact_impl_relative)
@@ -2921,10 +2942,12 @@ foreach(_artifact_gpu_impl IN LISTS CORE_IMPL)
     if(_artifact_gpu_context_imports)
         set_property(SOURCE "${_artifact_gpu_impl}" APPEND PROPERTY
             COMPILE_OPTIONS
-                "/reference;Graphics.GPUCapabilities=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPUCapabilities.ifc")
+                "/reference;Graphics.GPUCapabilities=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPUCapabilities.ifc"
+                "/reference;Graphics.GPU.Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPU.Info.ifc")
         set_property(SOURCE "${_artifact_gpu_impl}" APPEND PROPERTY OBJECT_DEPENDS
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Graphics/GPUComputeContext.ixx.obj"
-            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Graphics/GPUCapabilities.ixx.obj")
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Graphics/GPUCapabilities.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Graphics/GPUInfo.ixx.obj")
     endif()
     file(STRINGS "${_artifact_gpu_impl}" _artifact_mpm_compute_imports
          REGEX "^[ \t]*import[ \t]+Graphics\\.MpmCompute[ \t]*;")
@@ -7197,5 +7220,249 @@ if(ARTIFACT_COMPILER_CLANG_GNU OR ARTIFACT_COMPILER_CLANG_CL)
                     OBJECT_DEPENDS "${_artifactcore_filtered_depends}")
             endif()
         endif()
+    endforeach()
+endif()
+
+# ---------------------------------------------------------------------------
+# Transitive IFC references for scanner-disabled implementation units.
+#
+# MSVC needs `/reference;Module=path.ifc` for every module whose BMI is needed
+# while loading an imported BMI, not only for the modules the translation unit
+# names directly.  The hand-maintained tables above cover the direct imports of
+# the `module Name;` attachments, but a change to an interface (a new
+# `import Render.Camera;`, an `export import Math.RandomStream;`) then breaks
+# every consumer until each row is extended by hand.
+#
+# This pass closes that gap once: it maps every module provided by the Core
+# module file sets to its interface path, records each interface's imports, and
+# appends the transitive closure of each scanner-disabled attachment.  Scanned
+# units are skipped: CMake's dyndep already supplies their references, and an
+# OBJECT_DEPENDS edge from them to a module interface object would make ninja
+# report a cycle through CXX.dd.
+# ---------------------------------------------------------------------------
+if(MSVC AND CMAKE_GENERATOR MATCHES "Ninja")
+    get_cmake_property(_artifact_closure_variables VARIABLES)
+    foreach(_artifact_closure_variable IN LISTS _artifact_closure_variables)
+        if(_artifact_closure_variable MATCHES "^ARTIFACTCORE_(.+)_MODULES$")
+            # The manifest name case does not always match the target name
+            # (ENVIRONMENT vs Environment, COLORCOLLECTION vs ColorCollection),
+            # so resolve the owner from the first interface's include/<Dir>/
+            # segment and only accept it when that target really exists.
+            set(_artifact_closure_probe "")
+            foreach(_artifact_closure_probe_file IN LISTS
+                    ${_artifact_closure_variable})
+                if(_artifact_closure_probe_file MATCHES "/include/([^/]+)/")
+                    set(_artifact_closure_probe "${CMAKE_MATCH_1}")
+                    break()
+                endif()
+            endforeach()
+            if(_artifact_closure_probe STREQUAL "" OR
+               NOT TARGET "ArtifactCore${_artifact_closure_probe}")
+                continue()
+            endif()
+            set(_artifact_closure_target
+                "ArtifactCore${_artifact_closure_probe}.dir")
+        elseif(_artifact_closure_variable STREQUAL "CORE_MODULES")
+            set(_artifact_closure_target "ArtifactCore.dir")
+        else()
+            continue()
+        endif()
+        foreach(_artifact_closure_file IN LISTS ${_artifact_closure_variable})
+            if(NOT _artifact_closure_file MATCHES "[.](ixx|cppm)$" OR
+               NOT EXISTS "${_artifact_closure_file}")
+                continue()
+            endif()
+            file(STRINGS "${_artifact_closure_file}" _artifact_closure_decl
+                 REGEX "^[ \t]*export module[ \t]+[A-Za-z0-9_.]+[ \t]*;")
+            if(NOT _artifact_closure_decl)
+                continue()
+            endif()
+            list(GET _artifact_closure_decl 0 _artifact_closure_decl_line)
+            string(REGEX REPLACE
+                "^.*export module[ \t]+([A-Za-z0-9_.]+)[ \t]*;.*$" "\\1"
+                _artifact_closure_name "${_artifact_closure_decl_line}")
+            if(DEFINED "_artifact_closure_ifc_${_artifact_closure_name}")
+                continue()
+            endif()
+            file(RELATIVE_PATH _artifact_closure_relative
+                "${CMAKE_CURRENT_SOURCE_DIR}" "${_artifact_closure_file}")
+            set("_artifact_closure_ifc_${_artifact_closure_name}"
+                "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/${_artifact_closure_target}/${_artifact_closure_name}.ifc")
+            set("_artifact_closure_obj_${_artifact_closure_name}"
+                "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/${_artifact_closure_target}/${_artifact_closure_relative}.obj")
+
+            file(STRINGS "${_artifact_closure_file}"
+                 _artifact_closure_import_lines
+                 REGEX "^[ \t]*(export[ \t]+)?import[ \t]+[A-Za-z0-9_.]+[ \t]*;")
+            set(_artifact_closure_imports "")
+            foreach(_artifact_closure_import_line IN LISTS
+                    _artifact_closure_import_lines)
+                string(REGEX REPLACE
+                    "^.*import[ \t]+([A-Za-z0-9_.]+)[ \t]*;.*$" "\\1"
+                    _artifact_closure_import_name
+                    "${_artifact_closure_import_line}")
+                list(APPEND _artifact_closure_imports
+                    "${_artifact_closure_import_name}")
+            endforeach()
+            set("_artifact_closure_imports_${_artifact_closure_name}"
+                "${_artifact_closure_imports}")
+        endforeach()
+    endforeach()
+
+    foreach(_artifact_closure_attachment IN LISTS
+            ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES)
+        string(REPLACE "|" ";" _artifact_closure_fields
+            "${_artifact_closure_attachment}")
+        list(GET _artifact_closure_fields 0 _artifact_closure_relative)
+        list(GET _artifact_closure_fields 1 _artifact_closure_module_name)
+        list(GET _artifact_closure_fields 2 _artifact_closure_interface)
+        set(_artifact_closure_source
+            "${CMAKE_CURRENT_SOURCE_DIR}/${_artifact_closure_relative}")
+        set(_artifact_closure_interface_file
+            "${CMAKE_CURRENT_SOURCE_DIR}/${_artifact_closure_interface}")
+
+        # Correct a stale own-module reference. The early reference pass cannot
+        # see split-domain manifests declared later in this file, so an
+        # implementation owned by a split target can end up pointing at the
+        # aggregate directory IFC (which does not exist) and MSVC then reports
+        # "could not find module <own module>". Rewrite that one entry in place
+        # with the provider resolved from the module map above.
+        if(DEFINED "_artifact_closure_ifc_${_artifact_closure_module_name}")
+            set(_artifact_closure_own_ifc
+                "${_artifact_closure_ifc_${_artifact_closure_module_name}}")
+            get_source_file_property(_artifact_closure_own_options
+                "${_artifact_closure_source}" COMPILE_OPTIONS)
+            if(_artifact_closure_own_options AND
+               NOT _artifact_closure_own_options STREQUAL "NOTFOUND")
+                set(_artifact_closure_rewritten "")
+                set(_artifact_closure_pending_value OFF)
+                set(_artifact_closure_replaced OFF)
+                foreach(_artifact_closure_option IN LISTS
+                        _artifact_closure_own_options)
+                    if(_artifact_closure_pending_value)
+                        set(_artifact_closure_pending_value OFF)
+                        if(_artifact_closure_option MATCHES
+                           "^${_artifact_closure_module_name}=")
+                            list(APPEND _artifact_closure_rewritten
+                                "${_artifact_closure_module_name}=${_artifact_closure_own_ifc}")
+                            set(_artifact_closure_replaced ON)
+                        else()
+                            list(APPEND _artifact_closure_rewritten
+                                "${_artifact_closure_option}")
+                        endif()
+                    elseif(_artifact_closure_option STREQUAL "/reference")
+                        list(APPEND _artifact_closure_rewritten "/reference")
+                        set(_artifact_closure_pending_value ON)
+                    elseif(_artifact_closure_option MATCHES
+                           "^/reference;${_artifact_closure_module_name}=")
+                        list(APPEND _artifact_closure_rewritten
+                            "/reference;${_artifact_closure_module_name}=${_artifact_closure_own_ifc}")
+                        set(_artifact_closure_replaced ON)
+                    else()
+                        list(APPEND _artifact_closure_rewritten
+                            "${_artifact_closure_option}")
+                    endif()
+                endforeach()
+                if(NOT _artifact_closure_replaced)
+                    list(APPEND _artifact_closure_rewritten
+                        "/reference;${_artifact_closure_module_name}=${_artifact_closure_own_ifc}")
+                endif()
+                set_property(SOURCE "${_artifact_closure_source}" PROPERTY
+                    COMPILE_OPTIONS "${_artifact_closure_rewritten}")
+            endif()
+        endif()
+
+        set(_artifact_closure_pending "")
+        foreach(_artifact_closure_seed IN ITEMS
+                "${_artifact_closure_source}" "${_artifact_closure_interface_file}")
+            if(NOT EXISTS "${_artifact_closure_seed}")
+                continue()
+            endif()
+            file(STRINGS "${_artifact_closure_seed}" _artifact_closure_seed_lines
+                 REGEX "^[ \t]*(export[ \t]+)?import[ \t]+[A-Za-z0-9_.]+[ \t]*;")
+            foreach(_artifact_closure_seed_line IN LISTS
+                    _artifact_closure_seed_lines)
+                string(REGEX REPLACE
+                    "^.*import[ \t]+([A-Za-z0-9_.]+)[ \t]*;.*$" "\\1"
+                    _artifact_closure_seed_name
+                    "${_artifact_closure_seed_line}")
+                list(APPEND _artifact_closure_pending
+                    "${_artifact_closure_seed_name}")
+            endforeach()
+        endforeach()
+        if(NOT _artifact_closure_pending)
+            continue()
+        endif()
+
+        set(_artifact_closure_visited "")
+        set(_artifact_closure_resolved "")
+        while(_artifact_closure_pending)
+            list(POP_FRONT _artifact_closure_pending _artifact_closure_current)
+            if(_artifact_closure_current IN_LIST _artifact_closure_visited)
+                continue()
+            endif()
+            list(APPEND _artifact_closure_visited "${_artifact_closure_current}")
+            if(NOT DEFINED
+               "_artifact_closure_ifc_${_artifact_closure_current}")
+                continue()
+            endif()
+            list(APPEND _artifact_closure_resolved "${_artifact_closure_current}")
+            foreach(_artifact_closure_next IN LISTS
+                    "_artifact_closure_imports_${_artifact_closure_current}")
+                if(NOT _artifact_closure_next IN_LIST _artifact_closure_visited)
+                    list(APPEND _artifact_closure_pending
+                        "${_artifact_closure_next}")
+                endif()
+            endforeach()
+        endwhile()
+
+        get_source_file_property(_artifact_closure_options
+            "${_artifact_closure_source}" COMPILE_OPTIONS)
+        foreach(_artifact_closure_module IN LISTS _artifact_closure_resolved)
+            set(_artifact_closure_want_ifc
+                "${_artifact_closure_ifc_${_artifact_closure_module}}")
+            set(_artifact_closure_rewritten "")
+            set(_artifact_closure_pending_value OFF)
+            set(_artifact_closure_had_reference OFF)
+            if(_artifact_closure_options AND
+               NOT _artifact_closure_options STREQUAL "NOTFOUND")
+                foreach(_artifact_closure_option IN LISTS
+                        _artifact_closure_options)
+                    if(_artifact_closure_pending_value)
+                        set(_artifact_closure_pending_value OFF)
+                        if(_artifact_closure_option MATCHES
+                           "^${_artifact_closure_module}=")
+                            list(APPEND _artifact_closure_rewritten
+                                "${_artifact_closure_module}=${_artifact_closure_want_ifc}")
+                            set(_artifact_closure_had_reference ON)
+                        else()
+                            list(APPEND _artifact_closure_rewritten
+                                "${_artifact_closure_option}")
+                        endif()
+                    elseif(_artifact_closure_option STREQUAL "/reference")
+                        list(APPEND _artifact_closure_rewritten "/reference")
+                        set(_artifact_closure_pending_value ON)
+                    elseif(_artifact_closure_option MATCHES
+                           "^/reference;${_artifact_closure_module}=")
+                        list(APPEND _artifact_closure_rewritten
+                            "/reference;${_artifact_closure_module}=${_artifact_closure_want_ifc}")
+                        set(_artifact_closure_had_reference ON)
+                    else()
+                        list(APPEND _artifact_closure_rewritten
+                            "${_artifact_closure_option}")
+                    endif()
+                endforeach()
+            endif()
+            if(NOT _artifact_closure_had_reference)
+                list(APPEND _artifact_closure_rewritten
+                    "/reference;${_artifact_closure_module}=${_artifact_closure_want_ifc}")
+            endif()
+            set_property(SOURCE "${_artifact_closure_source}" PROPERTY
+                COMPILE_OPTIONS "${_artifact_closure_rewritten}")
+            set(_artifact_closure_options "${_artifact_closure_rewritten}")
+            set_property(SOURCE "${_artifact_closure_source}" APPEND PROPERTY
+                OBJECT_DEPENDS
+                    "${_artifact_closure_obj_${_artifact_closure_module}}")
+        endforeach()
     endforeach()
 endif()

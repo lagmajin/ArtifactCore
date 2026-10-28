@@ -42,8 +42,10 @@ public:
             for (int x = 0; x < width; ++x) {
                 const float dx = static_cast<float>(x) - cx;
                 const float dy = static_cast<float>(y) - cy;
-                const float r = std::sqrt(dx * dx + dy * dy) / maxRadius;
-                const bool useRight = r >= static_cast<float>(ctx.progress);
+                const float r = std::min(
+                    std::sqrt(dx * dx + dy * dy) / maxRadius, 0.999999f);
+                // Progress expands the incoming frame from the centre outward.
+                const bool useRight = r < static_cast<float>(ctx.progress);
                 const std::uint8_t* src = useRight ? rightScan : leftScan;
                 for (int c = 0; c < 4; ++c) {
                     outScan[static_cast<std::size_t>(x) * 4u + static_cast<std::size_t>(c)] = src[static_cast<std::size_t>(x) * 4u + static_cast<std::size_t>(c)];
@@ -53,4 +55,11 @@ public:
     }
 };
 
+}
+
+// Explicit registration hook: a static-library consumer cannot
+// rely on the initializer of this implementation unit to run, so a
+// host may register the creator deterministically instead.
+export namespace ArtifactCore {
+void registerRadialWipeTransition();
 }

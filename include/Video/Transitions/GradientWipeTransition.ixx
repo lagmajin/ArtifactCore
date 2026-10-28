@@ -37,11 +37,12 @@ public:
 
             for (int x = 0; x < width; ++x) {
                 // Gradient value: diagonal from top-left (0) to bottom-right (1)
-                float g = static_cast<float>(x + y) / static_cast<float>(width + height - 2);
-                // Soft step around threshold
-                float threshold = p;
+                float g = static_cast<float>(x + y) / static_cast<float>(width + height - 1);
+                // Soft step around a threshold that covers the whole gradient
+                // range at both ends (p=0 keeps the left frame, p=1 the right).
                 float soft = 0.1f;
-                float t = std::clamp((g - threshold + soft) / (soft * 2.0f), 0.0f, 1.0f);
+                float threshold = -soft + p * (1.0f + soft * 2.0f);
+                float t = std::clamp((threshold - g + soft) / (soft * 2.0f), 0.0f, 1.0f);
 
                 for (int c = 0; c < 4; ++c) {
                     float l = leftScan[static_cast<std::size_t>(x) * 4u + static_cast<std::size_t>(c)];
@@ -55,4 +56,11 @@ public:
     }
 };
 
+}
+
+// Explicit registration hook: a static-library consumer cannot
+// rely on the initializer of this implementation unit to run, so a
+// host may register the creator deterministically instead.
+export namespace ArtifactCore {
+void registerGradientWipeTransition();
 }

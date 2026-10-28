@@ -3,6 +3,7 @@ module;
 #include <cstdint>
 #include <algorithm>
 #include <cmath>
+#include <vector>
 
 export module Video.Transitions.SpinTransition;
 import Video.VideoFrame;
@@ -15,30 +16,7 @@ namespace ArtifactCore {
 
 namespace {
 
-static constexpr double TwoPi = 6.28318530717958647692;
-
-struct SpinSample {
-    double u;
-    double v;
-    double weight;
-};
-
-static SpinSample sampleSpin(int x, int y, int width, int height, double progress)
-{
-    const double cx = width * 0.5;
-    const double cy = height * 0.5;
-    const double dx = x - cx;
-    const double dy = y - cy;
-    const double maxRadius = std::sqrt(cx * cx + cy * cy);
-    const double radius = std::sqrt(dx * dx + dy * dy) / maxRadius;
-
-    const double angle = std::atan2(dy, dx) + TwoPi * progress * radius * 0.5;
-    const double srcR = radius * 2.0;
-    const int srcX = static_cast<int>(cx + std::cos(angle - TwoPi * 0.5 * progress) * srcR * cx);
-    const int srcY = static_cast<int>(cy + std::sin(angle - TwoPi * 0.5 * progress) * srcR * cy);
-
-    return SpinSample{static_cast<double>(srcX), static_cast<double>(srcY), 1.0 - progress};
-}
+constexpr float kTwoPi = 6.28318530717958647692f;
 
 }
 
@@ -59,34 +37,75 @@ public:
 
         const int width = std::min(left.width(), right.width());
         const int height = std::min(left.height(), right.height());
+        const float cx = static_cast<float>(width) * 0.5f;
+        const float cy = static_cast<float>(height) * 0.5f;
+        const float p = static_cast<float>(ctx.progress);
+
+        // Both faces rotate a full turn. The outgoing frame spins outward while
+        // it fades; the incoming frame starts oversized and settles to a 1:1
+        // mapping at p=1, so p=0 is the left frame and p=1 the right frame.
+        const float angle = kTwoPi * p;
+        const float cosine = std::cos(angle);
+        const float sine = std::sin(angle);
+        const float leftScale = 1.0f + p;
+        const float rightScale = 2.0f - p;
+        const float leftWeight = 1.0f - p;
+        const float rightWeight = p;
+
+        // process() writes into the left frame, so the outgoing frame is
+        // sampled from an immutable copy. The right frame is only read.
+        const std::size_t stride = static_cast<std::size_t>(left.strideBytes());
+        const std::size_t rightStride =
+            static_cast<std::size_t>(right.strideBytes());
+        const std::vector<std::uint8_t> source(
+            left.data(), left.data() + stride * static_cast<std::size_t>(height));
 
         for (int y = 0; y < height; ++y) {
-            const std::uint8_t* leftScan = left.scanline(y);
-            const std::uint8_t* rightScan = right.scanline(y);
-            std::uint8_t* outScan = const_cast<std::uint8_t*>(leftScan);
+            std::uint8_t* outScan = const_cast<std::uint8_t*>(left.scanline(y));
 
             for (int x = 0; x < width; ++x) {
-                const SpinSample ls = sampleSpin(x, y, width, height, ctx.progress);
+                const float dx = (static_cast<float>(x) + 0.5f) - cx;
+                const float dy = (static_cast<float>(y) + 0.5f) - cy;
 
-                if (ls.weight > 0.5) {
-                    const int lx = std::clamp(static_cast<int>(ls.u), 0, width - 1);
-                    const int ly = std::clamp(static_cast<int>(ls.v), 0, height - 1);
-                    for (int c = 0; c < 4; ++c) {
-                        outScan[static_cast<std::size_t>(x) * 4u + static_cast<std::size_t>(c)] =
-                            leftScan[static_cast<std::size_t>(ly) * static_cast<std::size_t>(left.strideBytes()) + static_cast<std::size_t>(lx) * 4u + static_cast<std::size_t>(c)];
-                    }
-                } else {
-                    const SpinSample rs = sampleSpin(x, y, width, height, 1.0 - ctx.progress);
-                    const int rx = std::clamp(static_cast<int>(rs.u), 0, width - 1);
-                    const int ry = std::clamp(static_cast<int>(rs.v), 0, height - 1);
-                    for (int c = 0; c < 4; ++c) {
-                        outScan[static_cast<std::size_t>(x) * 4u + static_cast<std::size_t>(c)] =
-                            rightScan[static_cast<std::size_t>(ry) * static_cast<std::size_t>(right.strideBytes()) + static_cast<std::size_t>(rx) * 4u + static_cast<std::size_t>(c)];
-                    }
+                const float leftX =
+                    (dx * cosine - dy * sine) / leftScale + cx;
+                const float leftY =
+                    (dx * sine + dy * cosine) / leftScale + cy;
+                const float rightX =
+                    (dx * cosine + dy * sine) / rightScale + cx;
+                const float rightY =
+                    (-dx * sine + dy * cosine) / rightScale + cy;
+
+                const int lx = std::clamp(static_cast<int>(leftX), 0, width - 1);
+                const int ly = std::clamp(static_cast<int>(leftY), 0, height - 1);
+                const int rx = std::clamp(static_cast<int>(rightX), 0, width - 1);
+                const int ry = std::clamp(static_cast<int>(rightY), 0, height - 1);
+
+                const std::uint8_t* leftPixel =
+                    source.data() + static_cast<std::size_t>(ly) * stride +
+                    static_cast<std::size_t>(lx) * 4u;
+                const std::uint8_t* rightPixel =
+                    right.data() + static_cast<std::size_t>(ry) * rightStride +
+                    static_cast<std::size_t>(rx) * 4u;
+
+                for (int c = 0; c < 4; ++c) {
+                    const float blend =
+                        static_cast<float>(leftPixel[c]) * leftWeight +
+                        static_cast<float>(rightPixel[c]) * rightWeight;
+                    outScan[static_cast<std::size_t>(x) * 4u +
+                            static_cast<std::size_t>(c)] =
+                        static_cast<std::uint8_t>(blend + 0.5f);
                 }
             }
         }
     }
 };
 
+}
+
+// Explicit registration hook: a static-library consumer cannot
+// rely on the initializer of this implementation unit to run, so a
+// host may register the creator deterministically instead.
+export namespace ArtifactCore {
+void registerSpinTransition();
 }

@@ -23,3 +23,12 @@ static CrossfadeRegistrar registrar;
 }
 
 }
+
+namespace ArtifactCore {
+void registerCrossfadeTransition()
+{
+    TransitionFactory::instance().registerCreator(TransitionKind::Crossfade, []() {
+        return new CrossfadeTransition();
+    });
+}
+}

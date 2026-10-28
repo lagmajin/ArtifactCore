@@ -22,3 +22,12 @@ static BlockDissolveRegistrar registrar;
 }
 
 }
+
+namespace ArtifactCore {
+void registerBlockDissolveTransition()
+{
+    TransitionFactory::instance().registerCreator(TransitionKind::BlockDissolve, []() {
+        return new BlockDissolveTransition();
+    });
+}
+}

@@ -23,3 +23,12 @@ static DissolveRegistrar registrar;
 }
 
 }
+
+namespace ArtifactCore {
+void registerDissolveTransition()
+{
+    TransitionFactory::instance().registerCreator(TransitionKind::Dissolve, []() {
+        return new DissolveTransition();
+    });
+}
+}

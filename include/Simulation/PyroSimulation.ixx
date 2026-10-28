@@ -13,6 +13,7 @@ module;
 export module Core.Simulation.Pyro;
 
 import Float3;
+import Core.ArtifactArray;
 import Core.ArtifactString;
 // Keep the simulation module IFC synchronized with the active compiler toolchain.
 
@@ -160,16 +161,52 @@ struct PyroSimulationSettings {
     float vorticity = 0.0f;
     float pressureIterations = 20.0f;
     float advectionClamp = 1.0f;
+    // Optional smooth, time-evolving curl force. Strengths are acceleration in
+    // grid cells/s^2 and are gated by smoke density and combustion reaction.
+    float smokeTurbulence = 0.0f;
+    float flameTurbulence = 0.0f;
+    float smokeTurbulenceScale = 18.0f;
+    float flameTurbulenceScale = 7.0f;
+    // Optional high-frequency curl force gated to the smoke density boundary.
+    // This perturbs flow shape without directly adding or removing density.
+    float smokeDisturbance = 0.0f;
+    float smokeDisturbanceScale = 6.0f;
+    // Number of progressively finer smoke curl bands. One preserves the
+    // original single-band force; smaller bands below four cells are skipped.
+    std::uint8_t smokeTurbulenceOctaves = 1;
+    // Optional limited predictor-corrector for density; other fields remain first order.
+    bool highOrderDensityAdvection = false;
 };
 
 struct PyroSourceState {
     PyroVec3 position{};
     PyroVec3 extent{0.5f, 0.5f, 0.5f};
+    // Velocity components are grid cells per second, matching the solver's
+    // backtrace coordinates; scale world-space authoring by domain resolution.
     PyroVec3 velocity{};
     float density = 0.0f;
     float temperature = 0.0f;
     float fuel = 0.0f;
+    // Outward velocity injected after pressure projection; useful for brief
+    // expanding effects such as explosions. Zero preserves ordinary emitters.
+    float radialVelocity = 0.0f;
     bool enabled = true;
+};
+
+enum class PyroEffectKind : std::uint8_t {
+    Smoke = 0,
+    Fire = 1,
+    Explosion = 2,
+    Steam = 3,
+    Fog = 4
+};
+
+// Starting conditions for a common Pyro solver. These are editable defaults,
+// not a restriction on the solver's field channels or source animation.
+struct PyroEffectProfile {
+    PyroSimulationSettings simulation{};
+    PyroSourceState source{};
+    float sourceDurationSeconds = 2.0f;
 };
 
 enum class PyroColliderType : std::uint8_t { Box = 0, Sphere = 1 };
@@ -279,6 +316,7 @@ public:
     [[nodiscard]] bool isPaused() const noexcept { return paused_; }
     void setFixedTimeStep(double fixedTimeStep) noexcept;
     [[nodiscard]] double fixedTimeStep() const noexcept { return fixedTimeStep_; }
+    // Zero disables automatic checkpoints; positive values specify their interval.
     void setCacheInterval(std::uint64_t cacheInterval) noexcept;
     [[nodiscard]] std::uint64_t cacheInterval() const noexcept { return cacheInterval_; }
     void setCacheDirectory(std::filesystem::path cacheDirectory);
@@ -303,7 +341,13 @@ private:
     PyroDomain domain_{};
     PyroSimulationSettings settings_{};
     PyroFieldSet fields_{};
+    Array<float> densityPrev_;
+    Array<float> temperaturePrev_;
+    Array<float> fuelPrev_;
+    Array<PyroVec3> velocityPrev_;
     std::vector<float> reactionScratch_;
+    Array<float> densityAdvectionScratch_;
+    std::vector<PyroVec3> vorticityScratch_;
     PyroBackendKind backend_ = PyroBackendKind::CPUReference;
     bool paused_ = false;
     std::uint64_t frameIndex_ = 0;
@@ -323,6 +367,7 @@ private:
     [[nodiscard]] bool isInsideCollider(const PyroColliderState& collider, const PyroVec3& position) const noexcept;
     void applyColliders();
     void applyCombustion(float deltaSeconds);
+    void applyCurlNoise(float deltaSeconds);
     void applyVorticityConfinement(float deltaSeconds);
     void integrateStep(float deltaSeconds);
     void storeCheckpoint();
@@ -337,6 +382,8 @@ private:
 [[nodiscard]] String toString(PyroBoundaryMode mode);
 [[nodiscard]] String toString(PyroBackendKind kind);
 [[nodiscard]] String toString(PyroFieldChannel channel);
+[[nodiscard]] PyroEffectProfile makePyroEffectProfile(
+    PyroEffectKind kind, PyroResolution resolution) noexcept;
 [[nodiscard]] std::uint64_t hashSettings(const PyroSimulationSettings& settings) noexcept;
 [[nodiscard]] std::uint64_t estimatePyroMemoryBytes(const PyroResolution& resolution) noexcept;
 [[nodiscard]] PyroVec3 clampToDomain(const PyroDomain& domain, const PyroVec3& position) noexcept;

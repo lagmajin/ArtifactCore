@@ -22,3 +22,12 @@ static IrisWipeRegistrar registrar;
 }
 
 }
+
+namespace ArtifactCore {
+void registerIrisWipeTransition()
+{
+    TransitionFactory::instance().registerCreator(TransitionKind::IrisWipe, []() {
+        return new IrisWipeTransition();
+    });
+}
+}

@@ -44,7 +44,11 @@ public:
                 float dy = static_cast<float>(y) - cy;
                 float dist = std::sqrt(dx * dx + dy * dy);
                 float t = dist / maxR;
-                float weight = std::clamp((t - (1.0f - p)) / 0.05f, 0.0f, 1.0f);
+                // Threshold covers t in [0, 1] at both ends: p=0 keeps the left
+                // frame, p=1 reveals the right frame everywhere (including the
+                // soft centre disc).
+                float edge = (1.0f - p) * 1.05f - 0.05f;
+                float weight = std::clamp((t - edge) / 0.05f, 0.0f, 1.0f);
 
                 for (int c = 0; c < 4; ++c) {
                     float l = leftScan[static_cast<std::size_t>(x) * 4u + static_cast<std::size_t>(c)];
@@ -58,4 +62,11 @@ public:
     }
 };
 
+}
+
+// Explicit registration hook: a static-library consumer cannot
+// rely on the initializer of this implementation unit to run, so a
+// host may register the creator deterministically instead.
+export namespace ArtifactCore {
+void registerIrisWipeTransition();
 }

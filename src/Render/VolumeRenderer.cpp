@@ -2,13 +2,465 @@ module;
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <limits>
+
+#include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
+#include <DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h>
+#include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
+#include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
+#include <DiligentCore/Graphics/GraphicsEngine/interface/Sampler.h>
+#include <DiligentCore/Graphics/GraphicsEngine/interface/Texture.h>
 
 module Render.VolumeRenderer;
 
+import Graphics.Compute;
+import Graphics.GPUcomputeContext;
 import Core.Parallel;
 
 namespace ArtifactCore::RayTrace {
+
+namespace {
+constexpr char kVolumeRaymarchShader[] = R"hlsl(
+Texture3D<float> gDensity;
+Texture3D<float> gTemperature;
+Texture3D<float> gReaction;
+RWTexture2D<float4> gOutput;
+SamplerState gSampler;
+cbuffer VolumeParams {
+    uint width;
+    uint height;
+    uint depth;
+    uint steps;
+    float densityScale;
+    float temperatureScale;
+    float opacity;
+    uint transferKind;
+    uint hasReaction;
+    float fireReactionScale;
+    float smokeLightingStrength;
+    float smokeShadowDensity;
+    float detailStrength;
+    float detailScale;
+    float detailTimeSeconds;
+    uint detailSeed;
+    float viewCenterX;
+    float viewCenterY;
+    float viewScaleX;
+    float viewScaleY;
+    float detailOffsetX;
+    float detailOffsetY;
+    float detailOffsetZ;
+    float detailOffsetPadding;
+};
+
+uint noiseHash(uint3 cell, uint seed) {
+    uint value = cell.x * 1597334677u ^ cell.y * 3812015801u ^
+                 cell.z * 2798796415u ^ seed * 2246822519u;
+    value ^= value >> 16;
+    value *= 2246822519u;
+    value ^= value >> 13;
+    value *= 3266489917u;
+    value ^= value >> 16;
+    return value;
+}
+
+float latticeNoise(uint3 cell, uint seed) {
+    return (float)(noiseHash(cell, seed) >> 8) * (1.0 / 16777215.0);
+}
+
+float valueNoise(float3 position, uint seed) {
+    float3 base = floor(position);
+    float3 f = frac(position);
+    f = f * f * (3.0 - 2.0 * f);
+    int3 signedCell = (int3)base;
+    uint3 cell = (uint3)signedCell;
+    float c000 = latticeNoise(cell, seed);
+    float c100 = latticeNoise(cell + uint3(1, 0, 0), seed);
+    float c010 = latticeNoise(cell + uint3(0, 1, 0), seed);
+    float c110 = latticeNoise(cell + uint3(1, 1, 0), seed);
+    float c001 = latticeNoise(cell + uint3(0, 0, 1), seed);
+    float c101 = latticeNoise(cell + uint3(1, 0, 1), seed);
+    float c011 = latticeNoise(cell + uint3(0, 1, 1), seed);
+    float c111 = latticeNoise(cell + uint3(1, 1, 1), seed);
+    float z0 = lerp(lerp(c000, c100, f.x), lerp(c010, c110, f.x), f.y);
+    float z1 = lerp(lerp(c001, c101, f.x), lerp(c011, c111, f.x), f.y);
+    return lerp(z0, z1, f.z);
+}
+
+[numthreads(8, 8, 1)]
+void CSMain(uint3 tid : SV_DispatchThreadID) {
+    if (tid.x >= width || tid.y >= height) return;
+    float2 uv = (float2(tid.xy) + 0.5) / float2(width, height);
+    float2 viewUV = float2(uv.x, 1.0 - uv.y);
+    float2 volumeUV = viewUV;
+    if (viewCenterX != 0.5 || viewCenterY != 0.5 ||
+        viewScaleX != 1.0 || viewScaleY != 1.0) {
+        volumeUV = float2(viewCenterX, viewCenterY) +
+                   (viewUV - 0.5) * float2(viewScaleX, viewScaleY);
+    }
+    if (any(volumeUV < 0.0) || any(volumeUV > 1.0)) {
+        gOutput[tid.xy] = 0.0;
+        return;
+    }
+    float3 rayUV = float3(volumeUV, 0.0);
+    float3 accumulated = 0.0;
+    float transmittance = 1.0;
+    float stepLength = 1.0 / max(1.0, (float)steps);
+    for (uint i = 0; i < steps && transmittance > 0.01; ++i) {
+        rayUV.z = (i + 0.5) * stepLength;
+        float d = max(0.0, gDensity.SampleLevel(gSampler, rayUV, 0) * densityScale);
+        float t = max(0.0, gTemperature.SampleLevel(gSampler, rayUV, 0) * temperatureScale);
+        float reaction = hasReaction != 0
+            ? saturate(gReaction.SampleLevel(gSampler, rayUV, 0) * fireReactionScale)
+            : 1.0;
+        if (detailStrength > 0.0) {
+            float3 detailPosition = (rayUV + float3(detailOffsetX, detailOffsetY, detailOffsetZ)) * max(1.0, detailScale) +
+                float3(0.23, -0.17, 0.31) * detailTimeSeconds;
+            float detail = valueNoise(detailPosition, detailSeed) * 2.0 - 1.0;
+            float shaping = max(0.0, 1.0 + detail * saturate(detailStrength));
+            d *= shaping;
+            t *= lerp(1.0, shaping, 0.65);
+        }
+        float smokeLighting = 1.0;
+        if (smokeLightingStrength > 0.0 && d > 1.0e-5 &&
+            (transferKind == 1 || transferKind == 6)) {
+            // Fixed-cost lookdev approximation in normalized volume space;
+            // this does not sample scene lights or model multiple scattering.
+            const float3 lightDirection = normalize(float3(-0.45, 1.0, -0.25));
+            const float lightStep = 1.0 / 12.0;
+            float opticalDepth = 0.0;
+            for (int lightIndex = 0; lightIndex < 12; ++lightIndex) {
+                float3 lightUV = rayUV + lightDirection * ((lightIndex + 0.5) * lightStep);
+                if (any(lightUV < 0.0) || any(lightUV > 1.0)) break;
+                opticalDepth += max(0.0, gDensity.SampleLevel(gSampler, lightUV, 0)) *
+                    densityScale * smokeShadowDensity * lightStep;
+            }
+            float transmittanceToLight = exp(-opticalDepth);
+            smokeLighting = lerp(1.0, 0.25 + 1.5 * transmittanceToLight,
+                                 saturate(smokeLightingStrength));
+        }
+        float3 color = 0.0;
+        float extinction = 0.0;
+        if (transferKind == 0) {
+            float heat = saturate(t * 0.5 + d * 0.5);
+            color = float3(saturate(heat * 2.0), saturate(heat * 0.8), saturate(heat * 0.15)) * reaction;
+            extinction = saturate(d * 8.0) * 20.0;
+        } else if (transferKind == 6) {
+            float heat = saturate(t * 0.5 + d * 0.5);
+            float smoke = saturate(d * 10.0);
+            float3 flame = float3(saturate(heat * 2.0),
+                                  saturate(heat * 0.8),
+                                  saturate(heat * 0.15)) * reaction;
+            float3 smokeScatter = smoke * 0.3 * smokeLighting;
+            color = flame + smokeScatter;
+            extinction = saturate(d * 8.0) * 20.0 + d * 30.0;
+        } else if (transferKind == 1) {
+            float value = saturate(d * 10.0);
+            color = value * 0.3 * smokeLighting;
+            extinction = d * 30.0;
+        } else if (transferKind == 2) {
+            float value = saturate(d * 3.0);
+            color = value * float3(0.7, 0.7, 0.75);
+            extinction = d * 5.0;
+        } else if (transferKind == 3) {
+            float fire = saturate(t * 0.7);
+            float smoke = saturate(d * 12.0);
+            color = float3(fire * 2.0 + smoke * 0.2,
+                           fire * 0.6 + smoke * 0.15,
+                           fire * 0.05 + smoke * 0.05);
+            extinction = (fire + smoke) * 25.0;
+        } else if (transferKind == 5) {
+            float value = min(0.45, d * 1.2);
+            color = value * float3(0.55, 0.58, 0.63);
+            extinction = d * 3.5;
+        } else {
+            color = d * 0.3;
+            extinction = d * 10.0;
+        }
+        float alpha = 1.0 - exp(-extinction * stepLength);
+        accumulated += transmittance * alpha * color;
+        transmittance *= 1.0 - alpha;
+    }
+    float outAlpha = saturate((1.0 - transmittance) * opacity);
+    float3 straightColor = accumulated / max(1.0e-5, 1.0 - transmittance);
+    gOutput[tid.xy] = float4(straightColor, outAlpha);
+}
+)hlsl";
+
+struct GpuVolumeParams {
+    std::uint32_t width = 0;
+    std::uint32_t height = 0;
+    std::uint32_t depth = 0;
+    std::uint32_t steps = 0;
+    float densityScale = 1.0f;
+    float temperatureScale = 1.0f;
+    float opacity = 1.0f;
+    std::uint32_t transferKind = 0;
+    std::uint32_t hasReaction = 0;
+    float fireReactionScale = 1.5f;
+    float smokeLightingStrength = 0.0f;
+    float smokeShadowDensity = 20.0f;
+    float detailStrength = 0.0f;
+    float detailScale = 12.0f;
+    float detailTimeSeconds = 0.0f;
+    std::uint32_t detailSeed = 0;
+    float viewCenterX = 0.5f;
+    float viewCenterY = 0.5f;
+    float viewScaleX = 1.0f;
+    float viewScaleY = 1.0f;
+    float detailOffsetX = 0.0f;
+    float detailOffsetY = 0.0f;
+    float detailOffsetZ = 0.0f;
+    float detailOffsetPadding = 0.0f;
+};
+}
+
+struct GpuVolumeRenderer::Impl {
+    ArtifactCore::GpuContext gpuContext;
+    ArtifactCore::ComputeExecutor executor;
+    Diligent::RefCntAutoPtr<Diligent::ITexture> densityTexture;
+    Diligent::RefCntAutoPtr<Diligent::ITexture> temperatureTexture;
+    Diligent::RefCntAutoPtr<Diligent::ITexture> reactionTexture;
+    Diligent::RefCntAutoPtr<Diligent::ITexture> outputTexture;
+    Diligent::RefCntAutoPtr<Diligent::ITextureView> densitySRV;
+    Diligent::RefCntAutoPtr<Diligent::ITextureView> temperatureSRV;
+    Diligent::RefCntAutoPtr<Diligent::ITextureView> reactionSRV;
+    Diligent::RefCntAutoPtr<Diligent::ITextureView> outputSRV;
+    Diligent::RefCntAutoPtr<Diligent::ITextureView> outputUAV;
+    Diligent::RefCntAutoPtr<Diligent::ISampler> sampler;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> paramsBuffer;
+    Diligent::IRenderDevice* device = nullptr;
+    int volumeWidth = 0;
+    int volumeHeight = 0;
+    int volumeDepth = 0;
+    int outputWidth = 0;
+    int outputHeight = 0;
+
+    Impl(Diligent::IRenderDevice* renderDevice,
+         Diligent::IDeviceContext* context)
+        : gpuContext(renderDevice, context), executor(gpuContext),
+          device(renderDevice) {}
+
+    bool createVolumeTextures(const int width, const int height,
+                              const int depth) {
+        const auto createScalar = [&](const char* name,
+                                      Diligent::RefCntAutoPtr<Diligent::ITexture>& texture,
+                                      Diligent::RefCntAutoPtr<Diligent::ITextureView>& srv) {
+            Diligent::TextureDesc desc;
+            desc.Name = name;
+            desc.Type = Diligent::RESOURCE_DIM_TEX_3D;
+            desc.Width = static_cast<Diligent::Uint32>(width);
+            desc.Height = static_cast<Diligent::Uint32>(height);
+            desc.Depth = static_cast<Diligent::Uint32>(depth);
+            desc.MipLevels = 1;
+            desc.Format = Diligent::TEX_FORMAT_R32_FLOAT;
+            desc.Usage = Diligent::USAGE_DEFAULT;
+            desc.BindFlags = Diligent::BIND_SHADER_RESOURCE;
+            texture.Release();
+            srv.Release();
+            device->CreateTexture(desc, nullptr, &texture);
+            if (!texture) return false;
+            srv = texture->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+            return srv != nullptr;
+        };
+        if (!createScalar("PyroVolume/Density3D", densityTexture, densitySRV) ||
+            !createScalar("PyroVolume/Temperature3D", temperatureTexture,
+                          temperatureSRV) ||
+            !createScalar("PyroVolume/Reaction3D", reactionTexture,
+                          reactionSRV)) return false;
+        volumeWidth = width;
+        volumeHeight = height;
+        volumeDepth = depth;
+        return true;
+    }
+
+    bool createOutputTexture(const int width, const int height) {
+        Diligent::TextureDesc desc;
+        desc.Name = "PyroVolume/RaymarchOutput";
+        desc.Type = Diligent::RESOURCE_DIM_TEX_2D;
+        desc.Width = static_cast<Diligent::Uint32>(width);
+        desc.Height = static_cast<Diligent::Uint32>(height);
+        desc.MipLevels = 1;
+        desc.Format = Diligent::TEX_FORMAT_RGBA16_FLOAT;
+        desc.Usage = Diligent::USAGE_DEFAULT;
+        desc.BindFlags = Diligent::BIND_SHADER_RESOURCE |
+                         Diligent::BIND_UNORDERED_ACCESS;
+        outputTexture.Release();
+        outputSRV.Release();
+        outputUAV.Release();
+        device->CreateTexture(desc, nullptr, &outputTexture);
+        if (!outputTexture) return false;
+        outputSRV = outputTexture->GetDefaultView(
+            Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+        outputUAV = outputTexture->GetDefaultView(
+            Diligent::TEXTURE_VIEW_UNORDERED_ACCESS);
+        outputWidth = width;
+        outputHeight = height;
+        return outputSRV != nullptr && outputUAV != nullptr;
+    }
+};
+
+GpuVolumeRenderer::GpuVolumeRenderer() noexcept = default;
+GpuVolumeRenderer::~GpuVolumeRenderer() { delete impl_; }
+
+bool GpuVolumeRenderer::initialize(Diligent::IRenderDevice* device,
+                                   Diligent::IDeviceContext* context) {
+    if (!device || !context) return false;
+    delete impl_;
+    impl_ = new Impl(device, context);
+    const Diligent::ShaderResourceVariableDesc variables[]{
+        {Diligent::SHADER_TYPE_COMPUTE, "gDensity",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "gTemperature",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "gReaction",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "gOutput",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "gSampler",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "VolumeParams",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}};
+    const ArtifactCore::ComputePipelineDesc pipeline{
+        .name = "PyroVolume/Raymarch",
+        .shaderSource = kVolumeRaymarchShader,
+        .entryPoint = "CSMain",
+        .sourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_HLSL,
+        .variables = variables,
+        .variableCount = 6,
+        .defaultVariableType = Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE};
+    if (!impl_->executor.build(pipeline) ||
+        !impl_->executor.createShaderResourceBinding()) return false;
+
+    Diligent::SamplerDesc samplerDesc;
+    samplerDesc.MinFilter = Diligent::FILTER_TYPE_LINEAR;
+    samplerDesc.MagFilter = Diligent::FILTER_TYPE_LINEAR;
+    samplerDesc.MipFilter = Diligent::FILTER_TYPE_LINEAR;
+    samplerDesc.AddressU = Diligent::TEXTURE_ADDRESS_CLAMP;
+    samplerDesc.AddressV = Diligent::TEXTURE_ADDRESS_CLAMP;
+    samplerDesc.AddressW = Diligent::TEXTURE_ADDRESS_CLAMP;
+    device->CreateSampler(samplerDesc, &impl_->sampler);
+
+    Diligent::BufferDesc paramsDesc;
+    paramsDesc.Name = "PyroVolume/Params";
+    paramsDesc.Size = sizeof(GpuVolumeParams);
+    paramsDesc.Usage = Diligent::USAGE_DYNAMIC;
+    paramsDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
+    paramsDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
+    device->CreateBuffer(paramsDesc, nullptr, &impl_->paramsBuffer);
+    return impl_->sampler != nullptr && impl_->paramsBuffer != nullptr;
+}
+
+bool GpuVolumeRenderer::render(Diligent::IDeviceContext* context,
+                               const VolumeFieldSet& fields,
+                               const TransferFunction& transfer,
+                               const GpuVolumeRenderSettings& settings) {
+    if (!ready() || !context || fields.density.empty() ||
+        fields.temperature.empty()) return false;
+    const auto resolution = fields.density.resolution;
+    if (fields.temperature.resolution.width != resolution.width ||
+        fields.temperature.resolution.height != resolution.height ||
+        fields.temperature.resolution.depth != resolution.depth) return false;
+    if (!fields.reaction.empty() &&
+        (fields.reaction.resolution.width != resolution.width ||
+         fields.reaction.resolution.height != resolution.height ||
+         fields.reaction.resolution.depth != resolution.depth)) return false;
+    if (resolution.width != impl_->volumeWidth ||
+        resolution.height != impl_->volumeHeight ||
+        resolution.depth != impl_->volumeDepth) {
+        if (!impl_->createVolumeTextures(resolution.width, resolution.height,
+                                         resolution.depth)) return false;
+    }
+    const int width = std::clamp(settings.outputWidth, 1, 4096);
+    const int height = std::clamp(settings.outputHeight, 1, 4096);
+    if (width != impl_->outputWidth || height != impl_->outputHeight) {
+        if (!impl_->createOutputTexture(width, height)) return false;
+    }
+    const Diligent::Box volumeBox{
+        0, static_cast<Diligent::Uint32>(resolution.width),
+        0, static_cast<Diligent::Uint32>(resolution.height),
+        0, static_cast<Diligent::Uint32>(resolution.depth)};
+    const auto rowStride = static_cast<Diligent::Uint64>(resolution.width) *
+                           sizeof(float);
+    const auto depthStride = rowStride *
+                             static_cast<Diligent::Uint64>(resolution.height);
+    Diligent::TextureSubResData densityData;
+    densityData.pData = fields.density.data;
+    densityData.Stride = rowStride;
+    densityData.DepthStride = depthStride;
+    Diligent::TextureSubResData temperatureData;
+    temperatureData.pData = fields.temperature.data;
+    temperatureData.Stride = rowStride;
+    temperatureData.DepthStride = depthStride;
+    context->UpdateTexture(impl_->densityTexture, 0, 0, volumeBox,
+        densityData, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    context->UpdateTexture(impl_->temperatureTexture, 0, 0, volumeBox,
+        temperatureData, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    if (!fields.reaction.empty()) {
+        Diligent::TextureSubResData reactionData;
+        reactionData.pData = fields.reaction.data;
+        reactionData.Stride = rowStride;
+        reactionData.DepthStride = depthStride;
+        context->UpdateTexture(impl_->reactionTexture, 0, 0, volumeBox,
+            reactionData, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+            Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    }
+
+    void* mapped = nullptr;
+    context->MapBuffer(impl_->paramsBuffer, Diligent::MAP_WRITE,
+        Diligent::MAP_FLAG_DISCARD, mapped);
+    if (!mapped) return false;
+    const GpuVolumeParams params{
+        static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height),
+        static_cast<std::uint32_t>(resolution.depth),
+        static_cast<std::uint32_t>(std::clamp(settings.raySteps, 1, 1024)),
+        std::max(0.0f, settings.densityScale),
+        std::max(0.0f, settings.temperatureScale),
+        std::clamp(settings.opacity, 0.0f, 1.0f),
+        static_cast<std::uint32_t>(transfer.kind),
+        fields.reaction.empty() ? 0u : 1u,
+        std::max(0.0f, settings.fireReactionScale),
+        std::isfinite(settings.smokeLightingStrength)
+            ? std::clamp(settings.smokeLightingStrength, 0.0f, 1.0f) : 0.0f,
+        std::isfinite(settings.smokeShadowDensity)
+            ? std::clamp(settings.smokeShadowDensity, 0.0f, 100.0f) : 20.0f,
+        std::clamp(settings.detailStrength, 0.0f, 1.0f),
+        std::max(1.0f, settings.detailScale),
+        std::isfinite(settings.detailTimeSeconds)
+            ? settings.detailTimeSeconds : 0.0f,
+        settings.detailSeed,
+        std::isfinite(settings.viewCenterX) ? std::clamp(settings.viewCenterX, 0.0f, 1.0f) : 0.5f,
+        std::isfinite(settings.viewCenterY) ? std::clamp(settings.viewCenterY, 0.0f, 1.0f) : 0.5f,
+        std::isfinite(settings.viewScaleX) ? std::clamp(settings.viewScaleX, 0.001f, 2.0f) : 1.0f,
+        std::isfinite(settings.viewScaleY) ? std::clamp(settings.viewScaleY, 0.001f, 2.0f) : 1.0f,
+        std::isfinite(settings.detailOffsetX) ? settings.detailOffsetX : 0.0f,
+        std::isfinite(settings.detailOffsetY) ? settings.detailOffsetY : 0.0f,
+        std::isfinite(settings.detailOffsetZ) ? settings.detailOffsetZ : 0.0f};
+    std::memcpy(mapped, &params, sizeof(params));
+    context->UnmapBuffer(impl_->paramsBuffer, Diligent::MAP_WRITE);
+    if (!impl_->executor.setTextureView("gDensity", impl_->densitySRV) ||
+        !impl_->executor.setTextureView("gTemperature", impl_->temperatureSRV) ||
+        !impl_->executor.setTextureView("gReaction", impl_->reactionSRV) ||
+        !impl_->executor.setTextureView("gOutput", impl_->outputUAV) ||
+        !impl_->executor.setSampler("gSampler", impl_->sampler) ||
+        !impl_->executor.setBuffer("VolumeParams", impl_->paramsBuffer)) return false;
+    impl_->executor.dispatch(context,
+        ArtifactCore::ComputeExecutor::makeDispatchAttribs(
+            static_cast<Diligent::Uint32>(width),
+            static_cast<Diligent::Uint32>(height), 1, 8, 8, 1));
+    return true;
+}
+
+Diligent::ITextureView* GpuVolumeRenderer::outputSRV() const noexcept {
+    return impl_ ? impl_->outputSRV.RawPtr() : nullptr;
+}
+
+bool GpuVolumeRenderer::ready() const noexcept {
+    return impl_ && impl_->device && impl_->executor.ready();
+}
 
 namespace {
 
@@ -100,6 +552,19 @@ TransferFunctionSample TransferFunction::evaluate(float density, float temperatu
         sample.absorption = flameOpacity * 20.0f;
         break;
     }
+    case TransferFunctionKind::FireAndSmoke: {
+        const float flameOpacity = std::clamp(d * 8.0f, 0.0f, 1.0f);
+        const float heatFactor = clamp01(t * 0.5f + d * 0.5f);
+        const float smoke = clamp01(d * 10.0f);
+        sample.emission = {smoke * 0.3f, smoke * 0.3f, smoke * 0.3f};
+        sample.fireEmission = {
+            clamp01(heatFactor * 2.0f),
+            clamp01(heatFactor * 0.8f),
+            clamp01(heatFactor * 0.15f)
+        };
+        sample.absorption = flameOpacity * 20.0f + d * 30.0f;
+        break;
+    }
     case TransferFunctionKind::Smoke: {
         const float opacity = clamp01(d * 10.0f);
         sample.emission = {opacity * 0.3f, opacity * 0.3f, opacity * 0.3f};
@@ -121,6 +586,16 @@ TransferFunctionSample TransferFunction::evaluate(float density, float temperatu
             fire * 0.05f + smoke * 0.05f
         };
         sample.absorption = (fire + smoke) * 25.0f;
+        break;
+    }
+    case TransferFunctionKind::Fog: {
+        const float opacity = std::clamp(d * 1.2f, 0.0f, 0.45f);
+        sample.emission = {
+            opacity * 0.55f,
+            opacity * 0.58f,
+            opacity * 0.63f
+        };
+        sample.absorption = d * 3.5f;
         break;
     }
     case TransferFunctionKind::Custom:
@@ -154,6 +629,18 @@ TransferFunction TransferFunction::makeSteam() {
 TransferFunction TransferFunction::makeExplosion() {
     TransferFunction tf;
     tf.kind = TransferFunctionKind::Explosion;
+    return tf;
+}
+
+TransferFunction TransferFunction::makeFog() {
+    TransferFunction tf;
+    tf.kind = TransferFunctionKind::Fog;
+    return tf;
+}
+
+TransferFunction TransferFunction::makeFireAndSmoke() {
+    TransferFunction tf;
+    tf.kind = TransferFunctionKind::FireAndSmoke;
     return tf;
 }
 
@@ -359,19 +846,26 @@ Color CPUVolumeRenderer::raymarch(const Ray& ray) const noexcept {
         }
 
         auto tfSample = transferFunction_.evaluate(density * settings.densityScale, temperature);
-        if (transferFunction_.kind == TransferFunctionKind::Fire && !fields.reaction.empty()) {
+        if ((transferFunction_.kind == TransferFunctionKind::Fire ||
+             transferFunction_.kind == TransferFunctionKind::FireAndSmoke) &&
+            !fields.reaction.empty()) {
             const float reactionGate = clamp01(
                 fields.reaction.sampleTrilinear(voxelCoord) * settings.fireReactionScale);
             // Combustion controls fire emission; smoke extinction stays density-driven.
-            tfSample.emission.x *= reactionGate;
-            tfSample.emission.y *= reactionGate;
-            tfSample.emission.z *= reactionGate;
+            auto& flame = transferFunction_.kind == TransferFunctionKind::Fire
+                ? tfSample.emission : tfSample.fireEmission;
+            flame.x *= reactionGate;
+            flame.y *= reactionGate;
+            flame.z *= reactionGate;
         }
-        if (transferFunction_.kind == TransferFunctionKind::Fire) {
+        if (transferFunction_.kind == TransferFunctionKind::Fire ||
+            transferFunction_.kind == TransferFunctionKind::FireAndSmoke) {
             const float intensity = std::max(0.0f, settings.fireIntensityScale);
-            tfSample.emission.x *= intensity;
-            tfSample.emission.y *= intensity;
-            tfSample.emission.z *= intensity;
+            auto& flame = transferFunction_.kind == TransferFunctionKind::Fire
+                ? tfSample.emission : tfSample.fireEmission;
+            flame.x *= intensity;
+            flame.y *= intensity;
+            flame.z *= intensity;
         }
         const float absorption = tfSample.absorption * settings.stepSize;
 
@@ -396,9 +890,9 @@ Color CPUVolumeRenderer::raymarch(const Ray& ray) const noexcept {
         const float scatteringBoost = multipleScatteringBoost(density * settings.densityScale, t - tNear);
 
         const float alpha = 1.0f - std::exp(-absorption);
-        accumulated.x += transmittance * alpha * ((tfSample.emission.x * lighting.x + volumetricLightContrib.x) * scatteringBoost);
-        accumulated.y += transmittance * alpha * ((tfSample.emission.y * lighting.y + volumetricLightContrib.y) * scatteringBoost);
-        accumulated.z += transmittance * alpha * ((tfSample.emission.z * lighting.z + volumetricLightContrib.z) * scatteringBoost);
+        accumulated.x += transmittance * alpha * (((tfSample.emission.x + tfSample.fireEmission.x) * lighting.x + volumetricLightContrib.x) * scatteringBoost);
+        accumulated.y += transmittance * alpha * (((tfSample.emission.y + tfSample.fireEmission.y) * lighting.y + volumetricLightContrib.y) * scatteringBoost);
+        accumulated.z += transmittance * alpha * (((tfSample.emission.z + tfSample.fireEmission.z) * lighting.z + volumetricLightContrib.z) * scatteringBoost);
         transmittance *= (1.0f - alpha);
 
         t += settings.stepSize;

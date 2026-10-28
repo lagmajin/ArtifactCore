@@ -22,3 +22,12 @@ static DoorsRegistrar registrar;
 }
 
 }
+
+namespace ArtifactCore {
+void registerDoorsTransition()
+{
+    TransitionFactory::instance().registerCreator(TransitionKind::Doors, []() {
+        return new DoorsTransition();
+    });
+}
+}

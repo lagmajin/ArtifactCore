@@ -36,7 +36,6 @@ module;
 #include <tuple>
 #include <numeric>
 #include <regex>
-#include <random>
 export module Property.Abstract;
 
 import Color.Float;

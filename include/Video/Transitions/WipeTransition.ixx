@@ -38,7 +38,9 @@ public:
             std::uint8_t* outScan = const_cast<std::uint8_t*>(leftScan);
 
             for (int x = 0; x < width; ++x) {
-                const bool useRight = x >= threshold;
+                // Progress reveals the incoming frame from the left edge, so
+                // p=0 is the left frame and p=1 the right frame.
+                const bool useRight = x < threshold;
                 const std::uint8_t* src = useRight ? rightScan : leftScan;
                 for (int c = 0; c < 4; ++c) {
                     outScan[static_cast<std::size_t>(x) * 4u + static_cast<std::size_t>(c)] =
@@ -49,4 +51,11 @@ public:
     }
 };
 
+}
+
+// Explicit registration hook: a static-library consumer cannot
+// rely on the initializer of this implementation unit to run, so a
+// host may register the creator deterministically instead.
+export namespace ArtifactCore {
+void registerWipeTransition();
 }

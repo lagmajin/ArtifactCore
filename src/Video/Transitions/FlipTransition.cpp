@@ -22,3 +22,12 @@ static FlipRegistrar registrar;
 }
 
 }
+
+namespace ArtifactCore {
+void registerFlipTransition()
+{
+    TransitionFactory::instance().registerCreator(TransitionKind::Flip, []() {
+        return new FlipTransition();
+    });
+}
+}

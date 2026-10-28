@@ -26,6 +26,7 @@ FluidSolver2D::FluidSolver2D(int width, int height)
     };
     initializeGrid(density_);
     initializeGrid(densityPrev_);
+    initializeGrid(densityAdvectionScratch_);
     initializeGrid(vx_);
     initializeGrid(vy_);
     initializeGrid(vxPrev_);
@@ -33,6 +34,30 @@ FluidSolver2D::FluidSolver2D(int width, int height)
     initializeGrid(curl_);
     initializeGrid(temperature_);
     initializeGrid(temperaturePrev_);
+    smokeCurlSinX_.resize(width_);
+    smokeCurlCosX_.resize(width_);
+    smokeCurlSinY_.resize(height_);
+    smokeCurlCosY_.resize(height_);
+    flameCurlSinX_.resize(width_);
+    flameCurlCosX_.resize(width_);
+    flameCurlSinY_.resize(height_);
+    flameCurlCosY_.resize(height_);
+}
+
+void FluidSolver2D::setCurlNoise(const float smokeStrength,
+                                const float flameStrength,
+                                const float smokeScale,
+                                const float flameScale,
+                                const int smokeOctaves) {
+    smokeTurbulence_ = std::isfinite(smokeStrength)
+        ? std::clamp(smokeStrength, 0.0f, 10.0f) : 0.0f;
+    flameTurbulence_ = std::isfinite(flameStrength)
+        ? std::clamp(flameStrength, 0.0f, 10.0f) : 0.0f;
+    smokeTurbulenceScale_ = std::isfinite(smokeScale)
+        ? std::clamp(smokeScale, 2.0f, 512.0f) : 18.0f;
+    flameTurbulenceScale_ = std::isfinite(flameScale)
+        ? std::clamp(flameScale, 2.0f, 512.0f) : 7.0f;
+    smokeTurbulenceOctaves_ = std::clamp(smokeOctaves, 1, 4);
 }
 
 FluidSolver2D::~FluidSolver2D() = default;
@@ -134,6 +159,13 @@ FluidSnapshot2D FluidSolver2D::snapshot() const {
     state.thermalBuoyancy = thermalBuoyancyFactor_;
     state.temperatureDissipationPerSecond =
         temperatureDissipationPerSecond_;
+    state.smokeTurbulence = smokeTurbulence_;
+    state.flameTurbulence = flameTurbulence_;
+    state.smokeTurbulenceScale = smokeTurbulenceScale_;
+    state.flameTurbulenceScale = flameTurbulenceScale_;
+    state.smokeTurbulenceOctaves = smokeTurbulenceOctaves_;
+    state.highOrderDensityAdvection = highOrderDensityAdvection_;
+    state.elapsedSeconds = elapsedSeconds_;
     state.density = density_;
     state.densityPrev = densityPrev_;
     state.velocityX = vx_;
@@ -162,6 +194,12 @@ bool FluidSolver2D::restoreSnapshot(const FluidSnapshot2D& state) {
     thermalBuoyancyFactor_ = state.thermalBuoyancy;
     temperatureDissipationPerSecond_ =
         state.temperatureDissipationPerSecond;
+    setCurlNoise(state.smokeTurbulence, state.flameTurbulence,
+                 state.smokeTurbulenceScale, state.flameTurbulenceScale,
+                 state.smokeTurbulenceOctaves);
+    highOrderDensityAdvection_ = state.highOrderDensityAdvection;
+    elapsedSeconds_ = std::isfinite(state.elapsedSeconds)
+        ? std::max(0.0f, state.elapsedSeconds) : 0.0f;
     density_ = state.density;
     densityPrev_ = state.densityPrev;
     vx_ = state.velocityX;
@@ -215,6 +253,14 @@ void FluidSolver2D::setResolution(int width, int height) {
     resetGrid(curl_);
     resetGrid(temperature_);
     resetGrid(temperaturePrev_);
+    smokeCurlSinX_.resize(width_);
+    smokeCurlCosX_.resize(width_);
+    smokeCurlSinY_.resize(height_);
+    smokeCurlCosY_.resize(height_);
+    flameCurlSinX_.resize(width_);
+    flameCurlCosX_.resize(width_);
+    flameCurlSinY_.resize(height_);
+    flameCurlCosY_.resize(height_);
     const auto sample = [oldWidth, oldHeight](const NamedVector<float>& field, float x, float y) {
         const int ix = std::clamp(static_cast<int>(std::lround(x)), 0, oldWidth - 1);
         const int iy = std::clamp(static_cast<int>(std::lround(y)), 0, oldHeight - 1);
@@ -244,6 +290,7 @@ void FluidSolver2D::reset() {
     std::fill(vyPrev_.begin(), vyPrev_.end(), 0.0f);
     std::fill(temperature_.begin(), temperature_.end(), 0.0f);
     std::fill(temperaturePrev_.begin(), temperaturePrev_.end(), 0.0f);
+    elapsedSeconds_ = 0.0f;
 }
 
 void FluidSolver2D::addDensity(int x, int y, float amount) {
@@ -402,7 +449,77 @@ void FluidSolver2D::vorticityConfinement(NamedVector<float>& vx, NamedVector<flo
     }
 }
 
-void FluidSolver2D::advect(int b, NamedVector<float>& d, const NamedVector<float>& d0, const NamedVector<float>& vx, const NamedVector<float>& vy, float dt) {
+void FluidSolver2D::applyCurlNoise(float dt) {
+    if (dt <= 0.0f ||
+        (smokeTurbulence_ <= 0.0f && flameTurbulence_ <= 0.0f)) {
+        return;
+    }
+
+    constexpr float kTwoPi = 6.28318530717958647692f;
+    const auto applyLayer = [&](const float strength, const float scale,
+                                const NamedVector<float>& gateField,
+                                const float gateThreshold,
+                                NamedVector<float>& sinX,
+                                NamedVector<float>& cosX,
+                                NamedVector<float>& sinY,
+                                NamedVector<float>& cosY,
+                                const int octaves) {
+        if (strength <= 0.0f) return;
+        float octaveScale = scale;
+        float octaveWeight = 1.0f;
+        for (int octave = 0; octave < octaves; ++octave) {
+            // Do not add wavelengths finer than four grid cells; they are
+            // under-resolved and alias into unstable velocity patterns.
+            if (octaveScale < 4.0f) break;
+            const float waveNumber = kTwoPi / octaveScale;
+            const float phaseX = waveNumber * 0.31f * elapsedSeconds_ * scale;
+            const float phaseY = -waveNumber * 0.23f * elapsedSeconds_ * scale;
+            for (int i = 0; i < width_; ++i) {
+                const float qx = waveNumber * static_cast<float>(i) + phaseX;
+                sinX[static_cast<std::size_t>(i)] = std::sin(qx);
+                cosX[static_cast<std::size_t>(i)] = std::cos(qx);
+            }
+            for (int j = 0; j < height_; ++j) {
+                const float qy = waveNumber * static_cast<float>(j) + phaseY;
+                sinY[static_cast<std::size_t>(j)] = std::sin(qy);
+                cosY[static_cast<std::size_t>(j)] = std::cos(qy);
+            }
+            for (int j = 1; j < height_ - 1; ++j) {
+                for (int i = 1; i < width_ - 1; ++i) {
+                    const int index = IX(i, j);
+                    const float gate = std::clamp(
+                        gateField[index] / gateThreshold, 0.0f, 1.0f);
+                    if (gate <= 0.0f) continue;
+                    const float forceX = sinX[static_cast<std::size_t>(i)] *
+                        cosY[static_cast<std::size_t>(j)];
+                    const float forceY = -cosX[static_cast<std::size_t>(i)] *
+                        sinY[static_cast<std::size_t>(j)];
+                    const float magnitude = std::sqrt(
+                        forceX * forceX + forceY * forceY);
+                    if (magnitude <= 1.0e-6f) continue;
+                    const float impulse = strength * octaveWeight * gate * dt /
+                        magnitude;
+                    vx_[index] += forceX * impulse;
+                    vy_[index] += forceY * impulse;
+                }
+            }
+            octaveScale *= 0.5f;
+            octaveWeight *= 0.5f;
+        }
+    };
+
+    applyLayer(smokeTurbulence_, smokeTurbulenceScale_, density_, 0.08f,
+        smokeCurlSinX_, smokeCurlCosX_, smokeCurlSinY_, smokeCurlCosY_,
+        smokeTurbulenceOctaves_);
+    applyLayer(flameTurbulence_, flameTurbulenceScale_, temperature_, 0.08f,
+        flameCurlSinX_, flameCurlCosX_, flameCurlSinY_, flameCurlCosY_, 1);
+}
+
+void FluidSolver2D::advect(int b, NamedVector<float>& d,
+                           const NamedVector<float>& d0,
+                           const NamedVector<float>& vx,
+                           const NamedVector<float>& vy, float dt,
+                           const bool highOrderCorrection) {
     float dtx = dt * (width_ - 2);
     float dty = dt * (height_ - 2);
 
@@ -440,6 +557,61 @@ void FluidSolver2D::advect(int b, NamedVector<float>& d, const NamedVector<float
         }
     }
 
+    if (highOrderCorrection) {
+        // MacCormack-style correction reuses the first-order output and the
+        // constructor-sized scratch and caller-owned source field. Local donor
+        // bounds prevent new extrema without frame-time allocation.
+        setBoundary(b, d);
+        std::copy(d.begin(), d.end(), densityAdvectionScratch_.begin());
+        for (int j = 1; j < height_ - 1; ++j) {
+            for (int i = 1; i < width_ - 1; ++i) {
+                const int index = IX(i, j);
+                const float forwardSourceX = std::clamp(
+                    static_cast<float>(i) + dtx * vx[IX(i, j)],
+                    0.5f, NfloatW + 0.5f);
+                const float forwardSourceY = std::clamp(
+                    static_cast<float>(j) + dty * vy[IX(i, j)],
+                    0.5f, NfloatH + 0.5f);
+                const float donorX = std::clamp(
+                    static_cast<float>(i) - dtx * vx[IX(i, j)],
+                    0.5f, NfloatW + 0.5f);
+                const float donorY = std::clamp(
+                    static_cast<float>(j) - dty * vy[IX(i, j)],
+                    0.5f, NfloatH + 0.5f);
+                const int donorX0 = static_cast<int>(std::floor(donorX));
+                const int donorY0 = static_cast<int>(std::floor(donorY));
+                const int donorX1 = std::min(donorX0 + 1, width_ - 1);
+                const int donorY1 = std::min(donorY0 + 1, height_ - 1);
+                const float aheadX = std::clamp(
+                    forwardSourceX, 0.0f, static_cast<float>(width_ - 1));
+                const float aheadY = std::clamp(
+                    forwardSourceY, 0.0f, static_cast<float>(height_ - 1));
+                const int reverseX0 = static_cast<int>(std::floor(aheadX));
+                const int reverseY0 = static_cast<int>(std::floor(aheadY));
+                const int reverseX1 = std::min(reverseX0 + 1, width_ - 1);
+                const int reverseY1 = std::min(reverseY0 + 1, height_ - 1);
+                const float tx = aheadX - static_cast<float>(reverseX0);
+                const float ty = aheadY - static_cast<float>(reverseY0);
+                const float reverse = std::lerp(
+                    std::lerp(densityAdvectionScratch_[IX(reverseX0, reverseY0)],
+                              densityAdvectionScratch_[IX(reverseX1, reverseY0)], tx),
+                    std::lerp(densityAdvectionScratch_[IX(reverseX0, reverseY1)],
+                              densityAdvectionScratch_[IX(reverseX1, reverseY1)], tx), ty);
+
+                const float donor00 = d0[IX(donorX0, donorY0)];
+                const float donor10 = d0[IX(donorX1, donorY0)];
+                const float donor01 = d0[IX(donorX0, donorY1)];
+                const float donor11 = d0[IX(donorX1, donorY1)];
+                const float low = std::min(
+                    std::min(donor00, donor10), std::min(donor01, donor11));
+                const float high = std::max(
+                    std::max(donor00, donor10), std::max(donor01, donor11));
+                d[index] = std::clamp(
+                    d[index] + 0.5f * (d0[index] - reverse), low, high);
+            }
+        }
+    }
+
     setBoundary(b, d);
 }
 
@@ -466,6 +638,8 @@ void FluidSolver2D::update(float dt) {
             vy_[i] -= temperature_[i] * thermalBuoyancyFactor_ * dt;
         }
     }
+
+    applyCurlNoise(dt);
 
     // Velocity Step
     vorticityConfinement(vx_, vy_, dt);
@@ -500,7 +674,8 @@ void FluidSolver2D::update(float dt) {
 
     // Density Step
     diffuse(0, densityPrev_, density_, diffusion_, dt);
-    advect(0, density_, densityPrev_, vx_, vy_, dt);
+    advect(0, density_, densityPrev_, vx_, vy_, dt,
+           highOrderDensityAdvection_);
 
     diffuse(0, temperaturePrev_, temperature_, diffusion_, dt);
     advect(0, temperature_, temperaturePrev_, vx_, vy_, dt);
@@ -524,6 +699,7 @@ void FluidSolver2D::update(float dt) {
         if (!std::isfinite(vx_[i])) vx_[i] = 0.0f;
         if (!std::isfinite(vy_[i])) vy_[i] = 0.0f;
     }
+    elapsedSeconds_ += dt;
 }
 
 
@@ -1124,17 +1300,9 @@ void LiquidSolver2D::buildSurfaceSnapshotInto(
     const double surfaceHeight =
         static_cast<double>(maximumSampleY) - minimumSampleY +
         surfaceRadius * 2.0;
-    const double budgetCellCount = static_cast<double>(gridCellBudget);
-    constexpr double cellBoundaryMargin = 16.0;
-    const double adjustedCellBudget = std::max(
-        1.0, budgetCellCount - cellBoundaryMargin);
-    const double surfacePerimeter = surfaceWidth + surfaceHeight;
-    const double spacingNumerator = std::sqrt(
-        4.0 * surfacePerimeter * surfacePerimeter +
-        surfaceWidth * surfaceHeight * adjustedCellBudget) +
-        2.0 * surfacePerimeter;
-    const float gridSpacingForBudget = static_cast<float>(
-        spacingNumerator / adjustedCellBudget);
+    const float gridSpacingForBudget = static_cast<float>(std::sqrt(
+        std::max(0.0, surfaceWidth * surfaceHeight) /
+        static_cast<double>(gridCellBudget)));
     const float gridSpacing = std::max(
         {1.0f, averageSize * 0.32f * lodScale, gridSpacingForBudget});
     std::map<std::pair<int, int>, float> densityNodes;
@@ -1417,8 +1585,6 @@ void LiquidSolver2D::solveContainerBounds(
     if (!containerPolygon_.empty()) {
         const LiquidContainerPoint2D point{particle.x, particle.y};
         const bool inside = liquidPointInsidePolygon(point, containerPolygon_);
-        const bool startsInside =
-            liquidPointInsidePolygon(previousPosition, containerPolygon_);
         float closestDistanceSquared = std::numeric_limits<float>::max();
         std::size_t closestEdge = 0;
         LiquidContainerPoint2D closestPoint;
@@ -1441,10 +1607,8 @@ void LiquidSolver2D::solveContainerBounds(
         LiquidContainerPoint2D sweepEnd = point;
         bool sweptContact = false;
         constexpr std::size_t maximumContactsPerMove = 4;
-        std::size_t processedContacts = 0;
         for (std::size_t contactIndex = 0;
-             startsInside && contactIndex < maximumContactsPerMove;
-             ++contactIndex) {
+             contactIndex < maximumContactsPerMove; ++contactIndex) {
             LiquidSweepHit sweepHit;
             for (std::size_t i = 0; i < containerPolygon_.size(); ++i) {
                 if (i == openContainerEdge_) continue;
@@ -1461,7 +1625,6 @@ void LiquidSolver2D::solveContainerBounds(
             if (!sweepHit.hit) break;
 
             sweptContact = true;
-            ++processedContacts;
             const float moveX = sweepEnd.x - sweepStart.x;
             const float moveY = sweepEnd.y - sweepStart.y;
             const float remainingX = moveX * (1.0f - sweepHit.time);
@@ -1490,21 +1653,6 @@ void LiquidSolver2D::solveContainerBounds(
                     sweepHit.normal.x, sweepHit.normal.y);
             }
         }
-        if (processedContacts == maximumContactsPerMove) {
-            bool remainingPathHitsClosedEdge = false;
-            for (std::size_t i = 0; i < containerPolygon_.size(); ++i) {
-                if (i == openContainerEdge_) continue;
-                const auto candidate = liquidSweepCircleAgainstSegment(
-                    sweepStart, sweepEnd, containerPolygon_[i],
-                    containerPolygon_[(i + 1) % containerPolygon_.size()],
-                    radius);
-                if (candidate.hit) {
-                    remainingPathHitsClosedEdge = true;
-                    break;
-                }
-            }
-            if (remainingPathHitsClosedEdge) sweepEnd = sweepStart;
-        }
         if (sweptContact) {
             particle.x = sweepEnd.x;
             particle.y = sweepEnd.y;
@@ -1513,7 +1661,7 @@ void LiquidSolver2D::solveContainerBounds(
         if (!inside && closestEdge == openContainerEdge_) {
             return;
         }
-        if (inside && distance >= radius) return;
+        if (distance >= radius) return;
 
         float normalX = 0.0f;
         float normalY = 0.0f;
@@ -1544,83 +1692,6 @@ void LiquidSolver2D::solveContainerBounds(
             particle.vy -= (1.0f + damping) * normalVelocity * normalY;
             retainCollisionNormalVelocity(normalX, normalY);
         }
-        return;
-    }
-
-    // The default rectangle has an open top and three closed sides. Sweep
-    // those sides so a particle cannot cross the whole box in one step.
-    const LiquidContainerPoint2D point{particle.x, particle.y};
-    const std::array<LiquidContainerPoint2D, 4> rectangleVertices{{
-        {0.0f, 0.0f}, {1.0f, 0.0f}, {1.0f, 1.0f}, {0.0f, 1.0f}}};
-    LiquidContainerPoint2D sweepStart = previousPosition;
-    LiquidContainerPoint2D sweepEnd = point;
-    bool sweptContact = false;
-    constexpr std::size_t maximumContactsPerMove = 4;
-    std::size_t processedContacts = 0;
-    const bool startsInsideRectangle =
-        previousPosition.x >= 0.0f && previousPosition.x <= 1.0f &&
-        previousPosition.y >= 0.0f && previousPosition.y <= 1.0f;
-    for (std::size_t contactIndex = 0;
-         startsInsideRectangle && contactIndex < maximumContactsPerMove;
-         ++contactIndex) {
-        LiquidSweepHit sweepHit;
-        for (std::size_t edge = 1; edge < rectangleVertices.size(); ++edge) {
-            const auto candidate = liquidSweepCircleAgainstSegment(
-                sweepStart, sweepEnd, rectangleVertices[edge],
-                rectangleVertices[(edge + 1) % rectangleVertices.size()],
-                radius);
-            if (candidate.hit &&
-                (!sweepHit.hit || candidate.time < sweepHit.time)) {
-                sweepHit = candidate;
-            }
-        }
-        if (!sweepHit.hit) break;
-
-        sweptContact = true;
-        ++processedContacts;
-        const float moveX = sweepEnd.x - sweepStart.x;
-        const float moveY = sweepEnd.y - sweepStart.y;
-        const float remainingX = moveX * (1.0f - sweepHit.time);
-        const float remainingY = moveY * (1.0f - sweepHit.time);
-        const float inwardMotion = remainingX * sweepHit.normal.x +
-                                   remainingY * sweepHit.normal.y;
-        sweepStart = {
-            sweepHit.point.x + sweepHit.normal.x * radius,
-            sweepHit.point.y + sweepHit.normal.y * radius};
-        sweepEnd = {
-            sweepStart.x + remainingX - sweepHit.normal.x * inwardMotion,
-            sweepStart.y + remainingY - sweepHit.normal.y * inwardMotion};
-
-        const float normalVelocity = particle.vx * sweepHit.normal.x +
-                                     particle.vy * sweepHit.normal.y;
-        if (normalVelocity < 0.0f) {
-            particle.collisionImpact = std::max(
-                particle.collisionImpact, -normalVelocity);
-            particle.vx -=
-                (1.0f + damping) * normalVelocity * sweepHit.normal.x;
-            particle.vy -=
-                (1.0f + damping) * normalVelocity * sweepHit.normal.y;
-            retainCollisionNormalVelocity(
-                sweepHit.normal.x, sweepHit.normal.y);
-        }
-    }
-    if (processedContacts == maximumContactsPerMove) {
-        bool remainingPathHitsClosedEdge = false;
-        for (std::size_t edge = 1; edge < rectangleVertices.size(); ++edge) {
-            const auto candidate = liquidSweepCircleAgainstSegment(
-                sweepStart, sweepEnd, rectangleVertices[edge],
-                rectangleVertices[(edge + 1) % rectangleVertices.size()],
-                radius);
-            if (candidate.hit) {
-                remainingPathHitsClosedEdge = true;
-                break;
-            }
-        }
-        if (remainingPathHitsClosedEdge) sweepEnd = sweepStart;
-    }
-    if (sweptContact) {
-        particle.x = sweepEnd.x;
-        particle.y = sweepEnd.y;
         return;
     }
 

@@ -23,3 +23,12 @@ static GlitchDisplaceRegistrar registrar;
 }
 
 }
+
+namespace ArtifactCore {
+void registerGlitchDisplaceTransition()
+{
+    TransitionFactory::instance().registerCreator(TransitionKind::GlitchDisplace, []() {
+        return new GlitchDisplaceTransition();
+    });
+}
+}

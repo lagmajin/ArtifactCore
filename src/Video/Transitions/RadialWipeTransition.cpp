@@ -22,3 +22,12 @@ static RadialWipeRegistrar registrar;
 }
 
 }
+
+namespace ArtifactCore {
+void registerRadialWipeTransition()
+{
+    TransitionFactory::instance().registerCreator(TransitionKind::RadialWipe, []() {
+        return new RadialWipeTransition();
+    });
+}
+}

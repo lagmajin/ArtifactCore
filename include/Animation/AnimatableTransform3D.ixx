@@ -2,7 +2,9 @@ module;
 #include <cstddef>
 #include <cstdint>
 #include <vector>
+#define DILIGENT_BASICMATH_DISABLE_HASH_SUPPORT
 #include <DiligentCore/Common/interface/BasicMath.hpp>
+#undef DILIGENT_BASICMATH_DISABLE_HASH_SUPPORT
 #include "../Define/DllExportMacro.hpp"
 
 export module Animation.Transform3D;
