@@ -1409,6 +1409,8 @@ void LiquidSolver2D::solveContainerBounds(
     if (!containerPolygon_.empty()) {
         const LiquidContainerPoint2D point{particle.x, particle.y};
         const bool inside = liquidPointInsidePolygon(point, containerPolygon_);
+        const bool startsInside =
+            liquidPointInsidePolygon(previousPosition, containerPolygon_);
         float closestDistanceSquared = std::numeric_limits<float>::max();
         std::size_t closestEdge = 0;
         LiquidContainerPoint2D closestPoint;
@@ -1433,7 +1435,8 @@ void LiquidSolver2D::solveContainerBounds(
         constexpr std::size_t maximumContactsPerMove = 4;
         std::size_t processedContacts = 0;
         for (std::size_t contactIndex = 0;
-             contactIndex < maximumContactsPerMove; ++contactIndex) {
+             startsInside && contactIndex < maximumContactsPerMove;
+             ++contactIndex) {
             LiquidSweepHit sweepHit;
             for (std::size_t i = 0; i < containerPolygon_.size(); ++i) {
                 if (i == openContainerEdge_) continue;
@@ -1545,8 +1548,12 @@ void LiquidSolver2D::solveContainerBounds(
     bool sweptContact = false;
     constexpr std::size_t maximumContactsPerMove = 4;
     std::size_t processedContacts = 0;
+    const bool startsInsideRectangle =
+        previousPosition.x >= 0.0f && previousPosition.x <= 1.0f &&
+        previousPosition.y >= 0.0f && previousPosition.y <= 1.0f;
     for (std::size_t contactIndex = 0;
-         contactIndex < maximumContactsPerMove; ++contactIndex) {
+         startsInsideRectangle && contactIndex < maximumContactsPerMove;
+         ++contactIndex) {
         LiquidSweepHit sweepHit;
         for (std::size_t edge = 1; edge < rectangleVertices.size(); ++edge) {
             const auto candidate = liquidSweepCircleAgainstSegment(
