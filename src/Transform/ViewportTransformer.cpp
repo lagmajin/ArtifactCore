@@ -126,11 +126,18 @@ namespace ArtifactCore {
         float2 canvasPos = ViewportToCanvas(viewportPos);
         impl_->zoom = std::max(0.001f, newZoom);
         
-        // Adjust pan so that canvasPos remains under viewportPos
-        // viewportPos = (canvasPos * newZoom) + newPan
-        // newPan = viewportPos - (canvasPos * newZoom)
-        impl_->pan.x = viewportPos.x - (canvasPos.x * impl_->zoom);
-        impl_->pan.y = viewportPos.y - (canvasPos.y * impl_->zoom);
+        // Preserve the selected canvas point after zooming. CanvasToViewport
+        // rotates around the canvas center before applying zoom and pan, so
+        // the pan correction must use that same rotated coordinate.
+        const float2 center = {impl_->canvasSize.x * 0.5f,
+                               impl_->canvasSize.y * 0.5f};
+        const float2 relative = {canvasPos.x - center.x,
+                                 canvasPos.y - center.y};
+        const float2 rotated = impl_->rotate(relative, impl_->rotation);
+        const float2 transformed = {rotated.x + center.x,
+                                    rotated.y + center.y};
+        impl_->pan.x = viewportPos.x - transformed.x * impl_->zoom;
+        impl_->pan.y = viewportPos.y - transformed.y * impl_->zoom;
     }
 
     void ViewportTransformer::FitCanvasToViewport(float margin) {
