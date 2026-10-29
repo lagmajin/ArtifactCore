@@ -767,17 +767,25 @@ public:
                     result.diagnostics.insert(field, QStringLiteral("missing"));
                 }
             } else {
-                const auto valueIt = request.arguments.constFind(field);
+                const bool requiresList = field.endsWith(QStringLiteral("[]"));
+                const QString argumentName = requiresList
+                    ? field.left(field.size() - 2)
+                    : field;
+                const auto valueIt = request.arguments.constFind(argumentName);
                 const bool missing = valueIt == request.arguments.constEnd();
                 const QVariant value = missing ? QVariant{} : valueIt.value();
                 const bool emptyString = value.metaType().id() == QMetaType::QString &&
                                           value.toString().trimmed().isEmpty();
                 const bool emptyList = value.metaType().id() == QMetaType::QVariantList &&
                                        value.toList().isEmpty();
-                if (missing || !value.isValid() || emptyString || emptyList) {
+                const bool wrongListType = requiresList &&
+                    value.metaType().id() != QMetaType::QVariantList;
+                if (missing || !value.isValid() || emptyString || emptyList || wrongListType) {
                     ok = false;
-                    result.diagnostics.insert(
-                        field, missing ? QStringLiteral("missing") : QStringLiteral("empty"));
+                    result.diagnostics.insert(field,
+                        missing ? QStringLiteral("missing") :
+                        (wrongListType ? QStringLiteral("invalid_type") :
+                                         QStringLiteral("empty")));
                 }
             }
         }
