@@ -9,6 +9,7 @@ import Core.Parallel;
 namespace ArtifactCore {
 
 void Emboss::process(float4* buffer, int width, int height, const EmbossSettings& s) {
+    if (!buffer || width <= 0 || height <= 0) return;
     auto* tmp = new float4[width * height];
     std::copy_n(buffer, width * height, tmp);
     static constexpr float k[3][3] = {{-1,0,1},{-2,0,2},{-1,0,1}};
