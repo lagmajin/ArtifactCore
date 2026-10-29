@@ -141,8 +141,17 @@ private:
             return elementCount - 1 - elementIndex;
         case SequenceOrder::CenterOut: {
             const auto center = (elementCount - 1) / 2;
-            const auto distance = std::abs(elementIndex - center);
-            return distance * 2 + (elementIndex < center ? 1 : 0);
+            if (elementCount % 2 != 0) {
+                if (elementIndex <= center) {
+                    const auto distance = center - elementIndex;
+                    return distance == 0 ? 0 : distance * 2 - 1;
+                }
+                return (elementIndex - center) * 2;
+            }
+            if (elementIndex == center) return 0;
+            if (elementIndex == center + 1) return 1;
+            if (elementIndex < center) return (center - elementIndex) * 2;
+            return (elementIndex - center) * 2 - 1;
         }
         case SequenceOrder::OutsideIn:
             return std::min(elementIndex, elementCount - 1 - elementIndex) * 2 +
