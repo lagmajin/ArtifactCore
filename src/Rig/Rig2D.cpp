@@ -1212,6 +1212,9 @@ Rig2D::Rig2D(Rig2D&& other) noexcept
       controlSet_(std::move(other.controlSet_)),
       constraints_(std::move(other.constraints_)),
       propertyBindings_(std::move(other.propertyBindings_)),
+      smartBones_(std::move(other.smartBones_)),
+      skinMesh_(std::move(other.skinMesh_)),
+      poseName_(std::move(other.poseName_)),
       frameRate_(other.frameRate_),
       hasFrameRate_(other.hasFrameRate_),
       rootBone_(other.rootBone_) {
@@ -1228,6 +1231,9 @@ Rig2D& Rig2D::operator=(Rig2D&& other) noexcept {
         controlSet_ = std::move(other.controlSet_);
         constraints_ = std::move(other.constraints_);
         propertyBindings_ = std::move(other.propertyBindings_);
+        smartBones_ = std::move(other.smartBones_);
+        skinMesh_ = std::move(other.skinMesh_);
+        poseName_ = std::move(other.poseName_);
         frameRate_ = other.frameRate_;
         hasFrameRate_ = other.hasFrameRate_;
         rootBone_ = other.rootBone_;
