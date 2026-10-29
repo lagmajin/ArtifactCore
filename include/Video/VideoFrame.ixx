@@ -1,5 +1,7 @@
 module;
+#include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <variant>
 #include <vector>
 
@@ -53,7 +55,40 @@ struct CpuVideoFrame {
 
     bool isValid() const
     {
-        return meta.width > 0 && meta.height > 0 && !bytes.empty() && strideBytes > 0;
+        if (meta.width <= 0 || meta.height <= 0 || bytes.empty() || strideBytes <= 0) {
+            return false;
+        }
+
+        std::size_t bytesPerPixel = 0;
+        switch (meta.pixelFormat) {
+        case VideoFramePixelFormat::RGB24:
+            bytesPerPixel = 3;
+            break;
+        case VideoFramePixelFormat::RGBA8:
+        case VideoFramePixelFormat::BGRA8:
+            bytesPerPixel = 4;
+            break;
+        case VideoFramePixelFormat::RGBA32F:
+            bytesPerPixel = 4 * sizeof(float);
+            break;
+        case VideoFramePixelFormat::YUV420P:
+        case VideoFramePixelFormat::NV12:
+            bytesPerPixel = 1;
+            break;
+        case VideoFramePixelFormat::Unknown:
+        case VideoFramePixelFormat::VulkanImage:
+            return false;
+        }
+
+        const auto maxSize = std::numeric_limits<std::size_t>::max();
+        const auto width = static_cast<std::size_t>(meta.width);
+        const auto height = static_cast<std::size_t>(meta.height);
+        const auto stride = static_cast<std::size_t>(strideBytes);
+        if (width > maxSize / bytesPerPixel || stride < width * bytesPerPixel ||
+            height > maxSize / stride) {
+            return false;
+        }
+        return bytes.size() >= stride * height;
     }
 };
 

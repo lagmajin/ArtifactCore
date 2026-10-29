@@ -31,7 +31,15 @@ public:
     int width() const { return cpu().meta.width; }
     int height() const { return cpu().meta.height; }
     int strideBytes() const { return cpu().strideBytes; }
-    bool isValid() const { return cpu().isValid(); }
+    bool isValid() const
+    {
+        const auto* frame = std::get_if<CpuVideoFrame>(&frame_);
+        if (!frame || !frame->isValid()) {
+            return false;
+        }
+        return frame->meta.pixelFormat == VideoFramePixelFormat::RGBA8 ||
+               frame->meta.pixelFormat == VideoFramePixelFormat::BGRA8;
+    }
 
     static std::uint8_t pixel(const std::uint8_t* scanline, int x, int channel)
     {
