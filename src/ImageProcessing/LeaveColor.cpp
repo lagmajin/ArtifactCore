@@ -18,6 +18,7 @@ static float luma(const float3& c) {
 }
 
 void LeaveColor::process(float4* buffer, int width, int height, const LeaveColorSettings& s) {
+    if (!buffer || width <= 0 || height <= 0) return;
     float3 kc = {s.keyColor.x, s.keyColor.y, s.keyColor.z};
     Parallel::ForTiles(width, height, 64, 64, [&](int x0, int y0, int x1, int y1) {
         for (int y = y0; y < y1; ++y) {
