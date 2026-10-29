@@ -9,6 +9,7 @@ import Core.Parallel;
 namespace ArtifactCore {
 
 void SimpleChoker::process(float4* buffer, int width, int height, const SimpleChokerSettings& s) {
+    if (!buffer || width <= 0 || height <= 0) return;
     auto* tmp = new float4[width * height];
     std::copy_n(buffer, width * height, tmp);
     int r = std::max(1, s.radius);
