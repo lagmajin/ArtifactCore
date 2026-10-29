@@ -192,7 +192,7 @@ public:
     std::lock_guard<std::mutex> lock(cancelMutex_);
 
     if (auto it = cancelTokens_.find(taskId); it != cancelTokens_.end()) {
-      it->second.RequestCancel();
+      it->second->RequestCancel();
     }
   }
 
@@ -205,7 +205,7 @@ public:
     for (auto &[id, token] : cancelTokens_) {
       auto snapshot = GetTaskSnapshot(id);
       if (snapshot.category == category) {
-        token.RequestCancel();
+        token->RequestCancel();
       }
     }
   }
@@ -372,7 +372,11 @@ private:
     CancelToken cancelToken;
     {
       std::lock_guard<std::mutex> lock(cancelMutex_);
-      cancelTokens_.emplace(taskId, std::move(cancelToken));
+      // Keep a pointer to the ExecuteTask-local token so cancellation updates
+      // the same atomic state observed by the task body. The map mutex protects
+      // the pointer's lifetime: ExecuteTask erases it before the local token
+      // leaves scope, and cancellation dereferences it while holding the mutex.
+      cancelTokens_.emplace(taskId, &cancelToken);
     }
 
     // Snapshot更新
@@ -508,7 +512,7 @@ private:
   mutable std::mutex queueMutex_;
   std::condition_variable queueCV_;
 
-  std::unordered_map<TaskId, CancelToken> cancelTokens_;
+  std::unordered_map<TaskId, CancelToken *> cancelTokens_;
   std::mutex cancelMutex_;
 
   std::unordered_map<TaskId, TaskSnapshot> snapshots_;
