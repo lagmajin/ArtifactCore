@@ -615,8 +615,8 @@ private:
             return plan;
         }
 
-        if (!policy_.allowedPrograms.isEmpty() &&
-            !matchesAllowedProgram(resolvedProgram, plan.requestedProgram, policy_.allowedPrograms)) {
+        if (!matchesAllowedProgram(resolvedProgram, plan.requestedProgram,
+                                   policy_.allowedPrograms)) {
             plan.errorText = QStringLiteral("Program is not on the allowlist: %1").arg(QStringView{plan.requestedProgram});
             return plan;
         }
