@@ -144,7 +144,8 @@ void AutoColorMatcher::reinhardTransfer(float* srcPixels, int srcWidth, int srcH
                                           float intensity) {
     const std::size_t srcTotal = checkedRgbaPixelCount(srcWidth, srcHeight);
     const std::size_t refTotal = checkedRgbaPixelCount(refWidth, refHeight);
-    if (srcTotal == 0 || refTotal == 0 || !srcPixels || !refPixels) return;
+    if (srcTotal == 0 || refTotal == 0 || !srcPixels || !refPixels ||
+        intensity == 0.0f) return;
 
     std::vector<float> srcL, srcA, srcB;
     srcL.resize(srcTotal);
@@ -201,7 +202,8 @@ void AutoColorMatcher::meanStddevMatch(float* srcPixels, int srcWidth, int srcHe
                                          float intensity) {
     const std::size_t srcTotal = checkedRgbaPixelCount(srcWidth, srcHeight);
     const std::size_t refTotal = checkedRgbaPixelCount(refWidth, refHeight);
-    if (srcTotal == 0 || refTotal == 0 || !srcPixels || !refPixels) return;
+    if (srcTotal == 0 || refTotal == 0 || !srcPixels || !refPixels ||
+        intensity == 0.0f) return;
 
     std::vector<float> srcR, srcG, srcBch;
     srcR.resize(srcTotal);
@@ -296,7 +298,8 @@ void AutoColorMatcher::histogramMatch(float* srcPixels, int srcWidth, int srcHei
                                         float intensity) {
     const std::size_t srcTotal = checkedRgbaPixelCount(srcWidth, srcHeight);
     const std::size_t refTotal = checkedRgbaPixelCount(refWidth, refHeight);
-    if (srcTotal == 0 || refTotal == 0 || !srcPixels || !refPixels) return;
+    if (srcTotal == 0 || refTotal == 0 || !srcPixels || !refPixels ||
+        intensity == 0.0f) return;
 
     constexpr std::size_t channelIndices[] = {2u, 1u, 0u};
     for (int ch = 0; ch < 3; ++ch) {
@@ -394,7 +397,7 @@ AutoColorMatcher::MatchResult AutoColorMatcher::computeMatch(
 void AutoColorMatcher::applyMatch(float* pixels, int width, int height,
                                     const MatchResult& result, float intensity) {
     const std::size_t total = checkedRgbaPixelCount(width, height);
-    if (total == 0 || !pixels) return;
+    if (total == 0 || !pixels || intensity == 0.0f) return;
     Parallel::ForSize(0, total, total, [&](std::size_t i) {
         const std::size_t idx = i * 4u;
         float r = pixels[idx + 2] * result.scaleR + result.offsetR;
