@@ -158,6 +158,9 @@ int EncoderSettings::getHeight() const
 
 void EncoderSettings::setFrameRate(double fps)
 {
+    if (!std::isfinite(fps)) {
+        return;
+    }
     impl_->frameRate = std::clamp(fps, 1.0, 120.0);
 }
 
