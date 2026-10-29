@@ -1,6 +1,7 @@
 module;
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 module ImageProcessing;
 import :PosterizeTime;
@@ -19,16 +20,24 @@ void PosterizeTime::reset() {
 }
 
 void PosterizeTime::process(float4* buffer, int width, int height, const PosterizeTimeSettings& settings) {
-    int step = std::max(1, static_cast<int>(std::round(30.0f / settings.frameRate)));
+    if (!buffer || width <= 0 || height <= 0) return;
+
+    int step = 1;
+    if (std::isfinite(settings.frameRate) && settings.frameRate > 0.0f) {
+        const double roundedStep = std::round(30.0 / static_cast<double>(settings.frameRate));
+        step = static_cast<int>(std::clamp(roundedStep, 1.0,
+            static_cast<double>(std::numeric_limits<int>::max())));
+    }
+    const size_t pixelCount = static_cast<size_t>(width) * static_cast<size_t>(height);
     if (heldW_ != width || heldH_ != height) {
         delete[] heldBuffer_;
-        heldBuffer_ = new float4[width * height];
+        heldBuffer_ = new float4[pixelCount];
         heldW_ = width; heldH_ = height;
-        std::copy_n(buffer, width * height, heldBuffer_);
+        std::copy_n(buffer, pixelCount, heldBuffer_);
     }
     if (frameCounter_ % step == 0)
-        std::copy_n(buffer, width * height, heldBuffer_);
-    std::copy_n(heldBuffer_, width * height, buffer);
+        std::copy_n(buffer, pixelCount, heldBuffer_);
+    std::copy_n(heldBuffer_, pixelCount, buffer);
     ++frameCounter_;
 }
 
