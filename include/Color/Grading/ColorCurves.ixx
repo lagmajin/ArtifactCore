@@ -1,4 +1,6 @@
 module;
+#include <array>
+#include <cstdint>
 #include <utility>
 #include <QImage>
 #include <vector>
