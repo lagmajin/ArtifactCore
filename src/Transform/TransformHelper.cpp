@@ -104,7 +104,7 @@ namespace ArtifactCore
  LIBRARY_DLL_API Matrix4x4 combineLayerMatrix4x4(const Matrix4x4& local,
                                                  const Matrix4x4& parent)
  {
-  return Matrix4x4::multiply(local, parent);
+  return Matrix4x4::multiply(parent, local);
  }
 
 };
