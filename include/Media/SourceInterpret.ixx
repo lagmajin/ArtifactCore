@@ -28,7 +28,8 @@ struct InterpretImpactReport {
     QVector<QString> warnings;
 
     bool hasAnyImpact() const {
-        return affectedLayerCount > 0 || hasTimeRemap || durationWillChange;
+        return affectedLayerCount > 0 || affectedKeyframeCount > 0 || hasTimeRemap ||
+               hasFrameBlend || durationWillChange;
     }
 };
 
