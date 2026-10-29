@@ -10,6 +10,7 @@ import Math.RandomStream;
 namespace ArtifactCore {
 
 void Scatter::process(float4* buffer, int width, int height, const ScatterSettings& s) {
+    if (!buffer || width <= 0 || height <= 0) return;
     const size_t pixelCount = static_cast<size_t>(width) * static_cast<size_t>(height);
     std::vector<float4> tmp(pixelCount);
     std::copy_n(buffer, pixelCount, tmp.data());
