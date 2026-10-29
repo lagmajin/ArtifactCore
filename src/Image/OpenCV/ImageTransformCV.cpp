@@ -24,7 +24,7 @@ namespace ArtifactCore {
    cv::cvtColor(floatImg, output, cv::COLOR_GRAY2RGBA);
    break;
   case 3: // BGR �� RGBA
-   cv::cvtColor(floatImg, output, cv::COLOR_BGR2BGRA);
+   cv::cvtColor(floatImg, output, cv::COLOR_BGR2RGBA);
    break;
   case 4: // Assume already RGBA
    output = floatImg;
