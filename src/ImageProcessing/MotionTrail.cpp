@@ -87,12 +87,10 @@ void MotionTrail::process(float4* buffer, int width, int height, const MotionTra
 
         switch (settings.mode) {
             case MotionTrailMode::Blend:
-                // Normal interpolation (Blend)
-                // Lerp between current and decayed history based on intensity
-                r_out = r_cur * (1.0f - intensity) + std::lerp(r_cur, r_his_decayed, intensity);
-                g_out = g_cur * (1.0f - intensity) + std::lerp(g_cur, g_his_decayed, intensity);
-                b_out = b_cur * (1.0f - intensity) + std::lerp(b_cur, b_his_decayed, intensity);
-                a_out = a_cur * (1.0f - intensity) + std::lerp(a_cur, a_his_decayed, intensity);
+                r_out = std::lerp(r_cur, r_his_decayed, intensity);
+                g_out = std::lerp(g_cur, g_his_decayed, intensity);
+                b_out = std::lerp(b_cur, b_his_decayed, intensity);
+                a_out = std::lerp(a_cur, a_his_decayed, intensity);
                 break;
 
             case MotionTrailMode::Additive:
