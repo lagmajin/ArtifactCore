@@ -71,6 +71,7 @@ CoordinateValue CoordinateValue::fromString(const QString& str) {
     } else if (trimmed.startsWith("safe", Qt::CaseInsensitive)) {
         QString clean = trimmed.mid(4).trimmed();
         if (clean.startsWith("+")) clean = clean.mid(1).trimmed();
+        if (clean.endsWith("px", Qt::CaseInsensitive)) clean = clean.chopped(2).trimmed();
         val.value = clean.toDouble();
         val.unit = CoordinateUnit::SafeArea;
     } else {
