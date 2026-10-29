@@ -734,11 +734,13 @@ void RotoMask::reverse() {
     
     // 新しいIDで再構築
     impl_->vertices.clear();
-    int newId = 0;
+    int newId = impl_->nextVertexID;
     for (auto& pair : sorted) {
         pair.first = newId++;
+        pair.second.id = pair.first;
         impl_->vertices[pair.first] = pair.second;
     }
+    impl_->nextVertexID = newId;
 }
 
 } // namespace ArtifactCore
