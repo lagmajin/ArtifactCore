@@ -113,6 +113,16 @@ private:
     bool loadCube(QTextStream& stream) {
         data_.clear();
         size_ = 0;
+        dataIdx_ = 0;
+        name_.clear();
+
+        const auto invalidate = [this]() {
+            data_.clear();
+            size_ = 0;
+            dataIdx_ = 0;
+            name_.clear();
+            return false;
+        };
 
         QString line;
         while (!stream.atEnd()) {
@@ -128,7 +138,7 @@ private:
                 size_ = line.section(' ', -1).toInt();
                 if (size_ < 2 || size_ > 256) {
                     qWarning() << "[LUT] Invalid size:" << size_;
-                    return false;
+                    return invalidate();
                 }
                 data_.resize(static_cast<size_t>(size_) * size_ * size_ * 3, 0.0f);
                 continue;
@@ -155,7 +165,7 @@ private:
 
         if (dataIdx_ != data_.size()) {
             qWarning() << "[LUT] Incomplete data:" << dataIdx_ << "vs" << data_.size();
-            return false;
+            return invalidate();
         }
 
         return true;
