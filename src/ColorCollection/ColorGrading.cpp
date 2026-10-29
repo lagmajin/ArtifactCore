@@ -132,9 +132,11 @@ void ColorWheelsProcessor::applyLevels(float& r, float& g, float& b) {
     };
     
     if (lvl.linkRGB) {
-        // linkRGB: R/G/B を単一の輝度基準レンジにそろえる。
+        // Link the control ranges, not the channel values themselves. Apply
+        // the shared range independently so the input chroma is preserved.
         applyChannel(r, lvl.inputBlack, lvl.inputWhite, lvl.gamma, lvl.outputBlack, lvl.outputWhite);
-        g = r; b = r;
+        applyChannel(g, lvl.inputBlack, lvl.inputWhite, lvl.gamma, lvl.outputBlack, lvl.outputWhite);
+        applyChannel(b, lvl.inputBlack, lvl.inputWhite, lvl.gamma, lvl.outputBlack, lvl.outputWhite);
     } else {
         // linkRGB == false: R/G/B それぞれの input black/white を尊重する。
         applyChannel(r, lvl.inputBlackR, lvl.inputWhiteR, lvl.gamma, lvl.outputBlack, lvl.outputWhite);
