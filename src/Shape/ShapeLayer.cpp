@@ -872,18 +872,35 @@ ShapeLayer ShapeLayer::fromSvg(const QString& svgContent)
 {
     ShapeLayer layer;
     auto readStyle = [](const auto& attrs, FillSettings& fill, StrokeSettings& stroke) {
-        const QColor fillColor(attrs.value(QStringLiteral("fill")).toString());
-        const QColor strokeColor(attrs.value(QStringLiteral("stroke")).toString());
+        const auto styleValue = [&attrs](const QString& property) {
+            QString value = attrs.value(property).toString();
+            const QStringList declarations =
+                attrs.value(QStringLiteral("style")).toString().split(QLatin1Char(';'));
+            for (const QString& declaration : declarations) {
+                const qsizetype separator = declaration.indexOf(QLatin1Char(':'));
+                if (separator < 0 ||
+                    declaration.left(separator).trimmed().compare(property, Qt::CaseInsensitive) != 0) {
+                    continue;
+                }
+                value = declaration.mid(separator + 1).trimmed();
+            }
+            return value;
+        };
+
+        const QString fillValue = styleValue(QStringLiteral("fill"));
+        const QString strokeValue = styleValue(QStringLiteral("stroke"));
+        const QColor fillColor(fillValue);
+        const QColor strokeColor(strokeValue);
         bool strokeWidthOk = false;
-        const double strokeWidth = attrs.value(QStringLiteral("stroke-width")).toString().toDouble(&strokeWidthOk);
+        const double strokeWidth = styleValue(QStringLiteral("stroke-width")).toDouble(&strokeWidthOk);
 
         fill = FillSettings(fillColor.isValid() ? fillColor : QColor(Qt::white));
         stroke = StrokeSettings(strokeColor.isValid() ? strokeColor : QColor(Qt::black),
                                 strokeWidthOk ? strokeWidth : 1.0);
-        fill.enabled = attrs.value(QStringLiteral("fill")).toString() != QStringLiteral("none");
-        stroke.enabled = attrs.value(QStringLiteral("stroke")).toString() != QStringLiteral("none");
+        fill.enabled = fillValue != QStringLiteral("none");
+        stroke.enabled = strokeValue != QStringLiteral("none");
 
-        const QString cap = attrs.value(QStringLiteral("stroke-linecap")).toString().toLower();
+        const QString cap = styleValue(QStringLiteral("stroke-linecap")).toLower();
         if (cap == QStringLiteral("round")) {
             stroke.cap = LineCap::Round;
         } else if (cap == QStringLiteral("square")) {
@@ -892,7 +909,7 @@ ShapeLayer ShapeLayer::fromSvg(const QString& svgContent)
             stroke.cap = LineCap::Butt;
         }
 
-        const QString join = attrs.value(QStringLiteral("stroke-linejoin")).toString().toLower();
+        const QString join = styleValue(QStringLiteral("stroke-linejoin")).toLower();
         if (join == QStringLiteral("round")) {
             stroke.join = LineJoin::Round;
         } else if (join == QStringLiteral("bevel")) {
@@ -902,12 +919,12 @@ ShapeLayer ShapeLayer::fromSvg(const QString& svgContent)
         }
 
         bool miterOk = false;
-        const double miter = attrs.value(QStringLiteral("stroke-miterlimit")).toString().toDouble(&miterOk);
+        const double miter = styleValue(QStringLiteral("stroke-miterlimit")).toDouble(&miterOk);
         if (miterOk) {
             stroke.miterLimit = miter;
         }
 
-        const QString dashArray = attrs.value(QStringLiteral("stroke-dasharray")).toString().trimmed();
+        const QString dashArray = styleValue(QStringLiteral("stroke-dasharray")).trimmed();
         if (!dashArray.isEmpty() && dashArray != QStringLiteral("none")) {
             stroke.dashPattern.clear();
             const QStringList items = dashArray.split(QRegularExpression(QStringLiteral("[,\\s]+")), Qt::SkipEmptyParts);
@@ -921,7 +938,7 @@ ShapeLayer ShapeLayer::fromSvg(const QString& svgContent)
         }
 
         bool dashOffsetOk = false;
-        const double dashOffset = attrs.value(QStringLiteral("stroke-dashoffset")).toString().toDouble(&dashOffsetOk);
+        const double dashOffset = styleValue(QStringLiteral("stroke-dashoffset")).toDouble(&dashOffsetOk);
         if (dashOffsetOk) {
             stroke.dashOffset = dashOffset;
         }
