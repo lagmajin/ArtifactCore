@@ -264,11 +264,17 @@ std::vector<ShapePath> ShapeGroup::processedPaths() const {
         return matrix;
     };
     std::function<void(const ShapeGroup&, const QTransform&)> collectPaths = [&](const ShapeGroup& group, const QTransform& parentMatrix) {
+        if (!group.isVisible()) {
+            return;
+        }
         const QTransform groupMatrix = parentMatrix * makeMatrix(group.transform());
         for (const auto& child : group.children_) {
             if (auto* pathShape = dynamic_cast<PathShape*>(child.get())) {
+                if (!pathShape->isVisible()) {
+                    continue;
+                }
                 ShapePath path = pathShape->path();
-                path.transform(groupMatrix);
+                path.transform(groupMatrix * makeMatrix(pathShape->transform()));
                 paths.push_back(path);
             } else if (auto* childGroup = dynamic_cast<ShapeGroup*>(child.get())) {
                 collectPaths(*childGroup, groupMatrix);
