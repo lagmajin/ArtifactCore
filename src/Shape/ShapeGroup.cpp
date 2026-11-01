@@ -125,7 +125,6 @@ QRectF ShapeGroup::boundingRect() const {
     const auto& self = transform();
     QTransform matrix;
     matrix.translate(self.position.x, self.position.y);
-    matrix.translate(self.anchor.x, self.anchor.y);
     matrix.rotate(self.rotation);
     matrix.scale(self.scale.x, self.scale.y);
     matrix.translate(-self.anchor.x, -self.anchor.y);
@@ -257,7 +256,6 @@ std::vector<ShapePath> ShapeGroup::processedPaths() const {
     auto makeMatrix = [](const ShapeTransform& tf) {
         QTransform matrix;
         matrix.translate(tf.position.x, tf.position.y);
-        matrix.translate(tf.anchor.x, tf.anchor.y);
         matrix.rotate(tf.rotation);
         matrix.scale(tf.scale.x, tf.scale.y);
         matrix.translate(-tf.anchor.x, -tf.anchor.y);
@@ -358,7 +356,6 @@ QPainterPath PathShape::toPainterPath() const {
     const auto& tf = transform();
     QTransform matrix;
     matrix.translate(tf.position.x, tf.position.y);
-    matrix.translate(tf.anchor.x, tf.anchor.y);
     matrix.rotate(tf.rotation);
     matrix.scale(tf.scale.x, tf.scale.y);
     matrix.translate(-tf.anchor.x, -tf.anchor.y);

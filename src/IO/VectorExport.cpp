@@ -83,7 +83,6 @@ QString SvgFrameExporter::exportCompositionFrame(
         const auto& tf = layer->transform();
         QTransform matrix;
         matrix.translate(tf.position.x, tf.position.y);
-        matrix.translate(tf.anchor.x, tf.anchor.y);
         matrix.rotate(tf.rotation);
         matrix.scale(tf.scale.x, tf.scale.y);
         matrix.translate(-tf.anchor.x, -tf.anchor.y);

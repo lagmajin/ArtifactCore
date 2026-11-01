@@ -35,8 +35,9 @@ namespace {
 QTransform shapeTransformMatrix(const ShapeTransform& tf)
 {
     QTransform matrix;
+    // Qt pre-multiplies each call, so this reads as T(-anchor) * S * R * T(position):
+    // the anchor is the pivot and lands on the position, as in makeLayerTransform2D.
     matrix.translate(tf.position.x, tf.position.y);
-    matrix.translate(tf.anchor.x, tf.anchor.y);
     matrix.rotate(tf.rotation);
     matrix.scale(tf.scale.x, tf.scale.y);
     matrix.translate(-tf.anchor.x, -tf.anchor.y);
