@@ -1,4 +1,5 @@
 module;
+#include <limits>
 #include <iostream>
 #include <vector>
 #include <string>
@@ -57,7 +58,21 @@ namespace ArtifactCore {
 
  bool RawImage::isValid() const
  {
-  return width > 0 && height > 0 && channels > 0 && !data.isEmpty() && !pixelType.isEmpty();
+  if (width <= 0 || height <= 0 || channels <= 0) return false;
+
+  const int bytesPerChannel = getPixelTypeSizeInBytes();
+  if (bytesPerChannel <= 0) return false;
+
+  const qsizetype maximumSize = std::numeric_limits<qsizetype>::max();
+  qsizetype requiredBytes = static_cast<qsizetype>(width);
+  if (requiredBytes > maximumSize / height) return false;
+  requiredBytes *= height;
+  if (requiredBytes > maximumSize / channels) return false;
+  requiredBytes *= channels;
+  if (requiredBytes > maximumSize / bytesPerChannel) return false;
+  requiredBytes *= bytesPerChannel;
+
+  return data.size() >= requiredBytes;
  }
 
 

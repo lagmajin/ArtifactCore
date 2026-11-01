@@ -61,6 +61,21 @@ QRectF LayerBoundsCalculator2D::calculateAABB(const LayerCorners& corners) {
 }
 
 bool LayerBoundsCalculator2D::contains(const LayerCorners& corners, const QPointF& p) {
+    // Cross-product signs alone accept every point on the infinite line of a
+    // collapsed rectangle. Keep the candidate inside the corners' AABB first
+    // so degenerate rectangles behave like their actual segment or point.
+    const double minX = std::min({corners.topLeft.x(), corners.topRight.x(),
+                                  corners.bottomLeft.x(), corners.bottomRight.x()});
+    const double maxX = std::max({corners.topLeft.x(), corners.topRight.x(),
+                                  corners.bottomLeft.x(), corners.bottomRight.x()});
+    const double minY = std::min({corners.topLeft.y(), corners.topRight.y(),
+                                  corners.bottomLeft.y(), corners.bottomRight.y()});
+    const double maxY = std::max({corners.topLeft.y(), corners.topRight.y(),
+                                  corners.bottomLeft.y(), corners.bottomRight.y()});
+    if (p.x() < minX || p.x() > maxX || p.y() < minY || p.y() > maxY) {
+        return false;
+    }
+
     // 凸四角形の包含判定（外積符号を利用）
     auto crossProduct = [](const QPointF& a, const QPointF& b, const QPointF& c) {
         return (b.x() - a.x()) * (c.y() - a.y()) - (b.y() - a.y()) * (c.x() - a.x());

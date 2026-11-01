@@ -531,8 +531,11 @@ float ImageAnalyzer::dynamicRange(const float* pixels, int width, int height) {
 }
 
 float ImageAnalyzer::percentile(const ChannelStatistics& stats, float p) {
+    if (stats.totalPixels <= 0) return 0.0f;
+    if (std::isnan(p)) p = 0.0f;
     p = std::clamp(p, 0.0f, 1.0f);
-    int target = static_cast<int>(stats.totalPixels * p);
+    const int target = std::max(
+        1, static_cast<int>(static_cast<double>(stats.totalPixels) * p));
     int cumulative = 0;
     for (int i = 0; i < 256; ++i) {
         cumulative += stats.rawHistogram[i];

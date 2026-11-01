@@ -28,7 +28,9 @@ struct ParticleVertex {
     float px, py, pz; // Position
     float pad0 = 0.0f; // Padding (position.w, shader-ignored)
     float vx, vy, vz; // Velocity
-    float pad1 = 0.0f; // Padding (velocity.w, shader-ignored)
+    // Ring inner radius as a fraction of the outer radius. Other falloff
+    // modes ignore this lane; layout and stride remain unchanged.
+    float pad1 = 0.0f; // velocity.w
     float r, g, b, a; // Color (RGBA)
     float size = 1.0f;
     float stretch = 1.0f;
@@ -59,7 +61,11 @@ enum class ParticleBillboardPolicy : std::uint32_t {
 
 enum class ParticleFalloffMode : std::uint32_t {
     SoftCircle = 0,
-    GaussianDensity = 1
+    GaussianDensity = 1,
+    HardCircle = 2,
+    Ring = 3,
+    Diamond = 4,
+    Cross = 5
 };
 
 struct ParticleRenderOptions {

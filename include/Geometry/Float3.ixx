@@ -37,14 +37,25 @@ export namespace ArtifactCore
 
   // Magnitude
   T length() const {
-   return std::sqrt(dot(*this));
+   return std::hypot(std::hypot(x, y), z);
   }
 
   // Normalized vector
   float3 normalized() const {
-   T len = length();
-   if (len == 0) return { 0, 0, 0 };
-   return *this * (1 / len);
+   T scale = std::abs(x);
+   const T absY = std::abs(y);
+   const T absZ = std::abs(z);
+   if (absY > scale) scale = absY;
+   if (absZ > scale) scale = absZ;
+   if (scale == 0) return { 0, 0, 0 };
+
+   const T scaledX = x / scale;
+   const T scaledY = y / scale;
+   const T scaledZ = z / scale;
+   const T scaledLength = std::sqrt(
+       scaledX * scaledX + scaledY * scaledY + scaledZ * scaledZ);
+   return {scaledX / scaledLength, scaledY / scaledLength,
+           scaledZ / scaledLength};
   }
  };
 

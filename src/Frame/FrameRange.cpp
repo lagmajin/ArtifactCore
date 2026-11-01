@@ -175,9 +175,15 @@ namespace ArtifactCore {
  }
 
  bool FrameRange::touches(const FrameRange& other) const {
-  return overlaps(other) || 
-         impl_->end_ + 1 == other.start() || 
-         other.end() + 1 == impl_->start_;
+  const int64_t otherStart = other.start();
+  const int64_t otherEnd = other.end();
+  const bool adjacentAfterThis =
+      impl_->end_ != std::numeric_limits<int64_t>::max() &&
+      impl_->end_ + 1 == otherStart;
+  const bool adjacentBeforeThis =
+      otherEnd != std::numeric_limits<int64_t>::max() &&
+      otherEnd + 1 == impl_->start_;
+  return overlaps(other) || adjacentAfterThis || adjacentBeforeThis;
  }
 
  // �͈͑���

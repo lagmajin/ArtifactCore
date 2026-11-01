@@ -1173,6 +1173,15 @@ bool ShortcutBindings::loadFromJson(const QJsonObject& json)
         return false;
     }
 
+    // Validate the complete recognized payload before resetting any live
+    // bindings. A malformed value must not partially replace user state.
+    for (const auto id : allShortcutIds()) {
+        const QString key = shortcutIdKey(id);
+        if (shortcuts.contains(key) && !shortcuts.value(key).isString()) {
+            return false;
+        }
+    }
+
     resetToDefaults();
 
     for (const auto id : allShortcutIds()) {

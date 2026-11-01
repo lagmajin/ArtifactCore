@@ -564,11 +564,15 @@ QString KeyMap::toJSON() const {
 
 bool KeyMap::fromJSON(const QString& json) {
     QJsonDocument doc = QJsonDocument::fromJson(json.toUtf8());
-    if (doc.isNull()) {
+    if (doc.isNull() || !doc.isObject()) {
         return false;
     }
-    
     QJsonObject root = doc.object();
+    const QJsonValue bindingsValue = root.value(QStringLiteral("bindings"));
+    if (!bindingsValue.isUndefined() && !bindingsValue.isArray()) {
+        return false;
+    }
+
     setName(root["name"].toString());
     setContext(root["context"].toString());
     

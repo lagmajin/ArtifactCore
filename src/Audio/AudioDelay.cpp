@@ -70,9 +70,8 @@ void AudioDelay::process(AudioSegment& segment, const AudioSegment* /*sideChain*
 
         for (int i = 0; i < samples; ++i) {
             const int idx = writePos;
-            const float delayed = (idx + delaySamples < bufSize)
-                ? saturateDelaySample(buf[(idx + delaySamples) % bufSize])
-                : 0.0f;
+            const int readPos = (idx + bufSize - delaySamples) % bufSize;
+            const float delayed = saturateDelaySample(buf[readPos]);
             const float input = std::isfinite(inData[i]) ? inData[i] : 0.0f;
             const float out = saturateDelaySample(input + delayed * feedback);
             buf[idx] = out;

@@ -145,6 +145,7 @@ namespace ArtifactCore {
 
         float availableW = impl_->viewportSize.x - margin * 2.0f;
         float availableH = impl_->viewportSize.y - margin * 2.0f;
+        if (availableW <= 0.0f || availableH <= 0.0f) return;
 
         float zoomW = availableW / impl_->canvasSize.x;
         float zoomH = availableH / impl_->canvasSize.y;

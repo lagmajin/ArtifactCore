@@ -33,6 +33,11 @@ public:
     static PropertyPath fromSegments(const QStringList& segments)
     {
         PropertyPath p;
+        for (const QString& segment : segments) {
+            if (segment.isEmpty() || segment.contains(QLatin1Char('.'))) {
+                return {};
+            }
+        }
         p.segments_ = segments;
         p.raw_ = segments.join(QLatin1Char('.'));
         return p;

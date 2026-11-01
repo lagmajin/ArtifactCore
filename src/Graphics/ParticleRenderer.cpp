@@ -123,7 +123,7 @@ namespace {
 
 // Bump when the embedded particle HLSL changes: backends key stored blobs
 // by bytecode too, but this retires poisoned files unconditionally.
-constexpr int kParticlePsoCacheFileVersion = 2;
+constexpr int kParticlePsoCacheFileVersion = 9;
 
 struct DevicePsoCacheEntry {
     Diligent::RefCntAutoPtr<Diligent::IPipelineStateCache> cache;
@@ -378,7 +378,7 @@ cbuffer Constants : register(b0) {
     float DeltaTime;
     int BillboardMode;
     int FalloffMode;
-    float Padding;
+    float BlendMode;
 };
 
 struct VS_Input {
@@ -393,6 +393,8 @@ struct PS_Input {
     // x = quad half width, y = quad half height, z = stretch factor.
     float3 Shape : TEXCOORD1;
     nointerpolation uint Falloff : TEXCOORD2;
+    nointerpolation uint Blend : TEXCOORD3;
+    nointerpolation float RingInnerRadius : TEXCOORD4;
 };
 
 static const float2 c_Offsets[4] = {
@@ -428,7 +430,9 @@ PS_Input VSMain(VS_Input In) {
         dot(p.velocity.xyz, ViewRow2.xyz));
     float rotationDegrees = p.rotation;
     if (BillboardMode == 3 && dot(viewVelocity.xy, viewVelocity.xy) > 0.000001) {
-        rotationDegrees += atan2(viewVelocity.y, viewVelocity.x) * 180.0 / 3.14159265;
+        // Stretch extends along the quad's local Y axis, not X. Rotate that
+        // axis onto the velocity direction before applying particle rotation.
+        rotationDegrees += atan2(viewVelocity.y, viewVelocity.x) * 180.0 / 3.14159265 - 90.0;
     }
     float rad = rotationDegrees * 3.14159265 / 180.0;
     float cosR = cos(rad);
@@ -470,6 +474,8 @@ PS_Input VSMain(VS_Input In) {
     Out.Color = p.color;
     Out.Shape = float3(halfWidth, halfHeight, max(1.0, p.stretch));
     Out.Falloff = (uint)FalloffMode;
+    Out.Blend = (uint)BlendMode;
+    Out.RingInnerRadius = saturate(p.velocity.w) * 0.5;
     
     return Out;
 }
@@ -483,9 +489,41 @@ struct PS_Input {
     // x = quad half width, y = quad half height, z = stretch factor.
     float3 Shape : TEXCOORD1;
     nointerpolation uint Falloff : TEXCOORD2;
+    nointerpolation uint Blend : TEXCOORD3;
+    nointerpolation float RingInnerRadius : TEXCOORD4;
 };
 
+float4 PrepareBlendColor(float4 color, uint blend) {
+    // Screen and Multiply use premultiplied source RGB in their blend
+    // equations; the other particle pipelines consume straight RGB.
+    if (blend == 3 || blend == 4) color.rgb *= saturate(color.a);
+    return color;
+}
+
 float4 PSMain(PS_Input In) : SV_Target {
+    float dist = length(In.UV - 0.5);
+    if (In.Falloff == 4 || In.Falloff == 5) {
+        float2 p = abs(In.UV - 0.5);
+        // Diamond and cross are computed from normalized sprite coordinates,
+        // so the same shape follows rotation and velocity stretch.
+        float edge = In.Falloff == 4
+            ? p.x + p.y - 0.5
+            : min(max(p.x - 0.12, p.y - 0.5),
+                  max(p.x - 0.5, p.y - 0.12));
+        float coverage = saturate(0.5 - edge / max(fwidth(edge), 0.0001));
+        if (coverage <= 0.0) discard;
+        return PrepareBlendColor(float4(In.Color.rgb, In.Color.a * coverage), In.Blend);
+    }
+    if (In.Falloff == 2 || In.Falloff == 3) {
+        // Normalized UVs produce ellipses when the quad is stretched. Screen
+        // derivatives keep the disk and ring edges smooth at different sizes.
+        float width = max(fwidth(dist), 0.0001);
+        float coverage = 1.0 - smoothstep(0.5 - width, 0.5, dist);
+        if (In.Falloff == 3)
+            coverage *= smoothstep(In.RingInnerRadius - width, In.RingInnerRadius, dist);
+        if (coverage <= 0.0) discard;
+        return PrepareBlendColor(float4(In.Color.rgb, In.Color.a * coverage), In.Blend);
+    }
     if (In.Shape.z > 1.05) {
         // Stretched capsule matching the software path: rounded rect with a
         // vertical linear gradient (transparent -> solid -> transparent).
@@ -495,16 +533,19 @@ float4 PSMain(PS_Input In) : SV_Target {
         float2 local = (In.UV - 0.5) * (halfExtent * 2.0);
         float2 q = abs(local) - (halfExtent - radius);
         float dist = length(max(q, 0.0)) - radius;
-        if (dist > 0.0) discard;
+        // Pixel-space coverage softens the capsule boundary at any zoom or
+        // rotation without increasing geometry or sampling a texture.
+        float coverage = saturate(0.5 - dist / max(fwidth(dist), 0.0001));
+        if (coverage <= 0.0) discard;
         float t = saturate(In.UV.y);
         float4 transparent = float4(In.Color.rgb, 0.0);
         float4 grad = t < 0.15 ? lerp(transparent, In.Color, t / 0.15)
-                    : (t < 0.85 ? In.Color
-                                : lerp(In.Color, transparent,
-                                       (t - 0.85) / 0.15));
-        return grad;
+                     : (t < 0.85 ? In.Color
+                                 : lerp(In.Color, transparent,
+                                        (t - 0.85) / 0.15));
+        grad.a *= coverage;
+        return PrepareBlendColor(grad, In.Blend);
     }
-    float dist = length(In.UV - 0.5);
     if (dist > 0.5) discard;
 
     if (In.Falloff == 1) {
@@ -518,14 +559,14 @@ float4 PSMain(PS_Input In) : SV_Target {
         float edgeValue = exp(-kGaussian);
         float densityProfile = saturate(
             (gaussian - edgeValue) / (1.0 - edgeValue));
-        return float4(In.Color.rgb,
-                      In.Color.a * densityProfile * 4.25);
+        return PrepareBlendColor(float4(In.Color.rgb,
+                      In.Color.a * densityProfile * 4.25), In.Blend);
     }
     
     // Soft circle (edge0 < edge1 is required: reversed smoothstep args are
     // undefined behavior in HLSL and flicker/disappear on some drivers)
     float alpha = 1.0 - smoothstep(0.4, 0.5, dist);
-    return float4(In.Color.rgb, In.Color.a * alpha);
+    return PrepareBlendColor(float4(In.Color.rgb, In.Color.a * alpha), In.Blend);
 }
 )";
 
@@ -551,6 +592,7 @@ void ParticleRenderer::initialize(size_t maxParticles) {
     maxParticles_ = maxParticles;
     constants_.billboardMode = static_cast<int>(renderOptions_.billboard);
     constants_.falloffMode = static_cast<int>(renderOptions_.falloff);
+    constants_.padding = static_cast<float>(renderOptions_.blend);
     debugState_ = DebugState::Initialized;
     debugMax_ = static_cast<qulonglong>(maxParticles_);
     createBuffers();
@@ -704,7 +746,7 @@ bool BuildParticleGraphicsPipeline(
         break;
     case ParticleBlendPolicy::Multiply:
         RT0.SrcBlend = BLEND_FACTOR_DEST_COLOR;
-        RT0.DestBlend = BLEND_FACTOR_ZERO;
+        RT0.DestBlend = BLEND_FACTOR_INV_SRC_ALPHA;
         break;
     case ParticleBlendPolicy::Additive:
     default:
@@ -1236,6 +1278,7 @@ void ParticleRenderer::setRenderOptions(const ParticleRenderOptions& options)
     renderOptions_ = options;
     constants_.billboardMode = static_cast<int>(renderOptions_.billboard);
     constants_.falloffMode = static_cast<int>(renderOptions_.falloff);
+    constants_.padding = static_cast<float>(renderOptions_.blend);
     // No synchronous rebuild: prepare() serves the matching cached pipeline
     // or requests an async build, so option flips never stall the GUI thread.
 }

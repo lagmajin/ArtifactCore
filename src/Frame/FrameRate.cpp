@@ -185,13 +185,12 @@ void FrameRate::setFromString(const QString& value)
  if (fraction.size() == 2) {
   bool numeratorOk = false;
   bool denominatorOk = false;
-  const double numerator = fraction[0].trimmed().toDouble(&numeratorOk);
-  const double denominator = fraction[1].trimmed().toDouble(&denominatorOk);
-  if (numeratorOk && denominatorOk && std::abs(denominator) > 1e-12) {
-   // Keep integer fractions exact instead of collapsing to float.
-   setRationalRate(static_cast<std::int64_t>(numerator),
-                   static_cast<std::int64_t>(denominator));
-   ok = true;
+  const std::int64_t numerator = fraction[0].trimmed().toLongLong(&numeratorOk);
+  const std::int64_t denominator = fraction[1].trimmed().toLongLong(&denominatorOk);
+  if (numeratorOk && denominatorOk && numerator > 0 && denominator > 0) {
+   // Keep only valid integer fractions exact instead of truncating decimals.
+   setRationalRate(numerator, denominator);
+   return;
   }
  } else {
   parsed = text.trimmed().toFloat(&ok);

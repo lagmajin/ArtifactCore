@@ -2,6 +2,8 @@ module;
 #include <atomic>
 #include <cassert>
 #include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <mutex>
 #include <thread>
 #include <condition_variable>
@@ -78,8 +80,20 @@ public:
     Cond& operator=(const Cond&) = delete;
 
     void wait(Lock& lock) {
-        cv_.wait(cv_lock_, [&] { return notified_; });
-        notified_ = false;
+        std::unique_lock<std::mutex> guard(cv_lock_);
+        if (pendingWakeups_ > 0) {
+            --pendingWakeups_;
+            return;
+        }
+        const std::uint64_t observedBroadcast = broadcastGeneration_;
+        ++waiters_;
+        cv_.wait(guard, [&] {
+            return pendingWakeups_ > 0 ||
+                   broadcastGeneration_ != observedBroadcast;
+        });
+        --waiters_;
+        if (broadcastGeneration_ == observedBroadcast && pendingWakeups_ > 0)
+            --pendingWakeups_;
     }
 
     template <typename Predicate>
@@ -88,19 +102,28 @@ public:
     }
 
     void wakeOne() {
-        notified_ = true;
+        {
+            std::lock_guard<std::mutex> guard(cv_lock_);
+            ++pendingWakeups_;
+        }
         cv_.notify_one();
     }
 
     void wakeAll() {
-        notified_ = true;
+        {
+            std::lock_guard<std::mutex> guard(cv_lock_);
+            if (waiters_ == 0) ++pendingWakeups_;
+            ++broadcastGeneration_;
+        }
         cv_.notify_all();
     }
 
 private:
-    std::condition_variable_any cv_;
+    std::condition_variable cv_;
     std::mutex cv_lock_;
-    bool notified_ = false;
+    std::size_t pendingWakeups_ = 0;
+    std::size_t waiters_ = 0;
+    std::uint64_t broadcastGeneration_ = 0;
 };
 
 /// Simple worker thread wrapper.

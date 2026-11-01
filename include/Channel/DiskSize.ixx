@@ -5,6 +5,7 @@ module;
 #include <cstdint>
 #include <iomanip>
 #include <sstream>
+#include <cmath>
 
 export module Disk.Size;
 
@@ -52,6 +53,10 @@ public:
         int unit = 0;
         double size = static_cast<double>(bytes);
         while (size >= 1024.0 && unit < 4) {
+            size /= 1024.0;
+            ++unit;
+        }
+        while (unit < 4 && std::round(size * 10.0) / 10.0 >= 1024.0) {
             size /= 1024.0;
             ++unit;
         }

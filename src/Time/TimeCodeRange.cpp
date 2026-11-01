@@ -145,6 +145,11 @@ namespace ArtifactCore
 
  bool TimeCodeRange::overlaps(const TimeCodeRange& other) const
  {
+  if (!isValid() || !other.isValid() ||
+      impl_->startFrame_ == impl_->stopFrame_ ||
+      other.impl_->startFrame_ == other.impl_->stopFrame_) {
+   return false;
+  }
   return !(impl_->stopFrame_ <= other.impl_->startFrame_ ||
            other.impl_->stopFrame_ <= impl_->startFrame_);
  }
