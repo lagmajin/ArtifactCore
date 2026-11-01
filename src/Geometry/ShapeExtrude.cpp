@@ -2,6 +2,7 @@ module;
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <limits>
 #include <vector>
 #include <QPointF>
 #include <QVector2D>
@@ -113,6 +114,83 @@ std::vector<std::array<int, 3>> earClipPolygon(const std::vector<QPointF>& polyg
     return triangles;
 }
 
+double triangleCross(const QPointF& a, const QPointF& b, const QPointF& c) {
+    return (b.x() - a.x()) * (c.y() - a.y()) - (b.y() - a.y()) * (c.x() - a.x());
+}
+
+bool pointInTriangleInclusive(const QPointF& p, const QPointF& a, const QPointF& b,
+                              const QPointF& c) {
+    return triangleCross(a, b, p) >= -1e-9 && triangleCross(b, c, p) >= -1e-9 &&
+           triangleCross(c, a, p) >= -1e-9;
+}
+
+// Joins a hole (stored CW) to the outer polygon (CCW) through a zero-width bridge
+// edge. The merged polygon stays simple, so ear clipping opens the hole instead
+// of covering it with a cap triangle whose centroid happens to fall outside.
+bool mergeHoleIntoOuter(std::vector<QPointF>* outer, const std::vector<QPointF>& hole) {
+    if (outer->size() < 3 || hole.size() < 3) return false;
+
+    size_t holeIndex = 0;
+    for (size_t i = 1; i < hole.size(); ++i) {
+        if (hole[i].x() > hole[holeIndex].x()) holeIndex = i;
+    }
+    const QPointF m = hole[holeIndex];
+
+    constexpr size_t npos = std::numeric_limits<size_t>::max();
+    double bestX = std::numeric_limits<double>::max();
+    size_t bestEdge = npos;
+    const size_t count = outer->size();
+    for (size_t i = 0; i < count; ++i) {
+        const QPointF& a = (*outer)[i];
+        const QPointF& b = (*outer)[(i + 1) % count];
+        if ((a.y() > m.y()) == (b.y() > m.y())) continue;
+        const double t = (m.y() - a.y()) / (b.y() - a.y());
+        const double x = a.x() + t * (b.x() - a.x());
+        if (x >= m.x() && x < bestX) {
+            bestX = x;
+            bestEdge = i;
+        }
+    }
+    if (bestEdge == npos) return false;
+    const QPointF intersection(bestX, m.y());
+
+    const QPointF& edgeA = (*outer)[bestEdge];
+    const QPointF& edgeB = (*outer)[(bestEdge + 1) % count];
+    size_t bridgeIndex = (edgeA.x() > edgeB.x()) ? bestEdge : (bestEdge + 1) % count;
+    const QPointF initialTarget = (*outer)[bridgeIndex];
+
+    double bestMetric = std::numeric_limits<double>::max();
+    for (size_t i = 0; i < count; ++i) {
+        if (i == bridgeIndex) continue;
+        const QPointF& candidate = (*outer)[i];
+        if (candidate.x() < m.x()) continue;
+        const QPointF& prev = (*outer)[(i + count - 1) % count];
+        const QPointF& next = (*outer)[(i + 1) % count];
+        if (triangleCross(prev, candidate, next) >= 0.0) continue;
+        if (!pointInTriangleInclusive(candidate, m, intersection, initialTarget)) continue;
+        const double dx = candidate.x() - m.x();
+        if (dx <= 0.0) continue;
+        const double metric = std::abs(candidate.y() - m.y()) / dx;
+        if (metric < bestMetric) {
+            bestMetric = metric;
+            bridgeIndex = i;
+        }
+    }
+
+    std::vector<QPointF> merged;
+    merged.reserve(outer->size() + hole.size() + 2);
+    for (size_t i = 0; i <= bridgeIndex; ++i) merged.push_back((*outer)[i]);
+    for (size_t i = 0; i <= hole.size(); ++i) {
+        merged.push_back(hole[(holeIndex + i) % hole.size()]);
+    }
+    merged.push_back((*outer)[bridgeIndex]);
+    for (size_t i = bridgeIndex + 1; i < count; ++i) {
+        merged.push_back((*outer)[i]);
+    }
+    *outer = std::move(merged);
+    return true;
+}
+
 } // namespace
 
 bool extrudeContourMesh(const std::vector<std::vector<QPointF>>& contours,
@@ -124,14 +202,17 @@ bool extrudeContourMesh(const std::vector<std::vector<QPointF>>& contours,
     for (const auto& contour : contours) {
         std::vector<QPointF> points = contour;
         if (points.size() >= 2 && points.front() == points.back()) points.pop_back();
-        if (points.size() < 3) continue;
+        // The contract is all-or-nothing: an invalid contour fails the call
+        // instead of silently dropping part of the input (a dropped contour
+        // could be a hole).
+        if (points.size() < 3) return false;
         bool degenerate = false;
         for (size_t i = 0; i < points.size(); ++i) {
             const QPointF& a = points[i];
             const QPointF& b = points[(i + 1) % points.size()];
             if (a == b) { degenerate = true; break; }
         }
-        if (degenerate) continue;
+        if (degenerate) return false;
         CleanContour entry;
         entry.points = std::move(points);
         entry.hole = false;
@@ -174,21 +255,34 @@ bool extrudeContourMesh(const std::vector<std::vector<QPointF>>& contours,
     QVector<QVector2D> uvs;
     QVector<QVector<int>> faces;
 
-    QRectF bounds;
+    // Accumulate min/max by hand: QRectF(p, p) is a null rectangle and
+    // QRectF::united() ignores nulls, so uniting point rectangles would leave
+    // the bounds empty and reject every valid contour.
+    double minX = 0.0;
+    double minY = 0.0;
+    double maxX = 0.0;
+    double maxY = 0.0;
     bool boundsValid = false;
     for (const auto& contour : cleaned) {
         for (const auto& p : contour.points) {
-            if (!boundsValid) { bounds = QRectF(p, p); boundsValid = true; }
-            else bounds = bounds.united(QRectF(p, p));
+            if (!boundsValid) {
+                minX = maxX = p.x();
+                minY = maxY = p.y();
+                boundsValid = true;
+            } else {
+                minX = std::min(minX, p.x());
+                minY = std::min(minY, p.y());
+                maxX = std::max(maxX, p.x());
+                maxY = std::max(maxY, p.y());
+            }
         }
     }
-    if (!boundsValid || bounds.width() <= 0.0 || bounds.height() <= 0.0) return false;
-    const double bw = bounds.width();
-    const double bh = bounds.height();
+    if (!boundsValid || maxX - minX <= 0.0 || maxY - minY <= 0.0) return false;
+    const double bw = maxX - minX;
+    const double bh = maxY - minY;
     const auto uvOf = [&](const QPointF& p) {
-        return QVector2D(
-            static_cast<float>((p.x() - bounds.left()) / bw),
-            static_cast<float>((p.y() - bounds.top()) / bh));
+        return QVector2D(static_cast<float>((p.x() - minX) / bw),
+                         static_cast<float>((p.y() - minY) / bh));
     };
 
     const auto addVertex = [&](const QVector3D& position,
@@ -292,52 +386,69 @@ bool extrudeContourMesh(const std::vector<std::vector<QPointF>>& contours,
         }
     }
 
-    // 5) キャップ（外周の ear clipping + 穴内部の三角形除去）
+    // 5) キャップ（穴は外輪郭へブリッジしてから ear clipping）
+    const float capInset = segments > 0 ? bevelOffsetZ(segments).first : 0.0f;
+    const auto insetOf = [&](const CleanContour& contour) {
+        std::vector<QPointF> inset = contour.points;
+        if (capInset <= 0.0f) return inset;
+        const double sign = contour.hole ? 1.0 : -1.0;
+        for (size_t i = 0; i < inset.size(); ++i) {
+            const QPointF n = contour.normalAt(i);
+            inset[i] = QPointF(contour.points[i].x() + n.x() * sign * capInset,
+                               contour.points[i].y() + n.y() * sign * capInset);
+        }
+        return inset;
+    };
+
     for (size_t c = 0; c < cleaned.size(); ++c) {
         if (cleaned[c].hole) continue;
-        const auto& outer = cleaned[c].points;
-        const size_t count = outer.size();
+        const auto& outerPoints = cleaned[c].points;
         const float capZFront =
             segments > 0 ? bevelOffsetZ(segments).second : halfDepth;
-        for (const bool front : {true, false}) {
-            const float z = front ? capZFront : -capZFront;
-            std::vector<QPointF> inset(count);
-            for (size_t i = 0; i < count; ++i) {
-                if (segments > 0) {
-                    const float offset = bevelOffsetZ(segments).first;
-                    const QPointF n = cleaned[c].normalAt(i);
-                    const double sign = cleaned[c].hole ? 1.0 : -1.0;
-                    inset[i] = QPointF(outer[i].x() + n.x() * sign * offset,
-                                       outer[i].y() + n.y() * sign * offset);
-                } else {
-                    inset[i] = outer[i];
-                }
+
+        std::vector<QPointF> capPolygon = insetOf(cleaned[c]);
+        std::vector<std::vector<QPointF>> unmergedHoles;
+        for (size_t h = 0; h < cleaned.size(); ++h) {
+            if (!cleaned[h].hole) continue;
+            if (!pointInContour(cleaned[h].points.front(), outerPoints)) continue;
+            std::vector<QPointF> holePolygon = insetOf(cleaned[h]);
+            if (contourSignedArea(holePolygon) > 0.0) {
+                std::reverse(holePolygon.begin(), holePolygon.end());
             }
-            auto triangles = earClipPolygon(inset, /*ccw=*/true);
+            if (!mergeHoleIntoOuter(&capPolygon, holePolygon)) {
+                // Fall back to centroid rejection if the bridge could not be built.
+                unmergedHoles.push_back(cleaned[h].points);
+            }
+        }
+
+        auto triangles = earClipPolygon(capPolygon, /*ccw=*/true);
+        if (!unmergedHoles.empty()) {
             triangles.erase(
                 std::remove_if(triangles.begin(), triangles.end(),
                                [&](const std::array<int, 3>& tri) {
                                    const QPointF centroid =
-                                       (inset[static_cast<size_t>(tri[0])] +
-                                        inset[static_cast<size_t>(tri[1])] +
-                                        inset[static_cast<size_t>(tri[2])]) /
+                                       (capPolygon[static_cast<size_t>(tri[0])] +
+                                        capPolygon[static_cast<size_t>(tri[1])] +
+                                        capPolygon[static_cast<size_t>(tri[2])]) /
                                        3.0;
-                                   for (const auto& hole : cleaned) {
-                                       if (!hole.hole) continue;
-                                       if (pointInContour(centroid, hole.points)) {
-                                           return true;
-                                       }
+                                   for (const auto& hole : unmergedHoles) {
+                                       if (pointInContour(centroid, hole)) return true;
                                    }
                                    return false;
                                }),
                 triangles.end());
+        }
+
+        const size_t count = capPolygon.size();
+        for (const bool front : {true, false}) {
+            const float z = front ? capZFront : -capZFront;
             std::vector<int> vertexIndices;
             vertexIndices.reserve(count);
             for (size_t i = 0; i < count; ++i) {
                 vertexIndices.push_back(addVertex(
-                    QVector3D(static_cast<float>(inset[i].x()),
-                              static_cast<float>(inset[i].y()), z),
-                    QVector3D(0.0f, 0.0f, front ? 1.0f : -1.0f), uvOf(inset[i])));
+                    QVector3D(static_cast<float>(capPolygon[i].x()),
+                              static_cast<float>(capPolygon[i].y()), z),
+                    QVector3D(0.0f, 0.0f, front ? 1.0f : -1.0f), uvOf(capPolygon[i])));
             }
             for (const auto& tri : triangles) {
                 if (front) {
