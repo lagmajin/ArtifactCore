@@ -337,7 +337,13 @@ void PathShape::setFill(const FillSettings& fill) {
 }
 
 QRectF PathShape::boundingRect() const {
-    QRectF bounds = toPainterPath().boundingRect();
+    const QPainterPath path = toPainterPath();
+    if (path.isEmpty()) {
+        // Nothing to outline: padding here would report a phantom box at the
+        // origin and leak it into the parent group/layer bounds.
+        return QRectF();
+    }
+    QRectF bounds = path.boundingRect();
     const auto& strokeSettings = stroke();
     if (strokeSettings.enabled && std::isfinite(strokeSettings.width) &&
         strokeSettings.width > 0.0) {
