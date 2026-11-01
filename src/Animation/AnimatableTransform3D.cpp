@@ -159,22 +159,24 @@ static float4x4 makeEulerRotation(float rotationX, float rotationY,
   const float cz = std::cos(z);
   const float sz = std::sin(z);
 
+  // Row-vector rotations matching Diligent's RotationX/Y/Z, so this class rotates
+  // in the same direction as QTransform / QMatrix4x4 / Matrix4x4::rotationZ.
   float4x4 rotationXMatrix = float4x4::Identity();
   rotationXMatrix.m11 = cx;
-  rotationXMatrix.m12 = -sx;
-  rotationXMatrix.m21 = sx;
+  rotationXMatrix.m12 = sx;
+  rotationXMatrix.m21 = -sx;
   rotationXMatrix.m22 = cx;
 
   float4x4 rotationYMatrix = float4x4::Identity();
   rotationYMatrix.m00 = cy;
-  rotationYMatrix.m02 = sy;
-  rotationYMatrix.m20 = -sy;
+  rotationYMatrix.m02 = -sy;
+  rotationYMatrix.m20 = sy;
   rotationYMatrix.m22 = cy;
 
   float4x4 rotationZMatrix = float4x4::Identity();
   rotationZMatrix.m00 = cz;
-  rotationZMatrix.m01 = -sz;
-  rotationZMatrix.m10 = sz;
+  rotationZMatrix.m01 = sz;
+  rotationZMatrix.m10 = -sz;
   rotationZMatrix.m11 = cz;
 
   return rotationZMatrix * rotationYMatrix * rotationXMatrix;
@@ -822,7 +824,7 @@ float4x4 AnimatableTransform3D::getMatrix() const
       positionX(), positionY(), positionZ());
   
   // 4. sFTranslation * Rotation * Scale
-  matrix = translationMatrix * rotationMatrix * scaleMatrix;
+  matrix = scaleMatrix * rotationMatrix * translationMatrix;  // Row vectors: leftmost applied first.
   
   return matrix;
 }
@@ -843,7 +845,7 @@ float4x4 AnimatableTransform3D::getAllMatrix() const
   float4x4 anchorMatrix = float4x4::Translation(-ax, -ay, -az);
   float4x4 translationMatrix = float4x4::Translation(positionX(), positionY(), positionZ());
 
-  return translationMatrix * rotationMatrix * scaleMatrix * anchorMatrix;
+  return anchorMatrix * scaleMatrix * rotationMatrix * translationMatrix;
 }
 
 // ============================================
@@ -876,7 +878,7 @@ float4x4 AnimatableTransform3D::getMatrixAt(const RationalTime& time) const
       float4x4::Translation(px, py, impl_->z_.at(frame));
   
   // 4. s����Translation * Rotation * Scale
-  matrix = translationMatrix * rotationMatrix * scaleMatrix;
+  matrix = scaleMatrix * rotationMatrix * translationMatrix;  // Row vectors: leftmost applied first.
   
   return matrix;
 }
@@ -906,7 +908,8 @@ float4x4 AnimatableTransform3D::getAllMatrixAt(const RationalTime& time) const
   float finalScaleY = osy;
   float finalScaleZ = osz;
 
-  // 3. Construct Final Matrix (T * R * S * A)
+  // 3. Construct the final matrix in AE order. Diligent multiplies row vectors,
+  //    so the leftmost anchor matrix is applied first.
   float4x4 scaleMatrix = float4x4::Scale(finalScaleX, finalScaleY, finalScaleZ);
 
   float4x4 rotationMatrix = makeEulerRotation(orotX, orotY, finalRot);
@@ -914,7 +917,7 @@ float4x4 AnimatableTransform3D::getAllMatrixAt(const RationalTime& time) const
   float4x4 anchorMatrix = float4x4::Translation(-ax, -ay, -az);
   float4x4 translationMatrix = float4x4::Translation(finalX, finalY, finalZ);
 
-  return translationMatrix * rotationMatrix * scaleMatrix * anchorMatrix;
+  return anchorMatrix * scaleMatrix * rotationMatrix * translationMatrix;
 }
 
 Transform3DSnapshot AnimatableTransform3D::snapshot() const
@@ -966,14 +969,19 @@ Transform3DSnapshot AnimatableTransform3D::snapshotAt(const RationalTime& time) 
 
 float2 AnimatableTransform3D::anchorPosition() const
 {
-  const auto matrix = getAllMatrix();
-  return float2{matrix.m30, matrix.m31};
+  // The anchor point in canvas space: the anchored matrix applied to the anchor,
+  // not the translation row (which is the image of the origin).
+  const float4x4 matrix = getAllMatrix();
+  const float3 mapped = float3(anchorX(), anchorY(), anchorZ()) * matrix;
+  return float2{mapped.x, mapped.y};
 }
 
 float2 AnimatableTransform3D::anchorPositionAt(const RationalTime& time) const
 {
-  const auto matrix = getAllMatrixAt(time);
-  return float2{matrix.m30, matrix.m31};
+  const float4x4 matrix = getAllMatrixAt(time);
+  const float3 mapped =
+      float3(anchorXAt(time), anchorYAt(time), anchorZAt(time)) * matrix;
+  return float2{mapped.x, mapped.y};
 }
 
 // ============================================
