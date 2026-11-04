@@ -548,6 +548,21 @@ public:
     // 内部の parameters 配列（{name,type}）を MCP が要求する JSON Schema
     // inputSchema へ変換する。既存のツール定義は壊さず、外部クライアントへ
     // 差し出せる形だけを揃える。
+    static QString toJsonSchemaScalarType(const QString& type)
+    {
+        if (type == QStringLiteral("int") || type == QStringLiteral("number")) {
+            return QStringLiteral("number");
+        }
+        if (type == QStringLiteral("bool") || type == QStringLiteral("boolean")) {
+            return QStringLiteral("boolean");
+        }
+        return QStringLiteral("string");
+    }
+
+    // "array" だけでなく "array<string>" / "array<int>" のような要素型つき指定も
+    // 配列として通知する。文字列へ落とすと外部 MCP クライアントは配列引数を
+    // 文字列として送ることになり、debug.query の select や回帰比較の期待値が
+    // 渡らない。
     static QJsonObject toInputSchema(const QJsonObject& tool)
     {
         QJsonObject properties;
@@ -558,14 +573,23 @@ public:
             if (name.isEmpty()) {
                 continue;
             }
-            const QString type = parameter.value(QStringLiteral("type")).toString();
-            properties[name] = type == QStringLiteral("int") || type == QStringLiteral("number")
-                ? QJsonObject{{QStringLiteral("type"), QStringLiteral("number")}}
-                : type == QStringLiteral("bool") || type == QStringLiteral("boolean")
-                    ? QJsonObject{{QStringLiteral("type"), QStringLiteral("boolean")}}
-                    : type == QStringLiteral("array")
-                        ? QJsonObject{{QStringLiteral("type"), QStringLiteral("array")}}
-                        : QJsonObject{{QStringLiteral("type"), QStringLiteral("string")}};
+            const QString type = parameter.value(QStringLiteral("type")).toString().trimmed();
+            if (type.startsWith(QStringLiteral("array"), Qt::CaseInsensitive)) {
+                QJsonObject schema{{QStringLiteral("type"), QStringLiteral("array")}};
+                const int open = type.indexOf('<');
+                const int close = type.lastIndexOf('>');
+                if (open > 0 && close > open) {
+                    const QString itemType = type.mid(open + 1, close - open - 1).trimmed();
+                    if (!itemType.isEmpty()) {
+                        schema[QStringLiteral("items")] = QJsonObject{
+                            {QStringLiteral("type"), toJsonSchemaScalarType(itemType)}};
+                    }
+                }
+                properties[name] = schema;
+                continue;
+            }
+            properties[name] = QJsonObject{
+                {QStringLiteral("type"), toJsonSchemaScalarType(type)}};
         }
         return QJsonObject{
             {QStringLiteral("type"), QStringLiteral("object")},
