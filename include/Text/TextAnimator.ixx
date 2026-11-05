@@ -139,6 +139,12 @@ export struct AnimatorProperties {
   float skew = 0.0f;
   float tracking = 0.0f;
   float z = 0.0f;
+  // Vertical shift applied to every selected glyph, in glyph-space units.
+  float baselineShift = 0.0f;
+  // Offsets this animator's rotation/scale pivot from the selector's anchor
+  // grouping pivot, so a glyph can be transformed around a point that is not
+  // the glyph/word/line centre.  Zero keeps the grouping pivot.
+  QPointF anchorPoint = {0, 0};
 
   // カラーアニメーション
   bool colorEnabled = false;

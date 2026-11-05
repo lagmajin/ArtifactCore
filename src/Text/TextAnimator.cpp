@@ -703,7 +703,8 @@ void TextAnimatorEngine::applyAnimator(
         // the individual glyph center.
         const QPointF glyphCenter = glyphs[i].bounds.center();
         const QPointF relative =
-            glyphCenter - anchorPoints[static_cast<size_t>(i)];
+            glyphCenter -
+            (anchorPoints[static_cast<size_t>(i)] + props.anchorPoint);
         // scaleX/scaleY are opt-in: while neither is authored they collapse to
         // `scale`, so a uniform scale keeps its exact previous behavior.
         const bool perAxisScaleAuthored =
@@ -733,6 +734,8 @@ void TextAnimatorEngine::applyAnimator(
 
         // トランスフォーム
         glyphs[i].offsetPosition += props.position * totalWeight;
+        glyphs[i].offsetPosition +=
+            QPointF(0.0, props.baselineShift * totalWeight);
         glyphs[i].offsetScale *= weightedScale;
         glyphs[i].offsetScaleX *= weightedScaleX;
         glyphs[i].offsetScaleY *= weightedScaleY;
