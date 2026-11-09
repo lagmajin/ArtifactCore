@@ -15,9 +15,11 @@ import Core.Parallel;
 export namespace ArtifactCore {
 
 enum class SurfacePixelTarget : std::uint8_t {
-  Rgba8SrgbStraight,
-  Rgba16LinearStraight,
-  Rgba32LinearStraight,
+  Rgba8SrgbStraight,          // Encoded sRGB; RGB is unassociated with alpha.
+  Rgba16LinearStraight,       // Linear float16; RGB is unassociated with alpha.
+  Rgba32LinearStraight,       // Linear float32; RGB is unassociated with alpha.
+  Rgba16LinearPremultiplied,  // Linear float16; RGB is multiplied by alpha.
+  Rgba32LinearPremultiplied,  // Linear float32; RGB is multiplied by alpha.
 };
 
 struct SurfacePixelBuffer {
@@ -120,15 +122,27 @@ inline void convertSurfacePixelsInto(
   output.width = static_cast<std::uint32_t>(width);
   output.height = static_cast<std::uint32_t>(height);
   const bool outputFloat = target != SurfacePixelTarget::Rgba8SrgbStraight;
-  const bool outputHalf = target == SurfacePixelTarget::Rgba16LinearStraight;
+  const bool outputHalf = target == SurfacePixelTarget::Rgba16LinearStraight ||
+                          target == SurfacePixelTarget::Rgba16LinearPremultiplied;
+  const bool outputPremultiplied =
+      target == SurfacePixelTarget::Rgba16LinearPremultiplied ||
+      target == SurfacePixelTarget::Rgba32LinearPremultiplied;
   output.rowStride = static_cast<std::uint64_t>(output.width) * 4u *
                      (outputFloat ? (outputHalf ? sizeof(std::uint16_t) : sizeof(float))
                                   : sizeof(std::uint8_t));
   output.bytes.resize(static_cast<std::size_t>(output.rowStride) * static_cast<std::size_t>(output.height));
-  output.descriptor = outputHalf
-                          ? SurfaceColorDescriptor::linearStraightRgba16Float()
-                          : (outputFloat ? SurfaceColorDescriptor::linearStraightRgba32Float()
-                                         : SurfaceColorDescriptor::encodedSrgbRgba8Straight());
+  if (outputHalf) {
+    output.descriptor = outputPremultiplied
+        ? SurfaceColorDescriptor::canonicalLinearPremultiplied()
+        : SurfaceColorDescriptor::linearStraightRgba16Float();
+    output.descriptor.storage = SurfacePixelStorage::RGBA16Float;
+  } else if (outputFloat) {
+    output.descriptor = outputPremultiplied
+        ? SurfaceColorDescriptor::canonicalLinearPremultiplied()
+        : SurfaceColorDescriptor::linearStraightRgba32Float();
+  } else {
+    output.descriptor = SurfaceColorDescriptor::encodedSrgbRgba8Straight();
+  }
 
   const bool sourcePremultiplied =
       sourceDescriptor.alphaMode == SurfaceAlphaMode::Premultiplied;
@@ -247,6 +261,12 @@ inline void convertSurfacePixelsInto(
     blue =
         SurfacePixelConversionDetail::decodeToLinear(blue, sourceDescriptor);
 
+    if (outputPremultiplied) {
+      red *= alpha;
+      green *= alpha;
+      blue *= alpha;
+    }
+
     if (outputHalf) {
       const float converted[4] = {red, green, blue, alpha};
       auto *half = reinterpret_cast<std::uint16_t *>(output.bytes.data() + index * sizeof(converted) / 2u);
@@ -274,6 +294,140 @@ inline void convertSurfacePixelsInto(
     convertPixel(index);
   }
 
+}
+
+// Convert supported surface inputs to float32 in a fully specified target
+// descriptor. The output buffer can be retained by a caller workspace;
+// steady-size frames reuse its byte capacity.
+inline bool convertSurfacePixelsToDescriptorInto(
+    SurfacePixelBuffer &output, const float *sourceFloat,
+    const std::uint8_t *sourceByte, int width, int height,
+    const SurfaceColorDescriptor &sourceDescriptor,
+    const SurfaceColorDescriptor &targetDescriptor) {
+  output.width = 0;
+  output.height = 0;
+  output.rowStride = 0;
+  output.descriptor = SurfaceColorDescriptor::unknown();
+  if (width <= 0 || height <= 0 || (!sourceFloat && !sourceByte) ||
+      !SurfacePixelConversionDetail::supportedPrimaries(sourceDescriptor) ||
+      !SurfacePixelConversionDetail::supportedPrimaries(targetDescriptor) ||
+      targetDescriptor.storage != SurfacePixelStorage::RGBA32Float ||
+      !targetDescriptor.isFullySpecified() ||
+      (targetDescriptor.channelOrder != SurfaceChannelOrder::RGBA &&
+       targetDescriptor.channelOrder != SurfaceChannelOrder::BGRA) ||
+      (targetDescriptor.alphaMode == SurfaceAlphaMode::Opaque &&
+       sourceDescriptor.alphaMode != SurfaceAlphaMode::Opaque) ||
+      targetDescriptor.range == SurfaceColorRange::Data ||
+      (targetDescriptor.alphaMode != SurfaceAlphaMode::Opaque &&
+       targetDescriptor.alphaMode != SurfaceAlphaMode::Straight &&
+       targetDescriptor.alphaMode != SurfaceAlphaMode::Premultiplied)) {
+    output.bytes.clear();
+    return false;
+  }
+
+  const bool sourceIsRgba =
+      sourceDescriptor.channelOrder == SurfaceChannelOrder::RGBA;
+  const bool sourceIsBgra =
+      sourceDescriptor.channelOrder == SurfaceChannelOrder::BGRA ||
+      sourceDescriptor.channelOrder == SurfaceChannelOrder::Unknown;
+  if (!sourceIsRgba && !sourceIsBgra) {
+    output.bytes.clear();
+    return false;
+  }
+
+  output.width = static_cast<std::uint32_t>(width);
+  output.height = static_cast<std::uint32_t>(height);
+  output.rowStride = static_cast<std::uint64_t>(width) * 4u * sizeof(float);
+  output.bytes.resize(static_cast<std::size_t>(output.rowStride) *
+                      static_cast<std::size_t>(height));
+  output.descriptor = targetDescriptor;
+
+  const bool sourcePremultiplied =
+      sourceDescriptor.alphaMode == SurfaceAlphaMode::Premultiplied;
+  const bool sourceOpaque =
+      sourceDescriptor.alphaMode == SurfaceAlphaMode::Opaque;
+  const bool targetPremultiplied =
+      targetDescriptor.alphaMode == SurfaceAlphaMode::Premultiplied;
+  const bool targetOpaque =
+      targetDescriptor.alphaMode == SurfaceAlphaMode::Opaque;
+  const bool targetIsRgba =
+      targetDescriptor.channelOrder == SurfaceChannelOrder::RGBA;
+  constexpr float alphaEpsilon = 1.0e-6f;
+  const std::size_t pixelCount =
+      static_cast<std::size_t>(width) * static_cast<std::size_t>(height);
+
+  Parallel::ForPixels(0, height, width, height, 16, [&](int y) {
+    const std::size_t rowOffset =
+        static_cast<std::size_t>(y) * static_cast<std::size_t>(width);
+    for (int x = 0; x < width; ++x) {
+      const std::size_t index = rowOffset + static_cast<std::size_t>(x);
+      float channels[4]{};
+      if (sourceFloat) {
+        for (int channel = 0; channel < 4; ++channel) {
+          channels[channel] = sourceFloat[index * 4u +
+                                           static_cast<std::size_t>(channel)];
+        }
+      } else {
+        for (int channel = 0; channel < 4; ++channel) {
+          channels[channel] = static_cast<float>(
+              sourceByte[index * 4u + static_cast<std::size_t>(channel)]) /
+              255.0f;
+        }
+      }
+
+      float alpha = sourceOpaque
+          ? 1.0f
+          : std::clamp(SurfacePixelConversionDetail::finiteOrZero(channels[3]),
+                       0.0f, 1.0f);
+      float red = sourceIsRgba ? channels[0] : channels[2];
+      float green = channels[1];
+      float blue = sourceIsRgba ? channels[2] : channels[0];
+      if (sourcePremultiplied) {
+        if (alpha > alphaEpsilon) {
+          red /= alpha;
+          green /= alpha;
+          blue /= alpha;
+        } else {
+          red = green = blue = 0.0f;
+        }
+      }
+      if (alpha <= alphaEpsilon) {
+        red = green = blue = 0.0f;
+      }
+
+      red = SurfacePixelConversionDetail::decodeToLinear(red, sourceDescriptor);
+      green = SurfacePixelConversionDetail::decodeToLinear(green, sourceDescriptor);
+      blue = SurfacePixelConversionDetail::decodeToLinear(blue, sourceDescriptor);
+
+      const auto encode = [&](float value) {
+        return targetDescriptor.transferKnown
+            ? ColorTransferFunction::encode(value, targetDescriptor.transfer)
+            : ColorTransferFunction::linearToSRGB(value);
+      };
+      red = encode(red);
+      green = encode(green);
+      blue = encode(blue);
+      if (targetPremultiplied) {
+        red *= alpha;
+        green *= alpha;
+        blue *= alpha;
+      }
+      if (targetOpaque) {
+        alpha = 1.0f;
+      }
+
+      float *destination = reinterpret_cast<float *>(
+          output.bytes.data() + index * 4u * sizeof(float));
+      destination[targetIsRgba ? 0 : 2] =
+          SurfacePixelConversionDetail::finiteOrZero(red);
+      destination[1] = SurfacePixelConversionDetail::finiteOrZero(green);
+      destination[targetIsRgba ? 2 : 0] =
+          SurfacePixelConversionDetail::finiteOrZero(blue);
+      destination[3] = alpha;
+    }
+  });
+
+  return output.bytes.size() == pixelCount * 4u * sizeof(float);
 }
 
 inline SurfacePixelBuffer convertSurfacePixels(

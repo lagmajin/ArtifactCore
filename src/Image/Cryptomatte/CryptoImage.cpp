@@ -71,8 +71,11 @@ void CryptoImage::fromMaterialIdBuffer(const std::vector<float>& ids, int width,
 void CryptoImage::fromIdCoverageBuffers(const std::vector<float>& ids,
                                         const std::vector<float>& coverage,
                                         int width, int height) {
+    // resize() rejects non-positive extents, so the pixel count is only
+    // computed from validated dimensions.
+    if (!resize(width, height)) return;
     const auto count = static_cast<std::size_t>(width) * static_cast<std::size_t>(height);
-    if (!resize(width, height) || ids.size() < count || coverage.size() < count) return;
+    if (ids.size() < count || coverage.size() < count) return;
     for (std::size_t i = 0; i < count; ++i) {
         if (std::isfinite(ids[i]) && std::isfinite(coverage[i]) && ids[i] > 0.0f)
             pixels_[i].addSample(ids[i], coverage[i]);
@@ -80,8 +83,13 @@ void CryptoImage::fromIdCoverageBuffers(const std::vector<float>& ids,
 }
 
 void CryptoImage::fromIdBuffer(const std::vector<float>& ids, int width, int height) {
-    if (!resize(width, height) || ids.size() < static_cast<std::size_t>(width) * height) return;
-    for (std::size_t i = 0; i < static_cast<std::size_t>(width) * height; ++i) {
+    // resize() rejects non-positive extents, so the pixel count is only
+    // computed from validated dimensions. Both operands are unsigned to keep
+    // the multiplication free of signed overflow.
+    if (!resize(width, height)) return;
+    const auto count = static_cast<std::size_t>(width) * static_cast<std::size_t>(height);
+    if (ids.size() < count) return;
+    for (std::size_t i = 0; i < count; ++i) {
         if (std::isfinite(ids[i]) && ids[i] > 0.0f) pixels_[i].addSample(ids[i], 1.0f);
     }
 }

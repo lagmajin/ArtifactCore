@@ -71,6 +71,10 @@ void CryptoPixel::addSample(float id, float coverage) {
     for (int i = 0; i < count_; ++i) {
         if (samples_[i].id == id) {
             samples_[i].coverage = std::clamp(samples_[i].coverage + coverage, 0.0f, 1.0f);
+            // The accumulated coverage can exceed the neighbouring samples, so
+            // the descending coverage order has to be restored before the
+            // rank lookups that rely on it.
+            sort();
             return;
         }
     }
