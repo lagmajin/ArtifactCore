@@ -716,6 +716,30 @@ void ArtifactAppSettings::setTimelineMotionBlurShutterPhase(double degrees) {
     notifySettingsChanged();
 }
 
+int ArtifactAppSettings::timelineMotionBlurShutterShape() const {
+    return std::clamp(static_cast<int>(impl_->store.valueInt64(
+        QStringLiteral("UI/Timeline/MotionBlurShutterShape"), 0)), 0, 2);
+}
+
+void ArtifactAppSettings::setTimelineMotionBlurShutterShape(int shape) {
+    impl_->store.setValue(QStringLiteral("UI/Timeline/MotionBlurShutterShape"),
+                          std::clamp(shape, 0, 2));
+    notifySettingsChanged();
+}
+
+double ArtifactAppSettings::timelineMotionBlurTrapezoidPlateau() const {
+    return std::clamp(impl_->store.value(
+        QStringLiteral("UI/Timeline/MotionBlurTrapezoidPlateau"), 0.5).toDouble(),
+        0.0, 0.9999);
+}
+
+void ArtifactAppSettings::setTimelineMotionBlurTrapezoidPlateau(double fraction) {
+    impl_->store.setValue(
+        QStringLiteral("UI/Timeline/MotionBlurTrapezoidPlateau"),
+        std::clamp(std::isfinite(fraction) ? fraction : 0.5, 0.0, 0.9999));
+    notifySettingsChanged();
+}
+
 int ArtifactAppSettings::compositionAntiAliasingMode() const {
     return std::clamp(static_cast<int>(impl_->store.valueInt64(
         QStringLiteral("UI/Composition/AntiAliasingMode"), 1)), 0, 2);

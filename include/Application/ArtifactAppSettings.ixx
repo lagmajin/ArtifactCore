@@ -115,6 +115,10 @@ public:
     void setTimelineMotionBlurSampleCount(int count);
     double timelineMotionBlurShutterPhase() const;
     void setTimelineMotionBlurShutterPhase(double degrees);
+    int timelineMotionBlurShutterShape() const;
+    void setTimelineMotionBlurShutterShape(int shape);
+    double timelineMotionBlurTrapezoidPlateau() const;
+    void setTimelineMotionBlurTrapezoidPlateau(double fraction);
     int compositionAntiAliasingMode() const;
     void setCompositionAntiAliasingMode(int mode);
     bool timelineFrameBlendingActive() const;
