@@ -7,9 +7,10 @@ module;
 
 export module Container.IdMap;
 
-import Container.Debug;
+export import Container.Debug;
 import Container.NamedVector;
 import Core.ArtifactArray;
+import Core.ArtifactHashMap;
 
 export namespace ArtifactCore {
 
@@ -20,6 +21,33 @@ public:
   using Value = V;
 
   IdMap() = default;
+
+  IdMap(const IdMap& other)
+    : values_(other.values_.bucket_count())
+    , name_(other.name_)
+    , domain_(other.domain_)
+    , owner_(other.owner_)
+    , counters_(other.counters_)
+    , createdAt_(other.createdAt_)
+    , lastMutatedAt_(other.lastMutatedAt_)
+    , lastFailedAccessAt_(other.lastFailedAccessAt_)
+    , lastMutation_(other.lastMutation_)
+    , mutationHistory_(other.mutationHistory_)
+    , observedCapacity_(other.observedCapacity_)
+  {
+    for (const auto& [key, value] : other.values_) values_.tryEmplace(key, value);
+  }
+
+  IdMap& operator=(const IdMap& other)
+  {
+    if (this == &other) return *this;
+    IdMap copy(other);
+    *this = std::move(copy);
+    return *this;
+  }
+
+  IdMap(IdMap&&) noexcept = default;
+  IdMap& operator=(IdMap&&) noexcept = default;
 
   explicit IdMap(ContainerName name) noexcept
     : name_(name)
@@ -70,7 +98,7 @@ public:
   bool contains(const K& key) const
   {
     ++counters_.readCount;
-    return values_.find(key) != values_.end();
+    return values_.contains(key);
   }
 
   std::size_t capacity() const noexcept
@@ -96,23 +124,23 @@ public:
   V* at(const K& key)
   {
     ++counters_.readCount;
-    auto it = values_.find(key);
-    if (it == values_.end()) {
+    V* const value = values_.findValue(key);
+    if (!value) {
       bumpFailedAccess();
       return nullptr;
     }
-    return &it->second;
+    return value;
   }
 
   const V* at(const K& key) const
   {
     ++counters_.readCount;
-    auto it = values_.find(key);
-    if (it == values_.end()) {
+    const V* const value = values_.findValue(key);
+    if (!value) {
       bumpFailedAccess();
       return nullptr;
     }
-    return &it->second;
+    return value;
   }
 
   V& operator[](const K& key)
@@ -144,29 +172,29 @@ public:
   V value(const K& key, V defaultValue = V{}) const
   {
     ++counters_.readCount;
-    const auto it = values_.find(key);
-    return it == values_.end() ? std::move(defaultValue) : it->second;
+    const V* const found = values_.findValue(key);
+    return found ? *found : std::move(defaultValue);
   }
 
   template <typename... Args>
   std::pair<V*, bool> tryEmplace(const K& key, Args&&... args)
   {
     const auto before = values_.size();
-    auto [it, inserted] = values_.try_emplace(key, std::forward<Args>(args)...);
+    auto [it, inserted] = values_.tryEmplace(key, std::forward<Args>(args)...);
     if (inserted) recordMutation("tryEmplace", before, values_.size());
     return {&it->second, inserted};
   }
 
   bool tryTake(const K& key, V& result)
   {
-    auto it = values_.find(key);
-    if (it == values_.end()) {
+    V* const found = values_.findValue(key);
+    if (!found) {
       bumpFailedAccess();
       return false;
     }
     const auto before = values_.size();
-    result = std::move(it->second);
-    values_.erase(it);
+    result = std::move(*found);
+    values_.erase(key);
     recordMutation("tryTake", before, values_.size());
     return true;
   }
@@ -241,7 +269,10 @@ public:
 
   std::unordered_map<K, V> toStdUnorderedMap() const
   {
-    return values_;
+    std::unordered_map<K, V> result;
+    result.reserve(values_.size());
+    for (const auto& [key, value] : values_) result.emplace(key, value);
+    return result;
   }
 
   auto begin() const noexcept { return values_.begin(); }
@@ -346,7 +377,7 @@ public:
     };
   }
 
-  ContainerDebugSnapshot debugSnapshot() const noexcept
+  ContainerDebugSnapshot debugSnapshot() const
   {
     const auto samples = debugSample(4);
     return ContainerDebugSnapshot{
@@ -356,7 +387,7 @@ public:
       lastMutatedAt_,
       lastFailedAccessAt_,
       lastMutation_,
-      samples
+      samples.toStdVector()
     };
   }
 
@@ -447,7 +478,7 @@ private:
     }
   }
 
-  std::unordered_map<K, V> values_;
+  ArtifactHashMap<K, V> values_;
   ContainerName name_;
   ContainerDomain domain_ = ContainerDomain::Unknown;
   ContainerOwner owner_{};

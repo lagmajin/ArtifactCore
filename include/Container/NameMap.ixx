@@ -1,5 +1,6 @@
 module;
 #include <cstddef>
+#include <algorithm>
 #include <map>
 #include <typeinfo>
 #include <utility>
@@ -7,7 +8,7 @@ module;
 
 export module Container.NameMap;
 
-import Container.Debug;
+export import Container.Debug;
 import Container.NamedVector;
 import Core.ArtifactArray;
 import Core.ArtifactHashMap;
@@ -21,6 +22,40 @@ public:
   using Value = V;
 
   NameMap() = default;
+
+  NameMap(const NameMap& other)
+    : name_(other.name_)
+    , domain_(other.domain_)
+    , owner_(other.owner_)
+    , counters_(other.counters_)
+    , createdAt_(other.createdAt_)
+    , lastMutatedAt_(other.lastMutatedAt_)
+    , lastFailedAccessAt_(other.lastFailedAccessAt_)
+    , lastMutation_(other.lastMutation_)
+    , mutationHistory_(other.mutationHistory_)
+  {
+    other.eachKeyValue([this](const K& key, const V& value) { values_[key] = value; });
+  }
+
+  NameMap& operator=(const NameMap& other)
+  {
+    if (this == &other) return *this;
+    NameMap copy(other);
+    values_ = std::move(copy.values_);
+    name_ = copy.name_;
+    domain_ = copy.domain_;
+    owner_ = copy.owner_;
+    counters_ = copy.counters_;
+    createdAt_ = copy.createdAt_;
+    lastMutatedAt_ = copy.lastMutatedAt_;
+    lastFailedAccessAt_ = copy.lastFailedAccessAt_;
+    lastMutation_ = copy.lastMutation_;
+    mutationHistory_ = std::move(copy.mutationHistory_);
+    return *this;
+  }
+
+  NameMap(NameMap&&) noexcept = default;
+  NameMap& operator=(NameMap&&) noexcept = default;
 
   explicit NameMap(ContainerName name) noexcept
     : name_(name)
@@ -94,6 +129,18 @@ public:
       return nullptr;
     }
     return &it->second;
+  }
+
+  V* findValue(const K& key)
+  {
+    ++counters_.readCount;
+    return values_.findValue(key);
+  }
+
+  const V* findValue(const K& key) const
+  {
+    ++counters_.readCount;
+    return values_.findValue(key);
   }
 
   V& operator[](const K& key)
@@ -219,7 +266,8 @@ public:
   {
     NamedVector<K> result(name_, domain_);
     result.reserve(values_.size());
-    for (const auto& [key, value] : values_) {
+    const auto ordered = toStdMap();
+    for (const auto& [key, value] : ordered) {
       result.add(key);
     }
     return result;
@@ -229,7 +277,8 @@ public:
   {
     NamedVector<V> result(name_, domain_);
     result.reserve(values_.size());
-    for (const auto& [key, value] : values_) {
+    const auto ordered = toStdMap();
+    for (const auto& [key, value] : ordered) {
       result.add(value);
     }
     return result;
@@ -360,13 +409,14 @@ public:
     };
   }
 
-  NamedVector<ContainerElementSample> debugSample(std::size_t limit = 4) const
+  std::vector<ContainerElementSample> debugSample(std::size_t limit = 4) const
   {
-    NamedVector<ContainerElementSample> samples{ContainerName{"NameMapElementSamples"}};
+    std::vector<ContainerElementSample> samples;
+    samples.reserve((std::min)(limit, values_.size()));
     std::size_t index = 0;
     for (const auto& [key, value] : values_) {
       if (index >= limit) break;
-      samples.add(ContainerElementSample{index, static_cast<const void*>(&value), "sample"});
+      samples.push_back(ContainerElementSample{index, static_cast<const void*>(&value), "sample"});
       ++index;
     }
     return samples;

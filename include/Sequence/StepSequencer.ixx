@@ -2,9 +2,10 @@ module;
 
 #include <algorithm>
 #include <cstdint>
-#include <vector>
 
 export module Sequence.StepSequencer;
+
+import Container.NamedVector;
 
 export namespace ArtifactCore {
 
@@ -31,7 +32,9 @@ public:
 
   void setStepCount(std::int32_t count) {
     const auto previousCount = stepCount();
-    const bool usedDefaultLoop = previousCount > 0 && loopEnd_ == previousCount - 1;
+    const bool initializeDefaultLoop = previousCount == 0;
+    const bool usedDefaultLoop = initializeDefaultLoop ||
+        (previousCount > 0 && loopEnd_ == previousCount - 1);
     count = std::clamp<std::int32_t>(count, 1, 4096);
     steps_.resize(static_cast<std::size_t>(count));
     loopStart_ = std::clamp(loopStart_, 0, count - 1);
@@ -42,11 +45,11 @@ public:
   std::int32_t stepCount() const { return static_cast<std::int32_t>(steps_.size()); }
 
   const StepSequencerStep &step(std::int32_t index) const {
-    return steps_.at(static_cast<std::size_t>(checkedIndex(index)));
+    return steps_[static_cast<std::size_t>(checkedIndex(index))];
   }
 
   void setStep(std::int32_t index, const StepSequencerStep &value) {
-    steps_.at(static_cast<std::size_t>(checkedIndex(index))) = value;
+    steps_[static_cast<std::size_t>(checkedIndex(index))] = value;
   }
 
   std::int32_t currentStep() const { return currentStep_; }
@@ -72,9 +75,10 @@ public:
 
   // Advance by signed step count and return the resulting active step.
   const StepSequencerStep &advance(std::int32_t amount = 1) {
-    const auto span = loopEnd_ - loopStart_ + 1;
-    const auto offset = ((currentStep_ - loopStart_ + amount) % span + span) % span;
-    currentStep_ = loopStart_ + offset;
+    const auto span = static_cast<std::int64_t>(loopEnd_) - loopStart_ + 1;
+    const auto relative = static_cast<std::int64_t>(currentStep_ - loopStart_) + amount;
+    const auto offset = ((relative % span) + span) % span;
+    currentStep_ = static_cast<std::int32_t>(loopStart_ + offset);
     return current();
   }
 
@@ -90,7 +94,8 @@ private:
     return std::clamp(index, 0, stepCount() - 1);
   }
 
-  std::vector<StepSequencerStep> steps_;
+  NamedVector<StepSequencerStep> steps_ =
+      makeNamedVector<StepSequencerStep>("Sequence.StepSequencer.steps");
   std::int32_t currentStep_ = 0;
   std::int32_t loopStart_ = 0;
   std::int32_t loopEnd_ = 0;

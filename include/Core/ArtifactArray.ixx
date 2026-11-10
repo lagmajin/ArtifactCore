@@ -4,6 +4,7 @@ module;
 #include <cassert>
 #include <functional>
 #include <utility>
+#include <type_traits>
 #include <new>
 #include <initializer_list>
 #include <cstring>
@@ -63,38 +64,36 @@ public:
     // --- Insert / Replace ---
     void insert(size_t index, const T& v) {
         if (index > size_) return;
-        if (aliasesStorage(v)) {
-            T staged(v);
-            insert(index, std::move(staged));
-            return;
-        }
-        ensureAppendCapacity();
-        for (size_t i = size_; i > index; --i) { new (data_ + i) T(std::move(data_[i - 1])); data_[i - 1].~T(); }
-        new (data_ + index) T(v);
-        ++size_;
+        if (size_ == maxSize()) throw std::bad_array_new_length();
+        const size_t newCapacity = capacityFor(size_ + 1);
+        T staged(v);
+        insertStaged(index, staged, newCapacity);
     }
     void insert(size_t index, T&& v) {
         if (index > size_) return;
-        if (aliasesStorage(v)) {
-            T staged(std::move(v));
-            insert(index, std::move(staged));
-            return;
-        }
-        ensureAppendCapacity();
-        for (size_t i = size_; i > index; --i) { new (data_ + i) T(std::move(data_[i - 1])); data_[i - 1].~T(); }
-        new (data_ + index) T(std::move(v));
-        ++size_;
+        if (size_ == maxSize()) throw std::bad_array_new_length();
+        const size_t newCapacity = capacityFor(size_ + 1);
+        T staged(std::move(v));
+        insertStaged(index, staged, newCapacity);
     }
     void replace(size_t index, const T& v) {
         if (index >= size_) return;
-        if (aliasesStorage(v)) {
-            T staged(v);
+        T staged(v);
+        if constexpr (std::is_nothrow_move_constructible_v<T>) {
             data_[index].~T();
             new (data_ + index) T(std::move(staged));
-            return;
+        } else {
+            rebuildStorage(size_, capacity_, [&](T* newData, size_t& constructed) {
+                for (size_t source = 0; source < size_; ++source) {
+                    if (source == index) {
+                        new (newData + constructed) T(std::move_if_noexcept(staged));
+                    } else {
+                        new (newData + constructed) T(std::move_if_noexcept(data_[source]));
+                    }
+                    ++constructed;
+                }
+            });
         }
-        data_[index].~T();
-        new (data_ + index) T(v);
     }
 
     // --- Safe access ---
@@ -125,9 +124,20 @@ public:
     // --- Remove ---
     void removeAt(size_t index) {
         if (index >= size_) return;
-        data_[index].~T();
-        for (size_t i = index + 1; i < size_; ++i) { new (data_ + i - 1) T(std::move(data_[i])); data_[i].~T(); }
-        --size_;
+        if (index + 1 == size_) { removeLast(); return; }
+        if constexpr (std::is_nothrow_move_constructible_v<T>) {
+            data_[index].~T();
+            for (size_t i = index + 1; i < size_; ++i) { new (data_ + i - 1) T(std::move(data_[i])); data_[i].~T(); }
+            --size_;
+        } else {
+            rebuildStorage(size_ - 1, capacity_, [&](T* newData, size_t& constructed) {
+                for (size_t source = 0; source < size_; ++source) {
+                    if (source == index) continue;
+                    new (newData + constructed) T(std::move_if_noexcept(data_[source]));
+                    ++constructed;
+                }
+            });
+        }
     }
     void removeFirst() { removeAt(0); }
     void removeLast() { if (size_ == 0) return; data_[size_ - 1].~T(); --size_; }
@@ -265,6 +275,60 @@ private:
         return !less(source, data_) && less(source, data_ + size_);
     }
 
+    size_t capacityFor(size_t required) const {
+        if (required > maxSize()) throw std::bad_array_new_length();
+        if (required <= capacity_) return capacity_;
+        size_t newCapacity = capacity_ == 0
+            ? 4
+            : (capacity_ > maxSize() / 2 ? maxSize() : capacity_ * 2);
+        if (newCapacity < required) newCapacity = required;
+        return newCapacity;
+    }
+
+    template <typename Builder>
+    void rebuildStorage(size_t newSize, size_t newCapacity, Builder&& builder) {
+        T* newData = newCapacity == 0 ? nullptr : allocateStorage(newCapacity);
+        size_t constructed = 0;
+        try {
+            builder(newData, constructed);
+        } catch (...) {
+            while (constructed > 0) newData[--constructed].~T();
+            if (newData) deallocateStorage(newData);
+            throw;
+        }
+
+        destroyAll();
+        if (data_) deallocateStorage(data_);
+        data_ = newData;
+        size_ = newSize;
+        capacity_ = newCapacity;
+    }
+
+    void insertStaged(size_t index, T& staged, size_t newCapacity) {
+        if constexpr (std::is_nothrow_move_constructible_v<T>) {
+            if (newCapacity > capacity_) reserve(newCapacity);
+            for (size_t i = size_; i > index; --i) {
+                new (data_ + i) T(std::move(data_[i - 1]));
+                data_[i - 1].~T();
+            }
+            new (data_ + index) T(std::move(staged));
+            ++size_;
+        } else {
+            rebuildStorage(size_ + 1, newCapacity, [&](T* newData, size_t& constructed) {
+                for (size_t source = 0; source < index; ++source) {
+                    new (newData + constructed) T(std::move_if_noexcept(data_[source]));
+                    ++constructed;
+                }
+                new (newData + constructed) T(std::move_if_noexcept(staged));
+                ++constructed;
+                for (size_t source = index; source < size_; ++source) {
+                    new (newData + constructed) T(std::move_if_noexcept(data_[source]));
+                    ++constructed;
+                }
+            });
+        }
+    }
+
     void reallocate(size_t newCapacity) {
         if (newCapacity == 0) {
             release();
@@ -302,10 +366,7 @@ private:
     }
     void ensureCapacity(size_t n) {
         if (n <= capacity_) return;
-        if (n > maxSize()) throw std::bad_array_new_length();
-        size_t nc = capacity_ == 0 ? 4 : (capacity_ > maxSize() / 2 ? maxSize() : capacity_ * 2);
-        if (nc < n) nc = n;
-        reserve(nc);
+        reserve(capacityFor(n));
     }
     void ensureAppendCapacity() {
         if (size_ == maxSize()) throw std::bad_array_new_length();
@@ -336,6 +397,27 @@ struct StaticArray {
     constexpr void fill(const T& value) {
         for (auto& element : elements) element = value;
     }
+};
+
+template <typename T>
+struct StaticArray<T, 0> {
+    constexpr T* begin() noexcept { return nullptr; }
+    constexpr T* end() noexcept { return nullptr; }
+    constexpr const T* begin() const noexcept { return nullptr; }
+    constexpr const T* end() const noexcept { return nullptr; }
+    static constexpr std::size_t size() noexcept { return 0; }
+    static constexpr bool isEmpty() noexcept { return true; }
+
+    constexpr T& operator[](std::size_t) noexcept {
+        assert(false && "StaticArray<T, 0> has no elements");
+        return *static_cast<T*>(nullptr);
+    }
+    constexpr const T& operator[](std::size_t) const noexcept {
+        assert(false && "StaticArray<T, 0> has no elements");
+        return *static_cast<const T*>(nullptr);
+    }
+
+    constexpr void fill(const T&) noexcept {}
 };
 
 template <typename T, std::size_t N>

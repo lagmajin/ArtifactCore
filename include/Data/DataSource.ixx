@@ -4,12 +4,12 @@ module;
 #include <string_view>
 #include <vector>
 #include <filesystem>
-#include <unordered_map>
 #include <functional>
 
 export module Data.DataSource;
 
 import Container.NamedVector;
+import Container.NameMap;
 
 import Data.DataTable;
 import Data.ColumnType;
@@ -73,11 +73,8 @@ public:
     DataSourcePtr open(const String& uri) {
         const std::string uriStd = toStdString(uri);
         std::string ext = extensionFromUri(uriStd);
-        auto it = factories_.find(ext);
-        if (it != factories_.end()) {
-            return it->second(uri);
-        }
-        return nullptr;
+        const DataSourceFactory* const factory = factories_.findValue(ext);
+        return factory && *factory ? (*factory)(uri) : nullptr;
     }
 
     DataSourcePtr open(const std::filesystem::path& path) {
@@ -104,7 +101,8 @@ private:
         return ext;
     }
 
-    std::unordered_map<std::string, DataSourceFactory> factories_;
+    NameMap<std::string, DataSourceFactory> factories_{
+        ContainerName{"Data.DataSourceRegistry.factories"}};
 };
 
 } // namespace ArtifactCore

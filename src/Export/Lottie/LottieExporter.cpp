@@ -13,12 +13,12 @@ module;
 #include <algorithm>
 #include <any>
 #include <cmath>
-#include <unordered_map>
 #include <vector>
 
 module Export.Lottie.Exporter;
 
 import Container.NamedVector;
+import Core.ArtifactHashMap;
 import Export.Lottie.Types;
 
 namespace ArtifactCore::Export::Lottie {
@@ -561,24 +561,27 @@ bool LottieExporter::validate(const LottieDocument& document, QString* errorMess
     if (document.ip < 0 || document.op <= document.ip) {
         return fail(QStringLiteral("Lottie in/out frame range is invalid."));
     }
-    std::unordered_map<int, const LottieLayer*> layersByIndex;
-    std::unordered_map<std::string, bool> assetIds;
+    ArtifactHashMap<int, const LottieLayer*> layersByIndex;
+    layersByIndex.reserve(document.layers.size());
+    ArtifactHashMap<std::string, bool> assetIds;
+    assetIds.reserve(document.assets.size());
     for (const auto& assetValue : document.assets) {
         if (const auto* image = std::any_cast<LottieImageAsset>(&assetValue)) {
-            if (!assetIds.emplace(image->id, true).second)
+            if (!assetIds.tryEmplace(image->id, true).second)
                 return fail(QStringLiteral("Lottie asset IDs must be unique."));
         } else if (const auto* precomp = std::any_cast<LottiePrecompAsset>(&assetValue)) {
-            if (!assetIds.emplace(precomp->id, true).second)
+            if (!assetIds.tryEmplace(precomp->id, true).second)
                 return fail(QStringLiteral("Lottie asset IDs must be unique."));
         }
     }
     for (const auto& assetValue : document.assets) {
         const auto* precomp = std::any_cast<LottiePrecompAsset>(&assetValue);
         if (!precomp) continue;
-        std::unordered_map<int, bool> nestedIndices;
+        ArtifactHashMap<int, bool> nestedIndices;
+        nestedIndices.reserve(precomp->layers.size());
         for (const auto& nestedLayer : precomp->layers) {
             if (nestedLayer.ind <= 0 ||
-                !nestedIndices.emplace(nestedLayer.ind, true).second ||
+                !nestedIndices.tryEmplace(nestedLayer.ind, true).second ||
                 nestedLayer.ty < 0 || nestedLayer.ty > 5 ||
                 nestedLayer.ip < 0 || nestedLayer.op <= nestedLayer.ip ||
                 nestedLayer.stretch <= 0.0 || !std::isfinite(nestedLayer.stretch) ||
@@ -613,24 +616,26 @@ bool LottieExporter::validate(const LottieDocument& document, QString* errorMess
                  !nestedIndices.contains(nestedLayer.matteTarget))) {
                 return fail(QStringLiteral("Lottie precomp layer reference is invalid."));
             }
-            std::unordered_map<int, bool> visited;
-            const LottieLayer* ancestor = &nestedLayer;
-            while (ancestor && ancestor->parent != 0) {
-                if (visited[ancestor->ind]) {
-                    return fail(QStringLiteral("Lottie precomp parent graph contains a cycle."));
+            if (nestedLayer.parent != 0) {
+                ArtifactHashMap<int, bool> visited;
+                const LottieLayer* ancestor = &nestedLayer;
+                while (ancestor && ancestor->parent != 0) {
+                    if (visited[ancestor->ind]) {
+                        return fail(QStringLiteral("Lottie precomp parent graph contains a cycle."));
+                    }
+                    visited[ancestor->ind] = true;
+                    const auto parentIt = std::find_if(
+                        precomp->layers.begin(), precomp->layers.end(),
+                        [ancestor](const LottieLayer& candidate) {
+                            return candidate.ind == ancestor->parent;
+                        });
+                    ancestor = parentIt == precomp->layers.end() ? nullptr : &*parentIt;
                 }
-                visited[ancestor->ind] = true;
-                const auto parentIt = std::find_if(
-                    precomp->layers.begin(), precomp->layers.end(),
-                    [ancestor](const LottieLayer& candidate) {
-                        return candidate.ind == ancestor->parent;
-                    });
-                ancestor = parentIt == precomp->layers.end() ? nullptr : &*parentIt;
             }
         }
     }
     for (const auto& item : document.layers) {
-        if (item.ind <= 0 || !layersByIndex.emplace(item.ind, &item).second) {
+        if (item.ind <= 0 || !layersByIndex.tryEmplace(item.ind, &item).second) {
             return fail(QStringLiteral("Lottie layer indices must be unique and positive."));
         }
     }
@@ -667,15 +672,17 @@ bool LottieExporter::validate(const LottieDocument& document, QString* errorMess
             (item.refId.empty() || !assetIds.contains(item.refId))) {
             return fail(QStringLiteral("Lottie layer asset reference is invalid."));
         }
-        std::unordered_map<int, bool> visited;
-        const LottieLayer* ancestor = &item;
-        while (ancestor && ancestor->parent != 0) {
-            if (visited[ancestor->ind]) {
-                return fail(QStringLiteral("Lottie layer parent graph contains a cycle."));
+        if (item.parent != 0) {
+            ArtifactHashMap<int, bool> visited;
+            const LottieLayer* ancestor = &item;
+            while (ancestor && ancestor->parent != 0) {
+                if (visited[ancestor->ind]) {
+                    return fail(QStringLiteral("Lottie layer parent graph contains a cycle."));
+                }
+                visited[ancestor->ind] = true;
+                const auto parentIt = layersByIndex.find(ancestor->parent);
+                ancestor = parentIt == layersByIndex.end() ? nullptr : parentIt->second;
             }
-            visited[ancestor->ind] = true;
-            const auto parentIt = layersByIndex.find(ancestor->parent);
-            ancestor = parentIt == layersByIndex.end() ? nullptr : parentIt->second;
         }
         const auto validateKeyframes = [&fail, &item](const std::vector<LottieKeyframe>& keyframes) {
             double previousTime = -1.0;

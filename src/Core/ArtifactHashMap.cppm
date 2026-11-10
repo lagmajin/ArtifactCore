@@ -2,8 +2,12 @@ module;
 
 #include <cstddef>
 #include <cstdint>
+#include <algorithm>
 #include <functional>
 #include <iterator>
+#include <limits>
+#include <stdexcept>
+#include <tuple>
 #include <utility>
 
 export module Core.ArtifactHashMap;
@@ -35,6 +39,13 @@ private:
         template<typename... Args>
         explicit Node(size_type h, Args&&... args) 
             : data(std::forward<Args>(args)...), hash(h), next(nullptr) {}
+
+        template<typename... Args>
+        Node(size_type h, const K& key, std::piecewise_construct_t, Args&&... args)
+            : data(std::piecewise_construct,
+                   std::forward_as_tuple(key),
+                   std::forward_as_tuple(std::forward<Args>(args)...)),
+              hash(h), next(nullptr) {}
     };
     
     Node** buckets_ = nullptr;
@@ -44,6 +55,8 @@ private:
     key_equal keyEqual_;
     
 public:
+    class const_iterator;
+
     class iterator {
     public:
         using iterator_category = std::forward_iterator_tag;
@@ -64,6 +77,10 @@ public:
         pointer operator->() const noexcept { return &node_->data; }
         
         iterator& operator++() {
+            if (node_->next != nullptr) {
+                node_ = node_->next;
+                return *this;
+            }
             ++currentBucket_;
             advanceToNext();
             return *this;
@@ -100,9 +117,70 @@ public:
         }
         
         friend class ArtifactHashMap;
+        friend class const_iterator;
     };
-    
-    using const_iterator = iterator;
+
+    class const_iterator {
+    public:
+        using iterator_category = std::forward_iterator_tag;
+        using value_type = typename ArtifactHashMap::value_type;
+        using difference_type = typename ArtifactHashMap::difference_type;
+        using pointer = const typename ArtifactHashMap::value_type*;
+        using reference = const typename ArtifactHashMap::value_type&;
+
+        const_iterator() noexcept : node_(nullptr), currentBucket_(nullptr), bucketsEnd_(nullptr) {}
+
+        reference operator*() const noexcept { return node_->data; }
+        pointer operator->() const noexcept { return &node_->data; }
+
+        const_iterator& operator++() {
+            if (node_->next != nullptr) {
+                node_ = node_->next;
+                return *this;
+            }
+            ++currentBucket_;
+            advanceToNext();
+            return *this;
+        }
+
+        const_iterator operator++(int) {
+            const_iterator tmp = *this;
+            ++(*this);
+            return tmp;
+        }
+
+        bool operator==(const const_iterator& other) const noexcept {
+            return node_ == other.node_ && currentBucket_ == other.currentBucket_;
+        }
+
+        bool operator!=(const const_iterator& other) const noexcept {
+            return !(*this == other);
+        }
+
+    private:
+        const Node* node_;
+        Node* const* currentBucket_;
+        Node* const* bucketsEnd_;
+
+        const_iterator(const Node* node, Node* const* current, Node* const* end)
+            : node_(node), currentBucket_(current), bucketsEnd_(end) {}
+
+        const_iterator(const iterator& other)
+            : node_(other.node_), currentBucket_(other.currentBucket_), bucketsEnd_(other.bucketsEnd_) {}
+
+        void advanceToNext() {
+            while (currentBucket_ != bucketsEnd_) {
+                if (*currentBucket_ != nullptr) {
+                    node_ = *currentBucket_;
+                    return;
+                }
+                ++currentBucket_;
+            }
+            node_ = nullptr;
+        }
+
+        friend class ArtifactHashMap;
+    };
 
     ArtifactHashMap() : bucketCount_(kInitialBucketCount), size_(0) {
         buckets_ = new Node*[bucketCount_];
@@ -111,7 +189,8 @@ public:
         }
     }
     
-    ArtifactHashMap(size_type bucketCount) : bucketCount_(bucketCount), size_(0) {
+    ArtifactHashMap(size_type bucketCount)
+        : bucketCount_(bucketCount == 0 ? 1 : bucketCount), size_(0) {
         buckets_ = new Node*[bucketCount_];
         for (size_type i = 0; i < bucketCount_; ++i) {
             buckets_[i] = nullptr;
@@ -133,7 +212,7 @@ public:
           hasher_(std::move(other.hasher_)),
           keyEqual_(std::move(other.keyEqual_)) {
         other.buckets_ = nullptr;
-        other.bucketCount_ = kInitialBucketCount;
+        other.bucketCount_ = 0;
         other.size_ = 0;
     }
     
@@ -147,12 +226,13 @@ public:
         size_ = other.size_;
         hasher_ = std::move(other.hasher_);
         keyEqual_ = std::move(other.keyEqual_);
-        other.bucketCount_ = kInitialBucketCount;
+        other.bucketCount_ = 0;
         other.size_ = 0;
         return *this;
     }
     
     const_iterator find(const K& key) const noexcept {
+        if (buckets_ == nullptr || bucketCount_ == 0) return end();
         const size_type hash = hasher_(key);
         const size_type bucketIdx = hash % bucketCount_;
 
@@ -167,6 +247,7 @@ public:
     }
 
     iterator begin() noexcept {
+        if (buckets_ == nullptr || bucketCount_ == 0) return iterator();
         Node** bucket = buckets_;
         Node** end = bucket + bucketCount_;
         
@@ -183,6 +264,7 @@ public:
     }
     
     const_iterator begin() const noexcept {
+        if (buckets_ == nullptr || bucketCount_ == 0) return const_iterator();
         Node** bucket = buckets_;
         Node** end = bucket + bucketCount_;
 
@@ -199,16 +281,26 @@ public:
     }
 
     iterator end() noexcept {
+        if (buckets_ == nullptr || bucketCount_ == 0) return iterator();
         return iterator(nullptr, buckets_ + bucketCount_, buckets_ + bucketCount_);
     }
 
     const_iterator end() const noexcept {
+        if (buckets_ == nullptr || bucketCount_ == 0) return const_iterator();
         return const_iterator(nullptr, buckets_ + bucketCount_, buckets_ + bucketCount_);
     }
     
     size_type size() const noexcept { return size_; }
     bool empty() const noexcept { return size_ == 0; }
     size_type bucket_count() const noexcept { return bucketCount_; }
+
+    void reserve(size_type elementCount) {
+        rehashStorage(minBucketCountFor((std::max)(elementCount, size_)));
+    }
+
+    void rehash(size_type requestedBuckets) {
+        rehashStorage((std::max)(requestedBuckets, minBucketCountFor(size_)));
+    }
     
     V& operator[](const K& key) {
         // NOTE: do not route through tryEmplace(key) here. The variadic
@@ -253,7 +345,7 @@ public:
     
     template<typename... Args>
     std::pair<iterator, bool> tryEmplace(const K& key, Args&&... args) {
-        return emplaceImpl(key, V(std::forward<Args>(args)...));
+        return tryEmplaceImpl(key, std::forward<Args>(args)...);
     }
     
     template<typename... Args>
@@ -262,6 +354,7 @@ public:
     }
     
     size_type erase(const K& key) {
+        if (buckets_ == nullptr || bucketCount_ == 0) return 0;
         const size_type hash = hasher_(key);
         const size_type bucketIdx = hash % bucketCount_;
         
@@ -284,8 +377,46 @@ public:
         }
         return 0;
     }
+
+    iterator erase(iterator position) {
+        if (buckets_ == nullptr || bucketCount_ == 0 || position.node_ == nullptr
+            || position.bucketsEnd_ != buckets_ + bucketCount_) {
+            return end();
+        }
+
+        Node* const target = position.node_;
+        Node** const bucket = position.currentBucket_;
+        Node* previous = nullptr;
+        Node* current = *bucket;
+        while (current != nullptr && current != target) {
+            previous = current;
+            current = current->next;
+        }
+        if (current == nullptr) return end();
+
+        Node* const nextInChain = current->next;
+        if (previous != nullptr) previous->next = nextInChain;
+        else *bucket = nextInChain;
+        delete current;
+        --size_;
+
+        if (nextInChain != nullptr) {
+            return iterator(nextInChain, bucket, buckets_ + bucketCount_);
+        }
+
+        Node** nextBucket = bucket + 1;
+        Node** const bucketsEnd = buckets_ + bucketCount_;
+        while (nextBucket != bucketsEnd && *nextBucket == nullptr) ++nextBucket;
+        return nextBucket == bucketsEnd
+            ? end()
+            : iterator(*nextBucket, nextBucket, bucketsEnd);
+    }
     
     void clear() noexcept {
+        if (buckets_ == nullptr) {
+            size_ = 0;
+            return;
+        }
         for (size_type i = 0; i < bucketCount_; ++i) {
             Node* curr = buckets_[i];
             while (curr) {
@@ -299,6 +430,7 @@ public:
     }
     
     iterator find(const K& key) noexcept {
+        if (buckets_ == nullptr || bucketCount_ == 0) return end();
         const size_type hash = hasher_(key);
         const size_type bucketIdx = hash % bucketCount_;
         
@@ -321,22 +453,63 @@ public:
     }
     
 private:
+    static size_type minBucketCountFor(size_type elementCount) {
+        const size_type quotient = elementCount / 3;
+        const size_type remainder = elementCount % 3;
+        const size_type maxSize = (std::numeric_limits<size_type>::max)();
+        if (quotient > maxSize / 4) {
+            throw std::length_error("ArtifactHashMap capacity is too large");
+        }
+        const size_type base = quotient * 4;
+        const size_type extra = remainder == 0 ? 0 : remainder == 1 ? 2 : 3;
+        if (base > maxSize - extra) {
+            throw std::length_error("ArtifactHashMap capacity is too large");
+        }
+        const size_type requested = base + extra;
+        return requested == 0 ? 1 : requested;
+    }
+
+    template<typename... Args>
+    std::pair<iterator, bool> tryEmplaceImpl(const K& key, Args&&... args) {
+        if (buckets_ == nullptr || bucketCount_ == 0) rehashStorage(kInitialBucketCount);
+        const size_type hash = hasher_(key);
+        size_type bucketIdx = hash % bucketCount_;
+
+        for (Node* current = buckets_[bucketIdx]; current; current = current->next) {
+            if (current->hash == hash && keyEqual_(current->data.first, key)) {
+                return {iterator(current, buckets_ + bucketIdx, buckets_ + bucketCount_), false};
+            }
+        }
+
+        if (static_cast<float>(size_ + 1) > static_cast<float>(bucketCount_) * kMaxLoadFactor) {
+            rehashStorage(bucketCount_ * 2);
+            bucketIdx = hash % bucketCount_;
+        }
+
+        Node* const newNode = new Node(hash, key, std::piecewise_construct,
+                                      std::forward<Args>(args)...);
+        newNode->next = buckets_[bucketIdx];
+        buckets_[bucketIdx] = newNode;
+        ++size_;
+        return {iterator(newNode, buckets_ + bucketIdx, buckets_ + bucketCount_), true};
+    }
+
     template<typename U>
     std::pair<iterator, bool> emplaceImpl(const K& key, U&& value) {
+        if (buckets_ == nullptr || bucketCount_ == 0) rehashStorage(kInitialBucketCount);
         const size_type hash = hasher_(key);
         const size_type bucketIdx = hash % bucketCount_;
         
         Node* curr = buckets_[bucketIdx];
         while (curr) {
             if (curr->hash == hash && keyEqual_(curr->data.first, key)) {
-                curr->data.second = std::forward<U>(value);
                 return {iterator(curr, buckets_ + bucketIdx, buckets_ + bucketCount_), false};
             }
             curr = curr->next;
         }
         
         if (static_cast<float>(size_ + 1) > static_cast<float>(bucketCount_) * kMaxLoadFactor) {
-            rehash(bucketCount_ * 2);
+            rehashStorage(bucketCount_ * 2);
             return emplaceImpl(key, std::forward<U>(value));
         }
         
@@ -349,6 +522,7 @@ private:
     }
     
     Node* findNode(const K& key) const {
+        if (buckets_ == nullptr || bucketCount_ == 0) return nullptr;
         const size_type hash = hasher_(key);
         const size_type bucketIdx = hash % bucketCount_;
         
@@ -362,13 +536,14 @@ private:
         return nullptr;
     }
     
-    void rehash(size_type newBucketCount) {
+    void rehashStorage(size_type newBucketCount) {
+        if (newBucketCount == 0) newBucketCount = 1;
         Node** newBuckets = new Node*[newBucketCount];
         for (size_type i = 0; i < newBucketCount; ++i) {
             newBuckets[i] = nullptr;
         }
         
-        for (size_type i = 0; i < bucketCount_; ++i) {
+        for (size_type i = 0; buckets_ != nullptr && i < bucketCount_; ++i) {
             Node* curr = buckets_[i];
             while (curr) {
                 Node* next = curr->next;

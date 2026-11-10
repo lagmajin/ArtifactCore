@@ -3,7 +3,6 @@ module;
 #include <string>
 #include <string_view>
 #include <vector>
-#include <unordered_map>
 #include <variant>
 #include <optional>
 #include <algorithm>
@@ -14,6 +13,7 @@ export module Data.DataTable;
 
 import Data.CsvParser;
 import Core.ArtifactString;
+import Container.NameMap;
 
 export namespace ArtifactCore {
 
@@ -70,8 +70,8 @@ public:
     const std::vector<ColumnSchema>& columns() const { return headers_; }
 
     int columnIndexByName(const String& name) const {
-        auto it = nameToIndex_.find(toStdString(name));
-        if (it != nameToIndex_.end()) return it->second;
+        const int* const index = nameToIndex_.findValue(toStdString(name));
+        if (index) return *index;
         return -1;
     }
 
@@ -109,7 +109,12 @@ public:
         auto v = at(row, col);
         if (std::holds_alternative<int64_t>(v)) return std::get<int64_t>(v);
         if (std::holds_alternative<String>(v)) {
-            try { return std::stoll(toStdString(std::get<String>(v))); } catch (...) {}
+            const auto text = toStdString(std::get<String>(v));
+            try {
+                std::size_t parsed = 0;
+                const auto value = std::stoll(text, &parsed);
+                if (parsed == text.size()) return value;
+            } catch (...) {}
         }
         if (std::holds_alternative<double>(v)) return static_cast<int64_t>(std::get<double>(v));
         return fallback;
@@ -126,7 +131,12 @@ public:
         if (std::holds_alternative<double>(v)) return std::get<double>(v);
         if (std::holds_alternative<int64_t>(v)) return static_cast<double>(std::get<int64_t>(v));
         if (std::holds_alternative<String>(v)) {
-            try { return std::stod(toStdString(std::get<String>(v))); } catch (...) {}
+            const auto text = toStdString(std::get<String>(v));
+            try {
+                std::size_t parsed = 0;
+                const auto value = std::stod(text, &parsed);
+                if (parsed == text.size()) return value;
+            } catch (...) {}
         }
         return fallback;
     }
@@ -173,7 +183,7 @@ public:
 
     void addColumn(const String& name) {
         const std::string nameStd = toStdString(name);
-        if (nameToIndex_.count(nameStd) > 0) return;
+        if (nameToIndex_.contains(nameStd)) return;
         int idx = static_cast<int>(headers_.size());
         headers_.push_back(ColumnSchema{String(nameStd), idx});
         nameToIndex_[nameStd] = idx;
@@ -192,7 +202,7 @@ public:
 
 private:
     std::vector<ColumnSchema> headers_;
-    std::unordered_map<std::string, int> nameToIndex_;
+    NameMap<std::string, int> nameToIndex_{ContainerName{"Data.DataTable.nameToIndex"}};
     std::vector<std::vector<DataValue>> rows_;
 };
 

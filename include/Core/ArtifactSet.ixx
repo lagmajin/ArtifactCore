@@ -73,25 +73,12 @@ public:
     }
 
     // Returns true when the element was newly inserted.
-    bool add(const T& item) {
-        if (bucketCount_ == 0) allocateBuckets(kInitialBucketCount);
-        const std::size_t hash = hasher_(item);
-        if (findNode(item, hash)) return false;
-        if ((size_ + 1) * 4 >= bucketCount_ * 3) {
-            grow();
-        }
-        const std::size_t index = bucketIndex(hash);
-        Node* node = new Node{item, hash, head_, buckets_[index], nullptr};
-        buckets_[index] = node;
-        if (head_) head_->previousAll = node;
-        head_ = node;
-        if (!tail_) tail_ = node;
-        ++size_;
-        return true;
-    }
+    bool add(const T& item) { return addValue(item); }
+    bool add(T&& item) { return addValue(std::move(item)); }
 
     // std::unordered_set-compatible spelling.
     bool insert(const T& item) { return add(item); }
+    bool insert(T&& item) { return add(std::move(item)); }
 
     bool remove(const T& item) {
         if (bucketCount_ == 0) return false;
@@ -194,6 +181,24 @@ private:
         Node* nextBucket; // per-bucket lookup chain
         Node* previousAll; // oldest-side neighbour for unlinking
     };
+
+    template <typename Value>
+    bool addValue(Value&& item) {
+        if (bucketCount_ == 0) allocateBuckets(kInitialBucketCount);
+        const std::size_t hash = hasher_(item);
+        if (findNode(item, hash)) return false;
+        if ((size_ + 1) * 4 >= bucketCount_ * 3) {
+            grow();
+        }
+        const std::size_t index = bucketIndex(hash);
+        Node* node = new Node{std::forward<Value>(item), hash, head_, buckets_[index], nullptr};
+        buckets_[index] = node;
+        if (head_) head_->previousAll = node;
+        head_ = node;
+        if (!tail_) tail_ = node;
+        ++size_;
+        return true;
+    }
 
     void allocateBuckets(const std::size_t count) {
         Node** newBuckets = new Node*[count]{};

@@ -1,11 +1,10 @@
 module;
 
 #include <string>
-#include <unordered_map>
 #include <chrono>
-#include <vector>
 #include <algorithm>
 #include <cstdint>
+#include <limits>
 #include <mutex>
 
 export module Data.DataCache;
@@ -13,6 +12,8 @@ export module Data.DataCache;
 import Data.DataTable;
 import Data.DataSource;
 import Core.ArtifactString;
+import Container.Debug;
+import Container.NameMap;
 
 export namespace ArtifactCore {
 
@@ -20,6 +21,7 @@ struct CacheEntry {
     DataSourcePtr source;
     int64_t loadedAtMs = 0;
     int64_t lastAccessMs = 0;
+    std::uint64_t lastAccessSequence = 0;
     int64_t fileModifiedMs = 0;
     int hitCount = 0;
 };
@@ -31,7 +33,7 @@ public:
         return inst;
     }
 
-    void setMaxEntries(int max) { maxEntries_ = max; }
+    void setMaxEntries(int max) { maxEntries_ = std::max(1, max); }
     int maxEntries() const { return maxEntries_; }
 
     void setTtlMs(int64_t ttl) { ttlMs_ = ttl; }
@@ -41,37 +43,40 @@ public:
         std::lock_guard<std::mutex> lock(mutex_);
 
         const std::string uriStd = toStdString(uri);
-        auto it = entries_.find(uriStd);
-        if (it == entries_.end()) return nullptr;
-
-        auto& entry = it->second;
+        CacheEntry* const entry = entries_.findValue(uriStd);
+        if (!entry) return nullptr;
 
         if (ttlMs_ > 0) {
             int64_t now = currentTimestampMs();
-            if (now - entry.loadedAtMs > ttlMs_) {
-                entries_.erase(it);
+            if (now - entry->loadedAtMs > ttlMs_) {
+                entries_.erase(uriStd);
                 return nullptr;
             }
         }
 
-        entry.lastAccessMs = currentTimestampMs();
-        entry.hitCount++;
-        return entry.source;
+        entry->lastAccessMs = currentTimestampMs();
+        entry->lastAccessSequence = ++accessSequence_;
+        entry->hitCount++;
+        return entry->source;
     }
 
     void put(const String& uri, DataSourcePtr source, int64_t fileModifiedMs) {
         std::lock_guard<std::mutex> lock(mutex_);
 
-        evictIfNeeded();
+        const std::string uriStd = toStdString(uri);
+        if (!entries_.contains(uriStd)) {
+            evictIfNeeded();
+        }
 
         CacheEntry entry;
         entry.source = std::move(source);
         entry.loadedAtMs = currentTimestampMs();
         entry.lastAccessMs = entry.loadedAtMs;
+        entry.lastAccessSequence = ++accessSequence_;
         entry.fileModifiedMs = fileModifiedMs;
         entry.hitCount = 0;
 
-        entries_[toStdString(uri)] = std::move(entry);
+        entries_[uriStd] = std::move(entry);
     }
 
     void invalidate(const String& uri) {
@@ -86,12 +91,14 @@ public:
 
     bool isStale(const String& uri, int64_t currentFileModifiedMs) const {
         std::lock_guard<std::mutex> lock(mutex_);
-        auto it = entries_.find(toStdString(uri));
-        if (it == entries_.end()) return true;
-        return it->second.fileModifiedMs != currentFileModifiedMs;
+        const CacheEntry* const entry = entries_.findValue(toStdString(uri));
+        return !entry || entry->fileModifiedMs != currentFileModifiedMs;
     }
 
-    int size() const { return static_cast<int>(entries_.size()); }
+    int size() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return static_cast<int>(entries_.size());
+    }
 
     void clear() {
         std::lock_guard<std::mutex> lock(mutex_);
@@ -103,13 +110,18 @@ private:
 
     void evictIfNeeded() {
         while (static_cast<int>(entries_.size()) >= maxEntries_) {
-            auto oldest = entries_.begin();
-            for (auto it = entries_.begin(); it != entries_.end(); ++it) {
-                if (it->second.lastAccessMs < oldest->second.lastAccessMs) {
-                    oldest = it;
+            std::string oldestKey;
+            std::uint64_t oldestAccessSequence = std::numeric_limits<std::uint64_t>::max();
+            bool found = false;
+            entries_.eachKeyValue([&](const std::string& key, const CacheEntry& entry) {
+                if (!found || entry.lastAccessSequence < oldestAccessSequence) {
+                    oldestKey = key;
+                    oldestAccessSequence = entry.lastAccessSequence;
+                    found = true;
                 }
-            }
-            entries_.erase(oldest);
+            });
+            if (!found) return;
+            entries_.erase(oldestKey);
         }
     }
 
@@ -121,7 +133,9 @@ private:
 
     int maxEntries_;
     int64_t ttlMs_;
-    std::unordered_map<std::string, CacheEntry> entries_;
+    std::uint64_t accessSequence_ = 0;
+    NameMap<std::string, CacheEntry> entries_{
+        ContainerName{"Data.DataCache.entries"}};
     mutable std::mutex mutex_;
 };
 

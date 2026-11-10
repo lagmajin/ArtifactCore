@@ -1,20 +1,20 @@
 module;
 
 #include <string>
-#include <unordered_map>
 #include <functional>
 #include <filesystem>
 #include <chrono>
 #include <thread>
 #include <atomic>
-#include <vector>
 #include <mutex>
 #include <cstdint>
 
 export module Data.FileWatcher;
 
 import Core.ArtifactString;
+import Container.Debug;
 import Container.NamedVector;
+import Container.NameMap;
 
 export namespace ArtifactCore {
 
@@ -40,9 +40,8 @@ public:
 
         std::lock_guard<std::mutex> lock(mutex_);
 
-        auto it = watched_.find(pathStd);
-        if (it != watched_.end()) {
-            it->second.callback = std::move(callback);
+        if (WatchedFile* const existing = watched_.findValue(pathStd)) {
+            existing->callback = std::move(callback);
             return;
         }
 
@@ -76,7 +75,7 @@ public:
 
     bool isWatching(const String& path) const {
         std::lock_guard<std::mutex> lock(mutex_);
-        return watched_.count(toStdString(path)) > 0;
+        return watched_.contains(toStdString(path));
     }
 
 private:
@@ -108,7 +107,8 @@ private:
         }
     }
 
-    std::unordered_map<std::string, WatchedFile> watched_;
+    NameMap<std::string, WatchedFile> watched_{
+        ContainerName{"Data.FileWatcher.watched"}};
     std::atomic<bool> running_{false};
     std::atomic<std::uint64_t> generation_{0};
     std::thread pollThread_;
