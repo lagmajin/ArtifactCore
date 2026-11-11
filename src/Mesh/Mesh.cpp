@@ -53,6 +53,7 @@ module Mesh;
 
 import Memory.SharedPtr;
 import Container.NamedVector;
+import Core.ArtifactArray;
 
 namespace ArtifactCore {
 
@@ -350,6 +351,255 @@ Mesh::Meshlet buildMeshletFromIndexRange(const Mesh::RenderData& renderData,
 
     int Mesh::polygonCount() const {
         return impl_->polygons.size();
+    }
+
+    Mesh::TopologyStatistics Mesh::analyzeTopology(double areaTolerance, bool weldExactPositions) const {
+        TopologyStatistics result;
+        if (!impl_) { result.topologyAnalysisAvailable = false; return result; }
+        const int vertexCount = impl_->vertexAttrs.elementCount();
+        const auto positions = impl_->vertexAttrs.get<QVector3D>("position");
+        result.positionAnalysisAvailable = positions && positions->size() >= vertexCount;
+        if (!std::isfinite(areaTolerance) || areaTolerance < 0.0) areaTolerance = 0.0;
+
+        Array<int> identity(static_cast<size_t>(vertexCount), 0);
+        for (int i = 0; i < vertexCount; ++i) identity[i] = i;
+        if (weldExactPositions) {
+            if (!result.positionAnalysisAvailable) { result.topologyAnalysisAvailable = false; return result; }
+            Array<int> order(static_cast<size_t>(vertexCount), 0);
+            for (int i = 0; i < vertexCount; ++i) {
+                const auto& p = (*positions)[i];
+                if (!std::isfinite(p.x()) || !std::isfinite(p.y()) || !std::isfinite(p.z())) {
+                    result.topologyAnalysisAvailable = false;
+                    return result;
+                }
+                order[i] = i;
+            }
+            if (order.size() > 1) std::sort(order.begin(), order.end(), [&positions](int a, int b) {
+                const auto& x = (*positions)[a]; const auto& y = (*positions)[b];
+                if (x.x() != y.x()) return x.x() < y.x();
+                if (x.y() != y.y()) return x.y() < y.y();
+                if (x.z() != y.z()) return x.z() < y.z();
+                return a < b;
+            });
+            int representative = -1;
+            for (size_t i = 0; i < order.size(); ++i) {
+                if (i == 0) {
+                    representative = order[i];
+                } else {
+                    const auto& a = (*positions)[order[i]];
+                    const auto& b = (*positions)[order[i - 1]];
+                    if (a.x() != b.x() || a.y() != b.y() || a.z() != b.z()) representative = order[i];
+                }
+                identity[order[i]] = representative;
+            }
+        }
+        for (int i = 0; i < vertexCount; ++i) if (identity[i] == i) ++result.topologyVertexCount;
+
+        struct Edge { int a; int b; int face; bool forward; };
+        struct Face { Array<int> vertices; };
+        Array<Edge> edges;
+        Array<Face> faces;
+        Array<int> parent(static_cast<size_t>(vertexCount), 0);
+        Array<int> used(static_cast<size_t>(vertexCount), 0);
+        Array<int> windingFaces(static_cast<size_t>(impl_->polygons.size()), 0);
+        for (int i = 0; i < vertexCount; ++i) parent[i] = i;
+        auto root = [&parent](int v) {
+            while (parent[v] != v) {
+                parent[v] = parent[parent[v]];
+                v = parent[v];
+            }
+            return v;
+        };
+        for (int faceIndex = 0; faceIndex < impl_->polygons.size(); ++faceIndex) {
+            const auto& polygon = impl_->polygons[faceIndex];
+            bool valid = polygon.size() >= 3;
+            bool indicesValid = true;
+            Array<int> sorted;
+            sorted.reserve(static_cast<size_t>(polygon.size()));
+            for (int v : polygon) {
+                if (v < 0 || v >= vertexCount) { valid = false; indicesValid = false; }
+                else sorted.append(identity[v]);
+            }
+            if (sorted.size() > 1) {
+                std::sort(sorted.begin(), sorted.end());
+                for (size_t i = 1; i < sorted.size(); ++i)
+                    if (sorted[i] == sorted[i - 1]) valid = false;
+            }
+            if (!valid) ++result.invalidPolygonCount;
+
+            if (indicesValid && result.positionAnalysisAvailable) {
+                for (int i = 1; i + 1 < polygon.size(); ++i) {
+                    const auto& a = (*positions)[polygon[0]];
+                    const auto& b = (*positions)[polygon[i]];
+                    const auto& c = (*positions)[polygon[i + 1]];
+                    if (!std::isfinite(a.x()) || !std::isfinite(a.y()) || !std::isfinite(a.z()) ||
+                        !std::isfinite(b.x()) || !std::isfinite(b.y()) || !std::isfinite(b.z()) ||
+                        !std::isfinite(c.x()) || !std::isfinite(c.y()) || !std::isfinite(c.z())) {
+                        ++result.nonFinitePositionTriangleCount;
+                        continue;
+                    }
+                    const double ux = double(b.x()) - a.x(), uy = double(b.y()) - a.y(), uz = double(b.z()) - a.z();
+                    const double vx = double(c.x()) - a.x(), vy = double(c.y()) - a.y(), vz = double(c.z()) - a.z();
+                    const double x = uy * vz - uz * vy, y = uz * vx - ux * vz, z = ux * vy - uy * vx;
+                    if (0.5 * std::sqrt(x*x + y*y + z*z) <= areaTolerance) ++result.degenerateTriangleCount;
+                }
+            }
+            if (!valid) continue;
+            ++result.validPolygonCount;
+
+            // Canonical cyclic sequence preserves polygon adjacency, while
+            // treating rotations and reversed winding as the same face.
+            Face face;
+            const int n = static_cast<int>(polygon.size());
+            int start = 0;
+            for (int i = 1; i < n; ++i) if (identity[polygon[i]] < identity[polygon[start]]) start = i;
+            const int direction = identity[polygon[(start + 1) % n]] < identity[polygon[(start + n - 1) % n]] ? 1 : -1;
+            face.vertices.reserve(static_cast<size_t>(n));
+            for (int i = 0; i < n; ++i) face.vertices.append(identity[polygon[(start + direction * i + n) % n]]);
+            faces.append(std::move(face));
+            for (int i = 0; i < n; ++i) {
+                const int a = identity[polygon[i]];
+                const int b = identity[polygon[(i + 1) % n]];
+                used[a] = 1;
+                const int ra = root(a), rb = root(b);
+                if (ra != rb) parent[rb] = ra;
+                edges.append(Edge{std::min(a, b), std::max(a, b), faceIndex, a < b});
+            }
+        }
+        if (edges.size() > 1) std::sort(edges.begin(), edges.end(), [](const Edge& a, const Edge& b) {
+            return a.a != b.a ? a.a < b.a : a.b < b.b;
+        });
+        for (size_t i = 0; i < edges.size();) {
+            size_t j = i + 1;
+            while (j < edges.size() && edges[j].a == edges[i].a && edges[j].b == edges[i].b) ++j;
+            ++result.edgeCount;
+            if (j - i == 1) ++result.boundaryEdgeCount;
+            else if (j - i > 2) ++result.nonManifoldEdgeCount;
+            else if (edges[i].forward == edges[i + 1].forward) {
+                ++result.inconsistentWindingEdgeCount;
+                windingFaces[edges[i].face] = 1;
+                windingFaces[edges[i + 1].face] = 1;
+            }
+            i = j;
+        }
+        for (int marked : windingFaces) result.inconsistentWindingFaceCount += marked;
+        if (faces.size() > 1) std::sort(faces.begin(), faces.end(), [](const Face& a, const Face& b) {
+            return std::lexicographical_compare(a.vertices.begin(), a.vertices.end(), b.vertices.begin(), b.vertices.end());
+        });
+        for (size_t i = 1; i < faces.size(); ++i) {
+            const auto& a = faces[i - 1].vertices;
+            const auto& b = faces[i].vertices;
+            if (a.size() == b.size() && std::equal(a.begin(), a.end(), b.begin())) ++result.duplicateFaceCount;
+        }
+        for (int i = 0; i < vertexCount; ++i) {
+            if (identity[i] != i) continue;
+            if (!used[i]) ++result.isolatedVertexCount;
+            if (root(i) == i) ++result.connectedComponentCount;
+        }
+        result.eulerCharacteristic = std::int64_t(result.topologyVertexCount) - result.edgeCount + result.validPolygonCount;
+        return result;
+    }
+
+    Mesh::SelfIntersectionStatistics Mesh::analyzeSelfIntersections(double tolerance, bool weldExactPositions) const {
+        SelfIntersectionStatistics result;
+        if (!impl_) return result;
+        const int vertexCount = impl_->vertexAttrs.elementCount();
+        const auto positions = impl_->vertexAttrs.get<QVector3D>("position");
+        result.positionAnalysisAvailable = positions && positions->size() >= vertexCount;
+        if (!result.positionAnalysisAvailable) return result;
+        if (!std::isfinite(tolerance) || tolerance < 0.0) tolerance = 0.0;
+        struct Vec { double x, y, z; };
+        const auto sub = [](Vec a, Vec b) { return Vec{a.x-b.x, a.y-b.y, a.z-b.z}; };
+        const auto cross = [](Vec a, Vec b) { return Vec{a.y*b.z-a.z*b.y, a.z*b.x-a.x*b.z, a.x*b.y-a.y*b.x}; };
+        const auto dot = [](Vec a, Vec b) { return a.x*b.x+a.y*b.y+a.z*b.z; };
+        struct Triangle { int polygon; int index[3]; Vec p[3]; Vec boundsMin; Vec boundsMax; };
+        Array<Triangle> triangles;
+        for (int face = 0; face < impl_->polygons.size(); ++face) {
+            const auto& polygon = impl_->polygons[face];
+            bool valid = polygon.size() >= 3;
+            Array<int> sorted;
+            sorted.reserve(static_cast<size_t>(polygon.size()));
+            for (int v : polygon) { if (v < 0 || v >= vertexCount) valid = false; sorted.append(v); }
+            if (sorted.size() > 1) {
+                std::sort(sorted.begin(), sorted.end());
+                for (size_t i = 1; i < sorted.size(); ++i) if (sorted[i] == sorted[i-1]) valid = false;
+            }
+            if (!valid) { ++result.invalidPolygonCount; continue; }
+            for (int i = 1; i + 1 < polygon.size(); ++i) {
+                Triangle t{face, {polygon[0], polygon[i], polygon[i+1]}, {}, {}, {}};
+                bool finite = true;
+                for (int k = 0; k < 3; ++k) {
+                    const auto& p = (*positions)[t.index[k]];
+                    t.p[k] = Vec{p.x(), p.y(), p.z()};
+                    finite = finite && std::isfinite(p.x()) && std::isfinite(p.y()) && std::isfinite(p.z());
+                }
+                const Vec normal = cross(sub(t.p[1], t.p[0]), sub(t.p[2], t.p[0]));
+                if (!finite || dot(normal, normal) == 0.0) { ++result.skippedTriangleCount; continue; }
+                t.boundsMin = t.boundsMax = t.p[0];
+                for (int k = 1; k < 3; ++k) {
+                    t.boundsMin.x = std::min(t.boundsMin.x, t.p[k].x);
+                    t.boundsMin.y = std::min(t.boundsMin.y, t.p[k].y);
+                    t.boundsMin.z = std::min(t.boundsMin.z, t.p[k].z);
+                    t.boundsMax.x = std::max(t.boundsMax.x, t.p[k].x);
+                    t.boundsMax.y = std::max(t.boundsMax.y, t.p[k].y);
+                    t.boundsMax.z = std::max(t.boundsMax.z, t.p[k].z);
+                }
+                triangles.append(t);
+            }
+        }
+        for (size_t i = 0; i < triangles.size(); ++i) {
+            for (size_t j = i + 1; j < triangles.size(); ++j) {
+                const auto& a = triangles[i];
+                const auto& b = triangles[j];
+                if (a.polygon == b.polygon) { ++result.samePolygonPairCount; continue; }
+                bool adjacent = false;
+                for (int x = 0; x < 3; ++x) {
+                    for (int y = 0; y < 3; ++y) {
+                        if (a.index[x] == b.index[y] ||
+                            (weldExactPositions && a.p[x].x == b.p[y].x &&
+                             a.p[x].y == b.p[y].y && a.p[x].z == b.p[y].z)) adjacent = true;
+                    }
+                }
+                if (adjacent) { ++result.adjacentPairCount; continue; }
+                // At zero tolerance, disjoint AABBs cannot intersect. Leave
+                // the tolerance path unchanged: its finite set of SAT axes
+                // has a different approximate proximity interpretation.
+                if (tolerance == 0.0 &&
+                    (a.boundsMax.x < b.boundsMin.x || b.boundsMax.x < a.boundsMin.x ||
+                     a.boundsMax.y < b.boundsMin.y || b.boundsMax.y < a.boundsMin.y ||
+                     a.boundsMax.z < b.boundsMin.z || b.boundsMax.z < a.boundsMin.z)) continue;
+                const Vec ae[3] = {sub(a.p[1], a.p[0]), sub(a.p[2], a.p[1]), sub(a.p[0], a.p[2])};
+                const Vec be[3] = {sub(b.p[1], b.p[0]), sub(b.p[2], b.p[1]), sub(b.p[0], b.p[2])};
+                const Vec an = cross(ae[0], ae[1]);
+                const Vec bn = cross(be[0], be[1]);
+                // Triangle separating axes plus in-plane edge normals for
+                // coplanar triangles. Projection uses a local origin to avoid
+                // losing precision for meshes far from the origin.
+                auto separated = [&](Vec axis) {
+                    const double length = std::sqrt(dot(axis, axis));
+                    if (length == 0.0) return false;
+                    double amin = 0.0, amax = 0.0;
+                    for (int k = 1; k < 3; ++k) {
+                        const double p = dot(sub(a.p[k], a.p[0]), axis);
+                        amin = std::min(amin, p); amax = std::max(amax, p);
+                    }
+                    double bmin = dot(sub(b.p[0], a.p[0]), axis), bmax = bmin;
+                    for (int k = 1; k < 3; ++k) {
+                        const double p = dot(sub(b.p[k], a.p[0]), axis);
+                        bmin = std::min(bmin, p); bmax = std::max(bmax, p);
+                    }
+                    const double margin = tolerance * length;
+                    return amax + margin < bmin || bmax + margin < amin;
+                };
+                bool apart = separated(an) || separated(bn);
+                for (int x = 0; x < 3 && !apart; ++x) {
+                    apart = separated(cross(an, ae[x])) || separated(cross(bn, be[x]));
+                    for (int y = 0; y < 3 && !apart; ++y) apart = separated(cross(ae[x], be[y]));
+                }
+                if (!apart) ++result.intersectingPairCount;
+            }
+        }
+        return result;
     }
 
     int Mesh::addMaterialSlot(int firstIndex, int indexCount, int materialIndex) {

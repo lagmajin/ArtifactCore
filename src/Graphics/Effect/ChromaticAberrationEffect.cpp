@@ -25,8 +25,6 @@ void ChromaticAberrationEffect::process(VideoFrame& frame, const CreativeEffectC
     auto b_ch = frame.getChannel(ChannelType::Blue);
     if (!r_ch || !g_ch || !b_ch) return;
 
-    const int w = frame.width();
-    const int h = frame.height();
     const float amt = std::max(0.0f, amount());
     const float ang = angle() * 3.14159265f / 180.0f;
     const float cosA = std::cos(ang);
@@ -35,6 +33,11 @@ void ChromaticAberrationEffect::process(VideoFrame& frame, const CreativeEffectC
     const int shiftR_y = static_cast<int>(std::round(amt * sinA));
     const int shiftB_x = -shiftR_x;
     const int shiftB_y = -shiftR_y;
+    // Subpixel values can quantize to an identity shift; avoid full-frame scratch work.
+    if (shiftR_x == 0 && shiftR_y == 0) return;
+
+    const int w = frame.width();
+    const int h = frame.height();
 
     auto shift_channel = [&](float* dst, const float* src, int sx, int sy) {
         Parallel::ForPixels(0, h, w, h, [&](int y) {
@@ -48,12 +51,12 @@ void ChromaticAberrationEffect::process(VideoFrame& frame, const CreativeEffectC
         });
     };
 
-    std::vector<float> r_tmp(static_cast<size_t>(w) * static_cast<size_t>(h));
-    std::vector<float> b_tmp(static_cast<size_t>(w) * static_cast<size_t>(h));
-    shift_channel(r_tmp.data(), r_ch->data(), shiftR_x, shiftR_y);
-    shift_channel(b_tmp.data(), b_ch->data(), shiftB_x, shiftB_y);
-    std::copy(r_tmp.begin(), r_tmp.end(), r_ch->data());
-    std::copy(b_tmp.begin(), b_tmp.end(), b_ch->data());
+    const auto pixelCount = static_cast<std::size_t>(w) * static_cast<std::size_t>(h);
+    std::vector<float> scratch(pixelCount);
+    shift_channel(scratch.data(), r_ch->data(), shiftR_x, shiftR_y);
+    std::copy(scratch.begin(), scratch.end(), r_ch->data());
+    shift_channel(scratch.data(), b_ch->data(), shiftB_x, shiftB_y);
+    std::copy(scratch.begin(), scratch.end(), b_ch->data());
 }
 
 }

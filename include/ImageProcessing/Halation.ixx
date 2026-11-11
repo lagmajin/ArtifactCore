@@ -44,8 +44,19 @@ public:
             for (int x = 0; x < width; ++x) {
                 const auto i = rowOffset + static_cast<std::size_t>(x);
                 float lum = source[i].x * 0.114f + source[i].y * 0.587f + source[i].z * 0.299f;
-                if (lum > settings.threshold) {
-                    float weight = std::clamp((lum - settings.threshold) / (1.0f - settings.threshold + 0.001f), 0.0f, 1.0f);
+                const float knee = std::clamp(settings.softness, 0.0f, 1.0f);
+                float softContribution = 0.0f;
+                if (knee > 0.0f) {
+                    const float soft = std::clamp(
+                        lum - settings.threshold + knee, 0.0f, 2.0f * knee);
+                    softContribution = soft * soft / (4.0f * knee + 0.000001f);
+                }
+                const float contribution =
+                    std::max(lum - settings.threshold, softContribution);
+                if (contribution > 0.0f) {
+                    float weight = std::clamp(
+                        contribution / (1.0f - settings.threshold + 0.001f),
+                        0.0f, 1.0f);
                     // Halation is physically red-shifted due to scattering
                     highlights[i] = {source[i].x * weight * 0.1f,
                                      source[i].y * weight * 0.2f,
@@ -57,30 +68,35 @@ public:
         });
 
         // 2. Dual-Layer Diffusion (Simulating film layers)
-        // Red scatters much wider than Green/Blue
-        diffuse(highlights.data(), width, height, settings.spread * settings.redDiffusion, 1.0f, 0.0f, 0.0f); // Red layer
-        diffuse(highlights.data(), width, height, settings.spread, 0.0f, 0.1f, 0.05f); // Minor Green/Blue scattering
+        // Preserve the wide red layer in the destination while the original
+        // highlight field is reused for the narrower green/blue diffusion.
+        std::vector<float4> temp(pixelCount);
+        diffuse(highlights.data(), buffer, temp.data(), width, height,
+                settings.spread * settings.redDiffusion, 1.0f, 0.0f, 0.0f);
+        diffuse(highlights.data(), highlights.data(), temp.data(), width, height,
+                settings.spread, 0.0f, 0.1f, 0.05f);
 
         // 3. Composite back with Bloom-like additive blending
         Parallel::ForPixels(0, height, width, height, [&](int y) {
             const auto rowOffset = static_cast<std::size_t>(y) * static_cast<std::size_t>(width);
             for (int x = 0; x < width; ++x) {
                 const auto i = rowOffset + static_cast<std::size_t>(x);
-                buffer[i].x += highlights[i].x * settings.intensity;
-                buffer[i].y += highlights[i].y * settings.intensity;
-                buffer[i].z += highlights[i].z * settings.intensity;
+                buffer[i].x = source[i].x + highlights[i].x * settings.intensity;
+                buffer[i].y = source[i].y + highlights[i].y * settings.intensity;
+                buffer[i].z = source[i].z +
+                              (highlights[i].z + buffer[i].z) * settings.intensity;
+                buffer[i].w = source[i].w;
             }
         });
     }
 
 private:
     // Simple box-blur based diffusion (for physical demonstration)
-    void diffuse(float4* data, int w, int h, float radius, float rM, float gM, float bM) {
+    void diffuse(const float4* source, float4* output, float4* temp,
+                 int w, int h, float radius, float rM, float gM, float bM) {
         int r = static_cast<int>(radius);
-        if (r <= 0) return;
-        
-        const auto pixelCount = static_cast<std::size_t>(w) * static_cast<std::size_t>(h);
-        std::vector<float4> temp(pixelCount);
+        if (r < 0 || !source || !output || !temp) return;
+
         // Horizontal Pass
         Parallel::ForPixels(0, h, w, h, [&](int y) {
             const auto rowOffset = static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
@@ -90,12 +106,13 @@ private:
                 for (int dx = -r; dx <= r; ++dx) {
                     int nx = std::clamp(x + dx, 0, w - 1);
                     const auto index = rowOffset + static_cast<std::size_t>(nx);
-                    sum.x += data[index].x;
-                    sum.y += data[index].y;
-                    sum.z += data[index].z;
+                    sum.x += source[index].x;
+                    sum.y += source[index].y;
+                    sum.z += source[index].z;
                     count++;
                 }
-                temp[rowOffset + static_cast<std::size_t>(x)] = {sum.x / count, sum.y / count, sum.z / count, 0};
+                temp[rowOffset + static_cast<std::size_t>(x)] = {
+                    sum.x / count, sum.y / count, sum.z / count, 0};
             }
         });
         // Vertical Pass + Channel Multiply
@@ -112,9 +129,10 @@ private:
                     count++;
                 }
                 const auto index = static_cast<std::size_t>(y) * static_cast<std::size_t>(w) + static_cast<std::size_t>(x);
-                data[index].x = (sum.x / count) * bM;
-                data[index].y = (sum.y / count) * gM;
-                data[index].z = (sum.z / count) * rM;
+                output[index].x = (sum.x / count) * bM;
+                output[index].y = (sum.y / count) * gM;
+                output[index].z = (sum.z / count) * rM;
+                output[index].w = 0.0f;
             }
         });
     }

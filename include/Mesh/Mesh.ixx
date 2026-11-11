@@ -233,6 +233,53 @@ export namespace ArtifactCore {
         // ある面に含まれる頂点インデックスを取得する
         QVector<int> getPolygonVertices(int polygonIndex) const;
 
+        // Explicit, CPU-side analysis of the original polygon indices. This
+        // allocates temporary storage and must not be called per frame.
+        struct TopologyStatistics {
+            bool topologyAnalysisAvailable = true;
+            int topologyVertexCount = 0;
+            int invalidPolygonCount = 0; // fewer than 3 vertices, repeated or invalid indices
+            int validPolygonCount = 0;
+            std::int64_t edgeCount = 0;
+            int boundaryEdgeCount = 0;
+            int nonManifoldEdgeCount = 0; // more than two incident faces
+            int inconsistentWindingEdgeCount = 0; // two faces traverse the edge alike
+            int inconsistentWindingFaceCount = 0; // both faces incident to any such edge
+            int duplicateFaceCount = 0; // copies after the first, either winding
+            int isolatedVertexCount = 0;
+            int connectedComponentCount = 0; // vertex-connected, includes isolated vertices
+            std::int64_t eulerCharacteristic = 0; // V - E + F, including duplicate valid faces
+            bool positionAnalysisAvailable = false;
+            int degenerateTriangleCount = 0; // in-range fan triangles with area <= tolerance, including invalid polygons
+            int nonFinitePositionTriangleCount = 0;
+        };
+        // Invalid polygons do not contribute to topology, so their vertices
+        // alone are considered isolated. Winding is a local consistency check;
+        // it cannot tell which face is inverted or detect a whole inverted shell.
+        // areaTolerance is in squared model-space units (triangle area).
+        // Exact-position welding is opt-in: it helps with split-vertex imports,
+        // but can join separate shells. It requires all positions to be finite;
+        // otherwise topologyAnalysisAvailable is false and no counts are valid.
+        TopologyStatistics analyzeTopology(double areaTolerance = 0.0,
+                                            bool weldExactPositions = false) const;
+
+        struct SelfIntersectionStatistics {
+            bool positionAnalysisAvailable = false;
+            int invalidPolygonCount = 0;
+            int skippedTriangleCount = 0; // non-finite or zero-area
+            std::int64_t samePolygonPairCount = 0; // fan triangles from one polygon; not tested
+            std::int64_t adjacentPairCount = 0; // shares a vertex; not tested
+            std::int64_t intersectingPairCount = 0; // fan triangle pairs, includes touching
+        };
+        // Exhaustive O(T^2) diagnostic, separate from the cheaper topology
+        // analysis. Same-polygon and shared-vertex pairs are excluded; the
+        // latter can still overlap beyond their shared vertex. With
+        // weldExactPositions, exactly coincident positions also count as
+        // shared vertices; this can hide intersections between separate shells.
+        // tolerance is a non-negative distance in model-space units.
+        SelfIntersectionStatistics analyzeSelfIntersections(double tolerance = 0.0,
+                                                             bool weldExactPositions = false) const;
+
         // 4. サブディビジョンと非破壊モディファイアの基盤
         // サブディビジョンサーフェス（Catmull-Clark等）を適用した新しいメッシュを生成
         SharedPtr<Mesh> createSubdivided(int level) const;
