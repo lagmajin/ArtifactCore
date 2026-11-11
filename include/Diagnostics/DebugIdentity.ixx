@@ -1,7 +1,6 @@
 module;
 
 #include <atomic>
-#include <algorithm>
 #include <cstdint>
 #include <source_location>
 #include <utility>
@@ -40,7 +39,7 @@ public:
           creationLine_(location.line())
     {
         std::lock_guard lock(registryMutex());
-        registry().push_back(this);
+        registry().append(this);
     }
 
     DebugIdentity(const DebugIdentity&) = delete;
@@ -51,7 +50,7 @@ public:
     {
         std::lock_guard lock(registryMutex());
         auto& entries = registry();
-        entries.erase(std::remove(entries.begin(), entries.end(), this), entries.end());
+        entries.removeOne(this);
     }
 
     static std::vector<DebugIdentitySnapshot> snapshotAll()
@@ -103,9 +102,10 @@ public:
     }
 
 private:
-    static std::vector<DebugIdentity*>& registry()
+    static ArtifactCore::NamedVector<DebugIdentity*>& registry()
     {
-        static std::vector<DebugIdentity*> entries;
+        static auto entries = ArtifactCore::makeNamedVector<DebugIdentity*>(
+            "Core.Diagnostics.DebugIdentity.registry");
         return entries;
     }
 

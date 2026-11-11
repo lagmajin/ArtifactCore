@@ -6,6 +6,7 @@ module;
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/ShaderResourceBinding.h>
+#include <DiligentCore/Graphics/GraphicsEngine/interface/Texture.h>
 // RefCntAutoPtr.hpp intentionally NOT included here (MSVC 14.51 C1116 workaround)
 #include "../Define/DllExportMacro.hpp"
 #include <vector>
@@ -69,6 +70,29 @@ public:
     void updateBuffer(IDeviceContext* pContext, const ParticleRenderData& data);
     void setRenderOptions(const ParticleRenderOptions& options);
     size_t lastUploadedParticleCount() const;
+
+    /**
+     * @brief 単一画像アトラスを登録し、安定したテクスチャ id を返す
+     *
+     * 画素データは呼び出し中だけ読み取る。0 は登録失敗（デバイス無し・
+     * 空画像・確保失敗）を表し、呼び出し側は手続き描画へフォールバックする。
+     * GUI スレッドから呼ぶこと。
+     */
+    ParticleTextureId createTexture(const ParticleTextureUpload& upload);
+
+    /// 登録済みテクスチャを破棄する。id を保持したままの描画パケットは
+    /// 手続き描画へフォールバックする。
+    void releaseTexture(ParticleTextureId id);
+
+    /// 登録済みテクスチャの SRV を返す（所有権は移動しない）。未登録なら null。
+    ITextureView* textureView(ParticleTextureId id) const;
+
+    /// このレンダラーのテクスチャ登録世代。レンダラー再生成時に変化する。
+    std::uint64_t textureGeneration() const { return textureGeneration_; }
+
+    /// パケットが保持するテクスチャを現在の描画に適用する。
+    /// updateBuffer() の後、prepare() の前に呼ぶこと。
+    void setCurrentTexture(ITextureView* textureView);
 
     /**
      * @brief 描画準備
@@ -153,9 +177,16 @@ private:
         int billboardMode;
         int falloffMode;
         float padding;
+        int textureMode;
+        // [0] = 1/atlasWidth, [1] = 1/atlasHeight, [2] = reserved.
+        float texturePadding[3];
     };
     ShaderConstants constants_{};
     ArtifactCore::RenderCostStats* frameCostStats_ = nullptr;
+    // Texture atlas currently applied by setCurrentTexture(). Owned by the
+    // registry or by a queued packet; prepare() only reads the pointer.
+    ITextureView* currentTextureView_ = nullptr;
+    std::uint64_t textureGeneration_ = 0;
     // Hot-path state as a value.  The numeric fields feed debugStateText() only,
     // so a frame that reports nothing never formats a string.
     DebugState debugState_ = DebugState::Unknown;

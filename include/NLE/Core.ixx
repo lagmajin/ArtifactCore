@@ -23,6 +23,7 @@ import Core.Defaults;
 import Frame.Position;
 import Frame.Range;
 import Frame.Rate;
+import Container.NamedVector;
 
 export namespace ArtifactCore::NLE {
 
@@ -501,8 +502,10 @@ private:
     };
 
     NLEProjectStore* store_ = nullptr;
-    std::vector<Entry> undoStack_;
-    std::vector<Entry> redoStack_;
+    ArtifactCore::NamedVector<Entry> undoStack_ =
+        ArtifactCore::makeNamedVector<Entry>("NLE.EditHistory.undo");
+    ArtifactCore::NamedVector<Entry> redoStack_ =
+        ArtifactCore::makeNamedVector<Entry>("NLE.EditHistory.redo");
     size_t maxDepth_ = 100;
 };
 

@@ -2,7 +2,9 @@ module;
 #include <cstddef>
 #include <cstdint>
 #include <cassert>
+#include <functional>
 #include <utility>
+#include <type_traits>
 #include <new>
 #include <initializer_list>
 #include <cstring>
@@ -34,33 +36,64 @@ public:
     }
 
     // --- Append / Prepend ---
-    void append(const T& v) { ensureCapacity(size_ + 1); new (data_ + size_) T(v); ++size_; }
-    void append(T&& v) { ensureCapacity(size_ + 1); new (data_ + size_) T(std::move(v)); ++size_; }
+    void append(const T& v) {
+        if (aliasesStorage(v)) {
+            T staged(v);
+            append(std::move(staged));
+            return;
+        }
+        ensureAppendCapacity(); new (data_ + size_) T(v); ++size_;
+    }
+    void append(T&& v) {
+        if (aliasesStorage(v)) {
+            T staged(std::move(v));
+            append(std::move(staged));
+            return;
+        }
+        ensureAppendCapacity(); new (data_ + size_) T(std::move(v)); ++size_;
+    }
     Array& operator<<(const T& v) { append(v); return *this; }  // stream style
     Array& operator<<(T&& v) { append(std::move(v)); return *this; }
     void prepend(const T& v) { insert(0, v); }
-    void appendAll(const Array& other) { for (const auto& v : other) append(v); }
+    void appendAll(const Array& other) {
+        const size_t sourceSize = other.size_;
+        for (size_t i = 0; i < sourceSize; ++i) append(other.data_[i]);
+    }
     Array operator+(const Array& other) const { Array r(*this); r.appendAll(other); return r; }
 
     // --- Insert / Replace ---
     void insert(size_t index, const T& v) {
         if (index > size_) return;
-        ensureCapacity(size_ + 1);
-        for (size_t i = size_; i > index; --i) { new (data_ + i) T(std::move(data_[i - 1])); data_[i - 1].~T(); }
-        new (data_ + index) T(v);
-        ++size_;
+        if (size_ == maxSize()) throw std::bad_array_new_length();
+        const size_t newCapacity = capacityFor(size_ + 1);
+        T staged(v);
+        insertStaged(index, staged, newCapacity);
     }
     void insert(size_t index, T&& v) {
         if (index > size_) return;
-        ensureCapacity(size_ + 1);
-        for (size_t i = size_; i > index; --i) { new (data_ + i) T(std::move(data_[i - 1])); data_[i - 1].~T(); }
-        new (data_ + index) T(std::move(v));
-        ++size_;
+        if (size_ == maxSize()) throw std::bad_array_new_length();
+        const size_t newCapacity = capacityFor(size_ + 1);
+        T staged(std::move(v));
+        insertStaged(index, staged, newCapacity);
     }
     void replace(size_t index, const T& v) {
         if (index >= size_) return;
-        data_[index].~T();
-        new (data_ + index) T(v);
+        T staged(v);
+        if constexpr (std::is_nothrow_move_constructible_v<T>) {
+            data_[index].~T();
+            new (data_ + index) T(std::move(staged));
+        } else {
+            rebuildStorage(size_, capacity_, [&](T* newData, size_t& constructed) {
+                for (size_t source = 0; source < size_; ++source) {
+                    if (source == index) {
+                        new (newData + constructed) T(std::move_if_noexcept(staged));
+                    } else {
+                        new (newData + constructed) T(std::move_if_noexcept(data_[source]));
+                    }
+                    ++constructed;
+                }
+            });
+        }
     }
 
     // --- Safe access ---
@@ -91,9 +124,20 @@ public:
     // --- Remove ---
     void removeAt(size_t index) {
         if (index >= size_) return;
-        data_[index].~T();
-        for (size_t i = index + 1; i < size_; ++i) { new (data_ + i - 1) T(std::move(data_[i])); data_[i].~T(); }
-        --size_;
+        if (index + 1 == size_) { removeLast(); return; }
+        if constexpr (std::is_nothrow_move_constructible_v<T>) {
+            data_[index].~T();
+            for (size_t i = index + 1; i < size_; ++i) { new (data_ + i - 1) T(std::move(data_[i])); data_[i].~T(); }
+            --size_;
+        } else {
+            rebuildStorage(size_ - 1, capacity_, [&](T* newData, size_t& constructed) {
+                for (size_t source = 0; source < size_; ++source) {
+                    if (source == index) continue;
+                    new (newData + constructed) T(std::move_if_noexcept(data_[source]));
+                    ++constructed;
+                }
+            });
+        }
     }
     void removeFirst() { removeAt(0); }
     void removeLast() { if (size_ == 0) return; data_[size_ - 1].~T(); --size_; }
@@ -114,7 +158,7 @@ public:
     // --- Search ---
     Optional<T&> find(const T& v) {
         for (size_t i = 0; i < size_; ++i) if (data_[i] == v) return Optional<T&>(data_[i]);
-        return Nullopt;
+        return Optional<T&>(Nullopt);
     }
     int indexOf(const T& v) const {
         for (size_t i = 0; i < size_; ++i) if (data_[i] == v) return static_cast<int>(i);
@@ -155,13 +199,11 @@ public:
     size_t capacity() const { return capacity_; }
     bool isEmpty() const { return size_ == 0; }
     void reserve(size_t n) {
+        if (n > maxSize()) throw std::bad_array_new_length();
         if (n <= capacity_) return;
-        T* nd = static_cast<T*>(::operator new(n * sizeof(T)));
-        for (size_t i = 0; i < size_; ++i) { new (nd + i) T(std::move(data_[i])); data_[i].~T(); }
-        ::operator delete(data_);
-        data_ = nd; capacity_ = n;
+        reallocate(n);
     }
-    void squeeze() { if (size_ < capacity_) reserve(size_); }
+    void squeeze() { if (size_ < capacity_) reallocate(size_); }
 
     // --- Comparison ---
     bool operator==(const Array& other) const {
@@ -189,11 +231,11 @@ public:
 
     // --- Iteration ---
     T* begin() { return data_; }
-    T* end() { return data_ + size_; }
+    T* end() { return size_ == 0 ? data_ : data_ + size_; }
     const T* begin() const { return data_; }
-    const T* end() const { return data_ + size_; }
+    const T* end() const { return size_ == 0 ? data_ : data_ + size_; }
     const T* constBegin() const { return data_; }
-    const T* constEnd() const { return data_ + size_; }
+    const T* constEnd() const { return size_ == 0 ? data_ : data_ + size_; }
 
     void swap(Array& o) noexcept {
         T* td = o.data_; o.data_ = data_; data_ = td;
@@ -206,20 +248,132 @@ private:
     size_t size_ = 0;
     size_t capacity_ = 0;
 
+    static constexpr size_t maxSize() noexcept {
+        return static_cast<size_t>(-1) / sizeof(T);
+    }
+
+    static T* allocateStorage(size_t capacity) {
+        if constexpr (alignof(T) > __STDCPP_DEFAULT_NEW_ALIGNMENT__) {
+            return static_cast<T*>(::operator new(capacity * sizeof(T), std::align_val_t{alignof(T)}));
+        } else {
+            return static_cast<T*>(::operator new(capacity * sizeof(T)));
+        }
+    }
+
+    static void deallocateStorage(T* storage) noexcept {
+        if constexpr (alignof(T) > __STDCPP_DEFAULT_NEW_ALIGNMENT__) {
+            ::operator delete(storage, std::align_val_t{alignof(T)});
+        } else {
+            ::operator delete(storage);
+        }
+    }
+
+    bool aliasesStorage(const T& value) const noexcept {
+        if (size_ == 0) return false;
+        const std::less<const T*> less;
+        const T* const source = &value;
+        return !less(source, data_) && less(source, data_ + size_);
+    }
+
+    size_t capacityFor(size_t required) const {
+        if (required > maxSize()) throw std::bad_array_new_length();
+        if (required <= capacity_) return capacity_;
+        size_t newCapacity = capacity_ == 0
+            ? 4
+            : (capacity_ > maxSize() / 2 ? maxSize() : capacity_ * 2);
+        if (newCapacity < required) newCapacity = required;
+        return newCapacity;
+    }
+
+    template <typename Builder>
+    void rebuildStorage(size_t newSize, size_t newCapacity, Builder&& builder) {
+        T* newData = newCapacity == 0 ? nullptr : allocateStorage(newCapacity);
+        size_t constructed = 0;
+        try {
+            builder(newData, constructed);
+        } catch (...) {
+            while (constructed > 0) newData[--constructed].~T();
+            if (newData) deallocateStorage(newData);
+            throw;
+        }
+
+        destroyAll();
+        if (data_) deallocateStorage(data_);
+        data_ = newData;
+        size_ = newSize;
+        capacity_ = newCapacity;
+    }
+
+    void insertStaged(size_t index, T& staged, size_t newCapacity) {
+        if constexpr (std::is_nothrow_move_constructible_v<T>) {
+            if (newCapacity > capacity_) reserve(newCapacity);
+            for (size_t i = size_; i > index; --i) {
+                new (data_ + i) T(std::move(data_[i - 1]));
+                data_[i - 1].~T();
+            }
+            new (data_ + index) T(std::move(staged));
+            ++size_;
+        } else {
+            rebuildStorage(size_ + 1, newCapacity, [&](T* newData, size_t& constructed) {
+                for (size_t source = 0; source < index; ++source) {
+                    new (newData + constructed) T(std::move_if_noexcept(data_[source]));
+                    ++constructed;
+                }
+                new (newData + constructed) T(std::move_if_noexcept(staged));
+                ++constructed;
+                for (size_t source = index; source < size_; ++source) {
+                    new (newData + constructed) T(std::move_if_noexcept(data_[source]));
+                    ++constructed;
+                }
+            });
+        }
+    }
+
+    void reallocate(size_t newCapacity) {
+        if (newCapacity == 0) {
+            release();
+            return;
+        }
+
+        T* newData = allocateStorage(newCapacity);
+        size_t constructed = 0;
+        try {
+            for (; constructed < size_; ++constructed) {
+                new (newData + constructed) T(std::move_if_noexcept(data_[constructed]));
+            }
+        } catch (...) {
+            while (constructed > 0) newData[--constructed].~T();
+            deallocateStorage(newData);
+            throw;
+        }
+
+        destroyAll();
+        if (data_) deallocateStorage(data_);
+        data_ = newData;
+        capacity_ = newCapacity;
+    }
+
     void copyFrom(const Array& o) {
         if (o.size_ == 0) return;
         reserve(o.size_);
-        for (size_t i = 0; i < o.size_; ++i) new (data_ + i) T(o.data_[i]);
-        size_ = o.size_;
+        try {
+            for (; size_ < o.size_; ++size_) new (data_ + size_) T(o.data_[size_]);
+        } catch (...) {
+            destroyAll();
+            release();
+            throw;
+        }
     }
     void ensureCapacity(size_t n) {
         if (n <= capacity_) return;
-        size_t nc = capacity_ == 0 ? 4 : capacity_ * 2;
-        if (nc < n) nc = n;
-        reserve(nc);
+        reserve(capacityFor(n));
+    }
+    void ensureAppendCapacity() {
+        if (size_ == maxSize()) throw std::bad_array_new_length();
+        ensureCapacity(size_ + 1);
     }
     void destroyAll() { for (size_t i = 0; i < size_; ++i) data_[i].~T(); }
-    void release() { ::operator delete(data_); data_ = nullptr; capacity_ = 0; }
+    void release() { if (data_) deallocateStorage(data_); data_ = nullptr; capacity_ = 0; }
 };
 
 template <typename T>
@@ -243,6 +397,27 @@ struct StaticArray {
     constexpr void fill(const T& value) {
         for (auto& element : elements) element = value;
     }
+};
+
+template <typename T>
+struct StaticArray<T, 0> {
+    constexpr T* begin() noexcept { return nullptr; }
+    constexpr T* end() noexcept { return nullptr; }
+    constexpr const T* begin() const noexcept { return nullptr; }
+    constexpr const T* end() const noexcept { return nullptr; }
+    static constexpr std::size_t size() noexcept { return 0; }
+    static constexpr bool isEmpty() noexcept { return true; }
+
+    constexpr T& operator[](std::size_t) noexcept {
+        assert(false && "StaticArray<T, 0> has no elements");
+        return *static_cast<T*>(nullptr);
+    }
+    constexpr const T& operator[](std::size_t) const noexcept {
+        assert(false && "StaticArray<T, 0> has no elements");
+        return *static_cast<const T*>(nullptr);
+    }
+
+    constexpr void fill(const T&) noexcept {}
 };
 
 template <typename T, std::size_t N>

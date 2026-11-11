@@ -2,15 +2,14 @@ module;
 
 #include <string>
 #include <vector>
-#include <unordered_map>
-#include <unordered_set>
 #include <mutex>
-#include <memory>
 
 export module ArtifactCore.Plugin.Registry;
 
 import ArtifactCore.Plugin.Common;
 import Core.ArtifactOptional;
+import Core.ArtifactSet;
+import Container.NameMap;
 
 export namespace ArtifactCore {
 
@@ -41,8 +40,8 @@ private:
     };
 
     mutable std::mutex mutex_;
-    std::unordered_map<std::string, Entry> entries_;
-    std::unordered_set<std::string> active_;
+    NameMap<std::string, Entry> entries_{ContainerName{"PluginRegistry.entries"}};
+    ArtifactSet<std::string> active_;
 };
 
 } // namespace ArtifactCore

@@ -2483,9 +2483,20 @@ float4 PSMain(PSInput In) : SV_Target {
         return float4(In.Color.rgb, 1.0);
     }
     if (In.Mode > 6.5 && In.Mode < 7.5) {
+        // A current-frame fragment can still have a previous clip position
+        // behind the camera (or on the projection plane). Dividing by a
+        // clamped positive W turns that invalid projection into an enormous
+        // screen-space velocity, which then smears across the whole frame.
+        // Keep the fragment's coverage valid while marking its motion as zero.
+        if (In.PrevPos.w <= 1e-5) {
+            return float4(0.5, 0.5, 0.5, 1.0);
+        }
         float2 currNdc = In.Pos.xy / max(In.Pos.w, 1e-5);
-        float2 prevNdc = In.PrevPos.xy / max(In.PrevPos.w, 1e-5);
+        float2 prevNdc = In.PrevPos.xy / In.PrevPos.w;
         float2 velocity = (currNdc - prevNdc) * float2(0.5, -0.5);
+        if (!all(isfinite(velocity))) {
+            return float4(0.5, 0.5, 0.5, 1.0);
+        }
         return float4(velocity * 0.5 + 0.5, 0.5, 1.0);
     }
     // Position AOV (mode 9): raw world-space position, no encoding.

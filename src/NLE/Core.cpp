@@ -26,6 +26,7 @@ module NLE.Core;
 
 import Serialization.JsonAdapter;
 import Serialization.SchemaMigration;
+import Container.NamedVector;
 
 namespace {
 const bool kTimeBaseSerializationRegistered = [] {
@@ -2833,59 +2834,63 @@ void NLEEditHistory::capture(const QString& label)
     Entry entry;
     entry.label = label;
     entry.state = store_->toJson();
-    undoStack_.push_back(std::move(entry));
+    undoStack_.add(std::move(entry));
     redoStack_.clear();
     while (undoStack_.size() > maxDepth_) {
-        undoStack_.erase(undoStack_.begin());
+        undoStack_.removeFirst();
     }
 }
 
 bool NLEEditHistory::undo()
 {
-    if (!store_ || undoStack_.empty()) {
+    if (!store_ || undoStack_.isEmpty()) {
         return false;
     }
-    Entry entry = std::move(undoStack_.back());
-    undoStack_.pop_back();
+    Entry entry = std::move(undoStack_[undoStack_.size() - 1]);
+    undoStack_.popBack();
     Entry current;
     current.label = entry.label;
     current.state = store_->toJson();
-    redoStack_.push_back(std::move(current));
+    redoStack_.add(std::move(current));
     return store_->loadFromJson(entry.state);
 }
 
 bool NLEEditHistory::redo()
 {
-    if (!store_ || redoStack_.empty()) {
+    if (!store_ || redoStack_.isEmpty()) {
         return false;
     }
-    Entry entry = std::move(redoStack_.back());
-    redoStack_.pop_back();
+    Entry entry = std::move(redoStack_[redoStack_.size() - 1]);
+    redoStack_.popBack();
     Entry current;
     current.label = entry.label;
     current.state = store_->toJson();
-    undoStack_.push_back(std::move(current));
+    undoStack_.add(std::move(current));
     return store_->loadFromJson(entry.state);
 }
 
 bool NLEEditHistory::canUndo() const
 {
-    return store_ && !undoStack_.empty();
+    return store_ && !undoStack_.isEmpty();
 }
 
 bool NLEEditHistory::canRedo() const
 {
-    return store_ && !redoStack_.empty();
+    return store_ && !redoStack_.isEmpty();
 }
 
 QString NLEEditHistory::undoLabel() const
 {
-    return undoStack_.empty() ? QString() : undoStack_.back().label;
+    return undoStack_.isEmpty()
+        ? QString()
+        : undoStack_[undoStack_.size() - 1].label;
 }
 
 QString NLEEditHistory::redoLabel() const
 {
-    return redoStack_.empty() ? QString() : redoStack_.back().label;
+    return redoStack_.isEmpty()
+        ? QString()
+        : redoStack_[redoStack_.size() - 1].label;
 }
 
 void NLEEditHistory::clear()
@@ -2908,7 +2913,7 @@ void NLEEditHistory::setMaxDepth(size_t maxDepth)
 {
     maxDepth_ = maxDepth == 0 ? 1 : maxDepth;
     while (undoStack_.size() > maxDepth_) {
-        undoStack_.erase(undoStack_.begin());
+        undoStack_.removeFirst();
     }
 }
 

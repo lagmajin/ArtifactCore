@@ -21,24 +21,39 @@ template <typename T, typename Hasher = std::hash<T>,
 class HashSet {
 public:
     HashSet() = default;
-    HashSet(const HashSet& other) { copyFrom(other); }
+    HashSet(const HashSet& other)
+        : hasher_(other.hasher_), keyEqual_(other.keyEqual_) {
+        try {
+            copyFrom(other);
+        } catch (...) {
+            clear();
+            deallocateBuckets();
+            throw;
+        }
+    }
     HashSet& operator=(const HashSet& other) {
         if (this == &other) return *this;
         HashSet tmp(other);
         swap(tmp);
         return *this;
     }
-    HashSet(HashSet&& other) noexcept
+    HashSet(HashSet&& other) noexcept(
+        std::is_nothrow_move_constructible_v<Hasher> &&
+        std::is_nothrow_move_constructible_v<KeyEqual>)
         : buckets_(other.buckets_), bucketCount_(other.bucketCount_),
           head_(other.head_), tail_(other.tail_), size_(other.size_),
-          hasher_(other.hasher_), keyEqual_(other.keyEqual_) {
+          hasher_(std::move(other.hasher_)), keyEqual_(std::move(other.keyEqual_)) {
         other.buckets_ = nullptr;
         other.bucketCount_ = 0;
         other.head_ = other.tail_ = nullptr;
         other.size_ = 0;
     }
-    HashSet& operator=(HashSet&& other) noexcept {
+    HashSet& operator=(HashSet&& other) noexcept(
+        std::is_nothrow_move_assignable_v<Hasher> &&
+        std::is_nothrow_move_assignable_v<KeyEqual>) {
         if (this == &other) return *this;
+        hasher_ = std::move(other.hasher_);
+        keyEqual_ = std::move(other.keyEqual_);
         clear();
         deallocateBuckets();
         buckets_ = other.buckets_;
@@ -46,8 +61,6 @@ public:
         head_ = other.head_;
         tail_ = other.tail_;
         size_ = other.size_;
-        hasher_ = other.hasher_;
-        keyEqual_ = other.keyEqual_;
         other.buckets_ = nullptr;
         other.bucketCount_ = 0;
         other.head_ = other.tail_ = nullptr;
@@ -60,25 +73,12 @@ public:
     }
 
     // Returns true when the element was newly inserted.
-    bool add(const T& item) {
-        if (bucketCount_ == 0) allocateBuckets(kInitialBucketCount);
-        const std::size_t hash = hasher_(item);
-        if (findNode(item, hash)) return false;
-        if ((size_ + 1) * 4 >= bucketCount_ * 3) {
-            grow();
-        }
-        const std::size_t index = bucketIndex(hash);
-        Node* node = new Node{item, hash, head_, buckets_[index], nullptr};
-        buckets_[index] = node;
-        if (head_) head_->previousAll = node;
-        head_ = node;
-        if (!tail_) tail_ = node;
-        ++size_;
-        return true;
-    }
+    bool add(const T& item) { return addValue(item); }
+    bool add(T&& item) { return addValue(std::move(item)); }
 
     // std::unordered_set-compatible spelling.
     bool insert(const T& item) { return add(item); }
+    bool insert(T&& item) { return add(std::move(item)); }
 
     bool remove(const T& item) {
         if (bucketCount_ == 0) return false;
@@ -134,7 +134,7 @@ public:
     [[nodiscard]] Array<T> values() const {
         Array<T> result;
         result.reserve(size_);
-        for (Node* node = head_; node; node = node->nextAll) {
+        for (Node* node = tail_; node; node = node->previousAll) {
             result.append(node->value);
         }
         return result;
@@ -160,12 +160,17 @@ public:
     [[nodiscard]] Iterator begin() const noexcept { return Iterator(head_); }
     [[nodiscard]] Iterator end() const noexcept { return Iterator(nullptr); }
 
-    void swap(HashSet& other) noexcept {
+    void swap(HashSet& other) noexcept(
+        std::is_nothrow_swappable_v<Hasher> &&
+        std::is_nothrow_swappable_v<KeyEqual>) {
+        using std::swap;
         Node** tb = other.buckets_; other.buckets_ = buckets_; buckets_ = tb;
         const std::size_t tc = other.bucketCount_; other.bucketCount_ = bucketCount_; bucketCount_ = tc;
         Node* th = other.head_; other.head_ = head_; head_ = th;
         Node* tt = other.tail_; other.tail_ = tail_; tail_ = tt;
         const std::size_t ts = other.size_; other.size_ = size_; size_ = ts;
+        swap(hasher_, other.hasher_);
+        swap(keyEqual_, other.keyEqual_);
     }
 
 private:
@@ -177,10 +182,28 @@ private:
         Node* previousAll; // oldest-side neighbour for unlinking
     };
 
+    template <typename Value>
+    bool addValue(Value&& item) {
+        if (bucketCount_ == 0) allocateBuckets(kInitialBucketCount);
+        const std::size_t hash = hasher_(item);
+        if (findNode(item, hash)) return false;
+        if ((size_ + 1) * 4 >= bucketCount_ * 3) {
+            grow();
+        }
+        const std::size_t index = bucketIndex(hash);
+        Node* node = new Node{std::forward<Value>(item), hash, head_, buckets_[index], nullptr};
+        buckets_[index] = node;
+        if (head_) head_->previousAll = node;
+        head_ = node;
+        if (!tail_) tail_ = node;
+        ++size_;
+        return true;
+    }
+
     void allocateBuckets(const std::size_t count) {
+        Node** newBuckets = new Node*[count]{};
+        buckets_ = newBuckets;
         bucketCount_ = count;
-        buckets_ = new Node*[bucketCount_];
-        for (std::size_t i = 0; i < bucketCount_; ++i) buckets_[i] = nullptr;
     }
     void deallocateBuckets() {
         delete[] buckets_;
@@ -228,7 +251,9 @@ private:
     void copyFrom(const HashSet& other) {
         if (other.size_ == 0) return;
         if (bucketCount_ < other.bucketCount_) allocateBuckets(other.bucketCount_);
-        for (Node* node = other.head_; node; node = node->nextAll) {
+        // add() inserts at the iteration head, so rebuild oldest to newest to
+        // preserve the source's observable iteration order.
+        for (Node* node = other.tail_; node; node = node->previousAll) {
             add(node->value);
         }
     }

@@ -1,8 +1,10 @@
 module;
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <cstdint>
 #include <cstring>
 #include <limits>
 #include <map>
@@ -17,6 +19,8 @@ module;
 #include <DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/PipelineStateCache.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/ShaderResourceBinding.h>
+#include <DiligentCore/Graphics/GraphicsEngine/interface/Texture.h>
+#include <DiligentCore/Graphics/GraphicsEngine/interface/Sampler.h>
 #include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
 #include <QByteArray>
 #include <QDir>
@@ -45,6 +49,11 @@ struct ParticleGraphicsPsoCacheEntry {
 
 struct ParticleRenderer::Impl
 {
+    struct ParticleTextureEntry {
+        Diligent::RefCntAutoPtr<Diligent::ITexture> texture;
+        Diligent::ITextureView* srv = nullptr;
+    };
+
     Diligent::RefCntAutoPtr<Diligent::IPipelineState>         pPSO_;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pSRB_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pParticleBuffer_;
@@ -52,6 +61,14 @@ struct ParticleRenderer::Impl
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pIndirectArgsBuffer_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pCompactedParticleBuffer_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pCullConstantsBuffer_;
+    // 1x1 white atlas bound when a draw has no texture, so the dynamic SRV and
+    // sampler variables are always valid even in procedural mode.
+    Diligent::RefCntAutoPtr<Diligent::ITexture>               pWhiteTexture_;
+    Diligent::ITextureView*                                   pWhiteSrv_ = nullptr;
+    Diligent::RefCntAutoPtr<Diligent::ISampler>               pParticleSampler_;
+    // GUI-thread-owned registry. Queued packets hold their own view reference,
+    // so submission threads never touch this map.
+    std::map<ParticleTextureId, ParticleTextureEntry>         particleTextures_;
     std::unique_ptr<ComputeExecutor>                           pCullExecutor_;
     bool indirectDrawSupported_ = false;
     bool gpuCullReady_ = false;
@@ -123,7 +140,11 @@ namespace {
 
 // Bump when the embedded particle HLSL changes: backends key stored blobs
 // by bytecode too, but this retires poisoned files unconditionally.
-constexpr int kParticlePsoCacheFileVersion = 9;
+constexpr int kParticlePsoCacheFileVersion = 10;
+
+// Texture ids are process-unique: a recreated renderer can never alias an id
+// that an old layer cache or a stale packet still carries.
+std::atomic<std::uint64_t> g_nextParticleTextureId{1};
 
 struct DevicePsoCacheEntry {
     Diligent::RefCntAutoPtr<Diligent::IPipelineStateCache> cache;
@@ -379,6 +400,11 @@ cbuffer Constants : register(b0) {
     int BillboardMode;
     int FalloffMode;
     float BlendMode;
+    int TextureMode;
+    // Atlas texel size (1/width, 1/height) for bleeding-free cell clamping.
+    float TexturePadding0;
+    float TexturePadding1;
+    float TexturePadding2;
 };
 
 struct VS_Input {
@@ -395,6 +421,11 @@ struct PS_Input {
     nointerpolation uint Falloff : TEXCOORD2;
     nointerpolation uint Blend : TEXCOORD3;
     nointerpolation float RingInnerRadius : TEXCOORD4;
+    nointerpolation uint TextureMode : TEXCOORD5;
+    // x = sprite frame, y = atlas rows, z = atlas cols.
+    nointerpolation uint3 Sprite : TEXCOORD6;
+    // Atlas texel size (1/width, 1/height).
+    nointerpolation float2 TexelSize : TEXCOORD7;
 };
 
 static const float2 c_Offsets[4] = {
@@ -476,6 +507,12 @@ PS_Input VSMain(VS_Input In) {
     Out.Falloff = (uint)FalloffMode;
     Out.Blend = (uint)BlendMode;
     Out.RingInnerRadius = saturate(p.velocity.w) * 0.5;
+    Out.TextureMode = (uint)(TextureMode != 0 && p.position.w > 0.5);
+    Out.Sprite = uint3(
+        (uint)max(p.spriteFrame, 0),
+        (uint)max(p.spriteRows, 1),
+        (uint)max(p.spriteCols, 1));
+    Out.TexelSize = float2(TexturePadding0, TexturePadding1);
     
     return Out;
 }
@@ -491,7 +528,15 @@ struct PS_Input {
     nointerpolation uint Falloff : TEXCOORD2;
     nointerpolation uint Blend : TEXCOORD3;
     nointerpolation float RingInnerRadius : TEXCOORD4;
+    nointerpolation uint TextureMode : TEXCOORD5;
+    // x = sprite frame, y = atlas rows, z = atlas cols.
+    nointerpolation uint3 Sprite : TEXCOORD6;
+    // Atlas texel size (1/width, 1/height).
+    nointerpolation float2 TexelSize : TEXCOORD7;
 };
+
+Texture2D    g_ParticleTexture : register(t0);
+SamplerState g_ParticleSampler : register(s0);
 
 float4 PrepareBlendColor(float4 color, uint blend) {
     // Screen and Multiply use premultiplied source RGB in their blend
@@ -501,6 +546,26 @@ float4 PrepareBlendColor(float4 color, uint blend) {
 }
 
 float4 PSMain(PS_Input In) : SV_Target {
+    if (In.TextureMode != 0u) {
+        // Flipbook atlas: map the quad UV into its cell. Half-texel inset on
+        // every edge keeps linear filtering from bleeding neighbouring cells.
+        uint rows = max(In.Sprite.y, 1u);
+        uint cols = max(In.Sprite.z, 1u);
+        uint frame = In.Sprite.x;
+        uint2 cell = uint2(frame % cols, frame / cols);
+        float2 cellSize = 1.0 / float2((float)cols, (float)rows);
+        float2 cellOrigin = float2((float)cell.x, (float)cell.y) * cellSize;
+        float2 texel = In.TexelSize;
+        float2 inset = min(texel * 0.5, cellSize * 0.5);
+        float2 atlasUV = cellOrigin + inset +
+            saturate(In.UV) * max(cellSize - inset * 2.0, 0.0);
+        float4 texelColor = g_ParticleTexture.Sample(g_ParticleSampler, atlasUV);
+        float alpha = In.Color.a * texelColor.a;
+        if (alpha <= 0.0) discard;
+        // The software path multiplies sprite RGB by the particle tint.
+        return PrepareBlendColor(
+            float4(In.Color.rgb * texelColor.rgb, alpha), In.Blend);
+    }
     float dist = length(In.UV - 0.5);
     if (In.Falloff == 4 || In.Falloff == 5) {
         float2 p = abs(In.UV - 0.5);
@@ -589,6 +654,8 @@ ParticleRenderer::~ParticleRenderer()
 }
 
 void ParticleRenderer::initialize(size_t maxParticles) {
+    static_assert(sizeof(ShaderConstants) == 224,
+                  "Particle cbuffer layout must match the embedded HLSL");
     maxParticles_ = maxParticles;
     constants_.billboardMode = static_cast<int>(renderOptions_.billboard);
     constants_.falloffMode = static_cast<int>(renderOptions_.falloff);
@@ -682,6 +749,50 @@ void ParticleRenderer::createBuffers() {
     cullConstantsDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
     pDevice->CreateBuffer(
         cullConstantsDesc, nullptr, &pImpl_->pCullConstantsBuffer_);
+
+    // Default particle atlas binding: a 1x1 white texel so procedural draws can
+    // leave the dynamic texture variable set without a special PSO variant.
+    if (!pImpl_->pWhiteTexture_) {
+        const Uint8 white[4] = {255, 255, 255, 255};
+        TextureDesc whiteDesc;
+        whiteDesc.Name = "Particle White Texture";
+        whiteDesc.Type = RESOURCE_DIM_TEX_2D;
+        whiteDesc.Width = 1;
+        whiteDesc.Height = 1;
+        whiteDesc.Format = TEX_FORMAT_RGBA8_UNORM_SRGB;
+        whiteDesc.MipLevels = 1;
+        whiteDesc.Usage = USAGE_IMMUTABLE;
+        whiteDesc.BindFlags = BIND_SHADER_RESOURCE;
+        whiteDesc.CPUAccessFlags = CPU_ACCESS_NONE;
+        TextureSubResData whiteData;
+        whiteData.pData = white;
+        whiteData.Stride = 4;
+        TextureData whiteInit;
+        whiteInit.pSubResources = &whiteData;
+        whiteInit.NumSubresources = 1;
+        pDevice->CreateTexture(whiteDesc, &whiteInit, &pImpl_->pWhiteTexture_);
+        pImpl_->pWhiteSrv_ = pImpl_->pWhiteTexture_
+            ? pImpl_->pWhiteTexture_->GetDefaultView(
+                  TEXTURE_VIEW_SHADER_RESOURCE)
+            : nullptr;
+    }
+    if (!pImpl_->pParticleSampler_) {
+        SamplerDesc samplerDesc;
+        samplerDesc.MinFilter = FILTER_TYPE_LINEAR;
+        samplerDesc.MagFilter = FILTER_TYPE_LINEAR;
+        samplerDesc.MipFilter = FILTER_TYPE_LINEAR;
+        samplerDesc.AddressU = TEXTURE_ADDRESS_CLAMP;
+        samplerDesc.AddressV = TEXTURE_ADDRESS_CLAMP;
+        samplerDesc.AddressW = TEXTURE_ADDRESS_CLAMP;
+        pDevice->CreateSampler(samplerDesc, &pImpl_->pParticleSampler_);
+    }
+    if (!pImpl_->particleTextures_.empty()) {
+        // Device resources were recreated: ids from the previous generation are
+        // meaningless. Callers detect this through textureGeneration().
+        pImpl_->particleTextures_.clear();
+    }
+    textureGeneration_ = g_nextParticleTextureId.fetch_add(1);
+
     debugState_ = DebugState::BuffersReady;
     debugMax_ = static_cast<qulonglong>(maxParticles_);
     debugFlagA_ = pImpl_->pParticleBuffer_ != nullptr;
@@ -779,8 +890,10 @@ bool BuildParticleGraphicsPipeline(
     // Layout
     PSOCreateInfo.PSODesc.ResourceLayout.DefaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
 
-    static std::array<ShaderResourceVariableDesc, 1> Vars = {{
-        {SHADER_TYPE_VERTEX, "g_Particles", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
+    static std::array<ShaderResourceVariableDesc, 3> Vars = {{
+        {SHADER_TYPE_VERTEX, "g_Particles", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "g_ParticleTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "g_ParticleSampler", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
     }};
     PSOCreateInfo.PSODesc.ResourceLayout.Variables = Vars.data();
     PSOCreateInfo.PSODesc.ResourceLayout.NumVariables = (Uint32)Vars.size();
@@ -1238,6 +1351,13 @@ void ParticleRenderer::asyncWorkerMain()
 
 void ParticleRenderer::updateBuffer(IDeviceContext* pContext, const ParticleRenderData& data) {
     setRenderOptions(data.options);
+    // A packet without an explicit setCurrentTexture() call must render
+    // procedurally rather than reuse the previous frame's atlas.
+    currentTextureView_ = nullptr;
+    constants_.textureMode = 0;
+    constants_.texturePadding[0] = 0.0f;
+    constants_.texturePadding[1] = 0.0f;
+    constants_.texturePadding[2] = 0.0f;
     debugCount_ = static_cast<qulonglong>(data.particles.size());
     debugUploaded_ = 0;
     debugMax_ = static_cast<qulonglong>(maxParticles_);
@@ -1286,6 +1406,83 @@ void ParticleRenderer::setRenderOptions(const ParticleRenderOptions& options)
 size_t ParticleRenderer::lastUploadedParticleCount() const
 {
     return lastUploadedParticleCount_;
+}
+
+ParticleTextureId ParticleRenderer::createTexture(
+    const ParticleTextureUpload& upload)
+{
+    auto pDevice = context_.RenderDevice();
+    if (!pDevice || !upload.rgba8 || upload.width <= 0 || upload.height <= 0 ||
+        upload.rowStride < upload.width * 4) {
+        return 0;
+    }
+    TextureDesc desc;
+    desc.Name = "Particle Atlas Texture";
+    desc.Type = RESOURCE_DIM_TEX_2D;
+    desc.Width = static_cast<Uint32>(upload.width);
+    desc.Height = static_cast<Uint32>(upload.height);
+    desc.Format = TEX_FORMAT_RGBA8_UNORM_SRGB;
+    desc.MipLevels = 1;
+    desc.Usage = USAGE_IMMUTABLE;
+    desc.BindFlags = BIND_SHADER_RESOURCE;
+    desc.CPUAccessFlags = CPU_ACCESS_NONE;
+    TextureSubResData subData;
+    subData.pData = upload.rgba8;
+    subData.Stride = static_cast<Uint64>(upload.rowStride);
+    TextureData initData;
+    initData.pSubResources = &subData;
+    initData.NumSubresources = 1;
+
+    Impl::ParticleTextureEntry entry;
+    pDevice->CreateTexture(desc, &initData, &entry.texture);
+    if (!entry.texture) {
+        qWarning() << "[ParticleRenderer] particle texture creation failed"
+                   << "size=" << upload.width << "x" << upload.height;
+        return 0;
+    }
+    entry.srv = entry.texture->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+    if (!entry.srv) {
+        return 0;
+    }
+    const ParticleTextureId id = g_nextParticleTextureId.fetch_add(1);
+    pImpl_->particleTextures_[id] = std::move(entry);
+    return id;
+}
+
+void ParticleRenderer::releaseTexture(ParticleTextureId id)
+{
+    if (id == 0) {
+        return;
+    }
+    pImpl_->particleTextures_.erase(id);
+}
+
+ITextureView* ParticleRenderer::textureView(ParticleTextureId id) const
+{
+    if (id == 0) {
+        return nullptr;
+    }
+    const auto it = pImpl_->particleTextures_.find(id);
+    return it != pImpl_->particleTextures_.end() ? it->second.srv : nullptr;
+}
+
+void ParticleRenderer::setCurrentTexture(ITextureView* textureView)
+{
+    currentTextureView_ = textureView;
+    if (!textureView || !textureView->GetTexture()) {
+        constants_.textureMode = 0;
+        constants_.texturePadding[0] = 0.0f;
+        constants_.texturePadding[1] = 0.0f;
+        constants_.texturePadding[2] = 0.0f;
+        return;
+    }
+    const auto& desc = textureView->GetTexture()->GetDesc();
+    constants_.textureMode = 1;
+    constants_.texturePadding[0] =
+        desc.Width > 0 ? 1.0f / static_cast<float>(desc.Width) : 0.0f;
+    constants_.texturePadding[1] =
+        desc.Height > 0 ? 1.0f / static_cast<float>(desc.Height) : 0.0f;
+    constants_.texturePadding[2] = 0.0f;
 }
 
 void ParticleRenderer::prepare(IDeviceContext* pContext) {
@@ -1409,6 +1606,32 @@ void ParticleRenderer::prepare(IDeviceContext* pContext) {
         return;
     }
     pParticleVar->Set(pParticleSRV);
+
+    // Texture variables are dynamic so the same PSO serves procedural and
+    // textured draws. Procedural draws bind the 1x1 white atlas and the
+    // shader's TextureMode constant short-circuits sampling.
+    auto* pTextureVar = pImpl_->pSRB_->GetVariableByName(
+        SHADER_TYPE_PIXEL, "g_ParticleTexture");
+    if (pTextureVar) {
+        ITextureView* pTextureSrv = currentTextureView_
+            ? currentTextureView_ : pImpl_->pWhiteSrv_;
+        if (!pTextureSrv) {
+            // The dynamic texture variable must be initialized before the SRB
+            // commit; without the white fallback the draw would sample an
+            // unbound resource. Skip and let the layer's CPU path cover it.
+            debugState_ = DebugState::PrepareSkippedBinding;
+            debugFlagA_ = true;
+            debugFlagB_ = false;
+            qWarning() << "[ParticleRenderer] prepare() skipped: particle texture SRV unavailable";
+            return;
+        }
+        pTextureVar->Set(pTextureSrv);
+    }
+    auto* pSamplerVar = pImpl_->pSRB_->GetVariableByName(
+        SHADER_TYPE_PIXEL, "g_ParticleSampler");
+    if (pSamplerVar && pImpl_->pParticleSampler_) {
+        pSamplerVar->Set(pImpl_->pParticleSampler_);
+    }
 
     pContext->SetPipelineState(pImpl_->pPSO_);
     if (frameCostStats_) {
@@ -1556,7 +1779,7 @@ QString ParticleRenderer::debugStateText() const {
         return QStringLiteral("state=draw-skipped ctx=%1 active=%2 uploaded=%3")
             .arg(debugFlagA_ ? 1 : 0).arg(debugCount_).arg(debugUploaded_);
     case DebugState::Drawn:
-        return QStringLiteral("state=drawn active=%1 vertices=4 submission=%2 blend=%3 depthTest=%4 depthWrite=%5 billboard=%6")
+        return QStringLiteral("state=drawn active=%1 vertices=4 submission=%2 blend=%3 depthTest=%4 depthWrite=%5 billboard=%6 textured=%7")
             .arg(debugCount_)
             .arg(debugA_ == 0 ? QStringLiteral("gpu-cull-indirect")
                                : (debugA_ == 1 ? QStringLiteral("indirect")
@@ -1564,7 +1787,8 @@ QString ParticleRenderer::debugStateText() const {
             .arg(debugB_)
             .arg(debugFlagA_ ? 1 : 0)
             .arg(debugFlagB_ ? 1 : 0)
-            .arg(debugFlagC_ ? 1 : 0);
+            .arg(debugFlagC_ ? 1 : 0)
+            .arg(constants_.textureMode);
     case DebugState::MatrixUpdateSkippedProjection:
         return QStringLiteral("state=matrix-update-skipped projection=0");
     case DebugState::MatrixUpdateSkippedView:

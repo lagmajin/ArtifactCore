@@ -3,8 +3,8 @@ module;
 #include <QString>
 #include <QDateTime>
 #include <chrono>
+#include <cstddef>
 #include <vector>
-#include <unordered_map>
 #include <mutex>
 #include <optional>
 #include "../Define/DllExportMacro.hpp"
@@ -12,6 +12,7 @@ module;
 export module Render.Farm.Progress;
 
 import Render.Farm.Types;
+import Core.ArtifactHashMap;
 
 export namespace ArtifactCore {
 
@@ -79,8 +80,15 @@ private:
         bool firstFrameSeen = false;
     };
 
+    struct WorkerIdHash {
+        std::size_t operator()(const QString& workerId) const noexcept
+        {
+            return static_cast<std::size_t>(qHash(workerId));
+        }
+    };
+
     mutable std::mutex mutex_;
-    std::unordered_map<QString, WorkerEntry> workers_;
+    ArtifactHashMap<QString, WorkerEntry, WorkerIdHash> workers_;
     QDateTime startedAt_;
     bool started_ = false;
 };

@@ -8,6 +8,7 @@ export module Data.TypedColumn;
 
 import Data.ColumnType;
 import Data.TypeInference;
+import Core.ArtifactArray;
 import Core.ArtifactString;
 
 export namespace ArtifactCore {
@@ -22,7 +23,7 @@ public:
         type_ = TypeInference::inferFromValues(rawValues);
         values_.reserve(rawValues.size());
         for (const auto& v : rawValues) {
-            values_.push_back(parseValue(toStdString(v)));
+            values_.append(parseValue(toStdString(v)));
         }
     }
 
@@ -90,7 +91,7 @@ private:
 
     String name_;
     ColumnType type_ = ColumnType::Unknown;
-    std::vector<ParsedValue> values_;
+    Array<ParsedValue> values_;
 };
 
 } // namespace ArtifactCore

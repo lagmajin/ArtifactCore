@@ -14,6 +14,9 @@ export namespace ArtifactCore {
 // App 層の Config に依存せず Core 内部で完結させるための定数
 constexpr auto DefaultParticleRTVFormat = Diligent::TEX_FORMAT_RGBA8_UNORM_SRGB;
 
+/// Opaque handle for a renderer-owned particle texture atlas.
+using ParticleTextureId = std::uint64_t;
+
 /**
  * @brief GPU レンダリング用の単一パーティクル頂点データ
  *
@@ -26,7 +29,7 @@ constexpr auto DefaultParticleRTVFormat = Diligent::TEX_FORMAT_RGBA8_UNORM_SRGB;
  */
 struct ParticleVertex {
     float px, py, pz; // Position
-    float pad0 = 0.0f; // Padding (position.w, shader-ignored)
+    float pad0 = 0.0f; // position.w: 1 = sample the layer atlas, 0 = procedural
     float vx, vy, vz; // Velocity
     // Ring inner radius as a fraction of the outer radius. Other falloff
     // modes ignore this lane; layout and stride remain unchanged.
@@ -79,11 +82,30 @@ struct ParticleRenderOptions {
 };
 
 /**
+ * @brief 単一画像アトラスを GPU へアップロードするための記述子
+ *
+ * rgba8 は straight alpha の RGBA8（QImage::Format_RGBA8888 相当）を指す。
+ * ポインタはこのアップロード呼び出しの間だけ読み取られ、レンダラー側は
+ * コピーを保持しない。アトラスの分割（rows / cols）はパーティクル頂点の
+ * spriteRows / spriteCols で個別に指定する。
+ */
+struct ParticleTextureUpload {
+    const std::uint8_t* rgba8 = nullptr;
+    int width = 0;
+    int height = 0;
+    int rowStride = 0;
+};
+
+/**
  * @brief レンダラーへ渡すスナップショットデータ
  */
 struct ParticleRenderData {
     std::vector<ParticleVertex> particles;
     int64_t frameNumber = 0;
+    // Renderer-owned texture atlas id. 0 means procedural falloff rendering.
+    // The id is opaque to callers and only meaningful for the renderer that
+    // issued it (see ParticleRenderer::createTexture).
+    std::uint64_t textureId = 0;
     ParticleRenderOptions options;
     // Row-major transform consumed by the particle shader.  2D callers leave
     // this as identity because their coordinates are already canvas-space.

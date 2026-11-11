@@ -61,7 +61,7 @@ public:
   {
     destroyRange(0, size_);
     if (!isInline()) {
-      ::operator delete(heap_);
+      deallocateStorage(heap_);
     }
   }
 
@@ -76,22 +76,35 @@ public:
     , lastMutation_(other.lastMutation_)
   {
     mutationHistory_ = other.mutationHistory_;
+    mutationHistoryCount_ = other.mutationHistoryCount_;
     reserve(other.size_);
-    for (std::size_t i = 0; i < other.size_; ++i) {
-      new (data_ + i) T(other.data_[i]);
+    try {
+      for (; size_ < other.size_; ++size_) {
+        new (data_ + size_) T(other.data_[size_]);
+      }
+    } catch (...) {
+      destroyRange(0, size_);
+      size_ = 0;
+      if (!isInline()) {
+        deallocateStorage(heap_);
+        heap_ = nullptr;
+        data_ = reinterpret_cast<T*>(inline_);
+        capacity_ = kInlineCapacity;
+      }
+      throw;
     }
-    size_ = other.size_;
   }
 
   SmallVector& operator=(const SmallVector& other)
   {
     if (this != &other) {
       destroyRange(0, size_);
+      size_ = 0;
       reserve(other.size_);
-      for (std::size_t i = 0; i < other.size_; ++i) {
-        new (data_ + i) T(other.data_[i]);
+      for (; size_ < other.size_;) {
+        new (data_ + size_) T(other.data_[size_]);
+        ++size_;
       }
-      size_ = other.size_;
       name_ = other.name_;
       domain_ = other.domain_;
       owner_ = other.owner_;
@@ -101,11 +114,12 @@ public:
       lastFailedAccessAt_ = other.lastFailedAccessAt_;
       lastMutation_ = other.lastMutation_;
       mutationHistory_ = other.mutationHistory_;
+      mutationHistoryCount_ = other.mutationHistoryCount_;
     }
     return *this;
   }
 
-  SmallVector(SmallVector&& other) noexcept
+  SmallVector(SmallVector&& other)
     : name_(other.name_)
     , domain_(other.domain_)
     , owner_(other.owner_)
@@ -116,45 +130,43 @@ public:
     , lastMutation_(other.lastMutation_)
   {
     mutationHistory_ = std::move(other.mutationHistory_);
+    mutationHistoryCount_ = other.mutationHistoryCount_;
     if (!other.isInline()) {
       data_ = other.data_;
       heap_ = other.heap_;
       capacity_ = other.capacity_;
     } else {
-      for (std::size_t i = 0; i < other.size_; ++i) {
-        new (data_ + i) T(std::move(other.data_[i]));
-        other.data_[i].~T();
+      try {
+        for (; size_ < other.size_; ++size_) {
+          new (data_ + size_) T(std::move_if_noexcept(other.data_[size_]));
+        }
+      } catch (...) {
+        destroyRange(0, size_);
+        size_ = 0;
+        throw;
       }
+      other.destroyRange(0, other.size_);
     }
     size_ = other.size_;
     other.data_ = reinterpret_cast<T*>(other.inline_);
     other.size_ = 0;
     other.capacity_ = kInlineCapacity;
     other.heap_ = nullptr;
+    other.mutationHistoryCount_ = 0;
   }
 
-  SmallVector& operator=(SmallVector&& other) noexcept
+  SmallVector& operator=(SmallVector&& other)
   {
     if (this != &other) {
       destroyRange(0, size_);
+      size_ = 0;
       if (!isInline()) {
-        ::operator delete(heap_);
+        deallocateStorage(heap_);
         heap_ = nullptr;
       }
       data_ = reinterpret_cast<T*>(inline_);
       capacity_ = kInlineCapacity;
 
-      if (!other.isInline()) {
-        data_ = other.data_;
-        heap_ = other.heap_;
-        capacity_ = other.capacity_;
-      } else {
-        for (std::size_t i = 0; i < other.size_; ++i) {
-          new (data_ + i) T(std::move(other.data_[i]));
-          other.data_[i].~T();
-        }
-      }
-      size_ = other.size_;
       name_ = other.name_;
       domain_ = other.domain_;
       owner_ = other.owner_;
@@ -164,11 +176,31 @@ public:
       lastFailedAccessAt_ = other.lastFailedAccessAt_;
       lastMutation_ = other.lastMutation_;
       mutationHistory_ = std::move(other.mutationHistory_);
+      mutationHistoryCount_ = other.mutationHistoryCount_;
+
+      if (!other.isInline()) {
+        data_ = other.data_;
+        heap_ = other.heap_;
+        capacity_ = other.capacity_;
+      } else {
+        try {
+          for (; size_ < other.size_; ++size_) {
+            new (data_ + size_) T(std::move_if_noexcept(other.data_[size_]));
+          }
+        } catch (...) {
+          destroyRange(0, size_);
+          size_ = 0;
+          throw;
+        }
+        other.destroyRange(0, other.size_);
+      }
+      size_ = other.size_;
 
       other.data_ = reinterpret_cast<T*>(other.inline_);
       other.size_ = 0;
       other.capacity_ = kInlineCapacity;
       other.heap_ = nullptr;
+      other.mutationHistoryCount_ = 0;
     }
     return *this;
   }
@@ -214,13 +246,20 @@ public:
     const auto before = size_;
     if (newSize > size_) {
       reserve(newSize);
-      for (std::size_t i = size_; i < newSize; ++i) {
-        new (data_ + i) T();
+      try {
+        while (size_ < newSize) {
+          new (data_ + size_) T();
+          ++size_;
+        }
+      } catch (...) {
+        updateMaxCount();
+        recordMutation("resize", before, size_);
+        throw;
       }
     } else if (newSize < size_) {
       destroyRange(newSize, size_);
+      size_ = newSize;
     }
-    size_ = newSize;
     updateMaxCount();
     recordMutation("resize", before, size_);
   }
@@ -235,12 +274,7 @@ public:
 
   void add(const T& value)
   {
-    const auto before = size_;
-    maybeGrow();
-    new (data_ + size_) T(value);
-    ++size_;
-    updateMaxCount();
-    recordMutation("add", before, size_);
+    addValue(value);
   }
 
   void append(const T& value)
@@ -250,12 +284,7 @@ public:
 
   void add(T&& value)
   {
-    const auto before = size_;
-    maybeGrow();
-    new (data_ + size_) T(std::move(value));
-    ++size_;
-    updateMaxCount();
-    recordMutation("add", before, size_);
+    addValue(std::move(value));
   }
 
   void append(T&& value)
@@ -269,13 +298,7 @@ public:
       add(value);
       return;
     }
-    const auto before = size_;
-    maybeGrow();
-    shiftRight(index, 1);
-    data_[index] = value;
-    ++size_;
-    updateMaxCount();
-    recordMutation("insert", before, size_);
+    insertValue(index, value);
   }
 
   void insert(std::size_t index, T&& value)
@@ -284,13 +307,7 @@ public:
       add(std::move(value));
       return;
     }
-    const auto before = size_;
-    maybeGrow();
-    shiftRight(index, 1);
-    data_[index] = std::move(value);
-    ++size_;
-    updateMaxCount();
-    recordMutation("insert", before, size_);
+    insertValue(index, std::move(value));
   }
 
   void assign(std::initializer_list<T> values)
@@ -418,12 +435,7 @@ public:
       bumpFailedAccess();
       return false;
     }
-    const auto before = size_;
-    data_[index].~T();
-    shiftLeft(index + 1, 1);
-    --size_;
-    recordMutation("removeAt", before, size_);
-    return true;
+    return removeAtUnchecked(index, "removeAt");
   }
 
   bool replace(std::size_t index, const T& value)
@@ -479,12 +491,8 @@ public:
       bumpFailedAccess();
       return T{};
     }
-    const auto before = size_;
     T value = std::move(data_[index]);
-    data_[index].~T();
-    shiftLeft(index + 1, 1);
-    --size_;
-    recordMutation("takeAt", before, size_);
+    removeAtUnchecked(index, "takeAt");
     return value;
   }
 
@@ -714,12 +722,12 @@ public:
 
   std::size_t mutationHistorySize() const noexcept
   {
-    return mutationHistory_.size();
+    return mutationHistoryCount_;
   }
 
   const ContainerMutationRecord* mutationHistoryAt(std::size_t index) const noexcept
   {
-    return index < mutationHistory_.size() ? &mutationHistory_[index] : nullptr;
+    return index < mutationHistoryCount_ ? &mutationHistory_[index] : nullptr;
   }
 
   ContainerDebugInfo debugInfo() const noexcept
@@ -735,7 +743,7 @@ public:
     };
   }
 
-  ContainerDebugSnapshot debugSnapshot() const noexcept
+  ContainerDebugSnapshot debugSnapshot() const
   {
     const auto samples = debugSample(4);
     return ContainerDebugSnapshot{
@@ -745,7 +753,7 @@ public:
       lastMutatedAt_,
       lastFailedAccessAt_,
       lastMutation_,
-      samples
+      samples.toStdVector()
     };
   }
 
@@ -785,45 +793,140 @@ public:
   }
 
 private:
+  static constexpr std::size_t maxSize() noexcept
+  {
+    return static_cast<std::size_t>(-1) / sizeof(T);
+  }
+
+  static T* allocateStorage(std::size_t capacity)
+  {
+    if (capacity > maxSize()) throw std::bad_array_new_length();
+    const auto byteCount = sizeof(T) * capacity;
+    if constexpr (alignof(T) > __STDCPP_DEFAULT_NEW_ALIGNMENT__) {
+      return static_cast<T*>(::operator new(byteCount, std::align_val_t{alignof(T)}));
+    } else {
+      return static_cast<T*>(::operator new(byteCount));
+    }
+  }
+
+  static void deallocateStorage(T* storage) noexcept
+  {
+    if constexpr (alignof(T) > __STDCPP_DEFAULT_NEW_ALIGNMENT__) {
+      ::operator delete(storage, std::align_val_t{alignof(T)});
+    } else {
+      ::operator delete(storage);
+    }
+  }
+
   bool isInline() const noexcept
   {
     return heap_ == nullptr;
   }
 
+  bool aliasesStorage(const T& value) const noexcept
+  {
+    for (std::size_t index = 0; index < size_; ++index) {
+      if (&value == &data_[index]) return true;
+    }
+    return false;
+  }
+
+  template <typename Value>
+  void addValue(Value&& value)
+  {
+    const auto before = size_;
+    if (size_ >= capacity_ && aliasesStorage(value)) {
+      T staged(std::forward<Value>(value));
+      maybeGrow();
+      new (data_ + size_) T(std::move_if_noexcept(staged));
+    } else {
+      maybeGrow();
+      new (data_ + size_) T(std::forward<Value>(value));
+    }
+    ++size_;
+    updateMaxCount();
+    recordMutation("add", before, size_);
+  }
+
+  template <typename Value>
+  void insertValue(std::size_t index, Value&& value)
+  {
+    if (size_ == maxSize()) throw std::bad_array_new_length();
+    const auto before = size_;
+    T staged(std::forward<Value>(value));
+    const auto* const originalData = data_;
+    const auto originalCapacity = capacity_;
+    try {
+      maybeGrow();
+      shiftRight(index);
+      data_[index] = std::move_if_noexcept(staged);
+    } catch (...) {
+      if (size_ != before || data_ != originalData || capacity_ != originalCapacity) {
+        updateMaxCount();
+        recordMutation("insert", before, size_);
+      }
+      throw;
+    }
+    updateMaxCount();
+    recordMutation("insert", before, size_);
+  }
+
+  bool removeAtUnchecked(std::size_t index, const char* operation)
+  {
+    const auto before = size_;
+    try {
+      for (std::size_t source = index + 1; source < size_; ++source) {
+        data_[source - 1] = std::move_if_noexcept(data_[source]);
+      }
+    } catch (...) {
+      recordMutation(operation, before, size_);
+      throw;
+    }
+    data_[size_ - 1].~T();
+    --size_;
+    recordMutation(operation, before, size_);
+    return true;
+  }
+
   void maybeGrow()
   {
     if (size_ >= capacity_) {
-      grow(capacity_ * 2 + 1);
+      if (size_ == maxSize()) throw std::bad_array_new_length();
+      const auto newCapacity = capacity_ == 0
+        ? (maxSize() < 4 ? maxSize() : 4)
+        : (capacity_ > (maxSize() - 1) / 2 ? maxSize() : capacity_ * 2 + 1);
+      grow(newCapacity);
     }
   }
 
   void grow(std::size_t newCapacity)
   {
-    T* newData = static_cast<T*>(::operator new(sizeof(T) * newCapacity));
-    for (std::size_t i = 0; i < size_; ++i) {
-      new (newData + i) T(std::move(data_[i]));
-      data_[i].~T();
+    T* newData = allocateStorage(newCapacity);
+    std::size_t constructed = 0;
+    try {
+      for (; constructed < size_; ++constructed) {
+        new (newData + constructed) T(std::move_if_noexcept(data_[constructed]));
+      }
+    } catch (...) {
+      destroyRange(0, constructed);
+      deallocateStorage(newData);
+      throw;
     }
+    destroyRange(0, size_);
     if (!isInline()) {
-      ::operator delete(heap_);
+      deallocateStorage(heap_);
     }
     data_ = newData;
     heap_ = newData;
     capacity_ = newCapacity;
   }
 
-  void shiftRight(std::size_t start, std::size_t count)
+  void shiftRight(std::size_t start)
   {
-    new (data_ + size_) T(std::move(data_[size_ - 1]));
-    for (std::size_t i = size_ - 1; i > start; --i) {
-      data_[i] = std::move(data_[i - 1]);
-    }
-  }
-
-  void shiftLeft(std::size_t start, std::size_t count)
-  {
-    for (std::size_t i = start; i < size_; ++i) {
-      data_[i - count] = std::move(data_[i]);
+    new (data_ + size_) T(std::move_if_noexcept(data_[size_ - 1]));
+    ++size_;
+    for (std::size_t i = size_ - 2; i > start; --i) {
+      data_[i] = std::move_if_noexcept(data_[i - 1]);
     }
   }
 
@@ -876,10 +979,13 @@ private:
   void pushMutation(const ContainerMutationRecord& record) noexcept
   {
     constexpr std::size_t historyCapacity = 8;
-    if (mutationHistory_.size() == historyCapacity) {
-      mutationHistory_.removeFirst();
+    if (mutationHistoryCount_ == historyCapacity) {
+      for (std::size_t index = 1; index < historyCapacity; ++index) {
+        mutationHistory_[index - 1] = mutationHistory_[index];
+      }
+      --mutationHistoryCount_;
     }
-    mutationHistory_.append(record);
+    mutationHistory_[mutationHistoryCount_++] = record;
   }
 
   alignas(T) unsigned char inline_[sizeof(T) * kInlineCapacity]{};
@@ -896,7 +1002,8 @@ private:
   ContainerSourceLocation lastMutatedAt_{};
   mutable ContainerSourceLocation lastFailedAccessAt_{};
   ContainerMutationRecord lastMutation_{};
-  Array<ContainerMutationRecord> mutationHistory_;
+  StaticArray<ContainerMutationRecord, 8> mutationHistory_{};
+  std::size_t mutationHistoryCount_ = 0;
   std::size_t observedCapacity_ = kInlineCapacity;
 };
 
