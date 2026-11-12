@@ -971,6 +971,12 @@ Mesh::Meshlet buildMeshletFromIndexRange(const Mesh::RenderData& renderData,
 
         if (!posAttr) return data;
 
+        int generatedTriangleCount = 0;
+        for (const auto& polygon : impl_->polygons) {
+            if (polygon.size() >= 3) generatedTriangleCount += polygon.size() - 2;
+        }
+        const bool hasMaterialSlots = !impl_->materialSlots.isEmpty();
+
         // 簡単なTriangulate（ファン分割）
         for (int i = 0; i < impl_->polygons.size(); ++i) {
             const auto& poly = impl_->polygons[i];
@@ -1005,6 +1011,29 @@ Mesh::Meshlet buildMeshletFromIndexRange(const Mesh::RenderData& renderData,
                 if (uvAttr) data.uvs.push_back((*uvAttr)[v2]);
                 if (uv1Attr) data.uvs1.push_back((*uv1Attr)[v2]);
                 data.colors.push_back(colorAttr ? (*colorAttr)[v2] : QVector4D(1.0f, 1.0f, 1.0f, 1.0f));
+            }
+        }
+
+        if (hasMaterialSlots) {
+            data.triangleMaterialIndices.resize(generatedTriangleCount);
+            for (const auto& slot : impl_->materialSlots) {
+                if (slot.firstIndex < 0 || slot.indexCount <= 0 ||
+                    slot.materialIndex < 0 || (slot.firstIndex % 3) != 0 ||
+                    (slot.indexCount % 3) != 0) {
+                    continue;
+                }
+                const size_t firstTriangle =
+                    static_cast<size_t>(slot.firstIndex / 3);
+                const size_t triangleCount =
+                    static_cast<size_t>(slot.indexCount / 3);
+                const size_t endTriangle = std::min(
+                    static_cast<size_t>(data.triangleMaterialIndices.size()),
+                    firstTriangle + triangleCount);
+                for (size_t triangle = firstTriangle;
+                     triangle < endTriangle; ++triangle) {
+                    data.triangleMaterialIndices[static_cast<qsizetype>(triangle)] =
+                        static_cast<unsigned int>(slot.materialIndex);
+                }
             }
         }
 

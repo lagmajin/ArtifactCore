@@ -192,12 +192,26 @@ struct RTPbrMaterial {
     int opacityTextureUvSet = 0;
 };
 
+enum class RTRayOutputMode : Uint32 {
+    Beauty = 0,
+    BaseColor = 1,
+    WorldNormal = 2,
+    BaseUv = 3,
+    MetallicRoughness = 4,
+    Emission = 5,
+    HitDistance = 6,
+    PrimaryVisibility = 7
+};
+
 struct RTRayCamera {
     float origin[3] = {0.0f, 0.0f, -2.0f};
     float target[3] = {0.0f, 0.0f, 0.0f};
     // The image-space vertical direction is derived from this vector.
     float up[3] = {0.0f, 1.0f, 0.0f};
     float verticalFovDegrees = 57.523f;
+    // Diagnostic output is intended for acceptance captures. Beauty remains
+    // the default used by normal renderer callers.
+    RTRayOutputMode outputMode = RTRayOutputMode::Beauty;
 };
 
 struct RTSceneLight {

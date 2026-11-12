@@ -5602,11 +5602,15 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Plugin/PluginRegistry.cpp"
         "/reference;Container.NamedVector=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.NamedVector.ifc"
         "/reference;Container.Debug.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.Registry.ifc"
         "/reference;Utils.Optional=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Optional.ifc"
-        "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc")
+        "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc"
+        "/reference;Core.ArtifactSet=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactSet.ifc"
+        "/reference;Container.NameMap=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.NameMap.ifc")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Plugin/PluginRegistry.cpp"
     APPEND PROPERTY OBJECT_DEPENDS
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCorePlugin.dir/include/Plugin/PluginRegistry.ixx.obj"
-        "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCorePlugin.dir/include/Plugin/PluginCommon.ixx.obj")
+        "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCorePlugin.dir/include/Plugin/PluginCommon.ixx.obj"
+        "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Core/ArtifactSet.ixx.obj"
+        "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/NameMap.ixx.obj")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Control/OscInput.cpp"
     APPEND PROPERTY COMPILE_OPTIONS
         "/reference;Control.OSC.Input=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreControl.dir/Control.OSC.Input.ifc"

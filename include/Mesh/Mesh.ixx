@@ -157,10 +157,9 @@ export namespace ArtifactCore {
             QVector<QVector3D> normalOffsets;
         };
 
-        // Contiguous index range sharing one material.  Importers that produce
-        // several source primitives (for example a USD stage with multiple
-        // UsdGeomMesh prims) record the range they appended so the renderer
-        // can issue one draw per material without re-splitting the mesh.
+        // Contiguous triangle/index range sharing one material. Importers
+        // record the source polygon range so flattened render data can retain
+        // per-triangle material identity.
         struct MaterialSlot {
             int firstIndex = 0;
             int indexCount = 0;
@@ -293,6 +292,9 @@ export namespace ArtifactCore {
             QVector<QVector2D> uvs1;
             QVector<QVector4D> colors;
             QVector<unsigned int> indices;
+            // One imported material index per generated triangle; empty when
+            // the mesh has no explicit material-slot ranges.
+            QVector<unsigned int> triangleMaterialIndices;
         };
         RenderData generateRenderData() const;
 

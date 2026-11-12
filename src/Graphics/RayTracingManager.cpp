@@ -71,7 +71,7 @@ cbuffer RayCameraConstants : register(b0)
     float4 g_CameraUp;
     float4 g_CameraParams;
 };
-struct Payload { float4 color; float3 rayDirection; uint isShadow; uint blocked; float rayConeWidth; };
+struct Payload { float4 color; float3 rayDirection; uint isShadow; uint blocked; float rayConeWidth; uint outputMode; };
 
 [shader("raygeneration")]
 void RTWarmup_RayGen()
@@ -94,6 +94,7 @@ void RTWarmup_RayGen()
     Payload payload = (Payload)0;
     payload.rayDirection = ray.Direction;
     payload.rayConeWidth = 2.0f * halfHeight / max(float(size.y), 1.0f);
+    payload.outputMode = (uint)g_CameraParams.y;
     TraceRay(g_TLAS, RAY_FLAG_NONE, 0xFF, 0, 1, 0, ray, payload);
     g_OutputTex[pixel] = payload.color;
 }
@@ -106,11 +107,15 @@ cbuffer RTEnvironmentConstants : register(b0)
 {
     float4 g_RTEnvironmentSettings;
 };
-struct Payload { float4 color; float3 rayDirection; uint isShadow; uint blocked; float rayConeWidth; };
+struct Payload { float4 color; float3 rayDirection; uint isShadow; uint blocked; float rayConeWidth; uint outputMode; };
 [shader("miss")]
 void RTWarmup_Miss(inout Payload payload)
 {
     if (payload.isShadow != 0) return;
+    if (payload.outputMode != 0) {
+        payload.color = float4(0.0f, 0.0f, 0.0f, 0.0f);
+        return;
+    }
     if (g_RTEnvironmentSettings.x > 0.5f) {
         float rotationSin;
         float rotationCos;
@@ -234,7 +239,7 @@ cbuffer RTSceneLightsConstants : register(b2)
     uint4 g_RTSceneLightCount;
     RTSceneLight g_RTSceneLights[8];
 };
-struct Payload { float4 color; float3 rayDirection; uint isShadow; uint blocked; float rayConeWidth; };
+struct Payload { float4 color; float3 rayDirection; uint isShadow; uint blocked; float rayConeWidth; uint outputMode; };
 float SrgbChannelToLinear(float encoded)
 {
     encoded = max(encoded, 0.0f);
@@ -1983,9 +1988,26 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
     // Match the forward MeshRenderer's fixed studio ambient fill. Keep this
     // additive term outside diffuse-energy and clearcoat weighting, as in the
     // raster PBR path.
-    payload.color = float4(directLighting + environmentFill +
-                               baseColor * (0.24f * ao) + emission,
-                           1.0f);
+    if (payload.outputMode == 1) {
+        payload.color = float4(baseColor, 1.0f);
+    } else if (payload.outputMode == 2) {
+        payload.color = float4(worldNormal * 0.5f + 0.5f, 1.0f);
+    } else if (payload.outputMode == 3) {
+        payload.color = float4(baseColorUv, 0.0f, 1.0f);
+    } else if (payload.outputMode == 4) {
+        payload.color = float4(metallic, roughness, ao, 1.0f);
+    } else if (payload.outputMode == 5) {
+        payload.color = float4(emission, 1.0f);
+    } else if (payload.outputMode == 6) {
+        payload.color = float4(RayTCurrent(), RayTCurrent(),
+                               RayTCurrent(), 1.0f);
+    } else if (payload.outputMode == 7) {
+        payload.color = float4(1.0f, 1.0f, 1.0f, 1.0f);
+    } else {
+        payload.color = float4(directLighting + environmentFill +
+                                   baseColor * (0.24f * ao) + emission,
+                               1.0f);
+    }
 }
 )";
 
@@ -2046,7 +2068,7 @@ StructuredBuffer<float4> g_RenderColors : register(t11);
 StructuredBuffer<float2> g_RenderUvs1 : register(t12);
 Texture2D<float4> g_RTPbrTextures[RT_OCCLUSION_TEXTURE_COUNT] : register(t0, space1);
 SamplerState g_RTPbrSampler : register(s2);
-struct Payload { float4 color; float3 rayDirection; uint isShadow; uint blocked; float rayConeWidth; };
+struct Payload { float4 color; float3 rayDirection; uint isShadow; uint blocked; float rayConeWidth; uint outputMode; };
 float2 transformOpacityUv(float2 uv, float2 scale, float angle, float2 offset)
 {
     float2 scaled = uv * scale;
@@ -4033,7 +4055,12 @@ private:
         std::copy(std::begin(camera.target), std::end(camera.target), constants.target);
         std::copy(std::begin(camera.up), std::end(camera.up), constants.up);
         constants.params[0] = std::clamp(camera.verticalFovDegrees, 1.0f, 179.0f);
-        constants.params[1] = constants.params[2] = constants.params[3] = 0.0f;
+        const Uint32 outputMode = static_cast<Uint32>(camera.outputMode);
+        constants.params[1] = static_cast<float>(
+            outputMode <= static_cast<Uint32>(RTRayOutputMode::PrimaryVisibility)
+                ? outputMode
+                : static_cast<Uint32>(RTRayOutputMode::Beauty));
+        constants.params[2] = constants.params[3] = 0.0f;
         void* mapped = nullptr;
         pContext->MapBuffer(pRayCameraBuffer_, MAP_WRITE, MAP_FLAG_DISCARD, mapped);
         if (!mapped) return false;
