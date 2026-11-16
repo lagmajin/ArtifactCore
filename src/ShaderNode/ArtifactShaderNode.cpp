@@ -36,11 +36,21 @@ namespace ShaderNode {
     std::string sanitizeShaderId(const std::string& id) {
         std::string out;
         out.reserve(id.size() + 2);
-        for (char c : id) {
+        for (unsigned char c : id) {
             const bool ok = (c >= 'A' && c <= 'Z') ||
                             (c >= 'a' && c <= 'z') ||
                             (c >= '0' && c <= '9') || c == '_';
-            out.push_back(ok ? c : '_');
+            if (ok) {
+                out.push_back(static_cast<char>(c));
+            } else {
+                // Encode other characters (e.g. '-') as _XX so that distinct
+                // source ids such as "base-color" and "base_color" cannot
+                // collapse onto the same HLSL identifier prefix.
+                static const char* hex = "0123456789abcdef";
+                out.push_back('_');
+                out.push_back(hex[c >> 4]);
+                out.push_back(hex[c & 0x0f]);
+            }
         }
         if (out.empty() || (out[0] >= '0' && out[0] <= '9')) {
             out = "n_" + out;
@@ -66,6 +76,10 @@ namespace ShaderNode {
         outputs.push_back(std::move(pin));
     }
 
+    namespace {
+    std::string matFloatLit(float v);
+    }
+
     ColorNode::ColorNode(const std::string& nodeId) {
         id = nodeId;
         name = "Color";
@@ -73,8 +87,8 @@ namespace ShaderNode {
     }
 
     std::string ColorNode::generateHLSL() const {
-        return std::format("float4 {}_out = float4({}f, {}f, {}f, {}f);\n", 
-                           id, r, g, b, a);
+        return std::format("float4 {}_out = float4({}, {}, {}, {});\n",
+                           id, matFloatLit(r), matFloatLit(g), matFloatLit(b), matFloatLit(a));
     }
 
     OutputNode::OutputNode(const std::string& nodeId) {
@@ -528,7 +542,13 @@ namespace ShaderNode {
         if (!std::isfinite(v)) {
             v = 0.0f;
         }
-        return std::format("{}f", v);
+        std::string s = std::format("{}", v);
+        if (s.find('.') == std::string::npos &&
+            s.find('e') == std::string::npos &&
+            s.find('E') == std::string::npos) {
+            s += ".0";
+        }
+        return s + "f";
     }
 
     std::string matFloat4Lit(float r, float g, float b, float a) {
@@ -945,6 +965,17 @@ namespace ShaderNode {
             result.error = "unsupported material graph version";
             return result;
         }
+        const QJsonValue kindValue = root.value(QStringLiteral("kind"));
+        if (kindValue.isString() &&
+            kindValue.toString() != QStringLiteral("artifact-material-graph")) {
+            result.error = "unsupported material graph kind";
+            return result;
+        }
+        if (!root.contains(QStringLiteral("nodes")) ||
+            !root.value(QStringLiteral("nodes")).isArray()) {
+            result.error = "missing or invalid nodes array";
+            return result;
+        }
         NodeGraph staged;
         std::vector<std::pair<std::string, ShaderNodeBase*>> index;
         const QJsonArray nodeArray = root.value(QStringLiteral("nodes")).toArray();
@@ -1014,12 +1045,13 @@ namespace ShaderNode {
             }
             staged.link(fromPin, toPin);
         }
+        if (skippedLinks > 0) {
+            result.error = "skipped " + std::to_string(skippedLinks) + " link(s)";
+            return result;
+        }
         nodes = std::move(staged.nodes);
         links = std::move(staged.links);
         result.ok = true;
-        if (skippedLinks > 0) {
-            result.error = "warning: skipped " + std::to_string(skippedLinks) + " link(s)";
-        }
         return result;
     }
 
