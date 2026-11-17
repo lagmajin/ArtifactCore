@@ -1113,6 +1113,7 @@ ScriptSessionSnapshot CSharpScriptEngine::scriptSessionSnapshot() const {
     snapshot.deltaSeconds = impl_->scriptSessionDeltaSeconds_;
     snapshot.frame = impl_->scriptSessionFrame_;
     snapshot.lastError = impl_->lastError_;
+    snapshot.lastErrorJson = getLastErrorJson();
     return snapshot;
 }
 
@@ -1146,6 +1147,18 @@ void CSharpScriptEngine::setOutputCallback(OutputCallback callback) {
 std::string CSharpScriptEngine::getLastError() const {
     std::lock_guard<std::recursive_mutex> lock(impl_->scriptSessionMutex_);
     return impl_->lastError_;
+}
+
+std::string CSharpScriptEngine::getLastErrorJson() const {
+    std::lock_guard<std::recursive_mutex> lock(impl_->scriptSessionMutex_);
+#ifdef ARTIFACT_HAS_DOTNET
+    if (impl_->initialized_) {
+        std::string result;
+        if (impl_->host.invokeUtf8("ArtifactScriptHost", "GetLastErrorJson", "", result))
+            return result;
+    }
+#endif
+    return "{}";
 }
 
 bool CSharpScriptEngine::hasError() const {
