@@ -297,7 +297,7 @@ float3 CharlieSheen(float roughness, float NdotH, float NdotV, float NdotL)
 {
     const float alphaG = max(roughness * roughness, 1.0e-4f);
     const float inverseRoughness = rcp(alphaG);
-    const float sin2H = max(1.0f - NdotH * NdotH, 1.0e-6f);
+    const float sin2H = max(1.0f - NdotH * NdotH, 1.0e-6f);)" R"(
     const float distribution = (2.0f + inverseRoughness) *
         pow(sin2H, 0.5f * inverseRoughness) / (2.0f * 3.14159265f);
     const float oneMinusAlphaSquared = (1.0f - alphaG) * (1.0f - alphaG);
@@ -497,7 +497,7 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
     const float2 coatNormalSetUv0 = material.clearcoatNormalUvOffset.z > 0.5f
         ? g_RenderUvs1[primitive.i0] : uv0;
     const float2 coatNormalSetUv1 = material.clearcoatNormalUvOffset.z > 0.5f
-        ? g_RenderUvs1[primitive.i1] : uv1;
+        ? g_RenderUvs1[primitive.i1] : uv1;)" R"(
     const float2 coatNormalSetUv2 = material.clearcoatNormalUvOffset.z > 0.5f
         ? g_RenderUvs1[primitive.i2] : uv2;
     const float2 clearcoatSetUv0 = material.clearcoatTexture.w > 0.5f
@@ -697,7 +697,7 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
     const float2 baseColorUv0 = transformBaseColorTextureUv(
         baseColorTransformedUv0, material.baseColorTexture.y, baseColorUvRotation,
         material.baseColorTexture.zw);
-    const float2 baseColorUv1 = transformBaseColorTextureUv(
+    const float2 baseColorUv1 = transformBaseColorTextureUv()" R"(
         baseColorTransformedUv1, material.baseColorTexture.y, baseColorUvRotation,
         material.baseColorTexture.zw);
     const float2 baseColorUv2 = transformBaseColorTextureUv(
@@ -797,7 +797,7 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
         material.metallicTexture.w, material.metallicTextureUvOffset.xy);
     const float2 roughnessTransformedUv =
         roughnessTransformedUv0 * (1.0f - attributes.barycentrics.x -
-                                    attributes.barycentrics.y) +
+                                    attributes.barycentrics.y) +)" R"(
         roughnessTransformedUv1 * attributes.barycentrics.x +
         roughnessTransformedUv2 * attributes.barycentrics.y;
     const float2 roughnessTextureUv = transformIndependentPbrTextureUv(
@@ -897,7 +897,7 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
         }
     }
     float coatNormalMapAverageLength = normalMapAverageLength;
-    float3 coatNormal = normalize(lerp(
+    float3 coatNormal = normalize(lerp()" R"(
         geometricWorldNormal, worldNormal,
         saturate(material.clearcoatNormal.x)));
     if (material.clearcoatNormal.y >= 0.0f) {
@@ -1097,7 +1097,7 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
                 (1.0f - attributes.barycentrics.x -
                  attributes.barycentrics.y) +
             clearcoatTextureUv1 * attributes.barycentrics.x +
-            clearcoatTextureUv2 * attributes.barycentrics.y;
+            clearcoatTextureUv2 * attributes.barycentrics.y;)" R"(
         const float textureLod = calculatePbrTextureLod(
             textureIndex, worldEdge1, worldEdge2,
             clearcoatTextureUvEdge1, clearcoatTextureUvEdge2,
@@ -1297,7 +1297,7 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
     [loop]
     for (uint lightIndex = 0; lightIndex < lightCount; ++lightIndex) {
         RTSceneLight sceneLight = (RTSceneLight)0;
-        float3 lightDirection;
+        float3 lightDirection;)" R"(
         float3 radiance;
         float attenuation = 1.0f;
         float spotFactor = 1.0f;
@@ -1397,7 +1397,7 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
                                        sceneLight.shadowParams.z) *
                         max(sceneLight.shadowParams.y,
                             sceneLight.shadowParams.z) * 0.25f
-                    : sceneLight.shadowParams.y * sceneLight.shadowParams.z;
+                    : sceneLight.shadowParams.y * sceneLight.shadowParams.z;)" R"(
                 sampleAttenuation *= min(
                     1.0f, max(areaScale, 1.0f) /
                         max(sampleDistance * sampleDistance, 1.0f));
@@ -1597,7 +1597,7 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
                 sampleLightDirection + viewDirection;
             const float subsurfacePhaseDirectionLengthSquared =
                 dot(subsurfacePhaseDirection, subsurfacePhaseDirection);
-            const float subsurfaceCosTheta = clamp(
+            const float subsurfaceCosTheta = clamp()" R"(
                 subsurfacePhaseDirectionLengthSquared > 1.0e-8f
                     ? dot(-sampleLightDirection, viewDirection) /
                           sqrt(subsurfacePhaseDirectionLengthSquared)
@@ -1797,7 +1797,7 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
             } else {
                 float3 prefiltered = g_RTEnvironment.SampleLevel(
                     g_RTEnvironmentSampler, anisotropicEnvironmentDirection,
-                    environmentMip).rgb;
+                    environmentMip).rgb;)" R"(
                 const float2 brdf = sampleRTBrdfLut(
                     float2(environmentNdotV, roughness)).rg;
                 prefilteredSpecular = prefiltered *
@@ -1947,7 +1947,7 @@ void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAt
             specularOcclusion(environmentNdotV, ao, roughness);
     }
     float3 diffuseEnergy = (1.0f - environmentF0) * (1.0f - metallic) *
-                          (1.0f - transmission);
+                          (1.0f - transmission);)" R"(
     diffuseEnergy = lerp(diffuseEnergy, subsurfaceDiffuseEnergy,
                          saturate(material.subsurface.x));
     float sheenNdotV = saturate(dot(worldNormal, viewDirection));

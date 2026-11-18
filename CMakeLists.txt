@@ -6903,6 +6903,21 @@ if(ARTIFACT_FRONTEND_MSVC)
     )
 endif()
 
+# Qt's QList has a global `tst_QList` friend declaration which MSVC cannot
+# resolve when Qt headers arrive via /external:I inside a C++ module unit.
+# The compatibility header was already force-included for the aggregate
+# ArtifactCore target; apply it to every ArtifactCore subtarget as well so
+# module units in AI/Audio/Data/... see the declaration before Qt headers.
+if(ARTIFACT_FRONTEND_MSVC AND ARTIFACT_COMPILER_MSVC_CL)
+    get_property(_artifact_core_all_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+    foreach(_artifact_core_target IN LISTS _artifact_core_all_targets)
+        if(_artifact_core_target MATCHES "^ArtifactCore")
+            target_compile_options(${_artifact_core_target} PRIVATE
+                "/FI${CMAKE_CURRENT_SOURCE_DIR}/include/Compat/QtListForward.h")
+        endif()
+    endforeach()
+endif()
+
 # These core implementations import NamedVector directly.  Keep their
 # interface object dependency explicit so MSVC has the IFC before compiling
 # the implementation unit.

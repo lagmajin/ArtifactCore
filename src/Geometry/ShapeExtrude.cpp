@@ -4,6 +4,7 @@ module;
 #include <cmath>
 #include <limits>
 #include <vector>
+#include <QList>
 #include <QPointF>
 #include <QVector2D>
 #include <QVector3D>
