@@ -280,6 +280,11 @@ public:
     void prepareShadow(IDeviceContext* pContext, const float* lightViewProjection);
     void drawShadow(IDeviceContext* pContext, size_t instanceCount);
     void setTransparentPass(bool transparent);
+    /// Viewport-only backface culling toggle (P1-4). Switches to PSO variants
+    /// created at initialize() time; the default CULL_MODE_NONE path is
+    /// unchanged, and no per-frame pipeline creation occurs.
+    void setBackfaceCulling(bool enabled);
+    bool isBackfaceCulling() const noexcept;
     /// Enables alpha-test masking while keeping the opaque depth-write path.
     void setAlphaMasked(bool masked);
     void setAlphaCutoff(float cutoff);

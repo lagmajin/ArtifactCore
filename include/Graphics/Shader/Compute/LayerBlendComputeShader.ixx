@@ -218,6 +218,21 @@ void main(uint3 id : SV_DispatchThreadID)
         OutTex[id.xy] = (float4(velocityX, velocityY, 0.5, saturate(source.a))).bgra;
         return;
     }
+    if (displayMode == 4u) {
+        // P1-6 Luminance: Rec.709 luma of straight RGB, source coverage kept.
+        const float alpha = saturate(source.a);
+        const float3 straight = alpha > 1.0e-5f
+            ? source.rgb / alpha : float3(0.0f, 0.0f, 0.0f);
+        const float luma = dot(straight, float3(0.2126f, 0.7152f, 0.0722f));
+        OutTex[id.xy] = (float4(luma, luma, luma, alpha)).bgra;
+        return;
+    }
+    if (displayMode == 5u) {
+        // P1-6 Matte: alpha shown as a red overlay on dark RGB.
+        const float alpha = saturate(source.a);
+        OutTex[id.xy] = (float4(alpha, 0.0f, 0.0f, alpha)).bgra;
+        return;
+    }
     const float value = saturate(source[min(blendMode, 3u)]);
     // Keep source coverage for every channel, including Alpha. The viewport
     // background is drawn underneath this diagnostic surface and must remain

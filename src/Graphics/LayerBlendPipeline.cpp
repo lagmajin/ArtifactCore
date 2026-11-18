@@ -823,7 +823,7 @@ bool LayerBlendPipeline::displayComposite(
 {
  if (!ctx || !srcSRV || !outUAV || !channelComponentDisplayExecutor_ ||
      !channelComponentDisplayExecutor_->ready() || !pImpl_->pBlendCB_ ||
-     mode < 1 || mode > 3 || width == 0 || height == 0) return false;
+     mode < 1 || mode > 5 || width == 0 || height == 0) return false;
  const auto* srcTexture = srcSRV->GetTexture();
  const auto* outTexture = outUAV->GetTexture();
  if (!srcTexture || !outTexture || srcTexture == outTexture) return false;

@@ -1890,7 +1890,7 @@ float3 sampleEnvironmentSpecular(float3 normal, float3 viewDirection,
     // The LUT integrates the Schlick split-sum terms A and B separately;
     // each anisotropic tap uses coefficients for its own roughness mip.
     return specularEnvironment;
-}
+})" R"(
 
 float sampleSheenDirectionalAlbedo(float NdotV, float roughness) {
     return saturate(sampleBrdfLut(
@@ -2167,7 +2167,7 @@ float sheenVisibility(float roughness, float NdotV, float NdotL) {
     return rcp((1.0 + sheenLambda(NdotV, alphaG) +
                 sheenLambda(NdotL, alphaG)) *
                (4.0 * max(NdotV, 1.0e-4) * max(NdotL, 1.0e-4)));
-}
+})" R"(
 
 // __ARTIFACT_MATERIAL_GRAPH_HELPERS__
 
@@ -2397,7 +2397,7 @@ float4 PSMain(PSInput In) : SV_Target {
     float3 worldTangent = normalize(tangentCandidate);
     worldTangent = normalize(worldTangent - worldNormal * dot(worldTangent, worldNormal));
     float3 bitangentCandidate = hasAuthoredTangent
-        ? cross(worldNormal, worldTangent) *
+        ? cross(worldNormal, worldTangent) *)" R"(
               (In.Tangent.w < 0.0 ? -1.0 : 1.0)
         : abs(uvDeterminant) > 1.0e-6
             ? (-dpdx * duvdy.x + dpdy * duvdx.x) / uvDeterminant
@@ -2647,7 +2647,7 @@ float4 PSMain(PSInput In) : SV_Target {
                 float coatNdotV = saturate(dot(coatNormal, viewDirection));
                 float3 coatTint = srgbToLinear(
                     saturate(ClearcoatTintFactors.rgb));
-                float coatViewCosInternal = sqrt(saturate(
+                float coatViewCosInternal = sqrt(saturate()" R"(
                     1.0 - (1.0 - coatNdotV * coatNdotV) /
                         (coatIor * coatIor)));
                 float coatViewPathLength = rcp(max(coatViewCosInternal, 1.0e-3));
@@ -2897,7 +2897,7 @@ float4 PSMain(PSInput In) : SV_Target {
                         0.66666667 * (diffuseSinV / diffuseNdotV) *
                         (1.0 - diffuseSinV * diffuseSinV * diffuseSinV);
                 }
-                float diffuseAverageEnergy = diffuseOrenA * 3.14159265 +
+                float diffuseAverageEnergy = diffuseOrenA * 3.14159265 +)" R"(
                     ((6.28318531 - 5.6) / 3.0) * diffuseOrenB;
                 float diffuseEnergyL = diffuseOrenA * 3.14159265 +
                                        diffuseOrenB * diffuseGL;
@@ -3212,6 +3212,13 @@ struct MeshRenderer::Impl {
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pSRB_;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState>         pTransparentPSO_;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pTransparentSRB_;
+    // P1-4: backface-culling variants. The default pair above keeps
+    // CULL_MODE_NONE so enabling this flag never changes existing assets.
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState>         pOpaqueCullPSO_;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pOpaqueCullSRB_;
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState>         pTransparentCullPSO_;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pTransparentCullSRB_;
+    bool backfaceCulling_ = false;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState>         pMeshletPSO_;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pMeshletSRB_;
     Diligent::RefCntAutoPtr<Diligent::ITextureView>           pMeshletBufferSRV_;
@@ -3222,6 +3229,11 @@ struct MeshRenderer::Impl {
         Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> opaqueSRB;
         Diligent::RefCntAutoPtr<Diligent::IPipelineState> transparentPSO;
         Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> transparentSRB;
+        // P1-4: optional CULL_MODE_BACK variants of the two pipelines above.
+        Diligent::RefCntAutoPtr<Diligent::IPipelineState> opaqueCullPSO;
+        Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> opaqueCullSRB;
+        Diligent::RefCntAutoPtr<Diligent::IPipelineState> transparentCullPSO;
+        Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> transparentCullSRB;
     };
     std::map<Diligent::TEXTURE_FORMAT, PipelineSet> pipelineSets_;
     bool transparentPass_ = false;
@@ -3432,6 +3444,10 @@ void MeshRenderer::setRenderTargetFormat(TEXTURE_FORMAT format)
         pImpl_->pSRB_ = cached->second.opaqueSRB;
         pImpl_->pTransparentPSO_ = cached->second.transparentPSO;
         pImpl_->pTransparentSRB_ = cached->second.transparentSRB;
+        pImpl_->pOpaqueCullPSO_ = cached->second.opaqueCullPSO;
+        pImpl_->pOpaqueCullSRB_ = cached->second.opaqueCullSRB;
+        pImpl_->pTransparentCullPSO_ = cached->second.transparentCullPSO;
+        pImpl_->pTransparentCullSRB_ = cached->second.transparentCullSRB;
         return;
     }
     if (maxInstances_ > 0) {
@@ -3977,9 +3993,13 @@ void MeshRenderer::createPSO()
     // selected set before writing the new references.
     pImpl_->pSRB_.Release();
     pImpl_->pTransparentSRB_.Release();
+    pImpl_->pOpaqueCullSRB_.Release();
+    pImpl_->pTransparentCullSRB_.Release();
     pImpl_->pMeshletSRB_.Release();
     pImpl_->pPSO_.Release();
     pImpl_->pTransparentPSO_.Release();
+    pImpl_->pOpaqueCullPSO_.Release();
+    pImpl_->pTransparentCullPSO_.Release();
     pImpl_->pMeshletPSO_.Release();
 
     GraphicsPipelineStateCreateInfo PSOCreateInfo;
@@ -4172,6 +4192,19 @@ void MeshRenderer::createPSO()
     
     pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &pImpl_->pPSO_);
 
+    // P1-4: backface-culling variant of the opaque pipeline. Identical
+    // shaders, layout and resource binding contract; only the rasterizer
+    // cull mode differs, so Diligent maps it to each backend natively.
+    {
+        const std::string cullPsoName =
+            makeMeshPipelineCacheName("Mesh Instancing Backface Cull PSO");
+        PSOCreateInfo.PSODesc.Name = cullPsoName.c_str();
+        PSOCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode = CULL_MODE_BACK;
+        pDevice->CreateGraphicsPipelineState(PSOCreateInfo,
+                                             &pImpl_->pOpaqueCullPSO_);
+        PSOCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode = CULL_MODE_NONE;
+    }
+
     const std::string transparentPsoName =
         makeMeshPipelineCacheName("Mesh Transparent Instancing PSO");
     PSOCreateInfo.PSODesc.Name = transparentPsoName.c_str();
@@ -4184,6 +4217,17 @@ void MeshRenderer::createPSO()
     RT0.DestBlendAlpha = BLEND_FACTOR_INV_SRC_ALPHA;
     RT0.BlendOpAlpha = BLEND_OPERATION_ADD;
     pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &pImpl_->pTransparentPSO_);
+
+    // P1-4: matching cull variant for the transparent pipeline.
+    {
+        const std::string cullPsoName =
+            makeMeshPipelineCacheName("Mesh Transparent Backface Cull PSO");
+        PSOCreateInfo.PSODesc.Name = cullPsoName.c_str();
+        PSOCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode = CULL_MODE_BACK;
+        pDevice->CreateGraphicsPipelineState(PSOCreateInfo,
+                                             &pImpl_->pTransparentCullPSO_);
+        PSOCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode = CULL_MODE_NONE;
+    }
     
     if (!pImpl_->pPSO_) {
         qWarning("[MeshRenderer] PSO creation FAILED");
@@ -4327,6 +4371,9 @@ void MeshRenderer::createPSO()
     };
     initializeBindings(pImpl_->pPSO_, pImpl_->pSRB_);
     initializeBindings(pImpl_->pTransparentPSO_, pImpl_->pTransparentSRB_);
+    initializeBindings(pImpl_->pOpaqueCullPSO_, pImpl_->pOpaqueCullSRB_);
+    initializeBindings(pImpl_->pTransparentCullPSO_,
+                       pImpl_->pTransparentCullSRB_);
 
     // Depth-only pipeline used by the composition renderer's shadow-map
     // prepass. Its pixel shader only clips masked alpha; it writes no color.
@@ -4437,7 +4484,9 @@ void MeshRenderer::createPSO()
     }
     pImpl_->pipelineSets_[renderTargetFormat_] = {
         pImpl_->pPSO_, pImpl_->pSRB_, pImpl_->pTransparentPSO_,
-        pImpl_->pTransparentSRB_};
+        pImpl_->pTransparentSRB_, pImpl_->pOpaqueCullPSO_,
+        pImpl_->pOpaqueCullSRB_, pImpl_->pTransparentCullPSO_,
+        pImpl_->pTransparentCullSRB_};
 }
 
 void MeshRenderer::updateMeshGeometry(const float* positions, const float* normals, const float* uvs,
@@ -4788,14 +4837,25 @@ void MeshRenderer::prepare(IDeviceContext* pContext)
         }
         return;
     }
+    // P1-4: pick the CULL_MODE_BACK variant only when the viewport flag is
+    // enabled, falling back to the default pair if variant creation failed.
+    const bool useCullPipeline = pImpl_->backfaceCulling_;
     IPipelineState* activePSO =
         pImpl_->transparentPass_ && pImpl_->pTransparentPSO_
-            ? pImpl_->pTransparentPSO_.RawPtr()
-            : pImpl_->pPSO_.RawPtr();
+            ? (useCullPipeline && pImpl_->pTransparentCullPSO_
+                   ? pImpl_->pTransparentCullPSO_.RawPtr()
+                   : pImpl_->pTransparentPSO_.RawPtr())
+            : (useCullPipeline && pImpl_->pOpaqueCullPSO_
+                   ? pImpl_->pOpaqueCullPSO_.RawPtr()
+                   : pImpl_->pPSO_.RawPtr());
     IShaderResourceBinding* activeSRB =
         pImpl_->transparentPass_ && pImpl_->pTransparentSRB_
-            ? pImpl_->pTransparentSRB_.RawPtr()
-            : pImpl_->pSRB_.RawPtr();
+            ? (useCullPipeline && pImpl_->pTransparentCullSRB_
+                   ? pImpl_->pTransparentCullSRB_.RawPtr()
+                   : pImpl_->pTransparentSRB_.RawPtr())
+            : (useCullPipeline && pImpl_->pOpaqueCullSRB_
+                   ? pImpl_->pOpaqueCullSRB_.RawPtr()
+                   : pImpl_->pSRB_.RawPtr());
     if (!activePSO || !activeSRB || !pImpl_->pConstantBuffer_ ||
         !pImpl_->pMaterialBuffer_ || !pImpl_->pSceneLightingBuffer_ ||
         !pImpl_->pShadowParamsBuffer_ || !pImpl_->pEnvironmentBuffer_ ||
@@ -5395,10 +5455,19 @@ void MeshRenderer::drawMaterialSlots(IDeviceContext* pContext, size_t instanceCo
 
     instanceCount = std::min(instanceCount, maxInstances_);
     const auto drawPass = [&](bool transparentPass) {
+        const bool useCullPipeline = pImpl_->backfaceCulling_;
         IPipelineState* activePSO = transparentPass && pImpl_->pTransparentPSO_
-            ? pImpl_->pTransparentPSO_.RawPtr() : pImpl_->pPSO_.RawPtr();
+            ? (useCullPipeline && pImpl_->pTransparentCullPSO_
+                   ? pImpl_->pTransparentCullPSO_.RawPtr()
+                   : pImpl_->pTransparentPSO_.RawPtr())
+            : (useCullPipeline && pImpl_->pOpaqueCullPSO_
+                   ? pImpl_->pOpaqueCullPSO_.RawPtr() : pImpl_->pPSO_.RawPtr());
         IShaderResourceBinding* activeSRB = transparentPass && pImpl_->pTransparentSRB_
-            ? pImpl_->pTransparentSRB_.RawPtr() : pImpl_->pSRB_.RawPtr();
+            ? (useCullPipeline && pImpl_->pTransparentCullSRB_
+                   ? pImpl_->pTransparentCullSRB_.RawPtr()
+                   : pImpl_->pTransparentSRB_.RawPtr())
+            : (useCullPipeline && pImpl_->pOpaqueCullSRB_
+                   ? pImpl_->pOpaqueCullSRB_.RawPtr() : pImpl_->pSRB_.RawPtr());
         if (!activePSO || !activeSRB) {
             if (!pImpl_->missingPipelineWarningIssued_) {
                 qWarning("[MeshRenderer] drawMaterialSlots skipped because PSO/SRB is unavailable");
@@ -5644,14 +5713,23 @@ void MeshRenderer::draw(IDeviceContext* pContext, size_t instanceCount)
 {
     if (!pContext || !prepared_ || instanceCount == 0) return;
 
+    const bool useCullPipeline = pImpl_->backfaceCulling_;
     const IPipelineState* activePSO =
         pImpl_->transparentPass_ && pImpl_->pTransparentPSO_
-            ? pImpl_->pTransparentPSO_.RawPtr()
-            : pImpl_->pPSO_.RawPtr();
+            ? (useCullPipeline && pImpl_->pTransparentCullPSO_
+                   ? pImpl_->pTransparentCullPSO_.RawPtr()
+                   : pImpl_->pTransparentPSO_.RawPtr())
+            : (useCullPipeline && pImpl_->pOpaqueCullPSO_
+                   ? pImpl_->pOpaqueCullPSO_.RawPtr()
+                   : pImpl_->pPSO_.RawPtr());
     const IShaderResourceBinding* activeSRB =
         pImpl_->transparentPass_ && pImpl_->pTransparentSRB_
-            ? pImpl_->pTransparentSRB_.RawPtr()
-            : pImpl_->pSRB_.RawPtr();
+            ? (useCullPipeline && pImpl_->pTransparentCullSRB_
+                   ? pImpl_->pTransparentCullSRB_.RawPtr()
+                   : pImpl_->pTransparentSRB_.RawPtr())
+            : (useCullPipeline && pImpl_->pOpaqueCullSRB_
+                   ? pImpl_->pOpaqueCullSRB_.RawPtr()
+                   : pImpl_->pSRB_.RawPtr());
     if (!activePSO || !activeSRB) {
         if (!pImpl_->missingPipelineWarningIssued_) {
             qWarning("[MeshRenderer] draw skipped because PSO/SRB is unavailable");
@@ -6098,6 +6176,20 @@ void MeshRenderer::setTransparentPass(bool transparent)
     }
     pImpl_->transparentPass_ = transparent;
     prepared_ = false;
+}
+
+void MeshRenderer::setBackfaceCulling(bool enabled)
+{
+    if (pImpl_->backfaceCulling_ == enabled) {
+        return;
+    }
+    pImpl_->backfaceCulling_ = enabled;
+    prepared_ = false;
+}
+
+bool MeshRenderer::isBackfaceCulling() const noexcept
+{
+    return pImpl_->backfaceCulling_;
 }
 
 void MeshRenderer::setAlphaMasked(bool masked)
