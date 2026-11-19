@@ -57,6 +57,19 @@ static QStringList knownHardwareEncodersFor(AVCodecID codecId)
     }
 }
 
+static AVPixelFormat pixelFormatFromName(const QString& name)
+{
+    const QString value = name.trimmed().toLower();
+    if (value == QStringLiteral("yuv420p")) return AV_PIX_FMT_YUV420P;
+    if (value == QStringLiteral("yuva420p")) return AV_PIX_FMT_YUVA420P;
+    if (value == QStringLiteral("yuv422p10le")) return AV_PIX_FMT_YUV422P10;
+    if (value == QStringLiteral("yuva444p10le")) return AV_PIX_FMT_YUVA444P10LE;
+    if (value == QStringLiteral("rgb24")) return AV_PIX_FMT_RGB24;
+    if (value == QStringLiteral("rgba")) return AV_PIX_FMT_RGBA;
+    if (value == QStringLiteral("gray")) return AV_PIX_FMT_GRAY8;
+    return AV_PIX_FMT_NONE;
+}
+
 } // namespace
 
 namespace ArtifactCore {
@@ -269,6 +282,32 @@ public:
                     break;
                 }
             }
+        }
+
+        // alpha state 契約用の明示指定。HW エンコーダーは固定形式を優先し、
+        // ソフトウェアエンコーダーだけがここで指定を上書きできる。
+        if (!settings.pixelFormat.isEmpty() && !isHardwareEncoder) {
+            const AVPixelFormat requested = pixelFormatFromName(settings.pixelFormat);
+            if (requested == AV_PIX_FMT_NONE) {
+                lastError_ = QStringLiteral("Unsupported pixel format: %1").arg(settings.pixelFormat);
+                return false;
+            }
+            bool supported = true;
+            if (codec->pix_fmts) {
+                supported = false;
+                for (int i = 0; codec->pix_fmts[i] != AV_PIX_FMT_NONE; ++i) {
+                    if (codec->pix_fmts[i] == requested) {
+                        supported = true;
+                        break;
+                    }
+                }
+            }
+            if (!supported) {
+                lastError_ = QStringLiteral("Encoder %1 does not support pixel format %2")
+                                 .arg(QString::fromUtf8(codec->name), settings.pixelFormat);
+                return false;
+            }
+            codecCtx_->pix_fmt = requested;
         }
 
         // ビットレート設定

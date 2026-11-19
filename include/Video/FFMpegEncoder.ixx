@@ -31,6 +31,9 @@ export namespace ArtifactCore {
         int bitrateKbps = 8000;
         QString videoCodec = "h264";
         QString container = "mp4";
+        // 明示的なピクセルフォーマット（例: yuva420p / yuva444p10le / rgba）。
+        // 空文字ならコーデック既定の従来動作。HW エンコーダーでは無視される。
+        QString pixelFormat;
 
         // HW エンコード
         QString encoderName;
