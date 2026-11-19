@@ -18,6 +18,8 @@ struct ScriptSessionSnapshot {
     double deltaSeconds = 0.0;
     std::uint64_t frame = 0;
     std::string lastError;
+    /// Structured error from the Roslyn host ({type,message,stack,diagnostics}).
+    std::string lastErrorJson;
 };
 
 /**
@@ -107,6 +109,9 @@ public:
 
     // === Error Handling ===
     std::string getLastError() const;
+    /// Returns the structured JSON error from the scripting host, or "{}"
+    /// when no host error is available or the host is not initialized.
+    std::string getLastErrorJson() const;
     bool hasError() const;
     void clearError();
 };

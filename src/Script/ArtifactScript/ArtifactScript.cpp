@@ -4418,6 +4418,158 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
     }
     if (e->callName == "sin" && !argumentValues.empty()) return std::sin(num(argumentValues[0]));
     if (e->callName == "cos" && !argumentValues.empty()) return std::cos(num(argumentValues[0]));
+
+    // ── String utilities ──────────────────────────────────────────────
+    // Offsets follow the existing UTF-8 byte convention used by indexOf,
+    // startsWith and friends. Case conversion is ASCII-only by design so it
+    // never changes the byte length of multibyte characters.
+    if (e->callName == "toUpperCase" || e->callName == "toLowerCase") {
+        if (argumentValues.size() != 1 ||
+            !std::holds_alternative<std::string>(argumentValues[0])) {
+            error_ = e->callName + " expects one string";
+            return {};
+        }
+        const auto& source = std::get<std::string>(argumentValues[0]);
+        std::string result;
+        result.reserve(source.size());
+        const bool upper = e->callName == "toUpperCase";
+        for (const unsigned char character : source) {
+            result.push_back(static_cast<char>(
+                upper ? std::toupper(character) : std::tolower(character)));
+        }
+        return result;
+    }
+    if (e->callName == "trim") {
+        if (argumentValues.size() != 1 ||
+            !std::holds_alternative<std::string>(argumentValues[0])) {
+            error_ = "trim expects one string";
+            return {};
+        }
+        const auto trimmed = trim(std::get<std::string>(argumentValues[0]));
+        return std::string(trimmed.data(), trimmed.length());
+    }
+    if (e->callName == "substring") {
+        if (argumentValues.size() < 2 || argumentValues.size() > 3 ||
+            !std::holds_alternative<std::string>(argumentValues[0])) {
+            error_ = "substring expects a string, a start byte offset and an optional length";
+            return {};
+        }
+        const auto& source = std::get<std::string>(argumentValues[0]);
+        const double sourceSize = static_cast<double>(source.size());
+        const double startValue = num(argumentValues[1]);
+        if (!std::isfinite(startValue) || startValue < 0.0 ||
+            startValue > sourceSize || startValue != std::floor(startValue)) {
+            error_ = "substring start is out of range";
+            return {};
+        }
+        const double lengthValue = argumentValues.size() == 3
+            ? num(argumentValues[2])
+            : sourceSize - startValue;
+        if (!std::isfinite(lengthValue) || lengthValue < 0.0 ||
+            lengthValue != std::floor(lengthValue) ||
+            startValue + lengthValue > sourceSize) {
+            error_ = "substring length is out of range";
+            return {};
+        }
+        const auto start = static_cast<std::size_t>(startValue);
+        const auto length = static_cast<std::size_t>(lengthValue);
+        return source.substr(start, length);
+    }
+
+    // ── Array utilities ───────────────────────────────────────────────
+    // These return new arrays; callers that need in-place behaviour can
+    // assign the result back. Element copies use move where possible.
+    if ((e->callName == "reverse" || e->callName == "sort" || e->callName == "slice") &&
+        !argumentValues.empty() &&
+        std::holds_alternative<ArtifactScriptArrayPtr>(argumentValues[0])) {
+        const auto& array = std::get<ArtifactScriptArrayPtr>(argumentValues[0]);
+        if (!array) {
+            error_ = e->callName + " on null array";
+            return {};
+        }
+        if (e->callName == "reverse") {
+            if (argumentValues.size() != 1) {
+                error_ = "reverse expects one array";
+                return {};
+            }
+            auto result = makeShared<ArtifactScriptArray>();
+            result->values.reserve(array->values.size());
+            for (auto item = array->values.rbegin(); item != array->values.rend(); ++item)
+                result->values.push_back(*item);
+            return result;
+        }
+        if (e->callName == "sort") {
+            if (argumentValues.size() != 1) {
+                error_ = "sort expects one array";
+                return {};
+            }
+            auto result = makeShared<ArtifactScriptArray>();
+            result->values = array->values;
+            std::stable_sort(result->values.begin(), result->values.end(),
+                [&](const ArtifactScriptValue& left, const ArtifactScriptValue& right) {
+                    const auto less = evalBinary(ArtifactScriptBinaryOp::Lt, left, right);
+                    const bool* flag = std::get_if<bool>(&less);
+                    return flag != nullptr && *flag;
+                });
+            if (!error_.empty()) return {};
+            return result;
+        }
+        if (argumentValues.size() < 2 || argumentValues.size() > 3) {
+            error_ = "slice expects an array, a start index and an optional end index";
+            return {};
+        }
+        const double startValue = num(argumentValues[1]);
+        const double endValue = argumentValues.size() == 3
+            ? num(argumentValues[2])
+            : static_cast<double>(array->values.size());
+        const auto size = static_cast<double>(array->values.size());
+        if (!std::isfinite(startValue) || !std::isfinite(endValue) ||
+            startValue < 0.0 || endValue < 0.0 || startValue > size || endValue > size ||
+            startValue > endValue || startValue != std::floor(startValue) ||
+            endValue != std::floor(endValue)) {
+            error_ = "slice index is out of range";
+            return {};
+        }
+        const auto start = static_cast<std::size_t>(startValue);
+        const auto end = static_cast<std::size_t>(endValue);
+        auto result = makeShared<ArtifactScriptArray>();
+        result->values.reserve(end - start);
+        for (std::size_t index = start; index < end; ++index)
+            result->values.push_back(array->values[index]);
+        return result;
+    }
+    if (e->callName == "range" &&
+        (argumentValues.size() == 2 || argumentValues.size() == 3)) {
+        const double startValue = num(argumentValues[0]);
+        const double endValue = num(argumentValues[1]);
+        const double stepValue = argumentValues.size() == 3 ? num(argumentValues[2]) : 1.0;
+        if (!std::isfinite(startValue) || !std::isfinite(endValue) ||
+            !std::isfinite(stepValue) || stepValue == 0.0) {
+            error_ = "range expects finite bounds and a non-zero step";
+            return {};
+        }
+        const double span = (endValue - startValue) / stepValue;
+        if (!std::isfinite(span) || span < 0.0 || span > 1000000.0) {
+            error_ = "range is too large";
+            return {};
+        }
+        const std::size_t count = static_cast<std::size_t>(std::floor(span)) + 1;
+        const bool integral = std::holds_alternative<std::int64_t>(argumentValues[0]) &&
+            std::holds_alternative<std::int64_t>(argumentValues[1]) &&
+            (argumentValues.size() == 2 ||
+             std::holds_alternative<std::int64_t>(argumentValues[2]));
+        auto result = makeShared<ArtifactScriptArray>();
+        result->values.reserve(count);
+        double value = startValue;
+        for (std::size_t index = 0; index < count; ++index) {
+            result->values.push_back(integral
+                ? ArtifactScriptValue(static_cast<std::int64_t>(value))
+                : ArtifactScriptValue(value));
+            value += stepValue;
+        }
+        return result;
+    }
+
     if (activeDefinition_) {
         if (const ArtifactScriptMethod* method =
                 findMethodAtCallSite(e)) {
