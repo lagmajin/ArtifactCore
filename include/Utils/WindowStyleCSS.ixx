@@ -53,6 +53,7 @@ struct DccStyleTheme {
   QString sliderHandleColor;          // Pr sliderHandle (#4a9eff) 昇格
   QString focusRingColor;             // keyboard-focus 外周リング (#8FBAFF)
   QString disabledTextColor;          // :disabled 文字 (#808080)
+  QString dockFocusFrameColor = QStringLiteral("#A5CCFF");
 };
 
 DccStyleTheme LIBRARY_DLL_API getDCCTheme(DccStylePreset preset);
@@ -236,6 +237,7 @@ bool LIBRARY_DLL_API loadDCCThemePresetFromFile(const QString& filePath, DccStyl
   applyColor("sliderHandleColor", &DccStyleTheme::sliderHandleColor);
   applyColor("focusRingColor", &DccStyleTheme::focusRingColor);
   applyColor("disabledTextColor", &DccStyleTheme::disabledTextColor);
+  applyColor("dockFocusFrameColor", &DccStyleTheme::dockFocusFrameColor);
 
   *theme = loaded;
   return true;

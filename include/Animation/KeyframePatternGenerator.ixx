@@ -7,6 +7,7 @@ module;
 #include <QVector>
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <random>
 
 export module Animation.KeyframePatternGenerator;
@@ -443,5 +444,287 @@ inline KeyframePatternResult KeyframePatternGenerator::generate(const KeyframePa
   }
   return result;
 }
+
+// ---------------------------------------------------------------------------
+// Beat Grid — a shared, editor-agnostic description of detected musical time.
+// Phase 0 deliberately owns only detection + quantization. Playback-synchronous
+// analysis and marker/snap UI are wired in later phases.
+// ---------------------------------------------------------------------------
+
+struct BeatGrid {
+  double bpm = 0.0;
+  double fps = 30.0;
+  int frameScale = 1;
+  double startFrame = 0.0;
+  QVector<double> beatFrames;
+  double confidence = 0.0;
+
+  bool valid() const noexcept { return bpm > 0.0 && !beatFrames.isEmpty(); }
+
+  double framesPerBeat() const noexcept {
+    return fps > 0.0 ? 60.0 * fps / std::max(1.0e-6, bpm) : 0.0;
+  }
+
+  double nearestBeatFrame(double frame) const noexcept {
+    if (beatFrames.isEmpty()) {
+      return frame;
+    }
+    double best = beatFrames.front();
+    double bestDistance = std::abs(frame - best);
+    for (qsizetype i = 1; i < beatFrames.size(); ++i) {
+      const double distance = std::abs(frame - beatFrames[i]);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = beatFrames[i];
+      }
+    }
+    return best;
+  }
+
+  double quantizeFrame(double frame) const noexcept {
+    return valid() ? nearestBeatFrame(frame) : frame;
+  }
+};
+
+class BeatGridDetector {
+public:
+  struct Config {
+    double minBpm = 60.0;
+    double maxBpm = 180.0;
+    double fps = 30.0;
+    int frameScale = 1;
+    double windowSeconds = 0.1;
+  };
+
+  // `envelope` holds one energy/RMS sample per 1/envelopeRate seconds.
+  static BeatGrid detectFromEnergyEnvelope(const QVector<double> &envelope,
+                                           double envelopeRate,
+                                           const Config &config) {
+    BeatGrid grid;
+    grid.fps = config.fps > 0.0 ? config.fps : 30.0;
+    grid.frameScale = std::max(1, config.frameScale);
+
+    if (envelope.isEmpty() || !std::isfinite(envelopeRate) || envelopeRate <= 0.0) {
+      return grid;
+    }
+
+    double sum = 0.0;
+    for (const double value : envelope) {
+      sum += std::isfinite(value) ? value : 0.0;
+    }
+    const double mean = sum / static_cast<double>(envelope.size());
+    double variance = 0.0;
+    for (const double value : envelope) {
+      const double centered = (std::isfinite(value) ? value : 0.0) - mean;
+      variance += centered * centered;
+    }
+    variance /= static_cast<double>(envelope.size());
+    if (variance <= 1.0e-12) {
+      return grid;
+    }
+
+    // Autocorrelation over the BPM search range. The smallest lag whose score
+    // is within 95% of the best score is preferred to avoid octave errors.
+    const double minBpm = std::max(1.0, config.minBpm);
+    const double maxBpm = std::max(minBpm, config.maxBpm);
+    const int minLag = std::max(1, static_cast<int>(std::floor(envelopeRate * 60.0 / maxBpm)));
+    const int maxLag = std::min(static_cast<int>(envelope.size()) - 1,
+                                static_cast<int>(std::ceil(envelopeRate * 60.0 / minBpm)));
+    if (minLag > maxLag) {
+      return grid;
+    }
+
+    double bestScore = -std::numeric_limits<double>::infinity();
+    int bestLag = minLag;
+    for (int lag = minLag; lag <= maxLag; ++lag) {
+      double score = 0.0;
+      for (qsizetype i = lag; i < envelope.size(); ++i) {
+        const double left = (std::isfinite(envelope[i]) ? envelope[i] : 0.0) - mean;
+        const double right = (std::isfinite(envelope[i - lag]) ? envelope[i - lag] : 0.0) - mean;
+        score += left * right;
+      }
+      if (score > bestScore) {
+        bestScore = score;
+        bestLag = lag;
+      }
+    }
+    for (int lag = minLag; lag < bestLag; ++lag) {
+      double score = 0.0;
+      for (qsizetype i = lag; i < envelope.size(); ++i) {
+        const double left = (std::isfinite(envelope[i]) ? envelope[i] : 0.0) - mean;
+        const double right = (std::isfinite(envelope[i - lag]) ? envelope[i - lag] : 0.0) - mean;
+        score += left * right;
+      }
+      if (score >= bestScore * 0.95) {
+        bestLag = lag;
+        bestScore = score;
+        break;
+      }
+    }
+
+    grid.bpm = 60.0 * envelopeRate / static_cast<double>(bestLag);
+    while (grid.bpm < minBpm && grid.bpm > 0.0) {
+      grid.bpm *= 2.0;
+    }
+    while (grid.bpm > maxBpm) {
+      grid.bpm *= 0.5;
+    }
+    grid.confidence = std::clamp(bestScore / (variance * static_cast<double>(envelope.size()) + 1.0e-9),
+                                 0.0, 1.0);
+
+    const double durationFrames = static_cast<double>(envelope.size()) /
+                                  envelopeRate * grid.fps;
+    const double beatFrames = grid.framesPerBeat();
+
+    // Phase: the first prominent transient keeps the grid aligned with the
+    // audio instead of always starting at frame zero.
+    double threshold = mean + 2.0 * std::sqrt(variance);
+    qsizetype firstPeak = 0;
+    for (qsizetype i = 0; i < envelope.size(); ++i) {
+      const double value = std::isfinite(envelope[i]) ? envelope[i] : 0.0;
+      if (value >= threshold) {
+        firstPeak = i;
+        break;
+      }
+    }
+    grid.startFrame = static_cast<double>(firstPeak) / envelopeRate * grid.fps;
+
+    for (double frame = grid.startFrame; frame <= durationFrames; frame += beatFrames) {
+      grid.beatFrames.push_back(frame);
+    }
+    if (grid.beatFrames.isEmpty()) {
+      grid.beatFrames.push_back(grid.startFrame);
+    }
+    return grid;
+  }
+
+  static BeatGrid detectFromPcm(const QVector<float> &mono, double sampleRate,
+                                const Config &config) {
+    BeatGrid grid;
+    if (mono.isEmpty() || !std::isfinite(sampleRate) || sampleRate <= 0.0) {
+      return grid;
+    }
+
+    const double windowSeconds = config.windowSeconds > 0.0 ? config.windowSeconds : 0.1;
+    const int window = std::max(1, static_cast<int>(sampleRate * windowSeconds));
+    const int hop = std::max(1, window / 2);
+    QVector<double> envelope;
+    envelope.reserve(static_cast<qsizetype>(mono.size() / hop) + 1);
+    for (int start = 0; start < mono.size(); start += hop) {
+      double sumSquares = 0.0;
+      int count = 0;
+      const int end = static_cast<int>(std::min<qsizetype>(
+          mono.size(), static_cast<qsizetype>(start) + static_cast<qsizetype>(window)));
+      for (int i = start; i < end; ++i) {
+        const double sample = std::isfinite(mono[i]) ? static_cast<double>(mono[i]) : 0.0;
+        sumSquares += sample * sample;
+        ++count;
+      }
+      envelope.push_back(count > 0 ? std::sqrt(sumSquares / static_cast<double>(count)) : 0.0);
+    }
+    return detectFromEnergyEnvelope(envelope, sampleRate / static_cast<double>(hop), config);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Motion Recipe — a named combination of the existing pattern generators.
+// This keeps Phase 0 free of new simulation or rendering code; the recipe only
+// resolves parameters and delegates to KeyframePatternGenerator.
+// ---------------------------------------------------------------------------
+
+enum class MotionRecipeKind {
+  PopIn,
+  SnapBack,
+  StaggerWave,
+  BounceIn,
+  Wiggle,
+  SpringFollow,
+  BeatPulse
+};
+
+struct MotionRecipe {
+  MotionRecipeKind kind = MotionRecipeKind::PopIn;
+  double durationFrames = 18.0;
+  double amplitude = 1.0;
+  double damping = 4.0;
+  int selectionIndex = 0;
+  int selectionCount = 1;
+  quint32 seed = 1;
+  bool alignToBeat = false;
+};
+
+class MotionRecipeService {
+public:
+  struct Result {
+    KeyframePatternResult keyframes;
+    QString warning;
+  };
+
+  static Result apply(const MotionRecipe &recipe, const QVariant &baseValue,
+                      const QVariant &targetValue, double startFrame, double fps,
+                      int frameScale, const BeatGrid *beatGrid = nullptr) {
+    Result result;
+    KeyframePatternRequest request;
+    request.baseValue = baseValue;
+    request.targetValue = targetValue;
+    request.frameScale = std::max(1, frameScale);
+    request.startFrame = startFrame;
+    request.endFrame = startFrame + std::max(1.0, recipe.durationFrames);
+    request.amplitude = recipe.amplitude;
+    request.damping = recipe.damping;
+    request.selectionIndex = recipe.selectionIndex;
+    request.selectionCount = recipe.selectionCount;
+    request.seed = recipe.seed == 0 ? 1u : recipe.seed;
+    request.sampleCount = 10;
+    request.bpm = fps > 0.0 ? fps * 2.0 : 120.0;
+
+    switch (recipe.kind) {
+    case MotionRecipeKind::PopIn:
+      request.preset = KeyframePatternPreset::Overshoot;
+      break;
+    case MotionRecipeKind::SnapBack:
+      request.preset = KeyframePatternPreset::Settle;
+      break;
+    case MotionRecipeKind::StaggerWave:
+      request.preset = KeyframePatternPreset::Stagger;
+      request.delayFrames = std::max(0.0, recipe.durationFrames) / 4.0;
+      break;
+    case MotionRecipeKind::BounceIn:
+      request.preset = KeyframePatternPreset::Bounce;
+      break;
+    case MotionRecipeKind::Wiggle:
+      request.preset = KeyframePatternPreset::Wave;
+      request.cycles = 2.0;
+      break;
+    case MotionRecipeKind::SpringFollow:
+      request.preset = KeyframePatternPreset::Settle;
+      request.settleOscillation = 2.0;
+      break;
+    case MotionRecipeKind::BeatPulse:
+      request.preset = KeyframePatternPreset::BeatSync;
+      break;
+    }
+
+    if (beatGrid != nullptr && beatGrid->valid()) {
+      request.bpm = beatGrid->bpm;
+      if (recipe.alignToBeat) {
+        const double alignedStart = beatGrid->quantizeFrame(startFrame);
+        const double beatLength = beatGrid->framesPerBeat();
+        const double beats = std::max(1.0, std::ceil(recipe.durationFrames / beatLength));
+        request.startFrame = alignedStart;
+        request.endFrame = alignedStart + beats * beatLength;
+      }
+    } else if (recipe.kind == MotionRecipeKind::BeatPulse) {
+      result.warning = QStringLiteral(
+          "BeatPulse uses an estimated BPM; provide a detected BeatGrid for musical alignment.");
+    }
+
+    result.keyframes = KeyframePatternGenerator::generate(request);
+    if (result.warning.isEmpty()) {
+      result.warning = result.keyframes.warning;
+    }
+    return result;
+  }
+};
 
 } // namespace ArtifactCore
