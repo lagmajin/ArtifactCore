@@ -4,14 +4,19 @@ module;
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 #include <vector>
 #include <QFont>
 #include <QFontMetrics>
+#include <QGlyphRun>
 #include <QPainterPath>
+#include <QRawFont>
 #include <QPolygonF>
 #include <QRectF>
 #include <QString>
 #include <QStringList>
+#include <QTextLayout>
+#include <QTextOption>
 
 module Procedural3DGenerators;
 
@@ -530,22 +535,51 @@ Procedural3DMeshData Procedural3DGenerators::generateTextExtrude(const TextExtru
     font.setPointSize(std::clamp(settings.fontSize, 1, 1000));
     font.setBold(settings.bold);
     font.setItalic(settings.italic);
+    QTextLayout layout(settings.text, font);
+    QTextOption textOption;
+    textOption.setWrapMode(QTextOption::NoWrap);
+    layout.setTextOption(textOption);
     const QFontMetricsF metrics(font);
     const qreal lineSpacing = metrics.lineSpacing();
-    const QStringList lines = settings.text.split(QChar(u'\n'));
+    layout.beginLayout();
+    qreal lineY = 0.0;
+    while (true) {
+        QTextLine line = layout.createLine();
+        if (!line.isValid()) break;
+        line.setLineWidth(std::numeric_limits<qreal>::max());
+        line.setPosition(QPointF(0.0, lineY));
+        lineY += lineSpacing;
+    }
+    layout.endLayout();
     QPainterPath full;
-    for (int line = 0; line < lines.size(); ++line) {
-        if (lines[line].isEmpty()) {
+    const auto runs = layout.glyphRuns();
+    for (const QGlyphRun& run : runs) {
+        const QRawFont rawFont = run.rawFont();
+        const auto glyphIndexes = run.glyphIndexes();
+        const auto glyphPositions = run.positions();
+        if (!rawFont.isValid() || glyphIndexes.size() != glyphPositions.size()) {
             continue;
         }
-        QPainterPath linePath;
-        linePath.addText(QPointF(0.0, static_cast<qreal>(line) * lineSpacing), font, lines[line]);
-        full.addPath(linePath);
+        for (qsizetype glyphIndex = 0; glyphIndex < glyphIndexes.size(); ++glyphIndex) {
+            const QPainterPath glyphPath = rawFont.pathForGlyph(glyphIndexes[glyphIndex]);
+            if (glyphPath.isEmpty()) continue;
+            QTransform glyphTransform;
+            const QPointF glyphPosition = glyphPositions[glyphIndex];
+            glyphTransform.translate(glyphPosition.x(), glyphPosition.y());
+            full.addPath(glyphTransform.map(glyphPath));
+        }
     }
     if (full.isEmpty()) {
         return meshData;
     }
-    const QRectF bounds = full.boundingRect();
+    // Text glyph outlines can overlap in Arabic joining forms and in marks or
+    // components from CJK/Indic fonts. Normalize the fill before splitting it
+    // into contours so overlapping glyph outlines do not become false holes.
+    const QPainterPath filledPath = full.simplified();
+    if (filledPath.isEmpty()) {
+        return meshData;
+    }
+    const QRectF bounds = filledPath.boundingRect();
     if (!bounds.isValid() || bounds.isEmpty()) {
         return meshData;
     }
@@ -553,7 +587,7 @@ Procedural3DMeshData Procedural3DGenerators::generateTextExtrude(const TextExtru
     const qreal centerX = bounds.center().x();
     const qreal centerY = bounds.center().y();
     std::vector<std::vector<QPointF>> contours;
-    const QList<QPolygonF> subpaths = full.toSubpathPolygons();
+    const QList<QPolygonF> subpaths = filledPath.toSubpathPolygons();
     contours.reserve(static_cast<std::size_t>(subpaths.size()));
     for (const QPolygonF& polygon : subpaths) {
         if (polygon.size() < 3) {

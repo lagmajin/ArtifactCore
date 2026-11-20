@@ -59,9 +59,55 @@ bool pointInContour(const QPointF& p, const std::vector<QPointF>& contour) {
     return inside;
 }
 
+bool contourInteriorPoint(const std::vector<QPointF>& contour,
+                          double signedArea,
+                          QPointF* interior)
+{
+    if (contour.size() < 3 || interior == nullptr || std::abs(signedArea) <= 1e-12) {
+        return false;
+    }
+
+    double minX = contour.front().x();
+    double minY = contour.front().y();
+    double maxX = minX;
+    double maxY = minY;
+    for (const QPointF& point : contour) {
+        minX = std::min(minX, point.x());
+        minY = std::min(minY, point.y());
+        maxX = std::max(maxX, point.x());
+        maxY = std::max(maxY, point.y());
+    }
+    const double scale = std::max(maxX - minX, maxY - minY);
+    const double offset = std::max(1e-9, scale * 1e-7);
+    const double direction = signedArea > 0.0 ? 1.0 : -1.0;
+    for (size_t i = 0; i < contour.size(); ++i) {
+        const QPointF& a = contour[i];
+        const QPointF& b = contour[(i + 1) % contour.size()];
+        const double dx = b.x() - a.x();
+        const double dy = b.y() - a.y();
+        const double length = std::sqrt(dx * dx + dy * dy);
+        if (length <= 1e-12) continue;
+        const QPointF candidate((a.x() + b.x()) * 0.5 - direction * dy / length * offset,
+                                (a.y() + b.y()) * 0.5 + direction * dx / length * offset);
+        if (pointInContour(candidate, contour)) {
+            *interior = candidate;
+            return true;
+        }
+    }
+
+    QPointF centroid;
+    for (const QPointF& point : contour) centroid += point;
+    centroid /= static_cast<qreal>(contour.size());
+    if (!pointInContour(centroid, contour)) return false;
+    *interior = centroid;
+    return true;
+}
+
 // 単一閉多角形の ear clipping。ccw は多角形の回転方向。
-std::vector<std::array<int, 3>> earClipPolygon(const std::vector<QPointF>& polygon,
-                                               bool ccw) {
+bool earClipPolygon(const std::vector<QPointF>& polygon,
+                    bool ccw,
+                    std::vector<std::array<int, 3>>* outTriangles) {
+    if (polygon.size() < 3 || outTriangles == nullptr) return false;
     std::vector<std::array<int, 3>> triangles;
     const auto cross = [](const QPointF& a, const QPointF& b, const QPointF& c) {
         return (b.x() - a.x()) * (c.y() - a.y()) -
@@ -70,27 +116,41 @@ std::vector<std::array<int, 3>> earClipPolygon(const std::vector<QPointF>& polyg
     std::vector<size_t> indices(polygon.size());
     for (size_t i = 0; i < polygon.size(); ++i) indices[i] = i;
     size_t guard = 0;
-    while (indices.size() > 2 && guard++ < polygon.size() * polygon.size()) {
+    const size_t guardLimit = polygon.size() * polygon.size() + 16;
+    while (indices.size() > 2 && guard++ < guardLimit) {
         bool clipped = false;
         for (size_t i = 0; i < indices.size(); ++i) {
             const size_t prev = indices[(i + indices.size() - 1) % indices.size()];
             const size_t curr = indices[i];
             const size_t next = indices[(i + 1) % indices.size()];
             const double turn = cross(polygon[prev], polygon[curr], polygon[next]);
-            if ((ccw && turn <= 1e-9) || (!ccw && turn >= -1e-9)) continue;
+            if (std::abs(turn) <= 1e-12) {
+                // Hole bridges introduce repeated and collinear vertices. Remove
+                // those zero-area corners so they cannot block every ear.
+                indices.erase(indices.begin() + static_cast<std::ptrdiff_t>(i));
+                clipped = true;
+                break;
+            }
+            if ((ccw && turn < 0.0) || (!ccw && turn > 0.0)) continue;
             bool containsVertex = false;
             for (const size_t candidate : indices) {
                 if (candidate == prev || candidate == curr || candidate == next) continue;
-                const auto inside = [&](const QPointF& point, const QPointF& a,
+                const QPointF& candidatePoint = polygon[candidate];
+                if (candidatePoint == polygon[prev] ||
+                    candidatePoint == polygon[curr] ||
+                    candidatePoint == polygon[next]) {
+                    continue;
+                }
+                const auto inside = [&](const QPointF& testPoint, const QPointF& a,
                                         const QPointF& b, const QPointF& c) {
-                    return ccw ? cross(a, b, point) >= -1e-9 &&
-                                     cross(b, c, point) >= -1e-9 &&
-                                     cross(c, a, point) >= -1e-9
-                               : cross(a, b, point) <= 1e-9 &&
-                                     cross(b, c, point) <= 1e-9 &&
-                                     cross(c, a, point) <= 1e-9;
+                    return ccw ? cross(a, b, testPoint) >= -1e-9 &&
+                                     cross(b, c, testPoint) >= -1e-9 &&
+                                     cross(c, a, testPoint) >= -1e-9
+                               : cross(a, b, testPoint) <= 1e-9 &&
+                                     cross(b, c, testPoint) <= 1e-9 &&
+                                     cross(c, a, testPoint) <= 1e-9;
                 };
-                if (inside(polygon[candidate], polygon[prev], polygon[curr],
+                if (inside(candidatePoint, polygon[prev], polygon[curr],
                            polygon[next])) {
                     containsVertex = true;
                     break;
@@ -110,9 +170,11 @@ std::vector<std::array<int, 3>> earClipPolygon(const std::vector<QPointF>& polyg
             clipped = true;
             break;
         }
-        if (!clipped) break;
+        if (!clipped) return false;
     }
-    return triangles;
+    if (indices.size() > 2) return false;
+    *outTriangles = std::move(triangles);
+    return true;
 }
 
 double triangleCross(const QPointF& a, const QPointF& b, const QPointF& c) {
@@ -221,22 +283,55 @@ bool extrudeContourMesh(const std::vector<std::vector<QPointF>>& contours,
     }
     if (cleaned.empty()) return false;
 
-    // even-odd で穴を分類し、外周=CCW / 穴=CW へ回転方向を揃える
+    // even-odd で穴を分類し、外周=CCW / 穴=CW へ回転方向を揃える。
+    // 頂点先頭は他の輪郭の境界上に来る場合があるため、各輪郭から内部点を取る。
+    std::vector<double> contourAreas(cleaned.size(), 0.0);
+    std::vector<QPointF> contourInteriorPoints(cleaned.size());
+    for (size_t i = 0; i < cleaned.size(); ++i) {
+        contourAreas[i] = contourSignedArea(cleaned[i].points);
+        if (!contourInteriorPoint(cleaned[i].points,
+                                  contourAreas[i],
+                                  &contourInteriorPoints[i])) {
+            return false;
+        }
+    }
     for (size_t i = 0; i < cleaned.size(); ++i) {
         int crossings = 0;
         for (size_t j = 0; j < cleaned.size(); ++j) {
             if (i == j) continue;
-            if (pointInContour(cleaned[i].points.front(), cleaned[j].points)) {
+            if (pointInContour(contourInteriorPoints[i], cleaned[j].points)) {
                 ++crossings;
             }
         }
         cleaned[i].hole = (crossings % 2) != 0;
-        const double area = contourSignedArea(cleaned[i].points);
+        const double area = contourAreas[i];
         if (std::abs(area) <= 1e-9) continue;
         const bool makeCcw = !cleaned[i].hole;
         if ((area > 0.0) != makeCcw) {
             std::reverse(cleaned[i].points.begin(), cleaned[i].points.end());
         }
+    }
+
+    // Assign each hole only to its smallest containing outer contour. Merging a
+    // nested hole into every enclosing component duplicates bridges and can
+    // invalidate multi-script glyph caps.
+    constexpr size_t npos = std::numeric_limits<size_t>::max();
+    std::vector<size_t> holeParent(cleaned.size(), npos);
+    for (size_t hole = 0; hole < cleaned.size(); ++hole) {
+        if (!cleaned[hole].hole) continue;
+        double smallestContainingArea = std::numeric_limits<double>::max();
+        for (size_t outer = 0; outer < cleaned.size(); ++outer) {
+            if (cleaned[outer].hole || outer == hole) continue;
+            if (!pointInContour(contourInteriorPoints[hole], cleaned[outer].points)) {
+                continue;
+            }
+            const double area = std::abs(contourAreas[outer]);
+            if (area < smallestContainingArea) {
+                smallestContainingArea = area;
+                holeParent[hole] = outer;
+            }
+        }
+        if (holeParent[hole] == npos) return false;
     }
 
     const float depth = params.depth;
@@ -409,9 +504,22 @@ bool extrudeContourMesh(const std::vector<std::vector<QPointF>>& contours,
 
         std::vector<QPointF> capPolygon = insetOf(cleaned[c]);
         std::vector<std::vector<QPointF>> unmergedHoles;
+        std::vector<size_t> childHoles;
         for (size_t h = 0; h < cleaned.size(); ++h) {
-            if (!cleaned[h].hole) continue;
-            if (!pointInContour(cleaned[h].points.front(), outerPoints)) continue;
+            if (holeParent[h] == c) childHoles.push_back(h);
+        }
+        const auto maximumX = [&](size_t index) {
+            double value = -std::numeric_limits<double>::max();
+            for (const QPointF& point : cleaned[index].points) {
+                value = std::max(value, point.x());
+            }
+            return value;
+        };
+        std::sort(childHoles.begin(), childHoles.end(),
+                  [&](size_t lhs, size_t rhs) {
+                      return maximumX(lhs) > maximumX(rhs);
+                  });
+        for (const size_t h : childHoles) {
             std::vector<QPointF> holePolygon = insetOf(cleaned[h]);
             if (contourSignedArea(holePolygon) > 0.0) {
                 std::reverse(holePolygon.begin(), holePolygon.end());
@@ -422,7 +530,8 @@ bool extrudeContourMesh(const std::vector<std::vector<QPointF>>& contours,
             }
         }
 
-        auto triangles = earClipPolygon(capPolygon, /*ccw=*/true);
+        std::vector<std::array<int, 3>> triangles;
+        if (!earClipPolygon(capPolygon, /*ccw=*/true, &triangles)) return false;
         if (!unmergedHoles.empty()) {
             triangles.erase(
                 std::remove_if(triangles.begin(), triangles.end(),
