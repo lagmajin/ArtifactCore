@@ -100,6 +100,27 @@ bool LayerBlendPipeline::createConstantBuffer()
 
 bool LayerBlendPipeline::createExecutors()
 {
+ static ShaderResourceVariableDesc crossfadeVars[] = {
+  {SHADER_TYPE_COMPUTE, "BlendParams", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+  {SHADER_TYPE_COMPUTE, "SrcTex", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+  {SHADER_TYPE_COMPUTE, "DstTex", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+  {SHADER_TYPE_COMPUTE, "OutTex", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
+ };
+ crossfadeExecutor_ = std::make_unique<ComputeExecutor>(*context_);
+ ComputePipelineDesc crossfadeDesc;
+ crossfadeDesc.name = "Virtual Transition Crossfade PSO";
+ crossfadeDesc.shaderSource = crossfadeShaderText.constData();
+ crossfadeDesc.entryPoint = "main";
+ crossfadeDesc.sourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
+ crossfadeDesc.variables = crossfadeVars;
+ crossfadeDesc.variableCount = 4;
+ crossfadeDesc.defaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
+ if (!crossfadeExecutor_->build(crossfadeDesc) ||
+     !crossfadeExecutor_->createShaderResourceBinding(true)) {
+  qWarning() << "[LayerBlendPipeline] virtual transition crossfade PSO build failed";
+  crossfadeExecutor_.reset();
+ }
+
  static ShaderResourceVariableDesc layerToFloatVars[] = {
   {SHADER_TYPE_COMPUTE, "BlendParams", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
   {SHADER_TYPE_COMPUTE, "SrcTex", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
@@ -984,6 +1005,74 @@ bool LayerBlendPipeline::blend(
  attribs.ThreadGroupCountZ = 1;
 
  exec.dispatch(ctx, attribs, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+ return true;
+}
+
+bool LayerBlendPipeline::crossfade(
+ IDeviceContext* ctx,
+ ITextureView* leftSRV,
+ ITextureView* rightSRV,
+ ITextureView* outUAV,
+ float progress,
+ const ComputeRegion& region)
+{
+ if (!ctx || !leftSRV || !rightSRV || !outUAV || !pImpl_->pBlendCB_ ||
+     !crossfadeExecutor_ || !crossfadeExecutor_->ready()) {
+  return false;
+ }
+ const auto* leftTexture = leftSRV->GetTexture();
+ const auto* rightTexture = rightSRV->GetTexture();
+ const auto* outTexture = outUAV->GetTexture();
+ if (!leftTexture || !rightTexture || !outTexture ||
+     leftTexture == outTexture || rightTexture == outTexture) {
+  return false;
+ }
+ const auto& leftDesc = leftTexture->GetDesc();
+ const auto& rightDesc = rightTexture->GetDesc();
+ const auto& outDesc = outTexture->GetDesc();
+ const bool dimensionsMatch =
+     leftDesc.Type == RESOURCE_DIM_TEX_2D &&
+     leftDesc.SampleCount == 1 && rightDesc.Type == RESOURCE_DIM_TEX_2D &&
+     rightDesc.SampleCount == 1 && outDesc.Type == RESOURCE_DIM_TEX_2D &&
+     outDesc.SampleCount == 1 &&
+     leftDesc.Width == rightDesc.Width && leftDesc.Height == rightDesc.Height &&
+     leftDesc.Width == outDesc.Width && leftDesc.Height == outDesc.Height;
+ const bool formatsMatch =
+     (leftDesc.Format == TEX_FORMAT_RGBA16_FLOAT ||
+      leftDesc.Format == TEX_FORMAT_RGBA32_FLOAT) &&
+     rightDesc.Format == leftDesc.Format && outDesc.Format == leftDesc.Format;
+ if (!dimensionsMatch || !formatsMatch ||
+     leftSRV->GetDesc().ViewType != TEXTURE_VIEW_SHADER_RESOURCE ||
+     rightSRV->GetDesc().ViewType != TEXTURE_VIEW_SHADER_RESOURCE ||
+     outUAV->GetDesc().ViewType != TEXTURE_VIEW_UNORDERED_ACCESS ||
+     !region.validFor(outDesc.Width, outDesc.Height)) {
+  return false;
+ }
+
+ currentParams_.opacity = sanitizeBlendOpacity(progress);
+ currentParams_.dispatchOriginX = region.x;
+ currentParams_.dispatchOriginY = region.y;
+ currentParams_.dispatchExtentX = region.width;
+ currentParams_.dispatchExtentY = region.height;
+ void* parameterData = nullptr;
+ ctx->MapBuffer(pImpl_->pBlendCB_, MAP_WRITE, MAP_FLAG_DISCARD,
+                parameterData);
+ if (!parameterData) return false;
+ memcpy(parameterData, &currentParams_, sizeof(BlendParams));
+ ctx->UnmapBuffer(pImpl_->pBlendCB_, MAP_WRITE);
+
+ if (!crossfadeExecutor_->setBuffer("BlendParams", pImpl_->pBlendCB_) ||
+     !crossfadeExecutor_->setTextureView("SrcTex", leftSRV) ||
+     !crossfadeExecutor_->setTextureView("DstTex", rightSRV) ||
+     !crossfadeExecutor_->setTextureView("OutTex", outUAV)) {
+  return false;
+ }
+ auto attribs = ComputeExecutor::makeDispatchAttribs(64, 8, 1);
+ attribs.ThreadGroupCountX = (region.width + 7) / 8;
+ attribs.ThreadGroupCountY = (region.height + 7) / 8;
+ attribs.ThreadGroupCountZ = 1;
+ crossfadeExecutor_->dispatch(
+     ctx, attribs, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
  return true;
 }
 

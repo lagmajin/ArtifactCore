@@ -102,6 +102,15 @@ export namespace ArtifactCore
    const ComputeRegion& region
   );
 
+  bool crossfade(
+   IDeviceContext* ctx,
+   ITextureView* leftSRV,
+   ITextureView* rightSRV,
+   ITextureView* outUAV,
+   float progress,
+   const ComputeRegion& region
+  );
+
   bool convertLayerToFloat(
    IDeviceContext* ctx,
    ITextureView* srcSRV,
@@ -225,6 +234,7 @@ export namespace ArtifactCore
   std::unique_ptr<ComputeExecutor> layerToFloatExecutor_;
   std::unique_ptr<ComputeExecutor> bgraAccumulatorToStraightRgbaExecutor_;
   std::unique_ptr<ComputeExecutor> clearRegionExecutor_;
+  std::unique_ptr<ComputeExecutor> crossfadeExecutor_;
   std::unique_ptr<ComputeExecutor> channelComponentDisplayExecutor_;
   std::map<BlendMode, BlendExecutor> executors_;
   BlendParams currentParams_{};

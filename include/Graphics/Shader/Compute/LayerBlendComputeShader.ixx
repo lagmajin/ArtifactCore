@@ -136,6 +136,46 @@ void main(uint3 id : SV_DispatchThreadID)
 }
 )";
 
+// Crossfade straight-alpha BGRA surfaces by interpolating premultiplied color
+// and alpha, then return straight alpha for LayerBlendPipeline consumers.
+LIBRARY_DLL_API const QByteArray crossfadeShaderText = R"(
+Texture2D<float4> SrcTex : register(t0);
+Texture2D<float4> DstTex : register(t1);
+RWTexture2D<float4> OutTex : register(u0);
+
+cbuffer BlendParams : register(b0)
+{
+    float opacity;
+    uint blendMode;
+    float2 _pad;
+    uint displayMode;
+    uint displayComponentY;
+    uint displayComponentZ;
+    uint _displayPad;
+    uint2 dispatchOrigin;
+    uint2 dispatchExtent;
+};
+
+[numthreads(8,8,1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    uint width, height;
+    OutTex.GetDimensions(width, height);
+    uint2 pixel = id.xy + dispatchOrigin;
+    if (id.x >= dispatchExtent.x || id.y >= dispatchExtent.y ||
+        pixel.x >= width || pixel.y >= height) return;
+    const float t = saturate(opacity);
+    const float4 left = SrcTex[pixel].bgra;
+    const float4 right = DstTex[pixel].bgra;
+    const float alpha = lerp(saturate(left.a), saturate(right.a), t);
+    const float3 premultiplied = lerp(
+        left.rgb * saturate(left.a), right.rgb * saturate(right.a), t);
+    const float3 straight = alpha > 1.0e-6
+        ? premultiplied / alpha : float3(0.0, 0.0, 0.0);
+    OutTex[pixel] = float4(straight, alpha).bgra;
+}
+)";
+
 // Final viewport/readback boundary: the resident accumulator is BGRA ordered,
 // while the generic sprite and external image APIs consume straight RGBA.
 LIBRARY_DLL_API const QByteArray bgraAccumulatorToStraightRgbaShaderText = R"(
