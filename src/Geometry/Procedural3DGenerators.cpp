@@ -31,7 +31,6 @@ module Procedural3DGenerators;
 import Core.Parallel;
 import Core.ArtifactArray;
 import Core.ArtifactSet;
-import Font.FreeFont;
 import Mesh;
 import Geometry.ShapeExtrude;
 
@@ -629,11 +628,16 @@ Procedural3DMeshData Procedural3DGenerators::generateTextExtrude(
     const qreal lineSpacing = metrics.lineSpacing();
     layout.beginLayout();
     qreal lineY = 0.0;
+    const qreal unwrappedLineWidth = std::max<qreal>(
+        1024.0,
+        static_cast<qreal>(std::min<qsizetype>(
+            settings.text.size(), static_cast<qsizetype>(hardGlyphLimit)))
+            * static_cast<qreal>(settings.fontSize));
     ArtifactArray<QTextLine> layoutLines;
     while (true) {
         QTextLine line = layout.createLine();
         if (!line.isValid()) break;
-        line.setLineWidth(std::numeric_limits<qreal>::max());
+        line.setLineWidth(unwrappedLineWidth);
         line.setPosition(QPointF(0.0, lineY));
         lineY += lineSpacing * std::clamp(settings.lineSpacing, 0.25f, 4.0f);
         layoutLines.append(line);
@@ -688,45 +692,51 @@ Procedural3DMeshData Procedural3DGenerators::generateTextExtrude(
             const QString runStyle = fullRunStyle.left(128);
             const QString fontKey = runFamily + QChar(0x001F) + runStyle;
             if (!runFamily.isEmpty() && hashedFontKeys.add(fontKey)) {
-                const auto fontBytes = FontManager::fontFileBytes(runFamily, runStyle);
-                if (!fontBytes.has_value() || fontBytes->isEmpty()) {
+                // Hash the actual resolved font tables. A family-name lookup
+                // alone can select a different face when installations share
+                // a name, so retain an incomplete identity for the native
+                // platform default when Qt does not expose a source face.
+                QCryptographicHash fontHash(QCryptographicHash::Sha256);
+                bool hasCmap = false;
+                bool hasOutline = false;
+                bool currentFontIdentityComplete = true;
+                std::uint64_t fingerprintBytes = 0u;
+                constexpr std::array<const char*, 13> identityTableTags{
+                    "head", "hhea", "hmtx", "maxp", "name", "OS/2", "post",
+                    "cmap", "GSUB", "GPOS", "GDEF", "glyf", "CFF "};
+                const bool canReadFontTables = !settings.fontFamily.trimmed().isEmpty();
+                if (!canReadFontTables) {
+                    currentFontIdentityComplete = false;
                     diagnostics->fontIdentityComplete = false;
-                } else {
-                    const QRawFont fileFont(*fontBytes, rawFont.pixelSize());
-                    const QByteArray fileCmap = fileFont.fontTable("cmap");
-                    const QByteArray runCmap = rawFont.fontTable("cmap");
-                    bool matchingOutlineTableFound = false;
-                    bool tablesMatch = true;
-                    constexpr std::array<const char*, 13> identityTableTags{
-                        "head", "hhea", "hmtx", "maxp", "name", "OS/2", "post",
-                        "GSUB", "GPOS", "GDEF", "glyf", "CFF ", "CFF2"};
-                    for (const char* tableTag : identityTableTags) {
-                        const QByteArray fileOutline = fileFont.fontTable(tableTag);
-                        const QByteArray runOutline = rawFont.fontTable(tableTag);
-                        if (fileOutline.isEmpty() != runOutline.isEmpty()) {
-                            tablesMatch = false;
-                            continue;
-                        }
-                        if (fileOutline.isEmpty()) continue;
-                        if (fileOutline != runOutline) tablesMatch = false;
-                        if (tableTag[0] == 'g' || tableTag[0] == 'C') {
-                            matchingOutlineTableFound = fileOutline == runOutline;
-                        }
-                    }
-                    if (!fileFont.isValid() || fileCmap.isEmpty()
-                        || fileCmap != runCmap || !tablesMatch
-                        || !matchingOutlineTableFound) {
+                }
+                for (const char* tableTag : identityTableTags) {
+                    if (!canReadFontTables) break;
+                    const QByteArray table = rawFont.fontTable(tableTag);
+                    if (table.isEmpty()) continue;
+                    fingerprintBytes += static_cast<std::uint64_t>(table.size());
+                    if (fingerprintBytes > 128u * 1024u * 1024u) {
+                        currentFontIdentityComplete = false;
                         diagnostics->fontIdentityComplete = false;
+                        break;
+                    }
+                    fontHash.addData(QByteArray(tableTag, 4));
+                    fontHash.addData(QByteArray::number(table.size()));
+                    fontHash.addData(table);
+                    hasCmap = hasCmap || tableTag[0] == 'c';
+                    hasOutline = hasOutline || tableTag[0] == 'g'
+                        || (tableTag[0] == 'C' && tableTag[1] == 'F');
+                }
+                if (!hasCmap || !hasOutline || fingerprintBytes == 0u) {
+                    currentFontIdentityComplete = false;
+                }
+                if (currentFontIdentityComplete) {
+                    const QByteArray digest = fontHash.result().toHex();
+                    if (diagnostics->resolvedFontFingerprints.size() < 64) {
+                        diagnostics->resolvedFontFingerprints.push_back(
+                            runFamily + QLatin1Char('|') + runStyle + QLatin1Char('|')
+                            + QString::fromLatin1(digest));
                     } else {
-                        const QByteArray digest = QCryptographicHash::hash(
-                            *fontBytes, QCryptographicHash::Sha256).toHex();
-                        if (diagnostics->resolvedFontFingerprints.size() < 64) {
-                            diagnostics->resolvedFontFingerprints.push_back(
-                                runFamily + QLatin1Char('|') + runStyle + QLatin1Char('|')
-                                + QString::fromLatin1(digest));
-                        } else {
-                            fontMetadataWithinBounds = false;
-                        }
+                        fontMetadataWithinBounds = false;
                     }
                 }
             }
@@ -784,6 +794,7 @@ Procedural3DMeshData Procedural3DGenerators::generateTextExtrude(
             }
         }
         for (qsizetype glyphIndex = 0; glyphIndex < glyphIndexes.size(); ++glyphIndex) {
+            if (glyphIndexes[glyphIndex] == 0u) continue;
             const QPainterPath glyphPath = rawFont.pathForGlyph(glyphIndexes[glyphIndex]);
             if (glyphPath.isEmpty()) continue;
             if (glyphPath.elementCount() > maxPathElements - full.elementCount()) {
