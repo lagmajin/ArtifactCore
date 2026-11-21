@@ -3,30 +3,48 @@ module;
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <vector>
 #include <QFont>
 #include <QFontMetrics>
+#include <QFontInfo>
+#include <QCryptographicHash>
+#include <QByteArray>
+#include <QChar>
 #include <QGlyphRun>
+#include <QList>
 #include <QPainterPath>
 #include <QRawFont>
 #include <QPolygonF>
 #include <QRectF>
 #include <QString>
 #include <QStringList>
+#include <QVector2D>
+#include <QVector3D>
 #include <QTextLayout>
 #include <QTextOption>
 
 module Procedural3DGenerators;
 
 import Core.Parallel;
+import Core.ArtifactArray;
+import Core.ArtifactSet;
+import Font.FreeFont;
 import Mesh;
 import Geometry.ShapeExtrude;
 
 namespace ArtifactCore {
 
 namespace {
+
+struct QStringHasher {
+    std::size_t operator()(const QString& value) const noexcept
+    {
+        return static_cast<std::size_t>(qHash(value));
+    }
+};
 
 int qualityScale(Procedural3DQuality quality)
 {
@@ -463,6 +481,10 @@ Procedural3DResult Procedural3DGenerators::generateTerrainResult(const TerrainSe
     result.quality = settings.quality;
     result.mesh = generateTerrain(settings, timeSeconds);
     result.valid = !result.mesh.vertices.empty();
+    if (!result.valid) {
+        result.status = Procedural3DGenerationStatus::InvalidGeometry;
+        result.diagnosticMessage = QStringLiteral("Terrain generation produced no mesh.");
+    }
     return result;
 }
 
@@ -476,6 +498,10 @@ Procedural3DResult Procedural3DGenerators::generatePathTubeResult(const PathTube
     result.quality = settings.quality;
     result.mesh = generatePathTube(settings, timeSeconds);
     result.valid = !result.mesh.vertices.empty();
+    if (!result.valid) {
+        result.status = Procedural3DGenerationStatus::InvalidGeometry;
+        result.diagnosticMessage = QStringLiteral("Path tube generation produced no mesh.");
+    }
     return result;
 }
 
@@ -525,16 +551,61 @@ Procedural3DPreviewInfo Procedural3DGenerators::previewInfo(const Procedural3DRe
     return info;
 }
 
-Procedural3DMeshData Procedural3DGenerators::generateTextExtrude(const TextExtrudeSettings& settings, float /*timeSeconds*/)
+Procedural3DMeshData Procedural3DGenerators::generateTextExtrude(
+    const TextExtrudeSettings& settings,
+    float /*timeSeconds*/,
+    TextExtrudeDiagnostics* diagnostics)
 {
     Procedural3DMeshData meshData;
+    if (diagnostics != nullptr) *diagnostics = {};
+    const auto fail = [&](Procedural3DGenerationStatus status, const QString& message) {
+        if (diagnostics != nullptr) {
+            diagnostics->status = status;
+            diagnostics->message = message;
+        }
+        return Procedural3DMeshData{};
+    };
     if (settings.text.trimmed().isEmpty()) {
-        return meshData;
+        return fail(Procedural3DGenerationStatus::EmptyInput,
+                    QStringLiteral("Text is empty or contains only whitespace."));
+    }
+    constexpr std::uint32_t hardGlyphLimit = 16384u;
+    constexpr qsizetype hardTextCodeUnitLimit = 65536;
+    constexpr qsizetype hardLineCountLimit = 4096;
+    const std::uint64_t glyphLimit = std::min<std::uint64_t>(
+        settings.maxGlyphCount, hardGlyphLimit);
+    if (glyphLimit == 0u
+        || settings.text.size() > hardTextCodeUnitLimit
+        || static_cast<std::uint64_t>(settings.text.size()) > glyphLimit * 4u) {
+        return fail(Procedural3DGenerationStatus::ResourceLimitExceeded,
+                    QStringLiteral("Text length exceeds the configured shaping budget."));
+    }
+    qsizetype lineCount = 1;
+    for (const QChar character : settings.text) {
+        if (character == QLatin1Char('\n')
+            && ++lineCount > hardLineCountLimit) {
+            return fail(Procedural3DGenerationStatus::ResourceLimitExceeded,
+                        QStringLiteral("Text line count exceeds the layout budget."));
+        }
+    }
+    if (!std::isfinite(settings.depth) || settings.depth <= 0.0f
+        || !std::isfinite(settings.bevelWidth)
+        || !std::isfinite(settings.letterSpacing)
+        || !std::isfinite(settings.lineSpacing) || settings.lineSpacing <= 0.0f
+        || static_cast<std::uint32_t>(settings.alignment) > 2u
+        || settings.fontSize <= 0) {
+        return fail(Procedural3DGenerationStatus::InvalidSettings,
+                    QStringLiteral("Font size, depth, spacing, and bevel settings must be finite and valid."));
     }
     QFont font(settings.fontFamily);
     font.setPointSize(std::clamp(settings.fontSize, 1, 1000));
     font.setBold(settings.bold);
     font.setItalic(settings.italic);
+    font.setLetterSpacing(QFont::AbsoluteSpacing,
+                          std::clamp(settings.letterSpacing, -1000.0f, 1000.0f));
+    if (diagnostics != nullptr) {
+        diagnostics->resolvedFontFamily = QFontInfo(font).family().left(256);
+    }
     QTextLayout layout(settings.text, font);
     QTextOption textOption;
     textOption.setWrapMode(QTextOption::NoWrap);
@@ -543,15 +614,36 @@ Procedural3DMeshData Procedural3DGenerators::generateTextExtrude(const TextExtru
     const qreal lineSpacing = metrics.lineSpacing();
     layout.beginLayout();
     qreal lineY = 0.0;
+    ArtifactArray<QTextLine> layoutLines;
     while (true) {
         QTextLine line = layout.createLine();
         if (!line.isValid()) break;
         line.setLineWidth(std::numeric_limits<qreal>::max());
         line.setPosition(QPointF(0.0, lineY));
-        lineY += lineSpacing;
+        lineY += lineSpacing * std::clamp(settings.lineSpacing, 0.25f, 4.0f);
+        layoutLines.append(line);
+    }
+    qreal blockWidth = 0.0;
+    for (const QTextLine& line : layoutLines) {
+        blockWidth = std::max(blockWidth, line.naturalTextWidth());
+    }
+    for (QTextLine& line : layoutLines) {
+        qreal offsetX = 0.0;
+        if (settings.alignment == TextExtrudeAlignment::Center) {
+            offsetX = (blockWidth - line.naturalTextWidth()) * 0.5;
+        } else if (settings.alignment == TextExtrudeAlignment::Right) {
+            offsetX = blockWidth - line.naturalTextWidth();
+        }
+        const QPointF position = line.position();
+        line.setPosition(QPointF(position.x() + offsetX, position.y()));
     }
     layout.endLayout();
     QPainterPath full;
+    constexpr qsizetype maxPathElements = 1'000'000;
+    std::uint64_t shapedGlyphCount = 0u;
+    ArtifactSet<QString, QStringHasher> seenFontFamilies;
+    ArtifactSet<QString, QStringHasher> hashedFontKeys;
+    bool fontMetadataWithinBounds = true;
     const auto runs = layout.glyphRuns();
     for (const QGlyphRun& run : runs) {
         const QRawFont rawFont = run.rawFont();
@@ -560,6 +652,111 @@ Procedural3DMeshData Procedural3DGenerators::generateTextExtrude(const TextExtru
         if (!rawFont.isValid() || glyphIndexes.size() != glyphPositions.size()) {
             continue;
         }
+        if (diagnostics != nullptr) {
+            const QString fullRunFamily = rawFont.familyName();
+            const QString fullRunStyle = rawFont.styleName();
+            if (fullRunFamily.size() > 256 || fullRunStyle.size() > 128) {
+                fontMetadataWithinBounds = false;
+            }
+            const QString runFamily = fullRunFamily.left(256);
+            if (diagnostics->resolvedFontFamilies.isEmpty()
+                && !runFamily.isEmpty()) {
+                diagnostics->resolvedFontFamily = runFamily;
+            }
+            if (!runFamily.isEmpty() && seenFontFamilies.add(runFamily)) {
+                if (diagnostics->resolvedFontFamilies.size() < 64) {
+                    diagnostics->resolvedFontFamilies.push_back(runFamily);
+                } else {
+                    fontMetadataWithinBounds = false;
+                }
+            }
+            const QString runStyle = fullRunStyle.left(128);
+            const QString fontKey = runFamily + QChar(0x001F) + runStyle;
+            if (!runFamily.isEmpty() && hashedFontKeys.add(fontKey)) {
+                const auto fontBytes = FontManager::fontFileBytes(runFamily, runStyle);
+                if (!fontBytes.has_value() || fontBytes->isEmpty()) {
+                    diagnostics->fontIdentityComplete = false;
+                } else {
+                    const QRawFont fileFont(*fontBytes, rawFont.pixelSize());
+                    const QByteArray fileCmap = fileFont.fontTable("cmap");
+                    const QByteArray runCmap = rawFont.fontTable("cmap");
+                    bool matchingOutlineTableFound = false;
+                    for (const char* tableTag : {"glyf", "CFF ", "CFF2"}) {
+                        const QByteArray fileOutline = fileFont.fontTable(tableTag);
+                        const QByteArray runOutline = rawFont.fontTable(tableTag);
+                        if (fileOutline.isEmpty() || runOutline.isEmpty()) continue;
+                        matchingOutlineTableFound = fileOutline == runOutline;
+                        break;
+                    }
+                    if (!fileFont.isValid() || fileCmap.isEmpty()
+                        || fileCmap != runCmap || !matchingOutlineTableFound) {
+                        diagnostics->fontIdentityComplete = false;
+                    } else {
+                        const QByteArray digest = QCryptographicHash::hash(
+                            *fontBytes, QCryptographicHash::Sha256).toHex();
+                        if (diagnostics->resolvedFontFingerprints.size() < 64) {
+                            diagnostics->resolvedFontFingerprints.push_back(
+                                runFamily + QLatin1Char('|') + runStyle + QLatin1Char('|')
+                                + QString::fromLatin1(digest));
+                        } else {
+                            fontMetadataWithinBounds = false;
+                        }
+                    }
+                }
+            }
+        }
+        const std::uint64_t nextGlyphCount = shapedGlyphCount
+            + static_cast<std::uint64_t>(glyphIndexes.size());
+        shapedGlyphCount = nextGlyphCount;
+        if (diagnostics != nullptr) {
+            diagnostics->shapedGlyphCount = static_cast<std::uint32_t>(
+                std::min<std::uint64_t>(nextGlyphCount,
+                    std::numeric_limits<std::uint32_t>::max()));
+        }
+        if (nextGlyphCount > glyphLimit) {
+            return fail(Procedural3DGenerationStatus::ResourceLimitExceeded,
+                        QStringLiteral("Shaped glyph count exceeds the configured mesh limit."));
+        }
+        if (diagnostics != nullptr) {
+            const QList<qsizetype> stringIndexes = run.stringIndexes();
+            const QString sourceString = run.sourceString();
+            for (qsizetype glyph = 0; glyph < glyphIndexes.size(); ++glyph) {
+                if (glyphIndexes[glyph] != 0u) continue;
+                ++diagnostics->missingGlyphCount;
+                if (diagnostics->missingGlyphLocations.size() >= 128) {
+                    diagnostics->missingGlyphLocationsComplete = false;
+                    continue;
+                }
+                if (glyph >= stringIndexes.size() || sourceString.isEmpty()) {
+                    diagnostics->missingGlyphLocationsComplete = false;
+                    continue;
+                }
+                const qsizetype stringIndex = stringIndexes[glyph];
+                if (stringIndex < 0 || stringIndex >= sourceString.size()) {
+                    diagnostics->missingGlyphLocationsComplete = false;
+                    continue;
+                }
+                const QChar firstUnit = sourceString.at(stringIndex);
+                uint codePoint = firstUnit.unicode();
+                qsizetype characterOffset = stringIndex;
+                if (firstUnit.isHighSurrogate()
+                    && stringIndex + 1 < sourceString.size()
+                    && sourceString.at(stringIndex + 1).isLowSurrogate()) {
+                    codePoint = QChar::surrogateToUcs4(
+                        firstUnit, sourceString.at(stringIndex + 1));
+                } else if (firstUnit.isLowSurrogate() && stringIndex > 0
+                           && sourceString.at(stringIndex - 1).isHighSurrogate()) {
+                    codePoint = QChar::surrogateToUcs4(
+                        sourceString.at(stringIndex - 1), firstUnit);
+                    --characterOffset;
+                }
+                const QString detail = QStringLiteral("UTF-16 offset %1: U+%2")
+                    .arg(characterOffset)
+                    .arg(static_cast<qulonglong>(codePoint), 4, 16,
+                         QLatin1Char('0')).toUpper();
+                diagnostics->missingGlyphLocations.push_back(detail);
+            }
+        }
         for (qsizetype glyphIndex = 0; glyphIndex < glyphIndexes.size(); ++glyphIndex) {
             const QPainterPath glyphPath = rawFont.pathForGlyph(glyphIndexes[glyphIndex]);
             if (glyphPath.isEmpty()) continue;
@@ -567,31 +764,69 @@ Procedural3DMeshData Procedural3DGenerators::generateTextExtrude(const TextExtru
             const QPointF glyphPosition = glyphPositions[glyphIndex];
             glyphTransform.translate(glyphPosition.x(), glyphPosition.y());
             full.addPath(glyphTransform.map(glyphPath));
+            if (full.elementCount() > maxPathElements) {
+                return fail(Procedural3DGenerationStatus::ResourceLimitExceeded,
+                            QStringLiteral("Text outline exceeds the path element budget."));
+            }
         }
     }
+    // Glyph count alone does not bound the complexity of a font outline.
+    // Keep pathological fonts from sending an unbounded path into simplify()
+    // and the quadratic contour nesting checks in ShapeExtrude.
+    if (full.elementCount() > maxPathElements) {
+        return fail(Procedural3DGenerationStatus::ResourceLimitExceeded,
+                    QStringLiteral("Text outline exceeds the path element budget."));
+    }
+    if (diagnostics != nullptr && !diagnostics->resolvedFontFamilies.isEmpty()
+        && !diagnostics->resolvedFontFingerprints.isEmpty()) {
+        diagnostics->fontIdentityComplete =
+            fontMetadataWithinBounds
+            && static_cast<std::size_t>(
+                diagnostics->resolvedFontFingerprints.size())
+            == hashedFontKeys.size();
+    }
     if (full.isEmpty()) {
-        return meshData;
+        return fail(Procedural3DGenerationStatus::NoOutlines,
+                    QStringLiteral("The selected font produced no vector outlines."));
     }
     // Text glyph outlines can overlap in Arabic joining forms and in marks or
     // components from CJK/Indic fonts. Normalize the fill before splitting it
     // into contours so overlapping glyph outlines do not become false holes.
     const QPainterPath filledPath = full.simplified();
     if (filledPath.isEmpty()) {
-        return meshData;
+        return fail(Procedural3DGenerationStatus::NoOutlines,
+                    QStringLiteral("The shaped text has no fillable vector outlines."));
+    }
+    if (filledPath.elementCount() > maxPathElements) {
+        return fail(Procedural3DGenerationStatus::ResourceLimitExceeded,
+                    QStringLiteral("Normalized text outline exceeds the path element budget."));
     }
     const QRectF bounds = filledPath.boundingRect();
     if (!bounds.isValid() || bounds.isEmpty()) {
-        return meshData;
+        return fail(Procedural3DGenerationStatus::NoOutlines,
+                    QStringLiteral("The shaped text has degenerate bounds."));
     }
     // Block center to origin, Y flipped (Qt y-down -> 3D y-up).
     const qreal centerX = bounds.center().x();
     const qreal centerY = bounds.center().y();
     std::vector<std::vector<QPointF>> contours;
     const QList<QPolygonF> subpaths = filledPath.toSubpathPolygons();
+    constexpr qsizetype maxContourCount = 4096;
+    constexpr std::uint64_t maxFlattenedContourPoints = 250'000u;
+    if (subpaths.size() > maxContourCount) {
+        return fail(Procedural3DGenerationStatus::ResourceLimitExceeded,
+                    QStringLiteral("Text outline exceeds the contour count budget."));
+    }
     contours.reserve(static_cast<std::size_t>(subpaths.size()));
+    std::uint64_t flattenedPointCount = 0u;
     for (const QPolygonF& polygon : subpaths) {
         if (polygon.size() < 3) {
             continue;
+        }
+        flattenedPointCount += static_cast<std::uint64_t>(polygon.size());
+        if (flattenedPointCount > maxFlattenedContourPoints) {
+            return fail(Procedural3DGenerationStatus::ResourceLimitExceeded,
+                        QStringLiteral("Text outline exceeds the flattened point budget."));
         }
         std::vector<QPointF> contour;
         contour.reserve(static_cast<std::size_t>(polygon.size()));
@@ -601,19 +836,88 @@ Procedural3DMeshData Procedural3DGenerators::generateTextExtrude(const TextExtru
         contours.push_back(std::move(contour));
     }
     if (contours.empty()) {
-        return meshData;
+        return fail(Procedural3DGenerationStatus::NoOutlines,
+                    QStringLiteral("The selected font produced no usable contours."));
+    }
+    const int requestedBevelSegments = std::clamp(settings.bevelSegments, 1, 8);
+    const int effectiveBevelSegments = settings.bevelWidth > 0.0f
+        ? std::clamp(requestedBevelSegments * qualityScale(settings.quality), 1, 8)
+        : 0;
+    constexpr std::uint64_t maxEstimatedMeshVertices = 1'000'000u;
+    constexpr std::uint64_t maxEstimatedMeshFaces = 1'000'000u;
+    constexpr std::uint64_t maxEstimatedRenderVertices = 1'000'000u;
+    // ShapeExtrude allocates two wall vertices and front/back rings for each
+    // segment plus the cap-side ring, then duplicates cap vertices for both
+    // sides. The margin covers bridge points added while merging nested counters.
+    const std::uint64_t estimatedVerticesPerContourPoint =
+        static_cast<std::uint64_t>(2 * effectiveBevelSegments + 10);
+    // Each contour edge emits one wall quad and two bevel quads per segment;
+    // cap triangulation adds at most a linear number of faces.
+    const std::uint64_t estimatedFacesPerContourPoint =
+        static_cast<std::uint64_t>(2 * effectiveBevelSegments + 8);
+    // RenderData expands each wall/bevel quad to six triangle corners. Cap
+    // corners stay linear in contour points, including merged-hole bridges.
+    const std::uint64_t estimatedRenderVerticesPerContourPoint =
+        static_cast<std::uint64_t>(12 * effectiveBevelSegments + 16);
+    if (flattenedPointCount > maxEstimatedMeshVertices
+                                  / estimatedVerticesPerContourPoint
+        || flattenedPointCount > maxEstimatedMeshFaces
+                                  / estimatedFacesPerContourPoint
+        || flattenedPointCount > maxEstimatedRenderVertices
+                                  / estimatedRenderVerticesPerContourPoint) {
+        return fail(Procedural3DGenerationStatus::ResourceLimitExceeded,
+                    QStringLiteral("Estimated extrusion or render mesh exceeds its resource budget."));
     }
     ShapeExtrudeParams extrudeParams;
     extrudeParams.depth = std::clamp(settings.depth, 0.0f, 100000.0f);
     extrudeParams.bevelWidth = std::clamp(settings.bevelWidth, 0.0f, 100000.0f);
-    extrudeParams.bevelSegments = std::clamp(settings.bevelSegments, 1, 8);
+    extrudeParams.bevelSegments = std::max(1, effectiveBevelSegments);
     Mesh mesh;
     if (!extrudeContourMesh(contours, extrudeParams, mesh)) {
-        return meshData;
+        return fail(Procedural3DGenerationStatus::InvalidGeometry,
+                    QStringLiteral("Text contours could not be triangulated into a closed extrusion."));
     }
     const Mesh::RenderData renderData = mesh.generateRenderData();
     if (renderData.positions.isEmpty() || renderData.indices.size() < 3u) {
-        return meshData;
+        return fail(Procedural3DGenerationStatus::InvalidGeometry,
+                    QStringLiteral("Extrusion produced an empty render mesh."));
+    }
+    if (renderData.indices.size() % 3u != 0u
+        || renderData.normals.size() != renderData.positions.size()
+        || renderData.uvs.size() != renderData.positions.size()) {
+        return fail(Procedural3DGenerationStatus::InvalidGeometry,
+                    QStringLiteral("Extrusion attributes or triangle indices are inconsistent."));
+    }
+    for (int index = 0; index < renderData.positions.size(); ++index) {
+        const QVector3D& position = renderData.positions[index];
+        const QVector3D& normal = renderData.normals[index];
+        const QVector2D& uv = renderData.uvs[index];
+        if (!std::isfinite(position.x()) || !std::isfinite(position.y())
+            || !std::isfinite(position.z()) || !std::isfinite(normal.x())
+            || !std::isfinite(normal.y()) || !std::isfinite(normal.z())
+            || !std::isfinite(uv.x()) || !std::isfinite(uv.y())
+            || normal.lengthSquared() < 1.0e-12f) {
+            return fail(Procedural3DGenerationStatus::InvalidGeometry,
+                        QStringLiteral("Extrusion contains non-finite attributes or a zero normal."));
+        }
+    }
+    for (int index = 0; index < renderData.indices.size(); index += 3) {
+        const unsigned int a = renderData.indices[index];
+        const unsigned int b = renderData.indices[index + 1];
+        const unsigned int c = renderData.indices[index + 2];
+        if (a >= static_cast<unsigned int>(renderData.positions.size())
+            || b >= static_cast<unsigned int>(renderData.positions.size())
+            || c >= static_cast<unsigned int>(renderData.positions.size())) {
+            return fail(Procedural3DGenerationStatus::InvalidGeometry,
+                        QStringLiteral("Extrusion contains an out-of-range triangle index."));
+        }
+        const QVector3D area = QVector3D::crossProduct(
+            renderData.positions[static_cast<int>(b)] - renderData.positions[static_cast<int>(a)],
+            renderData.positions[static_cast<int>(c)] - renderData.positions[static_cast<int>(a)]);
+        if (!std::isfinite(area.lengthSquared()) || area.lengthSquared() <= 1.0e-16f) {
+            return fail(Procedural3DGenerationStatus::InvalidGeometry,
+                        QStringLiteral("Extrusion contains a degenerate triangle."));
+        }
     }
     const int vertexCount = renderData.positions.size();
     meshData.vertices.reserve(static_cast<std::size_t>(vertexCount));
@@ -637,6 +941,17 @@ Procedural3DMeshData Procedural3DGenerators::generateTextExtrude(const TextExtru
     for (const unsigned int corner : renderData.indices) {
         meshData.indices.push_back(static_cast<std::uint32_t>(corner));
     }
+    if (diagnostics != nullptr && diagnostics->missingGlyphCount > 0u) {
+        diagnostics->status = Procedural3DGenerationStatus::MissingGlyphs;
+        diagnostics->message = QStringLiteral(
+            "%1 shaped glyph(s) resolved to the font's missing-glyph entry.")
+            .arg(diagnostics->missingGlyphCount);
+    }
+    if (diagnostics != nullptr && !diagnostics->fontIdentityComplete) {
+        if (!diagnostics->message.isEmpty()) diagnostics->message += QLatin1Char(' ');
+        diagnostics->message += QStringLiteral(
+            "One or more resolved font identities could not be fully recorded or fingerprinted.");
+    }
     return meshData;
 }
 
@@ -648,8 +963,22 @@ Procedural3DResult Procedural3DGenerators::generateTextExtrudeResult(const TextE
     result.kind = Procedural3DKind::TextExtrude;
     result.shading = shading;
     result.quality = settings.quality;
-    result.mesh = generateTextExtrude(settings, timeSeconds);
+    TextExtrudeDiagnostics diagnostics;
+    result.mesh = generateTextExtrude(settings, timeSeconds, &diagnostics);
     result.valid = !result.mesh.vertices.empty();
+    result.status = diagnostics.status;
+    result.diagnosticMessage = diagnostics.message;
+    result.resolvedFontFamily = diagnostics.resolvedFontFamily;
+    result.resolvedFontFamilies = diagnostics.resolvedFontFamilies;
+    result.resolvedFontFingerprints = diagnostics.resolvedFontFingerprints;
+    result.fontIdentityComplete = diagnostics.fontIdentityComplete;
+    result.missingGlyphCount = diagnostics.missingGlyphCount;
+    result.missingGlyphLocations = diagnostics.missingGlyphLocations;
+    result.missingGlyphLocationsComplete = diagnostics.missingGlyphLocationsComplete;
+    if (!result.valid && result.status == Procedural3DGenerationStatus::Success) {
+        result.status = Procedural3DGenerationStatus::InvalidGeometry;
+        result.diagnosticMessage = QStringLiteral("Text extrusion did not produce a mesh.");
+    }
     return result;
 }
 

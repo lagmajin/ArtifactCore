@@ -4,6 +4,7 @@ module;
 #include <cstdint>
 #include <vector>
 #include <QString>
+#include <QStringList>
 
 export module Procedural3DGenerators;
 
@@ -28,6 +29,22 @@ enum class Procedural3DShading : std::uint32_t {
     Solid = 1,
     Normal = 2,
     Lit = 3
+};
+
+enum class Procedural3DGenerationStatus : std::uint32_t {
+    Success = 0,
+    EmptyInput = 1,
+    InvalidSettings = 2,
+    MissingGlyphs = 3,
+    NoOutlines = 4,
+    InvalidGeometry = 5,
+    ResourceLimitExceeded = 6
+};
+
+enum class TextExtrudeAlignment : std::uint32_t {
+    Left = 0,
+    Center = 1,
+    Right = 2
 };
 
 enum class ProceduralPathProfile : std::uint32_t {
@@ -117,11 +134,21 @@ struct Procedural3DResult {
     Procedural3DQuality quality = Procedural3DQuality::Preview;
     Procedural3DMeshData mesh;
     bool valid = false;
+    Procedural3DGenerationStatus status = Procedural3DGenerationStatus::Success;
+    QString diagnosticMessage;
+    QString resolvedFontFamily;
+    QStringList resolvedFontFamilies;
+    QStringList resolvedFontFingerprints;
+    bool fontIdentityComplete = false;
+    std::uint32_t missingGlyphCount = 0;
+    QStringList missingGlyphLocations;
+    bool missingGlyphLocationsComplete = true;
 };
 
 /// Fusion Text3D 相当の押出しテキスト設定。グリフ輪郭は QFont/QPainterPath
 /// (Qt TextLayout 経路と同系) から取得し、ShapeExtrude で Mesh 化する。
-/// text は '\n' で改行できる。XY はブロック中心が原点、Y-up、Z は
+/// text は '\n' で改行でき、各行の揃え・tracking・行送り倍率を指定できる。
+/// XY はブロック中心が原点、Y-up、Z は
 /// [-depth/2, depth/2] に対称配置される。
 struct TextExtrudeSettings {
     QString text = QStringLiteral("TEXT");
@@ -129,10 +156,29 @@ struct TextExtrudeSettings {
     int fontSize = 160;
     bool bold = false;
     bool italic = false;
+    float letterSpacing = 0.0f;
+    float lineSpacing = 1.0f;
+    TextExtrudeAlignment alignment = TextExtrudeAlignment::Center;
     float depth = 40.0f;
     float bevelWidth = 4.0f;
     int bevelSegments = 2;
+    /// Maximum number of shaped glyphs accepted for a single generated mesh.
+    /// This bounds accidental unbounded allocations from pasted documents.
+    std::uint32_t maxGlyphCount = 4096;
     Procedural3DQuality quality = Procedural3DQuality::Preview;
+};
+
+struct TextExtrudeDiagnostics {
+    Procedural3DGenerationStatus status = Procedural3DGenerationStatus::Success;
+    QString message;
+    QString resolvedFontFamily;
+    QStringList resolvedFontFamilies;
+    QStringList resolvedFontFingerprints;
+    bool fontIdentityComplete = false;
+    std::uint32_t shapedGlyphCount = 0;
+    std::uint32_t missingGlyphCount = 0;
+    QStringList missingGlyphLocations;
+    bool missingGlyphLocationsComplete = true;
 };
 
 struct Procedural3DBounds {
@@ -157,7 +203,10 @@ class Procedural3DGenerators {
 public:
     static Procedural3DMeshData generateTerrain(const TerrainSettings& settings, float timeSeconds = 0.0f);
     static Procedural3DMeshData generatePathTube(const PathTubeSettings& settings, float timeSeconds = 0.0f);
-    static Procedural3DMeshData generateTextExtrude(const TextExtrudeSettings& settings, float timeSeconds = 0.0f);
+    static Procedural3DMeshData generateTextExtrude(
+        const TextExtrudeSettings& settings,
+        float timeSeconds = 0.0f,
+        TextExtrudeDiagnostics* diagnostics = nullptr);
 
     static Procedural3DResult generateTerrainResult(const TerrainSettings& settings,
                                                     float timeSeconds = 0.0f,
