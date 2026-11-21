@@ -560,6 +560,10 @@ Procedural3DMeshData Procedural3DGenerators::generateTextExtrude(
     if (diagnostics != nullptr) *diagnostics = {};
     const auto fail = [&](Procedural3DGenerationStatus status, const QString& message) {
         if (diagnostics != nullptr) {
+            std::sort(diagnostics->resolvedFontFamilies.begin(),
+                      diagnostics->resolvedFontFamilies.end());
+            std::sort(diagnostics->resolvedFontFingerprints.begin(),
+                      diagnostics->resolvedFontFingerprints.end());
             diagnostics->status = status;
             diagnostics->message = message;
         }
@@ -798,6 +802,12 @@ Procedural3DMeshData Procedural3DGenerators::generateTextExtrude(
     if (full.elementCount() > maxPathElements) {
         return fail(Procedural3DGenerationStatus::ResourceLimitExceeded,
                     QStringLiteral("Text outline exceeds the path element budget."));
+    }
+    if (diagnostics != nullptr) {
+        std::sort(diagnostics->resolvedFontFamilies.begin(),
+                  diagnostics->resolvedFontFamilies.end());
+        std::sort(diagnostics->resolvedFontFingerprints.begin(),
+                  diagnostics->resolvedFontFingerprints.end());
     }
     if (diagnostics != nullptr && !diagnostics->resolvedFontFamilies.isEmpty()
         && !diagnostics->resolvedFontFingerprints.isEmpty()) {
