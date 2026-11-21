@@ -581,9 +581,20 @@ Procedural3DMeshData Procedural3DGenerators::generateTextExtrude(
                     QStringLiteral("Text length exceeds the configured shaping budget."));
     }
     qsizetype lineCount = 1;
-    for (const QChar character : settings.text) {
-        if (character == QLatin1Char('\n')
-            && ++lineCount > hardLineCountLimit) {
+    for (qsizetype index = 0; index < settings.text.size(); ++index) {
+        const ushort codeUnit = settings.text.at(index).unicode();
+        const bool isCrLf = codeUnit == QLatin1Char('\r').unicode()
+            && index + 1 < settings.text.size()
+            && settings.text.at(index + 1) == QLatin1Char('\n');
+        const bool isLineBreak = isCrLf
+            || codeUnit == QLatin1Char('\r').unicode()
+            || codeUnit == QLatin1Char('\n').unicode()
+            || codeUnit == QChar::LineSeparator
+            || codeUnit == QChar::ParagraphSeparator
+            || codeUnit == 0x0085u;
+        if (!isLineBreak) continue;
+        if (isCrLf) ++index;
+        if (++lineCount > hardLineCountLimit) {
             return fail(Procedural3DGenerationStatus::ResourceLimitExceeded,
                         QStringLiteral("Text line count exceeds the layout budget."));
         }
@@ -681,15 +692,26 @@ Procedural3DMeshData Procedural3DGenerators::generateTextExtrude(
                     const QByteArray fileCmap = fileFont.fontTable("cmap");
                     const QByteArray runCmap = rawFont.fontTable("cmap");
                     bool matchingOutlineTableFound = false;
-                    for (const char* tableTag : {"glyf", "CFF ", "CFF2"}) {
+                    bool tablesMatch = true;
+                    constexpr std::array<const char*, 13> identityTableTags{
+                        "head", "hhea", "hmtx", "maxp", "name", "OS/2", "post",
+                        "GSUB", "GPOS", "GDEF", "glyf", "CFF ", "CFF2"};
+                    for (const char* tableTag : identityTableTags) {
                         const QByteArray fileOutline = fileFont.fontTable(tableTag);
                         const QByteArray runOutline = rawFont.fontTable(tableTag);
-                        if (fileOutline.isEmpty() || runOutline.isEmpty()) continue;
-                        matchingOutlineTableFound = fileOutline == runOutline;
-                        break;
+                        if (fileOutline.isEmpty() != runOutline.isEmpty()) {
+                            tablesMatch = false;
+                            continue;
+                        }
+                        if (fileOutline.isEmpty()) continue;
+                        if (fileOutline != runOutline) tablesMatch = false;
+                        if (tableTag[0] == 'g' || tableTag[0] == 'C') {
+                            matchingOutlineTableFound = fileOutline == runOutline;
+                        }
                     }
                     if (!fileFont.isValid() || fileCmap.isEmpty()
-                        || fileCmap != runCmap || !matchingOutlineTableFound) {
+                        || fileCmap != runCmap || !tablesMatch
+                        || !matchingOutlineTableFound) {
                         diagnostics->fontIdentityComplete = false;
                     } else {
                         const QByteArray digest = QCryptographicHash::hash(
