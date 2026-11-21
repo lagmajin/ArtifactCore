@@ -782,14 +782,14 @@ Procedural3DMeshData Procedural3DGenerators::generateTextExtrude(
         for (qsizetype glyphIndex = 0; glyphIndex < glyphIndexes.size(); ++glyphIndex) {
             const QPainterPath glyphPath = rawFont.pathForGlyph(glyphIndexes[glyphIndex]);
             if (glyphPath.isEmpty()) continue;
+            if (glyphPath.elementCount() > maxPathElements - full.elementCount()) {
+                return fail(Procedural3DGenerationStatus::ResourceLimitExceeded,
+                            QStringLiteral("Text outline exceeds the path element budget."));
+            }
             QTransform glyphTransform;
             const QPointF glyphPosition = glyphPositions[glyphIndex];
             glyphTransform.translate(glyphPosition.x(), glyphPosition.y());
             full.addPath(glyphTransform.map(glyphPath));
-            if (full.elementCount() > maxPathElements) {
-                return fail(Procedural3DGenerationStatus::ResourceLimitExceeded,
-                            QStringLiteral("Text outline exceeds the path element budget."));
-            }
         }
     }
     // Glyph count alone does not bound the complexity of a font outline.
