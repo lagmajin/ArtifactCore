@@ -102,18 +102,20 @@ public:
             return {false, QJsonObject{}, lastError_};
         }
 
-        QByteArray stdoutBytes;
+        // Carry over any frames (or partial frames) left by a previous call.
+        QByteArray stdoutBytes = responseBuffer_;
+        responseBuffer_.clear();
         QByteArray stderrBytes;
         const auto deadline = QDeadlineTimer(timeoutMs);
         while (deadline.remainingTime() > 0) {
             if (process_->waitForReadyRead(50)) {
                 stdoutBytes += process_->readAllStandardOutput();
                 stderrBytes += process_->readAllStandardError();
-                const auto frames = McpBridge::decodeFrames(stdoutBytes);
-                if (!frames.isEmpty()) {
-                    responseBuffer_ = stdoutBytes.mid(stdoutBytes.lastIndexOf("\r\n\r\n") + 4);
+                QJsonObject response;
+                if (McpBridge::tryPopFrame(&stdoutBytes, &response)) {
+                    responseBuffer_ = stdoutBytes;
                     lastError_.clear();
-                    return {true, frames.last(), QString()};
+                    return {true, response, QString()};
                 }
             }
             if (process_->state() == QProcess::NotRunning) {
@@ -125,6 +127,18 @@ public:
         lastError_ = stderrBytes.isEmpty() ? QStringLiteral("Timed out waiting for MCP response")
                                            : QString::fromUtf8(stderrBytes).trimmed();
         return {false, QJsonObject{}, lastError_};
+    }
+
+    bool notify(const QJsonObject& notification)
+    {
+        if (!process_ || process_->state() == QProcess::NotRunning) {
+            return false;
+        }
+        const QByteArray frame = McpBridge::encodeFrame(notification);
+        if (process_->write(frame) < 0) {
+            return false;
+        }
+        return process_->waitForBytesWritten(5000);
     }
 
     McpCallResult initialize(const AIContext& context = AIContext())
@@ -140,7 +154,16 @@ public:
                 }}
             }}
         };
-        return call(request, context);
+        McpCallResult result = call(request, context);
+        if (result.success) {
+            // MCP requires the initialized notification after a successful handshake.
+            notify(QJsonObject{
+                {QStringLiteral("jsonrpc"), QStringLiteral("2.0")},
+                {QStringLiteral("method"), QStringLiteral("notifications/initialized")},
+                {QStringLiteral("params"), QJsonObject{}}
+            });
+        }
+        return result;
     }
 
     McpCallResult listTools(const AIContext& context = AIContext())

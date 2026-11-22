@@ -18,6 +18,7 @@ module;
 #include <QSet>
 #include <QUuid>
 #include <QSaveFile>
+#include <QDebug>
 #include <cstddef>
 #include <mutex>
 
@@ -50,6 +51,11 @@ struct McpResponse {
 
 class McpBridge {
 public:
+    // Bounds for untrusted stdio/TCP frames. Both the header and the body are
+    // capped so a malformed Content-Length cannot grow a poller's buffer forever.
+    static constexpr int kMaxHeaderBytes = 16 * 1024;
+    static constexpr int kMaxFrameBodyBytes = 16 * 1024 * 1024;
+
     static QByteArray encodeFrame(const QJsonObject& message)
     {
         const QByteArray body = QJsonDocument(message).toJson(QJsonDocument::Compact);
@@ -68,6 +74,9 @@ public:
             if (headerEnd < 0) {
                 break;
             }
+            if (headerEnd - offset > kMaxHeaderBytes) {
+                break;
+            }
             const QByteArray header = bytes.mid(offset, headerEnd - offset);
             const QList<QByteArray> headerLines = header.split('\n');
             int contentLength = -1;
@@ -77,7 +86,7 @@ public:
                     const QByteArray value = line.mid(line.indexOf(':') + 1).trimmed();
                     bool ok = false;
                     contentLength = value.toInt(&ok);
-                    if (!ok) {
+                    if (!ok || contentLength < 0 || contentLength > kMaxFrameBodyBytes) {
                         contentLength = -1;
                     }
                 }
@@ -110,6 +119,9 @@ public:
         if (headerEnd < 0) {
             return false;
         }
+        if (headerEnd > kMaxHeaderBytes) {
+            return false;
+        }
 
         const QByteArray header = buffer->left(headerEnd);
         const QList<QByteArray> headerLines = header.split('\n');
@@ -120,7 +132,7 @@ public:
                 const QByteArray value = line.mid(line.indexOf(':') + 1).trimmed();
                 bool ok = false;
                 contentLength = value.toInt(&ok);
-                if (!ok) {
+                if (!ok || contentLength < 0 || contentLength > kMaxFrameBodyBytes) {
                     contentLength = -1;
                 }
             }
@@ -523,6 +535,9 @@ public:
             const QJsonDocument document = QJsonDocument::fromJson(stateFile.readAll(), &parseError);
             if (parseError.error == QJsonParseError::NoError && document.isObject()) {
                 state = document.object();
+            } else {
+                qWarning() << "[MCP] Ignoring corrupt state file" << statePath
+                           << parseError.errorString();
             }
         }
         return state;
@@ -625,6 +640,17 @@ public:
         return capabilities;
     }
 
+    // MCP tool results must expose `content` as an array of content blocks.
+    // Keep `structuredContent` alongside it so existing AI/tool-loop consumers
+    // continue to read the same structured payload.
+    static QJsonArray makeToolContent(const QString& text)
+    {
+        return QJsonArray{QJsonObject{
+            {QStringLiteral("type"), QStringLiteral("text")},
+            {QStringLiteral("text"), text}
+        }};
+    }
+
     static QJsonObject handleRequest(const QJsonObject& request, const AIContext& context = AIContext())
     {
         const QString method = request.value(QStringLiteral("method")).toString().trimmed();
@@ -657,6 +683,17 @@ public:
             response[QStringLiteral("error")] = error;
             return response;
         };
+
+        const QString jsonrpcVersion = request.value(QStringLiteral("jsonrpc")).toString();
+        if (jsonrpcVersion != QStringLiteral("2.0")) {
+            return makeError(-32600, QStringLiteral("Invalid request: jsonrpc must be \"2.0\""));
+        }
+
+        // A notification has no id and must never produce a response frame.
+        // Callers treat an empty QJsonObject as "nothing to send".
+        if (idValue.isUndefined() && method.startsWith(QStringLiteral("notifications/"))) {
+            return QJsonObject();
+        }
 
         if (method.isEmpty()) {
             return makeError(-32600, QStringLiteral("Invalid request: missing method"));
@@ -700,7 +737,7 @@ public:
                     });
                 }
                 QJsonObject result;
-                result[QStringLiteral("content")] = QStringLiteral("debug.log");
+                result[QStringLiteral("content")] = makeToolContent(QStringLiteral("debug.log"));
                 result[QStringLiteral("structuredContent")] = QJsonObject{
                     {QStringLiteral("entries"), entries},
                     {QStringLiteral("count"), entries.size()}
@@ -725,7 +762,7 @@ public:
                     });
                 }
                 return makeResponse(QJsonObject{
-                    {QStringLiteral("content"), QStringLiteral("debug.logCategory")},
+                    {QStringLiteral("content"), makeToolContent(QStringLiteral("debug.logCategory"))},
                     {QStringLiteral("structuredContent"), QJsonObject{
                         {QStringLiteral("category"), category},
                         {QStringLiteral("entries"), entries},
@@ -750,7 +787,7 @@ public:
                     });
                 }
                 return makeResponse(QJsonObject{
-                    {QStringLiteral("content"), QStringLiteral("debug.filterLog")},
+                    {QStringLiteral("content"), makeToolContent(QStringLiteral("debug.filterLog"))},
                     {QStringLiteral("structuredContent"), QJsonObject{
                         {QStringLiteral("query"), query},
                         {QStringLiteral("entries"), entries},
@@ -760,7 +797,7 @@ public:
             }
             if (debugToolName == QStringLiteral("debug.getTools")) {
                 return makeResponse(QJsonObject{
-                    {QStringLiteral("content"), QStringLiteral("debug.getTools")},
+                    {QStringLiteral("content"), makeToolContent(QStringLiteral("debug.getTools"))},
                     {QStringLiteral("structuredContent"), QJsonObject{
                         {QStringLiteral("capabilities"), mcpCapabilities()},
                         {QStringLiteral("tools"), toMcpTools()}
@@ -773,7 +810,7 @@ public:
                 const QJsonArray containers = toJson(
                     ContainerDebugRegistry::instance(), requestedId.toUtf8().toStdString());
                 return makeResponse(QJsonObject{
-                    {QStringLiteral("content"), QStringLiteral("debug.containers")},
+                    {QStringLiteral("content"), makeToolContent(QStringLiteral("debug.containers"))},
                     {QStringLiteral("structuredContent"), QJsonObject{
                         {QStringLiteral("requestedId"), requestedId},
                         {QStringLiteral("containers"), containers},
@@ -830,7 +867,7 @@ public:
                     }
                 }
                 return makeResponse(QJsonObject{
-                    {QStringLiteral("content"), QStringLiteral("debug.containers.annotate")},
+                    {QStringLiteral("content"), makeToolContent(QStringLiteral("debug.containers.annotate"))},
                     {QStringLiteral("structuredContent"), annotationResult}
                 });
             }
@@ -934,7 +971,7 @@ public:
                         }
                     }
                     return makeResponse(QJsonObject{
-                        {QStringLiteral("content"), debugToolName},
+                        {QStringLiteral("content"), makeToolContent(debugToolName)},
                         {QStringLiteral("structuredContent"), result}
                     });
                 }
@@ -954,7 +991,7 @@ public:
                     state.insert(QStringLiteral("session"), updatedSession);
                     const bool written = writeStateFile(statePath, state);
                     return makeResponse(QJsonObject{
-                        {QStringLiteral("content"), debugToolName},
+                        {QStringLiteral("content"), makeToolContent(debugToolName)},
                         {QStringLiteral("structuredContent"), QJsonObject{
                             {QStringLiteral("written"), written},
                             {QStringLiteral("session"), updatedSession}
@@ -973,13 +1010,13 @@ public:
                     writeStateFile(statePath, state);
                 }
                 return makeResponse(QJsonObject{
-                    {QStringLiteral("content"), debugToolName},
+                    {QStringLiteral("content"), makeToolContent(debugToolName)},
                     {QStringLiteral("structuredContent"), state}
                 });
             }
             if (debugToolName == QStringLiteral("debug.trace")) {
                 return makeResponse(QJsonObject{
-                    {QStringLiteral("content"), QStringLiteral("debug.trace")},
+                    {QStringLiteral("content"), makeToolContent(QStringLiteral("debug.trace"))},
                     {QStringLiteral("structuredContent"),
                      QJsonObject{}}
                 });
@@ -994,7 +1031,7 @@ public:
                 int nextId = state.value(QStringLiteral("nextConditionId")).toInt(1);
                 if (debugToolName.endsWith(QStringLiteral("listDataBreakpoints"))) {
                     return makeResponse(QJsonObject{
-                        {QStringLiteral("content"), QStringLiteral("debug.listDataBreakpoints")},
+                        {QStringLiteral("content"), makeToolContent(QStringLiteral("debug.listDataBreakpoints"))},
                         {QStringLiteral("structuredContent"), QJsonObject{
                             {QStringLiteral("breakConditions"), conditions},
                             {QStringLiteral("count"), conditions.size()}
@@ -1017,7 +1054,7 @@ public:
                     state.insert(QStringLiteral("nextConditionId"), nextId);
                     writeStateFile(statePath, state);
                     return makeResponse(QJsonObject{
-                        {QStringLiteral("content"), QStringLiteral("debug.removeDataBreakpoint")},
+                        {QStringLiteral("content"), makeToolContent(QStringLiteral("debug.removeDataBreakpoint"))},
                         {QStringLiteral("structuredContent"), QJsonObject{
                             {QStringLiteral("id"), id}, {QStringLiteral("removed"), removed}
                         }}
@@ -1034,7 +1071,7 @@ public:
                 state.insert(QStringLiteral("nextConditionId"), nextId);
                 const bool written = writeStateFile(statePath, state);
                 return makeResponse(QJsonObject{
-                    {QStringLiteral("content"), QStringLiteral("debug.addDataBreakpoint")},
+                    {QStringLiteral("content"), makeToolContent(QStringLiteral("debug.addDataBreakpoint"))},
                     {QStringLiteral("structuredContent"), QJsonObject{
                         {QStringLiteral("condition"), condition}, {QStringLiteral("written"), written}
                     }}
@@ -1050,7 +1087,7 @@ public:
                 int nextId = state.value(QStringLiteral("nextWatchId")).toInt(1);
                 if (debugToolName.endsWith(QStringLiteral("listWatchpoints"))) {
                     return makeResponse(QJsonObject{
-                        {QStringLiteral("content"), QStringLiteral("debug.listWatchpoints")},
+                        {QStringLiteral("content"), makeToolContent(QStringLiteral("debug.listWatchpoints"))},
                         {QStringLiteral("structuredContent"), QJsonObject{
                             {QStringLiteral("watchDescriptors"), descriptors},
                             {QStringLiteral("count"), descriptors.size()}
@@ -1073,7 +1110,7 @@ public:
                     state.insert(QStringLiteral("nextWatchId"), nextId);
                     writeStateFile(statePath, state);
                     return makeResponse(QJsonObject{
-                        {QStringLiteral("content"), QStringLiteral("debug.removeWatchpoint")},
+                        {QStringLiteral("content"), makeToolContent(QStringLiteral("debug.removeWatchpoint"))},
                         {QStringLiteral("structuredContent"), QJsonObject{
                             {QStringLiteral("id"), id}, {QStringLiteral("removed"), removed}
                         }}
@@ -1090,7 +1127,7 @@ public:
                 state.insert(QStringLiteral("nextWatchId"), nextId);
                 const bool written = writeStateFile(statePath, state);
                 return makeResponse(QJsonObject{
-                    {QStringLiteral("content"), QStringLiteral("debug.addWatchpoint")},
+                    {QStringLiteral("content"), makeToolContent(QStringLiteral("debug.addWatchpoint"))},
                     {QStringLiteral("structuredContent"), QJsonObject{
                         {QStringLiteral("watchpoint"), descriptor}, {QStringLiteral("written"), written}
                     }}
@@ -1129,7 +1166,7 @@ public:
                     }
                 }
                 return makeResponse(QJsonObject{
-                    {QStringLiteral("content"), mermaid},
+                    {QStringLiteral("content"), makeToolContent(mermaid)},
                     {QStringLiteral("structuredContent"), QJsonObject{
                         {QStringLiteral("format"), QStringLiteral("mermaid")},
                         {QStringLiteral("diagram"), mermaid},
@@ -1181,7 +1218,7 @@ public:
                 root.insert(QStringLiteral("confidence"), relatedEvents.isEmpty()
                     ? QStringLiteral("low") : QStringLiteral("heuristic"));
                 return makeResponse(QJsonObject{
-                    {QStringLiteral("content"), QStringLiteral("debug.rootCause")},
+                    {QStringLiteral("content"), makeToolContent(QStringLiteral("debug.rootCause"))},
                     {QStringLiteral("structuredContent"), root}
                 });
             }
@@ -1217,7 +1254,7 @@ public:
                     if (!namesB.contains(name)) removed.append(name);
                 }
                 return makeResponse(QJsonObject{
-                    {QStringLiteral("content"), QStringLiteral("debug.diff")},
+                    {QStringLiteral("content"), makeToolContent(QStringLiteral("debug.diff"))},
                     {QStringLiteral("structuredContent"), QJsonObject{
                         {QStringLiteral("frameA"), frameA},
                         {QStringLiteral("frameB"), frameB},
@@ -1252,7 +1289,7 @@ public:
                     }
                 }
                 return makeResponse(QJsonObject{
-                    {QStringLiteral("content"), QStringLiteral("debug.bisect")},
+                    {QStringLiteral("content"), makeToolContent(QStringLiteral("debug.bisect"))},
                     {QStringLiteral("structuredContent"), QJsonObject{
                         {QStringLiteral("goodFrame"), goodFrame},
                         {QStringLiteral("badFrame"), badFrame},
@@ -1282,7 +1319,7 @@ public:
                     if (steps.size() >= maxSteps) break;
                 }
                 return makeResponse(QJsonObject{
-                    {QStringLiteral("content"), QStringLiteral("debug.recipe")},
+                    {QStringLiteral("content"), makeToolContent(QStringLiteral("debug.recipe"))},
                     {QStringLiteral("structuredContent"), QJsonObject{
                         {QStringLiteral("title"), QStringLiteral("Trace-derived reproduction candidate")},
                         {QStringLiteral("heuristic"), true},
@@ -1349,7 +1386,7 @@ public:
                     structured.insert(QStringLiteral("count"), values.size());
                 }
                 return makeResponse(QJsonObject{
-                    {QStringLiteral("content"), debugToolName},
+                    {QStringLiteral("content"), makeToolContent(debugToolName)},
                     {QStringLiteral("structuredContent"), structured}
                 });
             }
@@ -1380,7 +1417,7 @@ public:
                     patchActive = true;
                     patchToken = QUuid::createUuid().toString(QUuid::WithoutBraces);
                     return makeResponse(QJsonObject{
-                        {QStringLiteral("content"), QStringLiteral("debug.patch.begin")},
+                        {QStringLiteral("content"), makeToolContent(QStringLiteral("debug.patch.begin"))},
                         {QStringLiteral("structuredContent"), QJsonObject{
                             {QStringLiteral("active"), true},
                             {QStringLiteral("token"), patchToken}
@@ -1411,7 +1448,7 @@ public:
                     }
                     handle.property->setValue(arguments.value(QStringLiteral("value")).toVariant());
                     return makeResponse(QJsonObject{
-                        {QStringLiteral("content"), QStringLiteral("debug.patch.apply")},
+                        {QStringLiteral("content"), makeToolContent(QStringLiteral("debug.patch.apply"))},
                         {QStringLiteral("structuredContent"), QJsonObject{
                             {QStringLiteral("path"), path},
                             {QStringLiteral("value"), QJsonValue::fromVariant(handle.property->getValue())}
@@ -1447,7 +1484,7 @@ public:
                     patchActive = false;
                     patchToken.clear();
                     return makeResponse(QJsonObject{
-                        {QStringLiteral("content"), QStringLiteral("debug.patch.rollback")},
+                        {QStringLiteral("content"), makeToolContent(QStringLiteral("debug.patch.rollback"))},
                         {QStringLiteral("structuredContent"), QJsonObject{{QStringLiteral("active"), false}}}
                     });
                 }
@@ -1455,7 +1492,7 @@ public:
                 patchActive = false;
                 patchToken.clear();
                 return makeResponse(QJsonObject{
-                    {QStringLiteral("content"), QStringLiteral("debug.patch.commit")},
+                    {QStringLiteral("content"), makeToolContent(QStringLiteral("debug.patch.commit"))},
                     {QStringLiteral("structuredContent"), QJsonObject{{QStringLiteral("active"), false}}}
                 });
             }
@@ -1468,8 +1505,8 @@ public:
                 const auto text = value.toString();
                 const QString error = QString::fromUtf8(evaluator.getError().c_str());
                 return makeResponse(QJsonObject{
-                    {QStringLiteral("content"), QString::fromUtf8(text.data(),
-                                                                   static_cast<int>(text.length()))},
+                    {QStringLiteral("content"), makeToolContent(QString::fromUtf8(text.data(),
+                                                                                 static_cast<int>(text.length())))},
                     {QStringLiteral("structuredContent"), QJsonObject{
                         {QStringLiteral("expression"), expression},
                         {QStringLiteral("value"), QString::fromUtf8(text.data(),
@@ -1523,7 +1560,7 @@ public:
                     if (matches.size() >= limit) break;
                 }
                 return makeResponse(QJsonObject{
-                    {QStringLiteral("content"), QStringLiteral("debug.query")},
+                    {QStringLiteral("content"), makeToolContent(QStringLiteral("debug.query"))},
                     {QStringLiteral("structuredContent"), QJsonObject{
                         {QStringLiteral("where"), where},
                         {QStringLiteral("orderBy"), orderBy},
@@ -1553,7 +1590,7 @@ public:
                 const double averageMs = sampleCount > 0 ? totalMs / sampleCount : 0.0;
                 const double fps = averageMs > 0.0 ? 1000.0 / averageMs : 0.0;
                 return makeResponse(QJsonObject{
-                    {QStringLiteral("content"), QStringLiteral("debug.performance")},
+                    {QStringLiteral("content"), makeToolContent(QStringLiteral("debug.performance"))},
                     {QStringLiteral("structuredContent"), QJsonObject{
                         {QStringLiteral("lastFrameMs"), lastMs},
                         {QStringLiteral("averageFrameMs"), averageMs},
@@ -1611,7 +1648,7 @@ public:
                     writeStateFile(statePath, state);
                 }
                 return makeResponse(QJsonObject{
-                    {QStringLiteral("content"), debugToolName},
+                    {QStringLiteral("content"), makeToolContent(debugToolName)},
                     {QStringLiteral("structuredContent"), QJsonObject{
                         {QStringLiteral("risks"), risks},
                         {QStringLiteral("count"), risks.size()},
@@ -1668,7 +1705,7 @@ public:
                     stressResult.insert(QStringLiteral("execution"), QStringLiteral("expression-evaluator"));
                 }
                 return makeResponse(QJsonObject{
-                    {QStringLiteral("content"), debugToolName},
+                    {QStringLiteral("content"), makeToolContent(debugToolName)},
                     {QStringLiteral("structuredContent"), stressResult}
                 });
             }
@@ -1711,7 +1748,7 @@ public:
                     structured.insert(QStringLiteral("heuristic"), true);
                 }
                 return makeResponse(QJsonObject{
-                    {QStringLiteral("content"), debugToolName},
+                    {QStringLiteral("content"), makeToolContent(debugToolName)},
                     {QStringLiteral("structuredContent"), structured}
                 });
             }
@@ -1737,7 +1774,7 @@ public:
                     passes.append(QJsonObject{{QStringLiteral("name"), name}});
                 }
                 return makeResponse(QJsonObject{
-                    {QStringLiteral("content"), QStringLiteral("debug.renderGraph")},
+                    {QStringLiteral("content"), makeToolContent(QStringLiteral("debug.renderGraph"))},
                     {QStringLiteral("structuredContent"), QJsonObject{
                         {QStringLiteral("observed"), !passes.isEmpty()},
                         {QStringLiteral("passes"), passes},
@@ -1759,7 +1796,7 @@ public:
                     });
                 }
                 return makeResponse(QJsonObject{
-                    {QStringLiteral("content"), QStringLiteral("debug.getTimeline")},
+                    {QStringLiteral("content"), makeToolContent(QStringLiteral("debug.getTimeline"))},
                     {QStringLiteral("structuredContent"), QJsonObject{
                         {QStringLiteral("frames"), frames},
                         {QStringLiteral("count"), frames.size()}
@@ -1780,7 +1817,7 @@ public:
                 if (debugToolName.endsWith(QStringLiteral("capture"))) {
                     baselines.insert(baselineName, ArtifactCore::TraceRecorder::instance().snapshot());
                     return makeResponse(QJsonObject{
-                        {QStringLiteral("content"), QStringLiteral("debug.regression.capture")},
+                        {QStringLiteral("content"), makeToolContent(QStringLiteral("debug.regression.capture"))},
                         {QStringLiteral("structuredContent"), QJsonObject{
                             {QStringLiteral("name"), baselineName},
                             {QStringLiteral("captured"), true}
@@ -1825,7 +1862,7 @@ public:
                         if (!expectedRemoved.contains(value.toInt())) unexpectedRemoved.append(value);
                     }
                     return makeResponse(QJsonObject{
-                        {QStringLiteral("content"), QStringLiteral("debug.regression.detect")},
+                        {QStringLiteral("content"), makeToolContent(QStringLiteral("debug.regression.detect"))},
                         {QStringLiteral("structuredContent"), QJsonObject{
                             {QStringLiteral("name"), baselineName},
                             {QStringLiteral("hasRegression"), !unexpectedAdded.isEmpty() || !unexpectedRemoved.isEmpty()},
@@ -1835,7 +1872,7 @@ public:
                     });
                 }
                 return makeResponse(QJsonObject{
-                    {QStringLiteral("content"), QStringLiteral("debug.regression.compare")},
+                    {QStringLiteral("content"), makeToolContent(QStringLiteral("debug.regression.compare"))},
                     {QStringLiteral("structuredContent"), QJsonObject{
                         {QStringLiteral("name"), baselineName},
                         {QStringLiteral("hasRegression"), !addedFrames.isEmpty() || !removedFrames.isEmpty()},
@@ -1863,7 +1900,7 @@ public:
                                      : bridgeResult.trace);
             }
             QJsonObject result;
-            result[QStringLiteral("content")] = bridgeResult.trace;
+            result[QStringLiteral("content")] = makeToolContent(bridgeResult.trace);
             result[QStringLiteral("structuredContent")] = QJsonValue::fromVariant(bridgeResult.value);
             result[QStringLiteral("handled")] = bridgeResult.handled;
             result[QStringLiteral("timestamp")] = QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
@@ -1892,7 +1929,8 @@ public:
                                                       {QStringLiteral("message"), error.errorString()}}}
             });
         }
-        return encodeFrame(handleRequest(doc.object(), context));
+        const QJsonObject response = handleRequest(doc.object(), context);
+        return response.isEmpty() ? QByteArray() : encodeFrame(response);
     }
 };
 
