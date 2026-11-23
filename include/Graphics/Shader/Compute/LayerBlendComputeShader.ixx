@@ -147,7 +147,8 @@ cbuffer BlendParams : register(b0)
 {
     float opacity;
     uint blendMode;
-    float2 _pad;
+    float leftOpacity;
+    float rightOpacity;
     uint displayMode;
     uint displayComponentY;
     uint displayComponentZ;
@@ -167,9 +168,11 @@ void main(uint3 id : SV_DispatchThreadID)
     const float t = saturate(opacity);
     const float4 left = SrcTex[pixel].bgra;
     const float4 right = DstTex[pixel].bgra;
-    const float alpha = lerp(saturate(left.a), saturate(right.a), t);
+    const float alphaLeft = saturate(left.a) * saturate(leftOpacity);
+    const float alphaRight = saturate(right.a) * saturate(rightOpacity);
+    const float alpha = lerp(alphaLeft, alphaRight, t);
     const float3 premultiplied = lerp(
-        left.rgb * saturate(left.a), right.rgb * saturate(right.a), t);
+        left.rgb * alphaLeft, right.rgb * alphaRight, t);
     const float3 straight = alpha > 1.0e-6
         ? premultiplied / alpha : float3(0.0, 0.0, 0.0);
     OutTex[pixel] = float4(straight, alpha).bgra;

@@ -108,7 +108,9 @@ export namespace ArtifactCore
    ITextureView* rightSRV,
    ITextureView* outUAV,
    float progress,
-   const ComputeRegion& region
+   const ComputeRegion& region,
+   float leftOpacity = 1.0f,
+   float rightOpacity = 1.0f
   );
 
   bool convertLayerToFloat(
