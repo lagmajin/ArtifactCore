@@ -2,12 +2,222 @@ module;
 #include <QByteArray>
 #include <QFile>
 #include <QFileInfo>
+#include <QHash>
 #include <QIODevice>
 #include <QString>
+#include <QStringList>
 
 module File.TypeDetector;
 
 namespace ArtifactCore {
+
+namespace {
+
+constexpr unsigned int kFlagImport = 1u << 0;
+constexpr unsigned int kFlagStill = 1u << 1;
+constexpr unsigned int kFlagSequence = 1u << 2;
+constexpr unsigned int kFlagExport = 1u << 3;
+constexpr unsigned int kFlagSequenceExport = 1u << 4;
+constexpr unsigned int kFlagModel3D = 1u << 5;
+constexpr unsigned int kFlagVideo = 1u << 6;
+constexpr unsigned int kFlagAudio = 1u << 7;
+
+constexpr unsigned int kStillImage = kFlagImport | kFlagStill;
+constexpr unsigned int kQtSequenceImage = kStillImage | kFlagSequence;
+constexpr unsigned int kOiiImage = kStillImage | kFlagExport |
+                                  kFlagSequenceExport;
+constexpr unsigned int kOiiSequenceImage = kOiiImage | kFlagSequence;
+
+struct FormatEntry {
+  const char *suffix;
+  FileType type;
+  unsigned int flags;
+};
+
+// 一枚の表が分類・取り込みゲート・UI フィルタの共通根拠。
+// flags は「コードパスが存在するか」だけを表し、OIIO / Qt plugin の
+// runtime 可否は含まない（plugin 依存形式は実呼び出しで検証する）。
+const FormatEntry kFormats[] = {
+  // 画像。kFlagSequence は QImageReader で連番デコードできる形式だけ。
+  {"png", FileType::Image, kOiiSequenceImage},
+  {"jpg", FileType::Image, kOiiSequenceImage},
+  {"jpeg", FileType::Image, kOiiSequenceImage},
+  {"bmp", FileType::Image, kOiiSequenceImage},
+  {"gif", FileType::Image, kQtSequenceImage},
+  {"tif", FileType::Image, kOiiSequenceImage},
+  {"tiff", FileType::Image, kOiiSequenceImage},
+  {"webp", FileType::Image, kOiiSequenceImage},
+  {"tga", FileType::Image, kOiiImage},
+  {"exr", FileType::Image, kOiiImage},
+  {"dpx", FileType::Image, kOiiImage},
+  {"hdr", FileType::Image, kOiiImage},
+  {"psd", FileType::Image, kStillImage},
+  {"psb", FileType::Image, kStillImage},
+  {"svg", FileType::Image, kFlagImport | kFlagStill | kFlagSequenceExport},
+  {"ico", FileType::Image, kQtSequenceImage},
+  {"dds", FileType::Image, kStillImage},
+  {"ktx", FileType::Image, kStillImage},
+  {"ktx2", FileType::Image, kStillImage},
+  {"avif", FileType::Image, kStillImage},
+  {"heic", FileType::Image, kStillImage},
+  {"heif", FileType::Image, kStillImage},
+  {"jxl", FileType::Image, kStillImage},
+  {"jp2", FileType::Image, kStillImage},
+  {"j2k", FileType::Image, kStillImage},
+  {"ppm", FileType::Image, kQtSequenceImage},
+  {"pgm", FileType::Image, kQtSequenceImage},
+  {"pbm", FileType::Image, kQtSequenceImage},
+  {"pam", FileType::Image, kStillImage},
+  {"pfm", FileType::Image, kStillImage},
+
+  // 動画 / 音声
+  {"mp4", FileType::Video, kFlagImport | kFlagVideo},
+  {"avi", FileType::Video, kFlagImport | kFlagVideo},
+  {"mov", FileType::Video, kFlagImport | kFlagVideo},
+  {"mkv", FileType::Video, kFlagImport | kFlagVideo},
+  {"wmv", FileType::Video, kFlagImport | kFlagVideo},
+  {"flv", FileType::Video, kFlagImport | kFlagVideo},
+  {"webm", FileType::Video, kFlagImport | kFlagVideo},
+  {"m4v", FileType::Video, kFlagImport | kFlagVideo},
+  {"mpeg", FileType::Video, kFlagImport | kFlagVideo},
+  {"mpg", FileType::Video, kFlagImport | kFlagVideo},
+  {"3gp", FileType::Video, kFlagImport | kFlagVideo},
+  {"ts", FileType::Video, kFlagImport | kFlagVideo},
+  {"mxf", FileType::Video, kFlagImport | kFlagVideo},
+  {"mp3", FileType::Audio, kFlagImport | kFlagAudio},
+  {"wav", FileType::Audio, kFlagImport | kFlagAudio},
+  {"flac", FileType::Audio, kFlagImport | kFlagAudio},
+  {"aac", FileType::Audio, kFlagImport | kFlagAudio},
+  {"ogg", FileType::Audio, kFlagImport | kFlagAudio},
+  {"wma", FileType::Audio, kFlagImport | kFlagAudio},
+  {"m4a", FileType::Audio, kFlagImport | kFlagAudio},
+  {"aiff", FileType::Audio, kFlagImport | kFlagAudio},
+  {"opus", FileType::Audio, kFlagImport | kFlagAudio},
+  {"ac3", FileType::Audio, kFlagImport | kFlagAudio},
+  {"dts", FileType::Audio, kFlagImport | kFlagAudio},
+
+  // フォント（分類のみ。取り込みゲートは従来どおり通さない）
+  {"ttf", FileType::Font, 0u},
+  {"otf", FileType::Font, 0u},
+  {"ttc", FileType::Font, 0u},
+  {"woff", FileType::Font, 0u},
+  {"woff2", FileType::Font, 0u},
+  {"eot", FileType::Font, 0u},
+
+  // テキスト / データ
+  {"txt", FileType::Text, 0u},
+  {"md", FileType::Text, 0u},
+  {"json", FileType::Text, kFlagImport},
+  {"xml", FileType::Text, 0u},
+  {"html", FileType::Text, 0u},
+  {"css", FileType::Text, 0u},
+  {"js", FileType::Text, 0u},
+  {"yaml", FileType::Text, 0u},
+  {"yml", FileType::Text, 0u},
+  {"toml", FileType::Text, 0u},
+  {"ini", FileType::Text, 0u},
+  {"cfg", FileType::Text, 0u},
+  {"log", FileType::Text, 0u},
+  {"csv", FileType::Text, 0u},
+  {"srt", FileType::Text, 0u},
+  {"vtt", FileType::Text, 0u},
+  {"ass", FileType::Text, 0u},
+
+  // 文書 / ベクター
+  {"ai", FileType::Document, kFlagImport},
+  {"pdf", FileType::Document, kFlagImport},
+  {"eps", FileType::Document, kFlagImport},
+  {"afdesign", FileType::Document, kFlagImport},
+  {"afphoto", FileType::Document, kFlagImport},
+  {"afpub", FileType::Document, kFlagImport},
+  {"doc", FileType::Document, 0u},
+  {"docx", FileType::Document, 0u},
+  {"xls", FileType::Document, 0u},
+  {"xlsx", FileType::Document, 0u},
+  {"ppt", FileType::Document, 0u},
+  {"pptx", FileType::Document, 0u},
+
+  // アーカイブ
+  {"zip", FileType::Archive, 0u},
+  {"lottie", FileType::Archive, kFlagImport},
+  {"rar", FileType::Archive, 0u},
+  {"7z", FileType::Archive, 0u},
+  {"tar", FileType::Archive, 0u},
+  {"gz", FileType::Archive, 0u},
+  {"bz2", FileType::Archive, 0u},
+  {"xz", FileType::Archive, 0u},
+
+  // 3D。blend / dae / abc / pmx は分類のみで backend が無い。
+  {"obj", FileType::Model3D, kFlagImport | kFlagModel3D},
+  {"fbx", FileType::Model3D, kFlagImport | kFlagModel3D},
+  {"gltf", FileType::Model3D, kFlagImport | kFlagModel3D},
+  {"glb", FileType::Model3D, kFlagImport | kFlagModel3D},
+  {"stl", FileType::Model3D, kFlagImport | kFlagModel3D},
+  {"blend", FileType::Model3D, 0u},
+  {"dae", FileType::Model3D, 0u},
+  {"abc", FileType::Model3D, 0u},
+  {"usd", FileType::Model3D, kFlagImport | kFlagModel3D},
+  {"usda", FileType::Model3D, kFlagImport | kFlagModel3D},
+  {"usdc", FileType::Model3D, kFlagImport | kFlagModel3D},
+  {"usdz", FileType::Model3D, kFlagImport | kFlagModel3D},
+  {"pmd", FileType::Model3D, kFlagImport | kFlagModel3D},
+  {"pmx", FileType::Model3D, 0u},
+  {"ply", FileType::Model3D, kFlagImport | kFlagModel3D},
+  {"las", FileType::Model3D, kFlagImport | kFlagModel3D},
+};
+
+constexpr int kFormatCount = static_cast<int>(sizeof(kFormats) / sizeof(kFormats[0]));
+
+QString extensionKey(const QString &value) {
+  QString text = value.trimmed().toLower();
+  if (text.isEmpty()) {
+    return QString();
+  }
+  if (text.startsWith(QLatin1Char('.'))) {
+    text.remove(0, 1);
+  }
+  const int dot = text.lastIndexOf(QLatin1Char('.'));
+  if (dot >= 0) {
+    text = text.mid(dot + 1);
+  }
+  return text;
+}
+
+const FormatEntry *findFormat(const QString &value) {
+  const QString key = extensionKey(value);
+  if (key.isEmpty()) {
+    return nullptr;
+  }
+  static const QHash<QString, int> index = []() {
+    QHash<QString, int> table;
+    table.reserve(kFormatCount);
+    for (int i = 0; i < kFormatCount; ++i) {
+      table.insert(QString::fromLatin1(kFormats[i].suffix), i);
+    }
+    return table;
+  }();
+  const auto it = index.constFind(key);
+  if (it == index.constEnd()) {
+    return nullptr;
+  }
+  return &kFormats[it.value()];
+}
+
+unsigned int capabilityFlag(FileCapability capability) {
+  switch (capability) {
+  case FileCapability::Import: return kFlagImport;
+  case FileCapability::StillImage: return kFlagStill;
+  case FileCapability::ImageSequence: return kFlagSequence;
+  case FileCapability::ImageExport: return kFlagExport;
+  case FileCapability::SequenceExport: return kFlagSequenceExport;
+  case FileCapability::Model3D: return kFlagModel3D;
+  case FileCapability::VideoImport: return kFlagVideo;
+  case FileCapability::AudioImport: return kFlagAudio;
+  }
+  return 0u;
+}
+
+} // namespace
 
 class FileTypeDetector::Impl {
 public:
@@ -24,72 +234,8 @@ FileTypeDetector::Impl::~Impl() {}
 
 FileType
 FileTypeDetector::Impl::detectByExtension(const QString &filePath) const {
-  QFileInfo fileInfo(filePath);
-  QString suffix = fileInfo.suffix().toLower();
-
-  // Image
-  if (suffix == "png" || suffix == "jpg" || suffix == "jpeg" ||
-      suffix == "bmp" || suffix == "gif" || suffix == "tiff" ||
-      suffix == "tif" || suffix == "tga" || suffix == "exr" ||
-      suffix == "dpx" ||
-      suffix == "hdr" || suffix == "psd" || suffix == "psb" ||
-      suffix == "webp" || suffix == "svg" || suffix == "ico" ||
-      suffix == "dds" || suffix == "ktx" || suffix == "ktx2" ||
-      suffix == "avif" || suffix == "heic" || suffix == "heif" ||
-      suffix == "jxl" || suffix == "jp2" || suffix == "j2k" ||
-      suffix == "ppm" || suffix == "pgm" || suffix == "pbm" ||
-      suffix == "pam" || suffix == "pfm") {
-    return FileType::Image;
-  }
-  // Video
-  if (suffix == "mp4" || suffix == "avi" || suffix == "mov" ||
-      suffix == "mkv" || suffix == "wmv" || suffix == "flv" ||
-      suffix == "webm" || suffix == "m4v" || suffix == "mpeg" ||
-      suffix == "mpg" || suffix == "3gp" || suffix == "ts") {
-    return FileType::Video;
-  }
-  // Audio
-  if (suffix == "mp3" || suffix == "wav" || suffix == "flac" ||
-      suffix == "aac" || suffix == "ogg" || suffix == "wma" ||
-      suffix == "m4a" || suffix == "aiff" || suffix == "opus" ||
-      suffix == "ac3" || suffix == "dts") {
-    return FileType::Audio;
-  }
-  // Font
-  if (suffix == "ttf" || suffix == "otf" || suffix == "woff" ||
-      suffix == "woff2" || suffix == "eot") {
-    return FileType::Font;
-  }
-  // Text
-  if (suffix == "txt" || suffix == "md" || suffix == "json" ||
-      suffix == "xml" || suffix == "html" || suffix == "css" ||
-      suffix == "js" || suffix == "yaml" || suffix == "yml" ||
-      suffix == "toml" || suffix == "ini" || suffix == "cfg" ||
-      suffix == "log" || suffix == "csv") {
-    return FileType::Text;
-  }
-  // Document
-  if (suffix == "ai" || suffix == "pdf" || suffix == "doc" || suffix == "docx" ||
-      suffix == "xls" || suffix == "xlsx" || suffix == "ppt" ||
-      suffix == "pptx") {
-    return FileType::Document;
-  }
-  // Archive
-  if (suffix == "zip" || suffix == "lottie" || suffix == "rar" || suffix == "7z" || suffix == "tar" ||
-      suffix == "gz" || suffix == "bz2" || suffix == "xz") {
-    return FileType::Archive;
-  }
-  // 3D Model
-  if (suffix == "obj" || suffix == "fbx" || suffix == "gltf" ||
-      suffix == "glb" || suffix == "stl" || suffix == "blend" ||
-      suffix == "dae" || suffix == "abc" || suffix == "usd" ||
-      suffix == "usda" || suffix == "usdc" || suffix == "usdz" ||
-      suffix == "pmd" || suffix == "pmx" || suffix == "ply" ||
-      suffix == "las") {
-    return FileType::Model3D;
-  }
-
-  return FileType::Unknown;
+  const FormatEntry *entry = findFormat(filePath);
+  return entry ? entry->type : FileType::Unknown;
 }
 
 FileType
@@ -221,6 +367,28 @@ FileType FileTypeDetector::detectByExtension(const QString &filePath) const {
 
 FileType FileTypeDetector::detectByMagicNumber(const QString &filePath) const {
   return impl_->detectByMagicNumber(filePath);
+}
+
+bool FileTypeDetector::supports(const QString &extension,
+                                FileCapability capability) {
+  const FormatEntry *entry = findFormat(extension);
+  return entry && (entry->flags & capabilityFlag(capability)) != 0u;
+}
+
+QString FileTypeDetector::suffixPatterns(FileCapability capability) {
+  const unsigned int flag = capabilityFlag(capability);
+  if (flag == 0u) {
+    return QString();
+  }
+  QStringList patterns;
+  patterns.reserve(kFormatCount);
+  for (int i = 0; i < kFormatCount; ++i) {
+    if ((kFormats[i].flags & flag) != 0u) {
+      patterns.append(QStringLiteral("*.%1").arg(
+          QLatin1String(kFormats[i].suffix)));
+    }
+  }
+  return patterns.join(QLatin1Char(' '));
 }
 
 } // namespace ArtifactCore

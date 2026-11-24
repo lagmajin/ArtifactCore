@@ -81,6 +81,10 @@ public:
     /// Execute a Python file. Returns true on success.
     bool executeFile(const std::string& filePath);
 
+    /// Register trusted API bootstrap code for later external-runtime executions.
+    /// In embedded mode, the code is executed in the persistent interpreter.
+    bool registerPreludeCode(const std::string& code);
+
     /// Evaluate a Python expression and return the result as string.
     std::string evaluate(const std::string& expression);
 
