@@ -4,11 +4,48 @@ class tst_QList;
 #include <QVector3D>
 #include <utility>
 #include <algorithm>
+#include <array>
 #include <cstdint>
+#include <vector>
 
 export module Geometry.CameraGuide;
 
 export namespace ArtifactCore {
+
+struct CameraBodyGuide {
+    // The lens faces local -Z and its front is at the optical origin.
+    using Ring = std::array<QVector3D, 8>;
+    std::array<Ring, 4> shell;
+    std::array<Ring, 5> lens;
+    std::array<QVector3D, 3> upMark;
+};
+
+inline const CameraBodyGuide& nukeStyleCameraBodyGuide()
+{
+    const auto shellRing = [](float x, float y, float z) {
+        return CameraBodyGuide::Ring{{
+            {-0.68f*x, -y, z}, {0.68f*x, -y, z},
+            {x, -0.62f*y, z}, {x, 0.62f*y, z},
+            {0.68f*x, y, z}, {-0.68f*x, y, z},
+            {-x, 0.62f*y, z}, {-x, -0.62f*y, z},
+        }};
+    };
+    const auto lensRing = [](float radius, float z) {
+        const float d = radius * 0.70710678f;
+        return CameraBodyGuide::Ring{{
+            {radius, 0, z}, {d, d, z}, {0, radius, z}, {-d, d, z},
+            {-radius, 0, z}, {-d, -d, z}, {0, -radius, z}, {d, -d, z},
+        }};
+    };
+    static const CameraBodyGuide guide{
+        {shellRing(0.20f, 0.14f, 0.43f), shellRing(0.24f, 0.17f, 0.37f),
+         shellRing(0.24f, 0.17f, 0.23f), shellRing(0.17f, 0.12f, 0.16f)},
+        {lensRing(0.10f, 0.16f), lensRing(0.10f, 0.09f), lensRing(0.13f, 0.07f),
+         lensRing(0.13f, 0.015f), lensRing(0.10f, 0.0f)},
+        {{{-0.105f, 0.173f, 0.34f}, {0, 0.173f, 0.25f}, {0.105f, 0.173f, 0.34f}}},
+    };
+    return guide;
+}
 
 struct CameraGuidePrimitive {
     std::vector<QVector3D> vertices;
