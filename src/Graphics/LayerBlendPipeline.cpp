@@ -1014,7 +1014,9 @@ bool LayerBlendPipeline::crossfade(
  ITextureView* rightSRV,
  ITextureView* outUAV,
  float progress,
- const ComputeRegion& region)
+ const ComputeRegion& region,
+ float leftOpacity,
+ float rightOpacity)
 {
  if (!ctx || !leftSRV || !rightSRV || !outUAV || !pImpl_->pBlendCB_ ||
      !crossfadeExecutor_ || !crossfadeExecutor_->ready()) {
@@ -1050,6 +1052,8 @@ bool LayerBlendPipeline::crossfade(
  }
 
  currentParams_.opacity = sanitizeBlendOpacity(progress);
+ currentParams_._pad0 = sanitizeBlendOpacity(leftOpacity);
+ currentParams_._pad1 = sanitizeBlendOpacity(rightOpacity);
  currentParams_.dispatchOriginX = region.x;
  currentParams_.dispatchOriginY = region.y;
  currentParams_.dispatchExtentX = region.width;

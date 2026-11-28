@@ -347,6 +347,38 @@ bool PythonEngine::executeFile(const std::string& filePath) {
     return execute(code);
 }
 
+bool PythonEngine::registerPreludeCode(const std::string& code) {
+    std::lock_guard<std::mutex> lock(impl_->mutex_);
+    if (!impl_->initialized_) {
+        impl_->setError("Python not initialized");
+        return false;
+    }
+
+#ifdef ARTIFACT_HAS_PYTHON
+    try {
+        py::exec(code, impl_->globals_);
+        impl_->lastError_.clear();
+        return true;
+    } catch (const py::error_already_set& error) {
+        impl_->setError(error.what());
+        return false;
+    }
+#else
+    if (!impl_->externalRuntime_) {
+        impl_->setError("Python runtime unavailable");
+        return false;
+    }
+    if (!code.empty()) {
+        impl_->externalPrelude_ += code;
+        if (code.back() != '\n') {
+            impl_->externalPrelude_ += '\n';
+        }
+    }
+    impl_->lastError_.clear();
+    return true;
+#endif
+}
+
 std::string PythonEngine::evaluate(const std::string& expression) {
     std::lock_guard<std::mutex> lock(impl_->mutex_);
     if (!impl_->initialized_) {

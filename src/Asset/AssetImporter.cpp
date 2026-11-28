@@ -111,26 +111,9 @@ QUuid AssetImporter::importFile(const QString& filePath,
 }
 
 bool AssetImporter::isSupported(const QString& extension) {
-    QString ext = extension.toLower();
-    if (ext.startsWith(".")) ext = ext.mid(1);
-    
-    // Simple list of supported extensions
-    static const QStringList supported = {
-        "jpg", "jpeg", "png", "bmp", "gif", "tga", "exr", "hdr", "tif", "tiff",
-        "dpx",
-        "webp", "ico", "dds", "ktx", "ktx2", "avif", "heic", "heif",
-        "jxl", "jp2", "j2k", "ppm", "pgm", "pbm", "pam", "pfm",
-        "psd", "psb",
-        "ai", "pdf", "eps", "svg", "afdesign", "afphoto", "afpub",
-        "mp4", "mov", "avi", "mkv", "webm", "m4v", "mpg", "mpeg", "mxf", "wmv",
-        "flv", "3gp", "ts",
-        "wav", "mp3", "flac", "aac", "ogg", "opus", "m4a", "aiff", "wma",
-        "obj", "fbx", "glb", "gltf", "stl", "ply", "pmd", "las",
-        "usd", "usda", "usdc", "usdz",
-        "json", "lottie"
-    };
-    
-    return supported.contains(ext);
+    // ゲートは File.TypeDetector の能力表に一本化する。従来の個別リストは
+    // 分類器と別管理で drift していたため、ここでは重複保持しない。
+    return FileTypeDetector::supports(extension, FileCapability::Import);
 }
 
 AssetType AssetImporter::detectType(const QString& filePath) {

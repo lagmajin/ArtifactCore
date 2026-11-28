@@ -491,6 +491,31 @@ QJsonArray exportSequenceTracks(const NLEProjectStore& store,
     return trackChildren;
 }
 
+// ASS/SSA の "H:MM:SS.cc" を SRT の "HH:MM:SS,mmm" へ変換する。
+QString assTimeToSrtTime(const QString& value)
+{
+    const QStringList parts = value.trimmed().split(QChar(':'));
+    if (parts.size() != 3) return QString();
+    bool okHours = false;
+    bool okMinutes = false;
+    bool okSeconds = false;
+    const int hours = parts.at(0).toInt(&okHours);
+    const int minutes = parts.at(1).toInt(&okMinutes);
+    const QString secondsPart = parts.at(2);
+    const int dot = secondsPart.indexOf(QChar('.'));
+    if (!okHours || !okMinutes || dot < 0) return QString();
+    const int seconds = secondsPart.left(dot).toInt(&okSeconds);
+    if (!okSeconds) return QString();
+    bool okCentiseconds = false;
+    const int centiseconds = secondsPart.mid(dot + 1).left(2).toInt(&okCentiseconds);
+    if (!okCentiseconds) return QString();
+    return QStringLiteral("%1:%2:%3,%4")
+        .arg(hours, 2, 10, QChar('0'))
+        .arg(minutes, 2, 10, QChar('0'))
+        .arg(seconds, 2, 10, QChar('0'))
+        .arg(centiseconds * 10, 3, 10, QChar('0'));
+}
+
 } // namespace
 
 QJsonObject OtioAdapter::exportTimeline(const NLEProjectStore& store,
@@ -759,6 +784,49 @@ QVector<SubtitleCue> OtioAdapter::importWebVtt(const QString& text,
             srt += lines[line++] + QChar('\n');
         }
         srt += QChar('\n');
+    }
+    return importSrt(srt, timeBase, warnings);
+}
+
+QVector<SubtitleCue> OtioAdapter::importAss(const QString& text,
+                                            const TimeBase& timeBase,
+                                            QVector<QString>* warnings)
+{
+    const QString normalized = text.toUtf8().replace("\r\n", "\n").replace('\r', '\n');
+    const QStringList lines = normalized.split(QChar('\n'));
+    const QRegularExpression overrideTags(QStringLiteral(R"(\{[^}]*\})"));
+    QString srt;
+    int cueNumber = 1;
+    for (const QString& raw : lines) {
+        const QString line = raw.trimmed();
+        if (!line.startsWith(QStringLiteral("Dialogue:"), Qt::CaseInsensitive)) {
+            continue;
+        }
+        // Dialogue: Marked, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+        const QStringList fields = line.mid(9).split(QChar(','));
+        if (fields.size() < 10) {
+            if (warnings) warnings->push_back(QStringLiteral("Invalid ASS Dialogue line"));
+            continue;
+        }
+        const QString start = assTimeToSrtTime(fields.at(1));
+        const QString end = assTimeToSrtTime(fields.at(2));
+        if (start.isEmpty() || end.isEmpty()) {
+            if (warnings) warnings->push_back(QStringLiteral("Invalid ASS timing"));
+            continue;
+        }
+        QString payload = fields.mid(9).join(QChar(','));
+        payload.remove(overrideTags);
+        payload.replace(QStringLiteral("\\N"), QChar('\n'));
+        payload.replace(QStringLiteral("\\n"), QChar('\n'));
+        payload = payload.trimmed();
+        if (payload.isEmpty()) continue;
+        srt += QString::number(cueNumber++) + QChar('\n') + start +
+               QStringLiteral(" --> ") + end + QChar('\n') + payload +
+               QChar('\n') + QChar('\n');
+    }
+    if (srt.isEmpty()) {
+        if (warnings) warnings->push_back(QStringLiteral("No ASS Dialogue lines were found."));
+        return {};
     }
     return importSrt(srt, timeBase, warnings);
 }
